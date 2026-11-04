@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mars Discovery Intelligence (MDI)
 
-## Getting Started
+> Given incomplete scientific evidence and limited mission resources, what
+> should a Mars explorer investigate next, and why?
 
-First, run the development server:
+MDI is an independent practice prototype, not an official NASA product. It is
+a retrospective scientific investigation simulator built on real NASA Mars
+Trek data. The initial scope is **Jezero Crater, Margin Unit**.
+
+**Status: Milestone 1b.** The app shell and the real NASA map work. The
+evidence and decision features are planned and listed in the plan below.
+
+## Quick start
+
+Requires Node.js 22 or later.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev            # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The browser loads map tiles directly from `https://trek.nasa.gov`, so the
+machine running the browser needs internet access to that host.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | What it does |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build` / `npm start` | Production build and server |
+| `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
+| `npm test` | Unit tests (Vitest) |
+| `npm run check` | Lint, typecheck, tests and build |
+| `npm run smoke` | Browser smoke test against a running server (`BASE_URL`, default `http://localhost:3000`). See below |
 
-## Learn More
+The smoke test options:
 
-To learn more about Next.js, take a look at the following resources:
+- `SMOKE_LIVE=1` additionally requires real NASA tiles to load.
+- `SMOKE_SCREENSHOT=out.png` saves screenshots.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+On a fresh machine, install the browser once with
+`npx playwright install chromium`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Documentation
 
-## Deploy on Vercel
+- [`docs/PRODUCT_REQUIREMENTS.md`](docs/PRODUCT_REQUIREMENTS.md): product
+  goal, epistemic categories, temporal model, MVP scope.
+- [`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md): architecture, data
+  model, milestones, risks.
+- [`docs/NASA_MAP_RESEARCH.md`](docs/NASA_MAP_RESEARCH.md): Mars Trek WMTS
+  facts, verified live, and OpenLayers notes.
+- [`DEVELOPMENT_LOG.md`](DEVELOPMENT_LOG.md): per-milestone engineering log
+  with real timestamps.
+- [`CLAUDE.md`](CLAUDE.md): rules for coding agents (scientific integrity,
+  code layout).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Data credits
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Map imagery comes from [NASA Mars Trek](https://trek.nasa.gov/mars/) (NASA
+Solar System Treks Project). Layer credits are shown in the map's attribution
+control.

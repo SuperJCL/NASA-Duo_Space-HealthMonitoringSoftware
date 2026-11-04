@@ -1,26 +1,71 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens. The app uses a single dark "mission console" theme for now;
+ * a light theme is out of scope for Milestone 1.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0d0b0a;
+  --surface: #171310;
+  --surface-raised: #211b17;
+  --border: #3a2f27;
+  --foreground: #ede6e0;
+  --muted: #a8988c;
+  --accent: #e0703a;
+  --accent-muted: #8a4526;
+  --ok: #6fbf8a;
+  --warn: #e0b23a;
+  --error: #e05a4f;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-muted: var(--accent-muted);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-error: var(--error);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+ * OpenLayers control overrides. OpenLayers ships its own stylesheet
+ * (imported in the map component); these rules only re-skin it.
+ */
+.ol-scale-line {
+  background: rgb(13 11 10 / 0.75);
+  border-radius: 4px;
+  bottom: 12px;
+  left: 12px;
+}
+
+.ol-scale-line-inner {
+  border-color: var(--foreground);
+  color: var(--foreground);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+}
+
+.ol-attribution {
+  font-size: 11px;
+}
+
+.ol-zoom {
+  top: 12px;
+  left: 12px;
 }
