@@ -57,8 +57,8 @@ try {
     "header renders",
   );
   check(
-    (await page.getByRole("heading", { name: "Investigation" }).count()) === 1,
-    "investigation panel renders",
+    (await page.locator("#workspace-heading").count()) === 1,
+    "investigation workspace renders",
   );
 
   await page.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 15_000 });
@@ -135,6 +135,28 @@ try {
   );
   check(unexpectedErrors.length === 0, "no unexpected console errors");
   if (unexpectedErrors.length) console.log(unexpectedErrors);
+
+  // Investigation workflow: snapshot → evidence → recommendation → reveal.
+  const summary = page.getByTestId("snapshot-summary");
+  const summaryAtDefault = (await summary.textContent())?.trim() ?? "";
+  console.log(`INFO  ${summaryAtDefault}`);
+  check(/withheld/.test(summaryAtDefault), "snapshot summary shows withheld later records");
+  check((await page.getByText("Observed", { exact: false }).count()) > 0, "observations carry OBSERVED badges");
+  check((await page.getByText("Simulated", { exact: false }).count()) > 0, "tasks/costs carry SIMULATED badges");
+  const recommendation = page.getByTestId("recommendation");
+  check((await recommendation.count()) === 1, "recommendation card renders");
+  const topAtDefault = (await recommendation.locator("p.text-base").textContent())?.trim();
+  console.log(`INFO  top task at default snapshot: ${topAtDefault}`);
+  check((await page.getByTestId("comparison-table").locator("tbody tr").count()) > 0, "comparison table has ranked tasks");
+
+  await page.getByRole("button", { name: "Reveal later evidence" }).click();
+  check((await page.getByTestId("reveal").count()) === 1, "reveal shows later evidence on request");
+
+  await page.getByRole("button", { name: "All evidence" }).click();
+  const summaryAll = (await summary.textContent())?.trim() ?? "";
+  check(/0 later record\(s\) withheld/.test(summaryAll), "'All evidence' snapshot withholds nothing");
+  check((await page.getByTestId("reveal").count()) === 0, "reveal re-hides when the snapshot date changes");
+  await page.getByRole("button", { name: "Scenario default" }).click();
 
   // Layer controls request the expected Trek products.
   const requestsFor = (layerId) =>
