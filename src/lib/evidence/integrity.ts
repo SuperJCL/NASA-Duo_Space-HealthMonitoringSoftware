@@ -5,10 +5,12 @@ import type { Citation, Scenario, Source } from "./schema";
  * cannot express. Returns a list of human-readable problems (empty = OK).
  *
  * Temporal rules (they protect the retrospective simulation from leakage):
- *  - A record's `availableFrom` equals the earliest `publishedOn` among the
- *    sources it cites. It cannot be public before its evidence.
+ *  - A record's `availableFrom` equals the LATEST `publishedOn` among the
+ *    sources it cites, so no quote is ever shown before it was published.
  *  - An interpretation cannot rest on an observation published after it.
- *  - A gap cannot reference an interpretation published after it.
+ *  - Site and assumption citations are always visible, so their sources must
+ *    be published on or before `minSnapshotDate`.
+ *  (A gap may list interpretations published later; snapshots drop them.)
  */
 export function checkScenarioIntegrity(scenario: Scenario, sources: readonly Source[]): string[] {
   const problems: string[] = [];
@@ -34,30 +36,35 @@ export function checkScenarioIntegrity(scenario: Scenario, sources: readonly Sou
     ].map((r) => r.id),
   );
 
-  const earliestPublished = (where: string, citations: readonly Citation[]): string | undefined => {
-    let earliest: string | undefined;
+  const latestPublished = (where: string, citations: readonly Citation[]): string | undefined => {
+    let latest: string | undefined;
     for (const c of citations) {
       const source = sourceById.get(c.sourceId);
       if (!source) {
         problems.push(`${where}: unknown source "${c.sourceId}"`);
         continue;
       }
-      if (!earliest || source.publishedOn < earliest) earliest = source.publishedOn;
+      if (!latest || source.publishedOn > latest) latest = source.publishedOn;
     }
-    return earliest;
+    return latest;
   };
 
   const checkAvailableFrom = (where: string, availableFrom: string, citations: readonly Citation[]) => {
-    const earliest = earliestPublished(where, citations);
-    if (earliest && availableFrom !== earliest) {
-      problems.push(
-        `${where}: availableFrom ${availableFrom} must equal earliest cited source date ${earliest}`,
-      );
+    const latest = latestPublished(where, citations);
+    if (latest && availableFrom !== latest) {
+      problems.push(`${where}: availableFrom ${availableFrom} must equal latest cited source date ${latest}`);
     }
   };
 
-  earliestPublished("site", scenario.site.citations);
-  for (const a of scenario.assumptions) earliestPublished(`assumption ${a.id}`, a.citations);
+  const checkAlwaysVisible = (where: string, citations: readonly Citation[]) => {
+    const latest = latestPublished(where, citations);
+    if (latest && latest > scenario.minSnapshotDate) {
+      problems.push(`${where}: cites a source published ${latest}, after minSnapshotDate ${scenario.minSnapshotDate}`);
+    }
+  };
+
+  checkAlwaysVisible("site", scenario.site.citations);
+  for (const a of scenario.assumptions) checkAlwaysVisible(`assumption ${a.id}`, a.citations);
 
   const observationById = new Map(scenario.observations.map((o) => [o.id, o]));
   const interpretationById = new Map(scenario.interpretations.map((i) => [i.id, i]));
@@ -88,11 +95,7 @@ export function checkScenarioIntegrity(scenario: Scenario, sources: readonly Sou
       checkAvailableFrom(`gap ${g.id}`, g.availableFrom, g.origin.citations);
     }
     for (const interpId of g.discriminatesInterpretationIds) {
-      const interp = interpretationById.get(interpId);
-      if (!interp) problems.push(`gap ${g.id}: unknown interpretation "${interpId}"`);
-      else if (interp.availableFrom > g.availableFrom) {
-        problems.push(`gap ${g.id}: references later interpretation "${interpId}"`);
-      }
+      if (!interpretationById.has(interpId)) problems.push(`gap ${g.id}: unknown interpretation "${interpId}"`);
     }
   }
 

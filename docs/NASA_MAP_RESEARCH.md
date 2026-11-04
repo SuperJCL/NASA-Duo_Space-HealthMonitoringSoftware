@@ -74,18 +74,21 @@ Other Jezero products in the catalog, possibly useful later:
 `Mars_MRO_CTX_Jezero_mosaic_6m`. They appear in some hackathon repos but not in
 Trek's catalog.
 
-## Coordinates: unresolved discrepancy
+## Coordinates: discrepancy resolved (M2, 2026-11-04)
 
-- **Trek nomenclature index, "Jezero" [LIVE]:** `POINT (77.68734927 18.4082)`,
-  i.e. 18.4082°N, 77.6873°E.
-- **Wikipedia infobox citing the USGS Gazetteer [UNVERIFIED]:** 18.38°N, 77.58°E,
-  seen only through search results.
-
-The two differ by about 0.1° (roughly 6 km). **No crater-centre coordinate is
-hard-coded in the app.** The "Jezero" view fits the CTX mosaic's bounding box
-instead. Before any site geometry enters the evidence data, confirm it against
-the USGS Gazetteer (planetarynames.wr.usgs.gov, not currently allowed by the
-network policy).
+- **Trek nomenclature index, "Jezero" [LIVE]:** `POINT (77.68734927 18.4082)`.
+- **USGS Gazetteer, Feature 14300 [LIVE]:**
+  https://planetarynames.wr.usgs.gov/Feature/14300
+  - MDIM 2.1 control network (the default): centre 18.41° N, 77.69° E;
+    diameter 47.52 km; "Planetocentric, +East, 0 - 360".
+  - The older MDIM 2.0 network gives 18.21° N, 77.62° E and 49.00 km.
+- **Conclusion:** Trek's point matches the Gazetteer's MDIM 2.1 centre. The
+  commonly quoted 18.38° N, 77.58° E did not come from either source checked
+  here.
+- **How the app uses this:** the site description cites the Gazetteer. The map
+  still fits the CTX product extent and draws no crater-centre marker.
+- **Possible M3 layer:** the Gazetteer page includes a crater-outline WKT
+  polygon.
 
 ## OpenLayers implications [V-code, confirmed by tests]
 

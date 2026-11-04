@@ -96,6 +96,7 @@ export function syntheticScenario(): Scenario {
     gaps: [
       {
         id: "gap-origin",
+        title: "Origin",
         question: "Which hypothesis is right?",
         discriminatesInterpretationIds: ["interp-1", "interp-2"],
         availableFrom: "2015-06-01",
@@ -103,6 +104,7 @@ export function syntheticScenario(): Scenario {
       },
       {
         id: "gap-context",
+        title: "Context",
         question: "Context question",
         discriminatesInterpretationIds: ["interp-1"],
         availableFrom: "2015-06-01",
@@ -110,6 +112,7 @@ export function syntheticScenario(): Scenario {
       },
       {
         id: "gap-later-only",
+        title: "Later gap",
         question: "A gap first identified later",
         discriminatesInterpretationIds: ["interp-1"],
         availableFrom: "2024-03-01",
@@ -117,7 +120,8 @@ export function syntheticScenario(): Scenario {
       },
     ],
     assumptions: [
-      { id: "asm-rover-access", statement: "The rover can reach the site.", rationale: "fixture", citations: [] },
+      { id: "asm-rover-access", scope: "task", statement: "The rover can reach the site.", rationale: "fixture", citations: [] },
+      { id: "asm-scenario-wide", scope: "scenario", statement: "Scenario-wide assumption.", rationale: "fixture", citations: [] },
     ],
     resources: [
       {

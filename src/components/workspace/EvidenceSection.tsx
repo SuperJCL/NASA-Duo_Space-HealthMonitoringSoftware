@@ -32,6 +32,7 @@ export function ObservationCard({
       <p className="mt-1.5 text-sm font-medium">{observation.title}</p>
       <p className="mt-0.5 text-xs text-foreground/85">{observation.statement}</p>
       <Citations citations={observation.citations} sourceById={sourceById} />
+      <CurationNote note={observation.curationNote} />
     </li>
   );
 }
@@ -75,6 +76,7 @@ export function EvidenceSection({ observations, interpretations, gaps, sourceByI
                   </p>
                 ) : null}
                 <Citations citations={i.citations} sourceById={sourceById} />
+                <CurationNote note={i.curationNote} />
               </li>
             ))}
           </ul>
@@ -99,7 +101,8 @@ export function EvidenceSection({ observations, interpretations, gaps, sourceByI
                   </span>
                   <span className="text-[11px] text-muted">public {g.availableFrom}</span>
                 </div>
-                <p className="mt-1.5 text-sm font-medium">{g.question}</p>
+                <p className="mt-1.5 text-sm font-medium">{g.title}</p>
+                <p className="mt-0.5 text-xs text-foreground/85">{g.question}</p>
                 <p className="mt-0.5 text-[11px] text-muted">
                   Would help decide between:{" "}
                   {g.discriminatesInterpretationIds.map((id) => interpretationTitle.get(id) ?? id).join(" vs. ")}
@@ -114,6 +117,7 @@ export function EvidenceSection({ observations, interpretations, gaps, sourceByI
                 ) : (
                   <p className="mt-1 text-[11px] text-muted">Derived by rule: {g.origin.rule}</p>
                 )}
+                <CurationNote note={g.curationNote} />
               </li>
             ))}
           </ul>
@@ -147,6 +151,15 @@ export function Section({
       </summary>
       <div className="mt-2">{children}</div>
     </details>
+  );
+}
+
+function CurationNote({ note }: { note?: string }) {
+  if (!note) return null;
+  return (
+    <p className="mt-2 rounded bg-background/60 px-2 py-1 text-[11px] text-muted">
+      <span className="font-semibold">MDI curation note:</span> {note}
+    </p>
   );
 }
 

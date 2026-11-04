@@ -57,6 +57,30 @@ describe("Jezero Margin Unit scenario data", () => {
     expect(rec.ranking.length).toBeGreaterThan(0);
   });
 
+  it("regression: ranking at the default snapshot and with all evidence (hand-checked)", () => {
+    const totalsAt = (date: string) =>
+      Object.fromEntries(
+        recommend(selectEvidenceAsOf(scenario, date).snapshot, DEFAULT_WEIGHTS).ranking.map((r) => [
+          r.taskId,
+          Number(r.total.toFixed(4)),
+        ]),
+      );
+    // 2023-09-08: 3 interpretations, 3 open gaps, all supporting evidence orbital.
+    expect(totalsAt("2023-09-08")).toEqual({
+      "task-abrasion-proximity": 0.92,
+      "task-standoff-survey": 0.87,
+      "task-core-for-earth": 0.69,
+      "task-orbital-stereo": 0.58,
+    });
+    // 2025-05-06: rover data address the in-situ gap; a new sedimentary-vs-igneous gap is open.
+    expect(totalsAt("2025-05-06")).toEqual({
+      "task-core-for-earth": 0.79,
+      "task-abrasion-proximity": 0.7,
+      "task-standoff-survey": 0.65,
+      "task-orbital-stereo": 0.46,
+    });
+  });
+
   it("keeps every simulated resource flagged as simulated", () => {
     expect(scenario.resources.every((r) => r.simulated === true)).toBe(true);
   });

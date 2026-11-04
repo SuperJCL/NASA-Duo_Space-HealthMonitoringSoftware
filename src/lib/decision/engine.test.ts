@@ -33,7 +33,7 @@ describe("recommend — scoring", () => {
   it("explains each criterion in plain language", () => {
     const top = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS).ranking[0];
     const byId = Object.fromEntries(top.scores.map((s) => [s.criterionId, s.explanation]));
-    expect(byId["gap-coverage"]).toBe("Addresses 2 of 2 open evidence gaps (gap-origin, gap-context).");
+    expect(byId["gap-coverage"]).toBe("Addresses 2 of 2 open evidence gaps: Origin; Context.");
     expect(byId["independent-evidence"]).toBe(
       "Adds rover evidence; existing support for these interpretations: orbital.",
     );
@@ -65,6 +65,13 @@ describe("recommend — scoring", () => {
     expect(rec.stability.trials).toBe(8);
     expect(rec.stability.topUnchanged).toBe(8);
     expect(rec.stability.margin).toBeCloseTo(0.4, 9);
+  });
+});
+
+describe("recommend — assumptions", () => {
+  it("lists scenario-wide assumptions plus the top task's own", () => {
+    const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
+    expect(rec.assumptionIds).toEqual(["asm-scenario-wide", "asm-rover-access"]);
   });
 });
 

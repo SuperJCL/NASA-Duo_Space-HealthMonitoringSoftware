@@ -33,11 +33,27 @@ describe("checkScenarioIntegrity", () => {
     expect(checkScenarioIntegrity(syntheticScenario(), syntheticSources)).toEqual([]);
   });
 
-  it("flags availableFrom that does not match the earliest cited source", () => {
+  it("flags availableFrom that does not match the latest cited source", () => {
     const scenario = syntheticScenario();
     scenario.observations[0].availableFrom = "2009-01-01";
     expect(checkScenarioIntegrity(scenario, syntheticSources)).toEqual([
-      "observation obs-orbital-a: availableFrom 2009-01-01 must equal earliest cited source date 2010-01-01",
+      "observation obs-orbital-a: availableFrom 2009-01-01 must equal latest cited source date 2010-01-01",
+    ]);
+  });
+
+  it("requires multi-source records to wait for their latest source (no early quotes)", () => {
+    const scenario = syntheticScenario();
+    scenario.observations[0].citations.push({ sourceId: "src-2015", quote: "later quote" });
+    expect(checkScenarioIntegrity(scenario, syntheticSources)).toContain(
+      "observation obs-orbital-a: availableFrom 2010-01-01 must equal latest cited source date 2015-06-01",
+    );
+  });
+
+  it("requires always-visible citations (site, assumptions) to predate minSnapshotDate", () => {
+    const scenario = syntheticScenario();
+    scenario.assumptions[0].citations = [{ sourceId: "src-2024", quote: "q" }];
+    expect(checkScenarioIntegrity(scenario, syntheticSources)).toEqual([
+      "assumption asm-rover-access: cites a source published 2024-03-01, after minSnapshotDate 2010-01-01",
     ]);
   });
 
@@ -97,6 +113,18 @@ describe("selectEvidenceAsOf", () => {
       state: "addressed",
       byObservationIds: ["obs-rover-later"],
     });
+  });
+
+  it("drops interpretations a gap lists before they were published", () => {
+    const scenario = syntheticScenario();
+    // gap-origin (2015) also lists interp-2 (2015); at a 2012 snapshot the gap is hidden,
+    // so test a gap published earlier than one of its interpretations.
+    scenario.gaps[0].availableFrom = "2010-01-01";
+    scenario.gaps[0].origin = { kind: "derived", rule: "fixture" };
+    const { snapshot } = selectEvidenceAsOf(scenario, "2012-01-01");
+    expect(snapshot.gaps.find((g) => g.id === "gap-origin")?.discriminatesInterpretationIds).toEqual([
+      "interp-1",
+    ]);
   });
 
   it("strips references to records that did not exist yet", () => {

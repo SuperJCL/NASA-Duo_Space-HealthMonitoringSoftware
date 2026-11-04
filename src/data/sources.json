@@ -1,0 +1,112 @@
+[
+  {
+    "id": "usgs-gazetteer-jezero",
+    "title": "Planetary Names: Jezero (Feature 14300)",
+    "publisher": "USGS Gazetteer of Planetary Nomenclature",
+    "kind": "usgs",
+    "url": "https://planetarynames.wr.usgs.gov/Feature/14300",
+    "publishedOn": "2010-11-17",
+    "dateBasis": "Entry last updated, as printed on the page (IAU approval date: 2007-07-25)",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "horgan-2020",
+    "title": "The mineral diversity of Jezero crater: Evidence for possible lacustrine carbonates on Mars",
+    "publisher": "Icarus, v. 339, 113526 (record in the USGS Publications Warehouse)",
+    "authors": "Horgan, B.H.N.; Anderson, R.; Dromart, G.; Amador, E.; Rice, M.",
+    "kind": "peer-reviewed",
+    "url": "https://pubs.usgs.gov/publication/70211826",
+    "publishedOn": "2019-11-11",
+    "dateBasis": "Date the USGS Publications Warehouse record was made public (displayToPublicDate); the journal's own online date could not be accessed from this environment",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "nasa-pia23380",
+    "title": "PIA23380: Jezero Crater Minerals",
+    "publisher": "NASA Photojournal (NASA/JPL-Caltech/MSSS/JHU-APL/Purdue/USGS)",
+    "kind": "nasa",
+    "url": "https://science.nasa.gov/photojournal/jezero-crater-minerals/",
+    "publishedOn": "2019-11-12",
+    "dateBasis": "Image addition date",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "usgs-sim3464",
+    "title": "Geologic map of Jezero crater and the Nili Planum region, Mars (Scientific Investigations Map 3464)",
+    "publisher": "U.S. Geological Survey",
+    "authors": "Sun, V.Z.; Stack, K.M.",
+    "kind": "usgs",
+    "url": "https://pubs.usgs.gov/publication/sim3464",
+    "fullTextUrls": [
+      "https://pubs.usgs.gov/sim/3464/sim3464.pdf",
+      "https://pubs.usgs.gov/sim/3464/sim3464_pamphlet.pdf"
+    ],
+    "publishedOn": "2020-12-02",
+    "dateBasis": "Publication date (first posted)",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "nasa-blog-reading-the-rocks",
+    "title": "Reading the Rocks: The Importance of the Margin Carbonate Unit on Mars",
+    "publisher": "NASA Science, Perseverance blog",
+    "authors": "Gibbons, E.",
+    "kind": "nasa",
+    "url": "https://science.nasa.gov/blog/reading-the-rocks-the-importance-of-the-margin-carbonate-unit-on-mars/",
+    "publishedOn": "2023-09-07",
+    "dateBasis": "Blog post date (page last updated 2024-10-18)",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "nasa-blog-within-the-margin",
+    "title": "Within the Margin",
+    "publisher": "NASA Science, Perseverance blog",
+    "authors": "Buckner, D.",
+    "kind": "nasa",
+    "url": "https://science.nasa.gov/blog/within-the-margin/",
+    "publishedOn": "2023-09-19",
+    "dateBasis": "Blog post date (page last updated 2024-10-31)",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "nasa-meet-lefroy-bay",
+    "title": "Meet the Mars Samples: Lefroy Bay (Sample 23)",
+    "publisher": "NASA Science",
+    "kind": "nasa",
+    "url": "https://science.nasa.gov/resource/meet-the-mars-samples-lefroy-bay-sample-23/",
+    "publishedOn": "2023-12-13",
+    "dateBasis": "Publication date",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "nasa-blog-comet-geyser",
+    "title": "Comet Geyser: Perseverance's 21st Rock Core",
+    "publisher": "NASA Science, Perseverance blog",
+    "authors": "Broz, A.",
+    "kind": "nasa",
+    "url": "https://science.nasa.gov/blog/comet-geyser-perseverances-21st-rock-core/",
+    "publishedOn": "2024-04-16",
+    "dateBasis": "Blog post date (page last updated 2025-08-13)",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "nasa-blog-science-team-2024",
+    "title": "Behind the Scenes at the 2024 Mars 2020 Science Team Meeting",
+    "publisher": "NASA Science, Perseverance blog",
+    "authors": "Stack Morgan, K.",
+    "kind": "nasa",
+    "url": "https://science.nasa.gov/blog/behind-the-scenes-at-the-2024-mars-2020-science-team-meeting/",
+    "publishedOn": "2024-08-30",
+    "dateBasis": "Blog post date",
+    "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "pds-m2020-initial-reports-vol4",
+    "title": "Mars 2020 Initial Reports Volume 4 (Sample Dossier)",
+    "publisher": "NASA Planetary Data System, Geosciences Node",
+    "kind": "dataset",
+    "url": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+    "publishedOn": "2025-05-06",
+    "dateBasis": "Modification date of version 2.0, the version whose text was verified. Version 1.0 was published 2024-09-01 but its text was not checked, so the later date is used to avoid leaking content early",
+    "accessedOn": "2026-11-04"
+  }
+]

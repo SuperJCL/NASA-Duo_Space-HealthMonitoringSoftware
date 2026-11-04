@@ -1,0 +1,441 @@
+{
+  "id": "jezero-margin-unit",
+  "title": "Jezero Margin Unit: what should be investigated next?",
+  "site": {
+    "name": "Margin Unit (marginal carbonates)",
+    "parentFeature": "Jezero crater, Mars",
+    "description": "A carbonate-bearing unit along the inner margin of Jezero crater, near the western delta. Jezero crater is 47.52 km across and centred at 18.41° N, 77.69° E (planetocentric, east-positive) in the USGS Gazetteer (MDIM 2.1 control network).",
+    "citations": [
+      {
+        "sourceId": "usgs-gazetteer-jezero",
+        "quote": "Diameter 47.52 km Center Latitude 18.41 ° Center Longitude 77.69 °"
+      },
+      {
+        "sourceId": "horgan-2020",
+        "quote": "we identify a distinct carbonate-bearing unit, the “Marginal Carbonates,” located along the inner margin of the crater, near the largest inlet valley and the western delta.",
+        "locator": "Abstract"
+      }
+    ]
+  },
+  "defaultSnapshotDate": "2023-09-08",
+  "minSnapshotDate": "2019-11-11",
+  "observations": [
+    {
+      "id": "obs-crism-marginal-carbonates",
+      "title": "Distinct carbonate-bearing unit along the inner margin (CRISM)",
+      "statement": "Orbital CRISM hyperspectral images, used with high-resolution imagery and digital elevation models, identify a distinct carbonate-bearing unit (the “Marginal Carbonates”) along the inner margin of Jezero crater, near the largest inlet valley and the western delta.",
+      "platform": "orbital",
+      "mission": "Mars Reconnaissance Orbiter",
+      "instruments": ["CRISM"],
+      "availableFrom": "2019-11-11",
+      "addressesGapIds": [],
+      "citations": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "Using orbital visible/near-infrared hyperspectral images from the Compact Reconnaissance Imaging Spectrometer for Mars (CRISM) along with high resolution imagery and digital elevation models, we identify a distinct carbonate-bearing unit, the “Marginal Carbonates,” located along the inner margin of the crater, near the largest inlet valley and the western delta.",
+          "locator": "Abstract"
+        }
+      ]
+    },
+    {
+      "id": "obs-crism-ctx-mineral-map",
+      "title": "Carbonate and olivine highlighted in an MRO mineral map",
+      "statement": "A colour-coded image of Jezero made from MRO CRISM and CTX data shows carbonates (green) and olivine sand (red), which the caption describes as eroding out of carbonate-containing rocks.",
+      "platform": "orbital",
+      "mission": "Mars Reconnaissance Orbiter",
+      "instruments": ["CRISM", "CTX"],
+      "availableFrom": "2019-11-12",
+      "addressesGapIds": [],
+      "citations": [
+        {
+          "sourceId": "nasa-pia23380",
+          "quote": "The green color represents minerals called carbonates, which are especially good at preserving fossilized life on Earth. Red represents olivine sand eroding out of carbonate-containing rocks.",
+          "locator": "Image description"
+        }
+      ]
+    },
+    {
+      "id": "obs-upper-etched-unit-mapping",
+      "title": "Olivine- and carbonate-associated unit mapped along the interior margin",
+      "statement": "Geologic mapping on a CTX base mosaic describes an upper etched unit (Nue) along the interior margin of Jezero crater, associated with olivine and variable carbonate according to the earlier orbital studies the map cites.",
+      "platform": "orbital",
+      "mission": "Mars Reconnaissance Orbiter",
+      "instruments": ["CTX"],
+      "availableFrom": "2020-12-02",
+      "addressesGapIds": [],
+      "citations": [
+        {
+          "sourceId": "usgs-sim3464",
+          "quote": "Upper etched unit—Indurated, rugged, moderately cratered to heavily cratered, light- to intermediate-toned unit located along and on the northern Jezero crater rim and wall, along the interior margin of Jezero crater, and throughout Nili Planum.",
+          "locator": "Map sheet, Description of Map Units (Nue)"
+        },
+        {
+          "sourceId": "usgs-sim3464",
+          "quote": "Associated with olivine and variable carbonate",
+          "locator": "Map sheet, Description of Map Units (Nue)"
+        }
+      ],
+      "curationNote": "SIM 3464 does not define a “margin unit”. MDI links unit Nue to the carbonate-bearing margin deposits because the map places Nue along Jezero's interior margin; this link is an MDI curation choice."
+    },
+    {
+      "id": "obs-first-margin-abrasion",
+      "title": "First abrasion of a rock in the marginal carbonate unit",
+      "statement": "Perseverance arrived at Mandu Wall and abraded a rock within the marginal carbonate unit (the Amherst Point abrasion patch), giving the first look beneath a margin-unit rock surface.",
+      "platform": "rover",
+      "mission": "Mars 2020 (Perseverance)",
+      "instruments": ["Navcam"],
+      "observedOn": "2023-09-16",
+      "availableFrom": "2023-09-19",
+      "addressesGapIds": [],
+      "citations": [
+        {
+          "sourceId": "nasa-blog-within-the-margin",
+          "quote": "This week on Mars, Perseverance officially kicked off the Margin Campaign by arriving at Mandu Wall and performing the first abrasion of a rock within the marginal carbonate unit!"
+        },
+        {
+          "sourceId": "nasa-blog-within-the-margin",
+          "quote": "In this Sol 915 (September 16, 2023) Navcam image, Perseverance looks down at the Amherst Point abrasion patch, catching the first subsurface glimpse at a rock in the marginal carbonate unit.",
+          "locator": "Image caption"
+        }
+      ],
+      "curationNote": "Not linked to any gap: the source describes imaging of the abrasion, not a compositional measurement."
+    },
+    {
+      "id": "obs-lefroy-bay-hydrated-silica",
+      "title": "Hydrated silica reported in the Lefroy Bay sample",
+      "statement": "A team member reports that Sample 23 (Lefroy Bay), collected from the Turquoise Bay rock on the margin unit, showed the presence of hydrated silica.",
+      "platform": "rover",
+      "mission": "Mars 2020 (Perseverance)",
+      "instruments": ["Not specified in source"],
+      "availableFrom": "2023-12-13",
+      "addressesGapIds": ["gap-no-in-situ-data"],
+      "citations": [
+        {
+          "sourceId": "nasa-meet-lefroy-bay",
+          "quote": "Sample 23 is called \"Lefroy Bay,\" and we collected it from the \"Turquoise Bay\" rock on the margin unit",
+          "locator": "Interview (Samantha Gwizd)"
+        },
+        {
+          "sourceId": "nasa-meet-lefroy-bay",
+          "quote": "One of the things we saw was the presence of hydrated silica. The exciting thing about hydrated silica is that on Earth it has the highest potential to preserve biosignatures.",
+          "locator": "Interview (Samantha Gwizd)"
+        }
+      ]
+    },
+    {
+      "id": "obs-comet-geyser-carbonate-silica",
+      "title": "Comet Geyser core appears to be mainly carbonate and silica",
+      "statement": "The Comet Geyser rock core, collected at the Bunsen Peak workspace in the Margin Unit, appears to be composed primarily of carbonate and silica.",
+      "platform": "rover",
+      "mission": "Mars 2020 (Perseverance)",
+      "instruments": ["Not specified in source"],
+      "availableFrom": "2024-04-16",
+      "addressesGapIds": ["gap-no-in-situ-data"],
+      "citations": [
+        {
+          "sourceId": "nasa-blog-comet-geyser",
+          "quote": "Although this rock’s origin remains under investigation and the rover team continues to explore different hypotheses, this core is particularly exciting because it appears to be composed primarily of two minerals: carbonate and silica."
+        }
+      ]
+    },
+    {
+      "id": "obs-sherloc-hydrated-carbonates",
+      "title": "SHERLOC detects hydrated carbonates (Pelican Point)",
+      "statement": "SHERLOC spectra of the Pelican Point sample's rock show peaks assigned to hydrated and non-hydrated carbonates and hydrated sulfates, the first detection of hydrated carbonates in Jezero crater.",
+      "platform": "rover",
+      "mission": "Mars 2020 (Perseverance)",
+      "instruments": ["SHERLOC"],
+      "availableFrom": "2025-05-06",
+      "addressesGapIds": ["gap-no-in-situ-data"],
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "SHERLOC spectra contain peaks that can be assigned to hydrated and non-hydrated carbonates and hydrated sulfates. This is the first time that hydrated carbonates have been detected in Jezero crater.",
+          "locator": "Pelican Point initial report"
+        }
+      ]
+    },
+    {
+      "id": "obs-pixl-castle-geyser",
+      "title": "PIXL: silica-rich areas and carbonate-bearing Fe-Mg material (Castle Geyser)",
+      "statement": "PIXL analyses of the Castle Geyser abrasion (the Comet Geyser core's rock) show almost entirely silica-rich areas and Fe-Mg material containing both carbonate and silicates, with scattered Ca-sulfate and Ti-chromite.",
+      "platform": "rover",
+      "mission": "Mars 2020 (Perseverance)",
+      "instruments": ["PIXL"],
+      "availableFrom": "2025-05-06",
+      "addressesGapIds": ["gap-no-in-situ-data"],
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "PIXL analyses show that Castle Geyser consists almost entirely of silica-rich areas and Fe-Mg material containing both carbonate and silicates, with scattered Ca-sulfate and Ti-chromite, and possible NaCl.",
+          "locator": "Comet Geyser initial report"
+        }
+      ]
+    }
+  ],
+  "interpretations": [
+    {
+      "id": "interp-lacustrine-carbonate",
+      "title": "Lake carbonates formed near the shore",
+      "claim": "The Marginal Carbonates may preserve authigenic lacustrine carbonates, precipitated in the near-shore environment of the Jezero paleolake.",
+      "attributedTo": "Horgan et al. (2020)",
+      "supportingObservationIds": ["obs-crism-marginal-carbonates"],
+      "availableFrom": "2019-11-11",
+      "citations": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "Based on their strong carbonate signatures, topographic properties, and location in the crater, we propose that this unit may preserve authigenic lacustrine carbonates, precipitated in the near-shore environment of the Jezero paleolake.",
+          "locator": "Abstract"
+        }
+      ]
+    },
+    {
+      "id": "interp-volcanic-drape",
+      "title": "Volcanic ash-fall or pyroclastic drape",
+      "claim": "The olivine-bearing upper etched unit (Nue) is interpreted as ash-fall or pyroclastic-surge deposits because of its draping morphology and banding; unlike the crater-floor unit, it may not have been affected by lacustrine processes.",
+      "attributedTo": "Sun & Stack (2020), USGS SIM 3464, citing Kremer et al. (2019) and Mandon et al. (2020)",
+      "supportingObservationIds": ["obs-upper-etched-unit-mapping"],
+      "availableFrom": "2020-12-02",
+      "citations": [
+        {
+          "sourceId": "usgs-sim3464",
+          "quote": "We therefore interpreted unit Nue, and unit Nle by proxy, as ash-fall or pyroclastic-surge deposits due to the draping morphology and banding observed in unit Nue",
+          "locator": "Pamphlet"
+        },
+        {
+          "sourceId": "usgs-sim3464",
+          "quote": "occurs along the Jezero crater walls and in Nili Planum, and may not have been affected by lacustrine processes like unit Nle.",
+          "locator": "Pamphlet"
+        }
+      ],
+      "curationNote": "SIM 3464 interprets unit Nue, not a named “margin unit”. Treating it as a competing explanation for the margin carbonates is an MDI curation choice."
+    },
+    {
+      "id": "interp-mineral-carbonation",
+      "title": "Mineral carbonation of olivine-bearing rock",
+      "claim": "Presented as an alternative to a lakeshore origin: the carbonates formed through mineral carbonation, in which silicate minerals such as olivine react with CO₂ and are converted to carbonates.",
+      "attributedTo": "E. Gibbons, NASA Perseverance blog (2023), stating an alternative hypothesis",
+      "supportingObservationIds": [],
+      "availableFrom": "2023-09-07",
+      "citations": [
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "An alternative hypothesis is that the carbonates formed through mineral carbonation, where silicate minerals (like olivine) react with CO₂ and are converted to carbonates."
+        }
+      ]
+    },
+    {
+      "id": "interp-silica-cemented-sandstone",
+      "title": "Silica-cemented sandstone (Pelican Point)",
+      "claim": "The Pelican Point sample is tentatively interpreted as a silica-cemented medium to coarse sandstone that experienced aqueous alteration.",
+      "attributedTo": "Mars 2020 Initial Reports, Volume 4 (PDS)",
+      "supportingObservationIds": ["obs-sherloc-hydrated-carbonates"],
+      "availableFrom": "2025-05-06",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Pelican Point is tentatively interpreted here to be a silica-cemented medium to coarse sandstone that experienced aqueous alteration.",
+          "locator": "Pelican Point initial report"
+        }
+      ]
+    },
+    {
+      "id": "interp-altered-igneous",
+      "title": "Altered intrusive igneous rock (Comet Geyser)",
+      "claim": "Alternatively, Comet Geyser could be an intrusive mafic to ultramafic igneous rock, highly altered by fluids, and the same origin could apply to the two earlier Margin samples. Whether it is igneous or sedimentary remains undetermined.",
+      "attributedTo": "Mars 2020 Initial Reports, Volume 4 (PDS)",
+      "supportingObservationIds": ["obs-pixl-castle-geyser"],
+      "availableFrom": "2025-05-06",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Alternatively, Comet Geyser could be an intrusive mafic to ultramafic igneous rock, highly altered by interaction with fluids. In retrospect, the same origin could also apply to the two previous Margin samples.",
+          "locator": "Comet Geyser initial report"
+        },
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Whether Comet Geyser is a carbonated ultramafic igneous rock (e.g., a listvenite) or a cemented and altered sedimentary rock remains undetermined.",
+          "locator": "Comet Geyser initial report"
+        }
+      ]
+    }
+  ],
+  "gaps": [
+    {
+      "id": "gap-lake-connection",
+      "title": "Link to the lake",
+      "question": "Are the carbonates along Jezero's inner margin related to the lake?",
+      "discriminatesInterpretationIds": [
+        "interp-lacustrine-carbonate",
+        "interp-volcanic-drape",
+        "interp-mineral-carbonation"
+      ],
+      "availableFrom": "2019-11-11",
+      "origin": {
+        "kind": "cited",
+        "citations": [
+          {
+            "sourceId": "horgan-2020",
+            "quote": "it is unclear whether or not the carbonates in Jezero are related to the lacustrine activity.",
+            "locator": "Abstract"
+          }
+        ]
+      },
+      "curationNote": "Later non-lacustrine interpretations are listed because the question applies to any alternative; each counts only once it was published."
+    },
+    {
+      "id": "gap-origin-needs-rover",
+      "title": "Origin and full mineralogy",
+      "question": "What are the origin and complete mineralogy of these olivine- and carbonate-bearing units? The map authors say this needs rover instruments and returned samples.",
+      "discriminatesInterpretationIds": [
+        "interp-lacustrine-carbonate",
+        "interp-volcanic-drape",
+        "interp-mineral-carbonation"
+      ],
+      "availableFrom": "2020-12-02",
+      "origin": {
+        "kind": "cited",
+        "citations": [
+          {
+            "sourceId": "usgs-sim3464",
+            "quote": "Confirming the origins of these units and their complete mineralogy will ultimately require analyses from higher resolution instruments on the Perseverance rover and from returned samples",
+            "locator": "Pamphlet"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gap-no-in-situ-data",
+      "title": "No rover measurement yet",
+      "question": "Has any rover measurement of margin-unit composition been made?",
+      "discriminatesInterpretationIds": [
+        "interp-lacustrine-carbonate",
+        "interp-volcanic-drape",
+        "interp-mineral-carbonation"
+      ],
+      "availableFrom": "2020-12-02",
+      "origin": {
+        "kind": "derived",
+        "rule": "Open while every observation supporting the competing interpretations is orbital; addressed once a rover compositional measurement of margin-unit rock is published."
+      },
+      "curationNote": "Dated from 2020-12-02, when at least two competing interpretations existed."
+    },
+    {
+      "id": "gap-sedimentary-or-igneous",
+      "title": "Sedimentary or igneous?",
+      "question": "Is the margin unit sedimentary, volcanic (pyroclastic), or crystalline igneous in origin?",
+      "discriminatesInterpretationIds": [
+        "interp-lacustrine-carbonate",
+        "interp-volcanic-drape",
+        "interp-mineral-carbonation",
+        "interp-silica-cemented-sandstone",
+        "interp-altered-igneous"
+      ],
+      "availableFrom": "2024-08-30",
+      "origin": {
+        "kind": "cited",
+        "citations": [
+          {
+            "sourceId": "nasa-blog-science-team-2024",
+            "quote": "a thought-provoking series of presentations that tackled the three hypotheses we’re carrying for the origin of this unit: sedimentary, volcanic (pyroclastic), or crystalline igneous."
+          }
+        ]
+      }
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "asm-simulated-costs",
+      "scope": "scenario",
+      "statement": "Task costs and the budget are abstract resource points chosen by the MDI team.",
+      "rationale": "They illustrate trade-offs only; they are not Perseverance or MRO operations figures.",
+      "citations": []
+    },
+    {
+      "id": "asm-rover-access",
+      "scope": "task",
+      "statement": "The rover can reach and work safely on margin-unit outcrops.",
+      "rationale": "Traverse planning, terrain and hazards are outside this simulation.",
+      "citations": []
+    },
+    {
+      "id": "asm-instrument-capability",
+      "scope": "task",
+      "statement": "The named instruments can make the measurements described in each task.",
+      "rationale": "Capabilities are summarised by the MDI team for this simulation, not taken from cited instrument documentation.",
+      "citations": []
+    },
+    {
+      "id": "asm-sample-return",
+      "scope": "task",
+      "statement": "A sealed core would eventually be analysed in laboratories on Earth.",
+      "rationale": "Sample-return timing and feasibility are not modelled; this task's value depends on this assumption.",
+      "citations": []
+    },
+    {
+      "id": "asm-orbital-availability",
+      "scope": "task",
+      "statement": "The orbital camera is available to target the site.",
+      "rationale": "Spacecraft and instrument operating status are not checked in this dataset.",
+      "citations": []
+    }
+  ],
+  "resources": [
+    {
+      "id": "res-effort",
+      "name": "Investigation effort",
+      "unit": "points",
+      "description": "Abstract budget standing in for rover time, power and data volume.",
+      "budget": 100,
+      "simulated": true
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-standoff-survey",
+      "title": "Stand-off survey of margin outcrops",
+      "description": "Map the composition and texture of margin-unit outcrops from a distance before choosing where to abrade.",
+      "platform": "rover",
+      "instruments": ["SuperCam", "Mastcam-Z"],
+      "addressesGapIds": ["gap-no-in-situ-data", "gap-origin-needs-rover"],
+      "costs": { "res-effort": 15 },
+      "assumptionIds": ["asm-rover-access", "asm-instrument-capability"]
+    },
+    {
+      "id": "task-abrasion-proximity",
+      "title": "Abrade a margin rock and analyse it up close",
+      "description": "Remove the weathered surface of a margin-unit rock and measure its fine-scale chemistry, mineralogy and texture.",
+      "platform": "rover",
+      "instruments": ["PIXL", "SHERLOC", "WATSON"],
+      "addressesGapIds": ["gap-no-in-situ-data", "gap-origin-needs-rover", "gap-lake-connection"],
+      "costs": { "res-effort": 40 },
+      "assumptionIds": ["asm-rover-access", "asm-instrument-capability"]
+    },
+    {
+      "id": "task-core-for-earth",
+      "title": "Core a margin-unit sample for Earth laboratories",
+      "description": "Collect and seal a rock core so that laboratories on Earth could test its origin in detail.",
+      "platform": "lab",
+      "instruments": ["Coring drill", "Earth laboratories"],
+      "addressesGapIds": ["gap-origin-needs-rover", "gap-sedimentary-or-igneous"],
+      "costs": { "res-effort": 55 },
+      "assumptionIds": ["asm-rover-access", "asm-sample-return"]
+    },
+    {
+      "id": "task-orbital-stereo",
+      "title": "Targeted HiRISE stereo imaging of margin contacts",
+      "description": "Image the contacts between the margin unit and neighbouring units from orbit, to compare draping and shoreline-like geometry.",
+      "platform": "orbital",
+      "instruments": ["HiRISE"],
+      "addressesGapIds": ["gap-lake-connection"],
+      "costs": { "res-effort": 10 },
+      "assumptionIds": ["asm-orbital-availability"]
+    }
+  ],
+  "limitations": [
+    "Small curated subset of public sources the MDI build environment could access; journal articles behind publisher bot protection are not included.",
+    "Where a journal's own online date could not be accessed, the USGS Publications Warehouse record date is used.",
+    "No Margin Unit outline is drawn on the map: no machine-readable published footprint was found.",
+    "Which tasks address which gaps, and which observations address a gap, are MDI curation choices."
+  ]
+}

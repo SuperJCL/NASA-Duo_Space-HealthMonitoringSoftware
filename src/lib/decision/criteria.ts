@@ -24,7 +24,7 @@ export const CRITERIA = [
     name: "Independent line of evidence",
     direction: "benefit",
     defaultWeight: 2,
-    rule: "1 if the task's platform (orbital or rover) is not yet represented among the observations supporting the interpretations its open gaps concern; otherwise 0.",
+    rule: "1 if the task's platform (orbital, rover, or Earth lab) is not yet represented among the observations supporting the interpretations its open gaps concern; otherwise 0.",
   },
   {
     id: "resource-cost",

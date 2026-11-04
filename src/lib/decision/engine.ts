@@ -66,7 +66,7 @@ function evaluateTask(task: CandidateTask, snapshot: SnapshotEvidence) {
       return {
         value: taskOpenGaps.length / openGaps.length,
         explanation: `Addresses ${taskOpenGaps.length} of ${openGaps.length} open evidence gaps${
-          taskOpenGaps.length ? ` (${openGapIds.join(", ")})` : ""
+          taskOpenGaps.length ? `: ${taskOpenGaps.map((g) => g.title).join("; ")}` : ""
         }.`,
       };
     })(),
@@ -75,10 +75,11 @@ function evaluateTask(task: CandidateTask, snapshot: SnapshotEvidence) {
       const known = snapshot.interpretations.length;
       const discriminated = new Set(taskOpenGaps.flatMap((g) => g.discriminatesInterpretationIds));
       if (known === 0) return { value: 0, explanation: "No interpretations are known on the snapshot date." };
+      const titles = snapshot.interpretations.filter((i) => discriminated.has(i.id)).map((i) => i.title);
       return {
         value: discriminated.size / known,
         explanation: `Its open gaps concern ${discriminated.size} of ${known} known interpretations${
-          discriminated.size ? ` (${[...discriminated].join(", ")})` : ""
+          titles.length ? `: ${titles.join("; ")}` : ""
         }.`,
       };
     })(),
@@ -93,7 +94,7 @@ function evaluateTask(task: CandidateTask, snapshot: SnapshotEvidence) {
           .filter((i) => interpIds.has(i.id))
           .flatMap((i) => i.supportingObservationIds),
       );
-      const platforms = new Set(
+      const platforms = new Set<string>(
         snapshot.observations.filter((o) => supportingObsIds.has(o.id)).map((o) => o.platform),
       );
       const isNew = !platforms.has(task.platform);
@@ -187,11 +188,13 @@ export function recommend(snapshot: SnapshotEvidence, weights: Weights): Recomme
     }
   }
 
-  const recommendedTasks = new Set(ranking.map((r) => r.taskId));
+  // Assumptions behind the top recommendation: scenario-wide ones plus the top task's own.
+  const topTask = snapshot.tasks.find((t) => t.id === topTaskId);
   const assumptionIds = [
-    ...new Set(
-      snapshot.tasks.filter((t) => recommendedTasks.has(t.id)).flatMap((t) => t.assumptionIds),
-    ),
+    ...new Set([
+      ...snapshot.assumptions.filter((a) => a.scope === "scenario").map((a) => a.id),
+      ...(topTask?.assumptionIds ?? []),
+    ]),
   ];
 
   return {

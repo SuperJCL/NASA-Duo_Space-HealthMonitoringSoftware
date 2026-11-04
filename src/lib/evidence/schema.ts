@@ -23,6 +23,8 @@ export const Source = z
     authors: z.string().optional(),
     kind: SourceKind,
     url: z.url(),
+    /** Documents to fetch when verifying quotes, if not `url` itself (e.g. PDFs behind a landing page). */
+    fullTextUrls: z.array(z.url()).optional(),
     /** Date the source became public, as printed on it. */
     publishedOn: IsoDate,
     /** What `publishedOn` refers to, e.g. "release date", "online publication". */
@@ -41,6 +43,8 @@ export const Citation = z
   .strict();
 
 export const Platform = z.enum(["orbital", "rover"]);
+/** Tasks may also target Earth-laboratory analysis of returned samples. */
+export const TaskPlatform = z.enum(["orbital", "rover", "lab"]);
 
 export const Observation = z
   .object({
@@ -53,11 +57,16 @@ export const Observation = z
     instruments: z.array(z.string().min(1)).min(1),
     /** Acquisition date if known (informational only; never used for filtering). */
     observedOn: IsoDate.optional(),
-    /** Date the observation became public (earliest cited source). */
+    /** Date the record became public: the latest `publishedOn` among its cited sources. */
     availableFrom: IsoDate,
-    /** Evidence gaps this observation bears on (used for retrospective review). */
+    /**
+     * Gaps this observation supplies the evidence for (curated). A gap with a
+     * visible addressing observation is no longer "open" in a snapshot.
+     */
     addressesGapIds: z.array(RecordId).default([]),
     citations: z.array(Citation).min(1),
+    /** MDI team note on how the record was curated (shown in the UI). */
+    curationNote: z.string().min(1).optional(),
   })
   .strict();
 
@@ -70,6 +79,7 @@ export const Interpretation = z
     supportingObservationIds: z.array(RecordId).default([]),
     availableFrom: IsoDate,
     citations: z.array(Citation).min(1),
+    curationNote: z.string().min(1).optional(),
   })
   .strict();
 
@@ -81,17 +91,25 @@ export const GapOrigin = z.discriminatedUnion("kind", [
 export const EvidenceGap = z
   .object({
     id: RecordId,
+    /** Short label used in explanations. */
+    title: z.string().min(1).max(60),
     question: z.string().min(1),
-    /** Competing interpretations that resolving this gap could tell apart. */
+    /**
+     * Competing interpretations that resolving this gap could tell apart. May
+     * include interpretations published later; snapshots drop those.
+     */
     discriminatesInterpretationIds: z.array(RecordId).min(1),
     availableFrom: IsoDate,
     origin: GapOrigin,
+    curationNote: z.string().min(1).optional(),
   })
   .strict();
 
 export const Assumption = z
   .object({
     id: RecordId,
+    /** "scenario": applies to every recommendation; "task": only when a ranked task uses it. */
+    scope: z.enum(["scenario", "task"]).default("task"),
     statement: z.string().min(1),
     rationale: z.string().min(1),
     citations: z.array(Citation).default([]),
@@ -115,7 +133,7 @@ export const CandidateTask = z
     id: RecordId,
     title: z.string().min(1),
     description: z.string().min(1),
-    platform: Platform,
+    platform: TaskPlatform,
     instruments: z.array(z.string().min(1)).min(1),
     addressesGapIds: z.array(RecordId).min(1),
     /** Simulated costs, keyed by SimulatedResource id. */
@@ -155,6 +173,7 @@ export const SourceList = z.array(Source).min(1);
 export type Source = z.infer<typeof Source>;
 export type Citation = z.infer<typeof Citation>;
 export type Platform = z.infer<typeof Platform>;
+export type TaskPlatform = z.infer<typeof TaskPlatform>;
 export type Observation = z.infer<typeof Observation>;
 export type Interpretation = z.infer<typeof Interpretation>;
 export type EvidenceGap = z.infer<typeof EvidenceGap>;

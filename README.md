@@ -7,8 +7,15 @@ MDI is an independent practice prototype, not an official NASA product. It is
 a retrospective scientific investigation simulator built on real NASA Mars
 Trek data. The initial scope is **Jezero Crater, Margin Unit**.
 
-**Status: Milestone 1b.** The app shell and the real NASA map work. The
-evidence and decision features are planned and listed in the plan below.
+**Status: Milestone 2 (MVP vertical slice).** The full workflow works for a
+single scenario, the Jezero Margin Unit:
+
+1. Real NASA Trek map.
+2. Sourced observations and interpretations, each with a verbatim quote.
+3. Evidence gaps.
+4. Simulated candidate tasks with adjustable weights.
+5. A deterministic, explainable recommendation.
+6. A "what happened later" reveal.
 
 ## Quick start
 
@@ -32,6 +39,7 @@ machine running the browser needs internet access to that host.
 | `npm test` | Unit tests (Vitest) |
 | `npm run check` | Lint, typecheck, tests and build |
 | `npm run smoke` | Browser smoke test against a running server (`BASE_URL`, default `http://localhost:3000`). See below |
+| `npm run verify:citations` | Re-fetch every source and check that each quote in the data is verbatim. Needs `curl` and `pdftotext` |
 
 The smoke test options:
 
@@ -49,6 +57,8 @@ On a fresh machine, install the browser once with
   model, milestones, risks.
 - [`docs/NASA_MAP_RESEARCH.md`](docs/NASA_MAP_RESEARCH.md): Mars Trek WMTS
   facts, verified live, and OpenLayers notes.
+- [`docs/EVIDENCE_CURATION.md`](docs/EVIDENCE_CURATION.md): curation rules,
+  sources, how quotes were verified, and what was left out.
 - [`DEVELOPMENT_LOG.md`](DEVELOPMENT_LOG.md): per-milestone engineering log
   with real timestamps.
 - [`CLAUDE.md`](CLAUDE.md): rules for coding agents (scientific integrity,
@@ -59,3 +69,6 @@ On a fresh machine, install the browser once with
 Map imagery comes from [NASA Mars Trek](https://trek.nasa.gov/mars/) (NASA
 Solar System Treks Project). Layer credits are shown in the map's attribution
 control.
+
+Evidence records quote public NASA, USGS and PDS sources. Each is listed with
+its link in the app and in `src/data/sources.json`.

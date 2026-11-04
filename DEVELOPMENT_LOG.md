@@ -243,3 +243,137 @@ See `docs/DEVELOPMENT_PLAN.md` §5.
   It is acceptable for now; making it collapsible is a candidate later.
 - **Next.js 16.4 defaults:** `cacheComponents` and `partialPrefetching` are
   still unexercised by data-loading code.
+
+---
+
+## Milestone 2 — Thin vertical slice, end to end (MVP)
+
+- **Started:** 2026-11-04T21:27:12Z (first command after the user's go-ahead).
+- **Completed:** about 2026-11-04T21:55Z. The exact time is the merge commit
+  on `main`.
+- **Duration:** about 28 min of wall-clock time.
+  - Two research subagents ran in parallel: 530 s and 658 s, as reported by
+    the harness.
+
+### Implemented
+
+- **Evidence model** (`src/lib/evidence/`):
+  - Zod 4 schemas, with TypeScript types inferred from them.
+  - Integrity rules: references must resolve; `availableFrom` must equal the
+    latest cited source date; interpretations cannot rest on later
+    observations; always-visible citations must predate `minSnapshotDate`.
+  - Loader that fails the build on invalid data.
+- **Leakage control:** `selectEvidenceAsOf` returns a branded
+  `SnapshotEvidence`.
+  - It filters records by date and drops later interpretations from gaps.
+  - It strips the ids of gaps that did not exist yet.
+  - A gap becomes "addressed" once an observation linked to it is public.
+- **Decision engine** (`src/lib/decision/`):
+  - 4 rule-derived criteria: open-gap coverage, discriminating power,
+    independent line of evidence, simulated cost.
+  - Weighted average with a deterministic tie-break.
+  - Over-budget tasks are excluded, with a reason.
+  - Stability check: each weight is changed by ±20%.
+  - Plain-language explanations, plus the assumptions and limitations used.
+  - Retrospective review of later evidence.
+- **Data:** a scenario for the Jezero Margin Unit.
+  - 10 sources and 23 verbatim citations.
+  - 8 observations: 3 orbital, 5 rover.
+  - 5 interpretations, 4 gaps (3 cited, 1 derived), 5 assumptions, 4 simulated
+    tasks, 1 simulated resource.
+  - Default snapshot 2023-09-08 (agent's proposal; see the PRD decisions log).
+- **UI:** the `InvestigationWorkspace` replaces the placeholder panel.
+  - Snapshot date picker with "Scenario default" and "All evidence" buttons.
+  - Observation, interpretation and gap cards with epistemic badges, quotes,
+    source links and MDI curation notes.
+  - Task list, weight sliders, comparison table.
+  - Recommendation card: why, stability, assumptions, limitations.
+  - A "What happened later" reveal that re-hides when the date changes.
+- **Tooling:**
+  - `npm run verify:citations` re-fetches every source and checks each quote
+    verbatim.
+  - The smoke test now covers the workflow.
+  - `docs/EVIDENCE_CURATION.md` added; PRD, plan, research notes, `CLAUDE.md`
+    and README updated.
+
+### Tests performed (all passed)
+
+- **`npx vitest run`:** 69/69 across 6 files.
+  - Engine scoring on a synthetic fixture, with hand-computed totals.
+  - Determinism.
+  - A **metamorphic leakage test**: rewriting or adding post-snapshot records
+    leaves an earlier recommendation identical.
+  - Schema and integrity rules; snapshot filtering.
+  - Real-data guards: host allowlist, no orphan sources, a meaningful reveal.
+  - A hand-checked ranking regression:
+    - at 2023-09-08, the top task is "Abrade a margin rock…" (92);
+    - with all evidence, the top task becomes "Core a margin-unit sample for
+      Earth laboratories" (79).
+- **`npx tsc --noEmit`, `npx eslint`, `npm run build`, `npm run check`:** all
+  clean.
+- **`SMOKE_LIVE=1 npm run smoke`:** 23/23 checks against `next start`, and
+  again against `next dev`.
+  - Live NASA tiles load, and the summary reports 8 later records withheld.
+  - Badges, recommendation and comparison table render.
+  - The reveal opens, and re-hides when the date changes.
+  - "All evidence" withholds 0 records.
+  - Layer toggles and the 390 px layout still work.
+- **Quote verification:**
+  - The lead agent re-checked all 23 dataset quotes against the subagents'
+    saved copies: 23/23.
+  - `npm run verify:citations` against the live sites: 23/23 in 82 s.
+  - PDS quotes were confirmed to sit in the right sample section.
+
+### Unexpected problems, debugging and rework
+
+- **Blocked sources:** several were unreachable, so they were left out rather
+  than guessed.
+  - Proxy policy: `doi.org`, `www.nasa.gov`, `jpl.nasa.gov`.
+  - Site-level Cloudflare or WAF challenges, which were not bypassed:
+    `science.org`, `agupubs`, `hou.usra.edu`, `lpi.usra.edu`, ADS.
+- **Bug in the lead agent's own quote checker** (about 3 min): it stripped
+  `<…>` from plain-text files, and a "<0.1 wt %" in the PDS text swallowed
+  later passages. Fixed by stripping tags only from HTML.
+- **Rework: `availableFrom` rule.** Changed from "earliest" to "latest cited
+  source date", after realising a multi-source record would show a later
+  quote early.
+- **Rework: gaps and later interpretations.** Gaps may now list
+  interpretations published later; the snapshot drops them. The earlier rule
+  had blocked sensible gap definitions.
+- **Data model additions:**
+  - `curationNote`, so MDI's own linking choices are visible.
+  - `title` on gaps: explanations had shown raw ids.
+  - Assumption `scope`: the card had listed every task's assumptions.
+  - An Earth-lab task platform.
+- **PDS dating:** the verified text is from v2.0 (2025-05-06); v1.0 is dated
+  2024-09-01. The later date is used, so content is never shown too early.
+- **Coordinate discrepancy from M1b resolved:** Trek's point matches the USGS
+  Gazetteer's MDIM 2.1 centre.
+- **Stop hook:** it required committing uncommitted changes while the build
+  was knowingly broken (data was pending). Handled by pushing a WIP commit to
+  branch `m2-vertical-slice`; `main` was left untouched.
+
+### Human intervention required
+
+- **Done by the user:**
+  - Allowed `planetarynames.wr.usgs.gov`, `ui.adsabs.harvard.edu`, `doi.org`,
+    `agupubs…`, `hou/lpi.usra.edu`, `astrogeology.usgs.gov`, `pubs.usgs.gov`
+    and `www.science.org`. `doi.org` was still proxy-denied when tested.
+  - Renamed the GitHub repo.
+- **Next:**
+  - Review the seed records and curation notes.
+  - Confirm the default snapshot date.
+  - Decide whether to supply journal PDFs for M3.
+
+### Remaining technical and scientific risks
+
+- **Curation by one agent.** MDI's links between tasks, gaps and observations
+  need scientific review by a human.
+- **Small evidence base.** The key peer-reviewed in-situ results, such as the
+  December 2025 *Science* paper seen only in search snippets, are not
+  included.
+- **Discriminating power is 100 for every task at the default snapshot,**
+  because every gap concerns all three interpretations. It only
+  differentiates tasks later. The criterion design may need refinement in M3.
+- **Bundle size:** the dataset ships to the client, which is fine at this
+  size. Larger datasets may need server-side filtering via a Route Handler.
