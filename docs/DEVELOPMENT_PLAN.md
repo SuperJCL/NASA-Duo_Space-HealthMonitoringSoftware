@@ -123,8 +123,8 @@ type Recommendation = {                                      // engine output, n
 
 **Temporal fields (approved 2026-11-04):**
 - `availableFrom: string` (ISO date) on `Observation`, `Interpretation` and
-  cited `EvidenceGap`. It is the public-availability date of the earliest cited
-  source.
+  cited `EvidenceGap`. It equals the publication date of the latest cited
+  source (changed from "earliest" during M2).
 - `observedOn?: string` is informational only.
 - `Scenario = { id, siteId, defaultSnapshotDate, candidateTaskIds, criterionIds }`.
 - `SnapshotEvidence` is a branded type returned only by
@@ -146,7 +146,7 @@ Priority (approved): **build the vertical slice first, then add breadth.**
 | # | Goal | Main deliverables | Needs from the team |
 |---|---|---|---|
 | M1 / M1b | Shell + real NASA map | **Done 2026-11-04**: Trek basemaps plus Jezero CTX/HiRISE overlays, Mars scale line, smoke test | — |
-| **M2** | **Thin vertical slice, end to end** | See below | Approve the source list and seed records; choose the snapshot date |
+| M2 | Thin vertical slice, end to end | **Done 2026-11-04** (see below and `docs/EVIDENCE_CURATION.md`) | Review the seed records; confirm the snapshot date |
 | M3 | Breadth and rigour | More observations, interpretations and gaps from the literature; rubric-based judgement criteria with curated assessments; criteria table UI | Curation time; rubric approval |
 | M4 | Report + optional LLM narration | Print/Markdown report from engine output; optional server-side LLM rephrasing, with input and output shown | API key (server-side); approval |
 | M5 | Deploy | Vercel preview deploy | Approval |
@@ -168,7 +168,19 @@ Priority (approved): **build the vertical slice first, then add breadth.**
    - recommendation card showing assumptions and limitations
    - "What happened later" reveal
 
-**MVP = M1b + M2.** M3 makes it credible; M4 makes it presentable.
+**MVP = M1b + M2** (reached 2026-11-04). M3 makes it credible; M4 makes it presentable.
+
+**Proposed M3 scope** (to be confirmed):
+
+- **More literature.** Add records from journal articles the team supplies as
+  PDFs (publisher sites block automated access), and resolve which version of
+  the PDS Initial Reports was first public.
+- **Map integration.** Draw the USGS Gazetteer crater outline, which is a
+  sourced WKT polygon. Show sampled-rock locations as points; the PDS coring
+  coordinates are reported.
+- **Judgement criteria.** Add one rubric-based criterion with curated,
+  justified assessments, kept visibly separate from the rule-derived ones.
+- **Mobile UX.** Make the layer control collapsible.
 
 ## 5. Risks
 

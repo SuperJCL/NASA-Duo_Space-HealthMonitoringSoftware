@@ -12,6 +12,12 @@
   as a direct observation.
 - If a value cannot be verified, leave it out and flag it in
   `DEVELOPMENT_LOG.md` instead of guessing.
+- Evidence records must quote their sources verbatim. After any edit to
+  `src/data/`, run `npm run verify:citations` (live check) and `npm test`.
+  Curation rules: `docs/EVIDENCE_CURATION.md`.
+- Never let an LLM assign scores, gaps or rankings. The decision engine
+  (`src/lib/decision/`) is deterministic and only accepts `SnapshotEvidence`
+  from `selectEvidenceAsOf`, which prevents future-data leakage.
 
 ## Code layout
 
@@ -19,8 +25,9 @@
 - `src/components/` — React UI only. No data fetching or science logic.
 - `src/lib/map/` — map configuration and geodesy. Pure modules (no DOM) must
   stay free of OpenLayers imports so they remain unit-testable.
-- `src/lib/` (future) — data access and scientific logic, separate modules.
-- `src/data/` (future) — curated local JSON evidence records.
+- `src/lib/evidence/` — Zod schemas, integrity rules, snapshot filter, data loading.
+- `src/lib/decision/` — deterministic scoring engine and retrospective review.
+- `src/data/` — curated JSON evidence records (validated at build time).
 
 ## Conventions
 

@@ -55,9 +55,11 @@ Rules:
   tasks. Kept as data, so more scenarios can be added later without code
   changes.
 - **`availableFrom` (ISO date)** on every evidence record (observation,
-  interpretation, cited gap). It is the date the information became public:
-  the publication or release date of its earliest cited source. Acquisition
-  dates are stored separately and are informational only.
+  interpretation, cited gap). It equals the publication or release date of
+  the **latest** source the record cites, so no quote is ever shown before it
+  was published. (Changed from "earliest" on 2026-11-04 during M2; see the
+  decisions log.) Acquisition dates are stored separately and are
+  informational only.
 - **Leakage prevention.**
   - The decision engine accepts only a `SnapshotEvidence` object. That object
     is produced by a single function, `selectEvidenceAsOf(scenario, date)`,
@@ -147,10 +149,15 @@ Out of scope for MVP:
 | 2026-11-04 | Abstract resource units for simulated mission parameters. |
 | 2026-11-04 | Zod for runtime validation. |
 | 2026-11-04 | Build a vertical slice before adding breadth. |
+| 2026-11-04 (M2) | `availableFrom` = latest cited source date, not earliest, so a multi-source record cannot reveal a later quote early. |
+| 2026-11-04 (M2) | Scenario default snapshot: **2023-09-08**, the day after NASA's margin-unit preview post and before Perseverance's first margin-unit abrasion (Sol 915, 2023-09-16). Proposed by the agent; awaiting confirmation. |
+| 2026-11-04 (M2) | Candidate tasks may target an Earth-lab platform (returned-sample analysis), separate from rover and orbital. |
 
 ## 9. Open questions
 
 1. Who curates and approves evidence records and rubric scores? The agent can
    draft records only from sources it can actually read.
-2. Which snapshot date should the first scenario use? It must fall before at
-   least one key Margin Unit observation, so the reveal is meaningful.
+2. Confirm the default snapshot date (2023-09-08) or choose another.
+3. Several important journal articles are behind publisher bot protection
+   (e.g. Zastrow & Glotch 2021; Williford et al., *Science*, Dec 2025 per search
+   snippets — unverified). Should the team supply PDFs for M3?
