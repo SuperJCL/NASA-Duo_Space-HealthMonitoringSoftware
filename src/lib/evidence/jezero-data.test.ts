@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import geoJson from "@/data/geo/jezero-geo.json";
 import { DEFAULT_WEIGHTS } from "@/lib/decision/criteria";
 import { recommend } from "@/lib/decision/engine";
 import { rankProvisional, rankReviewed } from "@/lib/decision/review-modes";
@@ -42,6 +43,10 @@ describe("Jezero Margin Unit scenario data", () => {
         ...scenario.gaps.flatMap((g) => g.priority?.citations ?? []),
         ...scenario.tasks.flatMap((t) => t.addresses.flatMap((l) => l.citations)),
         ...scenario.discriminationAssessments.flatMap((a) => a.citations),
+        // MF-0: geographic records share the bibliography (test-only import; production
+        // evidence code never imports geographic data).
+        ...geoJson.conventions.flatMap((c) => c.citations),
+        ...geoJson.records.flatMap((r) => r.citations),
       ].map((c) => c.sourceId),
     );
     for (const s of sources) expect(cited, s.id).toContain(s.id);

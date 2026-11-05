@@ -152,7 +152,7 @@ Priority (approved): **build the vertical slice first, then add breadth.**
 | RI-1 | Ranking integrity | **Done; merged to `main` (`80e54d0`) on 2026-11-05.** Review registry (50 entries); reviewed vs provisional rankings; see `docs/RANKING_INTEGRITY.md` | Human review of registry entries |
 | UX-1 | Guided five-step workflow | **Implemented 2026-11-05 on branch `ux1-guided-workflow`; not merged separately.** MF-0 builds on it (owner decision 2026-11-05). The stepper is removed in MF-1 | — |
 | UX-2 – UX-5 (proposed) | Plain language, result and states, map integration, polish | **Superseded** by the map-first milestones (owner decision 2026-11-05) | — |
-| MF-0 – MF-4 | **Present-day map-first** | MF-0: data foundation (**approved 2026-11-05**, branch `mf0-geo-data`). MF-0b: remaining PDS sample sites. MF-1: map-first shell as the default. MF-2: historical replay on the map. MF-3/MF-4: 3D. See `docs/MAP_FIRST_DESIGN.md` §4–5 and `docs/MAP_FIRST_ASSESSMENT.md` | Approval per milestone |
+| MF-0 – MF-4 | **Present-day map-first** | MF-0: data foundation (**approved and implemented 2026-11-05** on branch `mf0-geo-data`, not merged; see `docs/GEO_DATA.md`). MF-0b: remaining PDS sample sites. MF-1: map-first shell as the default. MF-2: historical replay on the map. MF-3/MF-4: 3D. See `docs/MAP_FIRST_DESIGN.md` §4–5 and `docs/MAP_FIRST_ASSESSMENT.md` | Approval per milestone |
 | Science review | Curation decisions | 11 items in `docs/M3_CURATION_REVIEW.md`; research tasks R1–R3 | Reviewer time; source access |
 | Later | Report, optional LLM narration, deploy | As previously planned | Approval |
 

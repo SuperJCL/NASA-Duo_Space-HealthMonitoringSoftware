@@ -1,6 +1,11 @@
 # MDI: map-first design (present-day mission simulation)
 
-Status: **design, 2026-11-05.** This document incorporates the owner's
+Status: **MF-0 approved and implemented, 2026-11-05.** It is on branch
+`mf0-geo-data` and not merged. The owner approved D1–D6 as recommended; the
+implementation is described in `docs/GEO_DATA.md`. The rest of this document
+remains the design for MF-0b to MF-4.
+
+Original status: **design, 2026-11-05.** This document incorporates the owner's
 "Present-Day Mission Simulation" decision into MF-0 and the later Map-First
 milestones.
 

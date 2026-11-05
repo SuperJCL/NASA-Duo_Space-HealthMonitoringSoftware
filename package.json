@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "smoke": "node scripts/smoke-test.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "verify:citations": "node scripts/verify-citations.mjs"
+    "verify:citations": "node scripts/verify-citations.mjs",
+    "verify:geo": "node scripts/verify-geo.mjs"
   },
   "dependencies": {
     "next": "16.4.5",

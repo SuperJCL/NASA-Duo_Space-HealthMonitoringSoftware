@@ -192,6 +192,12 @@ Out of scope for MVP:
 | 2026-11-05 (product update) | **Map-first.** Show the full verified Perseverance traverse, sample locations and NASA imagery. No mandatory wizard. Principle: Map First, Action First, Evidence on Demand, Human in Control. |
 | 2026-11-05 (product update) | Distinguish verified historical rover activity from simulated future actions. Never present the app as a real NASA or astronaut mission, or as live telemetry. |
 | 2026-11-05 (product update) | Evidence model, ranking integrity, citation provenance and review restrictions are preserved. **The scoring engine is not changed** until a change has been reviewed explicitly. |
+| 2026-11-05 (MF-0 approval) | **Mission:** a simulated 2026 mission using the latest verified evidence in the dataset (now through 2025-05-06), never implying it is the latest NASA data overall. |
+| 2026-11-05 (MF-0 approval) | **Sample sites:** the three PDS vol. 4 sites may be displayed. The coordinate convention is documented as inferred by cross-validation, not confirmed by authoritative CRS metadata. |
+| 2026-11-05 (MF-0 approval) | **Astronaut framing:** "astronaut" is used for the simulated user experience only. Rover, orbital and laboratory remain the observation platforms, with no astronaut platform and no engine change. |
+| 2026-11-05 (MF-0 approval) | **Traverse:** the verified traverse through sol 1176 is shown, labelled historical, with its last position marked as the last in the available dataset, never as live or current. |
+| 2026-11-05 (MF-0 approval) | **Branching:** MF-0 builds on `ux1-guided-workflow`. UX-1 is not merged separately, and the wizard is removed in MF-1. |
+| 2026-11-05 (MF-0 approval) | **R4:** follow-up research task to reassess the four simulated actions for 2026. The 2023 assumptions must not be presented as current recommendations. |
 
 ## 9. Open questions
 

@@ -58,6 +58,10 @@ for (const t of scenario.tasks) for (const l of t.addresses) add(`${t.id} → ${
 for (const a of scenario.discriminationAssessments ?? []) add(a.id, a.citations);
 // Review-registry evidence (RI-1): verified quotes, which are NOT scientific approvals.
 for (const e of registry.entries) add(`review ${e.id}`, e.evidence);
+// Geographic records and coordinate conventions (MF-0).
+const geo = JSON.parse(readFileSync(join(root, "src/data/geo/jezero-geo.json"), "utf8"));
+for (const c of geo.conventions) add(`geo convention ${c.id}`, c.citations);
+for (const r of geo.records) add(`geo ${r.id}`, r.citations);
 
 const work = mkdtempSync(join(tmpdir(), "mdi-verify-"));
 let failures = 0;

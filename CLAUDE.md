@@ -15,6 +15,10 @@
 - Evidence records must quote their sources verbatim. After any edit to
   `src/data/`, run `npm run verify:citations` (live check) and `npm test`.
   Curation rules: `docs/EVIDENCE_CURATION.md`.
+- Geographic records state their coordinate convention and whether it is
+  `stated` by the source or `inferred-cross-validation`. Rover positions are
+  historical: never label one as live or current. Run `npm run verify:geo`
+  after changing `src/data/geo/` (`docs/GEO_DATA.md`).
 - Records must declare `relevance`. Regional context (e.g. SIM 3464 unit Nue)
   must never be used as local evidence or as a competing hypothesis; integrity
   checks enforce this.
@@ -39,7 +43,15 @@
   stay free of OpenLayers imports so they remain unit-testable.
 - `src/lib/evidence/` — Zod schemas, integrity rules, snapshot filter, data loading.
 - `src/lib/decision/` — deterministic scoring engine and retrospective review.
-- `src/data/` — curated JSON evidence records (validated at build time).
+- `src/lib/geo/` — geographic records (sample sites, traverse, crater centre,
+  product extents): Zod schemas, integrity rules, loader, render-neutral map
+  features. Never imported by `lib/evidence` or `lib/decision`; geography never
+  affects scores. Tasks have no coordinates.
+- `src/lib/mission/` — present-day vs historical-replay selection and mission
+  framing (simulated 2026 astronaut mission). It selects one evidence date for
+  the existing `selectEvidenceAsOf`, and contains no science logic.
+- `src/data/` — curated JSON evidence records (validated at build time);
+  `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 
 ## Conventions
 
