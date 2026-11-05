@@ -801,3 +801,136 @@ D1–D5, listed in `docs/UX_REDESIGN_PROPOSAL.md` §7.
   counts only approved local gaps.
 - **Reviewer identity is self-declared.** The registry records the
   reviewer's name; there is no authentication.
+
+---
+
+## RI-1 merge into `main`
+
+- **Started:** 2026-11-05T04:42:51Z. **Completed:** 2026-11-05T04:43:58Z,
+  when the push finished. **Elapsed:** 1 min 7 s.
+- **Pre-merge checks (all passed):**
+  - Working tree clean.
+  - `ri1-ranking-integrity` is exactly 1 commit (`78b15b2`) on top of `main`
+    `09821a9`.
+  - `npm run check`: 107 tests, typecheck, lint and build.
+  - 36-state engine baseline byte-identical.
+  - Smoke test 56/56 against `next start` with `SMOKE_LIVE=1`.
+- **Merge:** `--no-ff`, giving merge commit **`80e54d0`** on `main`. The
+  merged tree is identical to `78b15b2`. All branches are kept.
+
+---
+
+## UX-1: Guided five-step workflow
+
+- **Started:** 2026-11-05T04:45:04Z, when branch `ux1-guided-workflow` was
+  created from `main` `80e54d0`.
+- **Implementation and verification complete:** about 2026-11-05T04:55Z.
+  The exact time is the branch commit (see git log).
+- **Wall-clock elapsed:** about 10 min.
+  - No subagents were used.
+  - No human intervention.
+- **Not merged** to `main`; it awaits the owner's acceptance.
+
+### Interface changes (UI layer only)
+
+- **`components/flow/`:**
+  - `Stepper` is the five-step indicator. Each step is a button, and the
+    current one has `aria-current="step"`.
+  - `IntegrityBar` appears on every step and shows the mission date, hidden
+    record count, "simulated · not a NASA plan or endorsement", the reviewed
+    ranking status (a link to Result), the number of feasible tasks excluded
+    pending review, and the number of relationships awaiting review.
+  - `steps.ts` defines the five steps.
+- **`InvestigationWorkspace` is now the step controller.**
+  - Mission date, weights, constraints and the current step live in one
+    component.
+  - All five panels stay mounted and only the current one is shown
+    (`hidden`). Every selection therefore survives navigation, including the
+    open/closed state of sections and the reveal.
+  - Back and Next buttons sit at the bottom of the panel. On navigation the
+    panel scrolls to the top and focus moves to the step heading; focus is
+    not moved on first load.
+  - The map stays visible on desktop. On mobile it is above the panel.
+- **Content of each step:**
+  - **Mission:** the mission question, a plain explanation, a 5-step
+    "how it works" list, the scenario card, mission-date controls with the
+    valid range, and caveats (simulation, not NASA, simulated costs, scores
+    are not probabilities, AI-drafted relationships pending review).
+  - **Evidence:** observations, hypotheses and interpretations, regional
+    context.
+  - **Unknowns:** evidence gaps.
+  - **Decision:** a ranking status box with a "See the result" button,
+    tasks, constraints, weights, and a collapsed provisional comparison.
+  - **Result:** the reviewed ranking, the provisional ranking (collapsed),
+    "What happened later", and the review registry.
+- **Reviewed ranking wording:**
+  - A partial result reads "**Top among reviewed tasks: …**".
+  - A full result reads "Top-ranked task (all feasible tasks reviewed): …".
+  - "Feasible tasks excluded because their scientific review is incomplete:
+    N" is always shown.
+  - "Not a NASA recommendation or endorsement" was added.
+- **Reuse.** `EvidenceSection` gained a `show` prop.
+  `DecisionSection.part` is now `inputs`, `comparison` or `recommendation`,
+  and the existing card components are reused.
+- **Unchanged:** no changes under `src/lib` or `src/data`, and no new
+  dependencies.
+
+### Tests executed (all passed)
+
+- **`npm run check`:** 107/107 unit tests, typecheck, lint and production
+  build (04:53Z).
+- **36-state regression set:** direct engine output and `rankProvisional`
+  output are both byte-identical to the M3 baseline. Reviewed ranking logic
+  is unchanged; `git diff main -- src/lib src/data` is empty and the
+  `review-modes` tests pass.
+- **Smoke test: 75/75** against `next start` with `SMOKE_LIVE=1`, and 75/75
+  against `next dev`. 19 checks are new for UX-1:
+  - 5 steps, with Mission current on load and only one panel shown;
+  - Next and Back by mouse, with the focus check;
+  - Enter on a stepper button and on Next by keyboard, with the focus check;
+  - the integrity bar and the map are visible on all five steps;
+  - the bar content (reviewed status, NASA disclaimer, 4 excluded tasks);
+  - Result is one click from Mission, and the excluded count of 4 is shown;
+  - budget and weight selections persist across steps;
+  - no NASA-endorsement wording appears anywhere;
+  - all five steps can be navigated cleanly **and** under simulated
+    translation.
+
+  All earlier checks (map, M3, RI-1, UX-0 translation) pass after adding
+  step navigation.
+- **`npm run verify:citations`:** 85/85.
+- **Mobile at 390 px:** 0 px horizontal overflow; screenshot reviewed.
+
+### Bugs and rework
+
+- **Environment problem, about 3 min.** A `next-server` child process from
+  the previous smoke run kept port 3000. The new server failed to start, and
+  the first screenshot script reached the stale server. `pkill -f "next
+  start"` does not kill the `next-server` child. Fixed by killing
+  `next-server` explicitly.
+- **Test bug.** The smoke test referenced a top-level `const` before it was
+  initialised. It was moved into the function.
+- **Expected adaptation.** Existing smoke checks now navigate to the right
+  step before they interact.
+
+### Remaining UX problems (for UX-2 and later)
+
+1. **The Decision step is still long** (about 3.4 screens at 1440×900).
+   Tasks with link rationales and the weights should move behind
+   "Advanced / scientific details".
+2. **Internal terminology remains in the main UI:** "Evidence gap", "NE",
+   "Curated", "Deterministic", "Regional context" (UX-2 vocabulary).
+3. **Mobile:** the header, stepper, a four-line integrity bar and the map
+   take about 70% of the screen, leaving little room for step content. The
+   map and the bar need collapsing on small screens.
+4. **The map is not yet linked to steps or selections** (UX-4).
+5. **The Result step has no outcome summary.** When the reviewed ranking is
+   unavailable, the screen is mostly warnings, and the provisional ranking
+   needs a click (UX-3).
+6. **The no-feasible-task state has no one-click recovery actions** (UX-3).
+7. **Navigation is not tied to the URL.** Browser Back does not move between
+   steps, and steps have no shareable deep links.
+8. **The integrity bar is a polite live region** that also contains
+   buttons. Its behaviour with real screen readers is untested.
+9. **The reasons for NE values in the comparison table are still shown only
+   on hover.**

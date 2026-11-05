@@ -4,7 +4,12 @@ import type { SnapshotGap } from "@/lib/evidence/snapshot";
 import { Citations } from "./Citations";
 import { EpistemicBadge, ReviewBadge } from "./EpistemicBadge";
 
+export type EvidencePart = "observations" | "hypotheses" | "gaps" | "regional";
+const ALL_PARTS: readonly EvidencePart[] = ["observations", "hypotheses", "gaps", "regional"];
+
 type Props = {
+  /** Which sections to render (UX-1 splits them across steps). Default: all. */
+  show?: readonly EvidencePart[];
   observations: readonly Observation[];
   interpretations: readonly Interpretation[];
   gaps: readonly SnapshotGap[];
@@ -139,7 +144,7 @@ function GapCard({
   );
 }
 
-export function EvidenceSection({ observations, interpretations, gaps, sourceById }: Props) {
+export function EvidenceSection({ show = ALL_PARTS, observations, interpretations, gaps, sourceById }: Props) {
   const titles = new Map<string, string>([
     ...observations.map((o) => [o.id, o.title] as const),
     ...interpretations.map((i) => [i.id, i.title] as const),
@@ -152,6 +157,7 @@ export function EvidenceSection({ observations, interpretations, gaps, sourceByI
 
   return (
     <>
+      {show.includes("observations") ? (
       <Section title="Observations (margin unit)" count={observations.filter(local).length}>
         <p className="mb-2 text-[11px] text-muted">
           Only records whose source places them in the margin unit. Orbital observations and rover in-situ measurements are
@@ -168,6 +174,9 @@ export function EvidenceSection({ observations, interpretations, gaps, sourceByI
         )}
       </Section>
 
+      ) : null}
+
+      {show.includes("hypotheses") ? (
       <Section title="Hypotheses & interpretations" count={interpretations.filter(local).length}>
         {interpretations.filter(local).length === 0 ? (
           <Empty>No hypotheses or interpretations were published by this date.</Empty>
@@ -180,6 +189,9 @@ export function EvidenceSection({ observations, interpretations, gaps, sourceByI
         )}
       </Section>
 
+      ) : null}
+
+      {show.includes("gaps") ? (
       <Section title="Evidence gaps" count={gaps.filter(local).length}>
         {gaps.filter(local).length === 0 ? (
           <Empty>No evidence gaps were identified by this date.</Empty>
@@ -192,6 +204,9 @@ export function EvidenceSection({ observations, interpretations, gaps, sourceByI
         )}
       </Section>
 
+      ) : null}
+
+      {show.includes("regional") ? (
       <Section title="Regional geological context" count={contextCount} defaultOpen={false}>
         <p className="mb-2 text-[11px] text-muted">
           Crater-wide or regional records. Shown for context; never counted as direct margin-unit evidence or as a competing
@@ -209,6 +224,7 @@ export function EvidenceSection({ observations, interpretations, gaps, sourceByI
           ))}
         </ul>
       </Section>
+      ) : null}
     </>
   );
 }

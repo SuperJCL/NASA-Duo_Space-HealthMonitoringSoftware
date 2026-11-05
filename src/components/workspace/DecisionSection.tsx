@@ -30,8 +30,12 @@ const PLATFORMS: { id: TaskPlatform; label: string }[] = [
 ];
 
 type Props = {
-  /** "inputs": tasks, constraints, weights. "results": provisional comparison and recommendation. */
-  part: "inputs" | "results";
+  /**
+   * "inputs": tasks, constraints, weights (Decision step).
+   * "comparison": provisional comparison table (Decision step).
+   * "recommendation": provisional top-task card (Result step).
+   */
+  part: "inputs" | "comparison" | "recommendation";
   recommendation: Recommendation;
   tasks: readonly CandidateTask[];
   gaps: readonly SnapshotGap[];
@@ -70,7 +74,7 @@ export function DecisionSection(props: Props) {
   // of an element (a single template string). Browser page translators replace
   // text nodes; React can then update or remove only whole elements.
 
-  if (props.part === "results") return <ProvisionalResults {...props} />;
+  if (props.part !== "inputs") return <ProvisionalResults {...props} />;
 
   return (
     <>
@@ -259,6 +263,7 @@ function ProvisionalResults(props: Props) {
 
   return (
     <>
+      {props.part === "comparison" ? (
       <Section title="Comparison (provisional)">
         {rec.status.state === "not-ranked" ? (
           <p className="mb-2 text-xs text-warn" data-testid="not-ranked">
@@ -305,7 +310,9 @@ function ProvisionalResults(props: Props) {
           the ranking-basis criteria only.
         </p>
       </Section>
+      ) : null}
 
+      {props.part === "recommendation" ? (
       <Section title="Provisional top-ranked task">
         {top && topTask ? (
           <div data-testid="recommendation">
@@ -385,6 +392,7 @@ function ProvisionalResults(props: Props) {
           </p>
         )}
       </Section>
+      ) : null}
     </>
   );
 }

@@ -7,7 +7,11 @@ MDI is an independent practice prototype, not an official NASA product. It is
 a retrospective scientific investigation simulator built on real NASA Mars
 Trek data. The initial scope is **Jezero Crater, Margin Unit**.
 
-**Status: M3 in review on branch `m3-scientific-integrity`; `main` holds M2.**
+**Status: `main` holds M3 + UX-0 + RI-1 (ranking integrity). UX-1 (guided
+five-step workflow) is in review on branch `ux1-guided-workflow`; test it
+with `docs/UX1_MANUAL_TEST.md`.**
+
+Earlier status note, kept for history:
 M3 adds:
 - local vs regional-context evidence;
 - a five-dimension decision model in which curated judgements need human

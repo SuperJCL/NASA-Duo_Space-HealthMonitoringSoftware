@@ -136,6 +136,9 @@ try {
   check(unexpectedErrors.length === 0, "no unexpected console errors");
   if (unexpectedErrors.length) console.log(unexpectedErrors);
 
+  // UX-1: guided five-step workflow.
+  await uxGuidedChecks(page);
+
   // Investigation workflow: snapshot → evidence → recommendation → reveal.
   const summary = page.getByTestId("snapshot-summary");
   const summaryAtDefault = (await summary.textContent())?.trim() ?? "";
@@ -167,6 +170,7 @@ try {
     (await page.getByTestId("task-gap-links").first().getByText("AI draft · pending review").count()) > 0,
     "task-gap links show their rationale and pending-review status",
   );
+  await goToStep(page, "decision");
   const budget = page.getByLabel("Investigation effort budget");
   await budget.fill("30");
   const infeasibleText = (await page.getByTestId("infeasible").textContent()) ?? "";
@@ -177,6 +181,7 @@ try {
   await page.getByRole("button", { name: "Reset constraints" }).click();
 
   // RI-1: reviewed vs provisional rankings and the review registry.
+  await goToStep(page, "result");
   const reviewedStatus = page.getByTestId("reviewed-status");
   check((await reviewedStatus.getAttribute("data-state")) === "unavailable", "reviewed ranking is unavailable (no relationships approved)");
   check(/Reviewed ranking unavailable/.test((await reviewedStatus.textContent()) ?? ""), "reviewed panel states that no reviewed ranking exists");
@@ -203,6 +208,7 @@ try {
   await page.getByRole("button", { name: "Reveal later evidence" }).click();
   check((await page.getByTestId("reveal").count()) === 1, "reveal shows later evidence on request");
 
+  await goToStep(page, "mission");
   await page.getByRole("button", { name: "All evidence" }).click();
   const summaryAll = (await summary.textContent())?.trim() ?? "";
   check(/0 later record\(s\) withheld/.test(summaryAll), "'All evidence' snapshot withholds nothing");
@@ -248,6 +254,75 @@ try {
   await browser.close();
 }
 
+async function goToStep(page, id) {
+  await page.getByTestId(`step-${id}`).click();
+  await page.waitForTimeout(150);
+}
+
+async function uxGuidedChecks(page) {
+  const STEP_IDS = ["mission", "evidence", "unknowns", "decision", "result"];
+  const visiblePanels = () =>
+    page.evaluate(() => [...document.querySelectorAll("[data-step]")].filter((e) => !e.hidden).map((e) => e.dataset.step));
+  const focusedId = () => page.evaluate(() => document.activeElement?.id ?? "");
+
+  const stepButtons = page.getByRole("navigation", { name: "Investigation steps" }).getByRole("button");
+  check((await stepButtons.count()) === 5, "UX-1: five-step navigation indicator shows 5 steps");
+  check((await page.getByTestId("step-mission").getAttribute("aria-current")) === "step", "UX-1: Mission is the current step on load");
+  check(JSON.stringify(await visiblePanels()) === '["mission"]', "UX-1: only the Mission panel is shown on load");
+  check(await page.getByTestId("mission-question").isVisible(), "UX-1: Mission step states the mission question");
+  check(await page.getByTestId("mission-caveats").isVisible(), "UX-1: Mission step lists the simulation and review caveats");
+
+  // Mouse: Next / Back.
+  await page.getByTestId("step-next").click();
+  check(JSON.stringify(await visiblePanels()) === '["evidence"]', "UX-1: Next moves to Evidence");
+  check((await focusedId()) === "step-heading-evidence", "UX-1: focus moves to the Evidence heading");
+  await page.getByTestId("step-back").click();
+  check(JSON.stringify(await visiblePanels()) === '["mission"]' && (await focusedId()) === "step-heading-mission", "UX-1: Back returns to Mission and focuses its heading");
+
+  // Keyboard: stepper buttons and Next via Enter.
+  await page.getByTestId("step-unknowns").focus();
+  await page.keyboard.press("Enter");
+  check(JSON.stringify(await visiblePanels()) === '["unknowns"]' && (await focusedId()) === "step-heading-unknowns", "UX-1: keyboard Enter on a step opens it and focuses its heading");
+  await page.getByTestId("step-next").focus();
+  await page.keyboard.press("Enter");
+  check(JSON.stringify(await visiblePanels()) === '["decision"]', "UX-1: keyboard Enter on Next moves to Decision");
+
+  // Integrity bar and map stay visible on every step.
+  let barEverywhere = true;
+  let mapEverywhere = true;
+  for (const id of STEP_IDS) {
+    await goToStep(page, id);
+    barEverywhere &&= await page.getByTestId("integrity-bar").isVisible();
+    mapEverywhere &&= await page.getByTestId("mars-map").isVisible();
+  }
+  check(barEverywhere, "UX-1: scientific integrity bar is visible on all five steps");
+  check(mapEverywhere, "UX-1: NASA map stays visible on all five steps (desktop)");
+  const bar = (await page.getByTestId("integrity-bar").textContent()) ?? "";
+  check(/Reviewed ranking: unavailable/.test(bar) && /not a NASA plan or endorsement/.test(bar) && /4 feasible task\(s\) excluded pending review/.test(bar), "UX-1: integrity bar shows reviewed status, NASA disclaimer and excluded-task count");
+
+  // Result reachable directly; excluded count shown.
+  await goToStep(page, "mission");
+  await page.getByTestId("step-result").click();
+  check(await page.getByTestId("reviewed-status").isVisible(), "UX-1: Result (reviewed ranking status) is one click away from Mission");
+  check(/incomplete: 4$/.test(((await page.getByTestId("excluded-count").textContent()) ?? "").trim()), "UX-1: Result shows 4 feasible tasks excluded due to incomplete review");
+
+  // State persists across steps.
+  await goToStep(page, "decision");
+  await page.getByLabel("Investigation effort budget").fill("45");
+  await page.getByLabel("Scientific priority weight").fill("4");
+  await goToStep(page, "mission");
+  await goToStep(page, "result");
+  await goToStep(page, "decision");
+  const kept = (await page.getByLabel("Investigation effort budget").inputValue()) === "45" && (await page.getByLabel("Scientific priority weight").inputValue()) === "4";
+  check(kept, "UX-1: budget and weight selections persist across steps");
+  await page.getByRole("button", { name: "Reset constraints" }).click();
+  await page.getByRole("button", { name: "Reset weights" }).click();
+
+  const bodyText = (await page.locator("body").textContent()) ?? "";
+  check(!/NASA recommends|recommended by NASA|endorsed by NASA/i.test(bodyText), "UX-1: no claim of NASA endorsement anywhere on the page");
+  await goToStep(page, "mission");
+}
+
 /**
  * Simulates browser page translation (e.g. Chrome/Google Translate): every
  * text node outside translate="no" is replaced by <font><font>text</font></font>.
@@ -278,10 +353,11 @@ async function checkInfeasibleStates(browser, translated) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e).split("\n")[0]));
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-  // The provisional recommendation is inside a collapsed section (RI-1); wait for the always-visible reviewed panel.
-  await page.waitForSelector('[data-testid="reviewed-ranking"]', { timeout: 15_000 });
+  // UX-1: only the current step is visible; wait for the step navigation, then open Decision.
+  await page.waitForSelector('[data-testid="step-mission"]', { timeout: 15_000 });
   await page.waitForTimeout(800);
   if (translated) await simulateTranslation(page);
+  await goToStep(page, "decision");
   const text = async (id) => ((await page.getByTestId(id).textContent().catch(() => null)) ?? "").trim();
   const platform = (label) => page.locator("label", { hasText: label }).locator("input");
 
@@ -317,6 +393,9 @@ async function checkInfeasibleStates(browser, translated) {
     .first()
     .textContent();
   check(weightLabel?.trim() === "w5", `${tag} weight label updates to w5 (got ${weightLabel?.trim()})`);
+  for (const id of ["mission", "evidence", "unknowns", "decision", "result", "mission"]) await goToStep(page, id);
+  const focused = await page.evaluate(() => document.activeElement?.id ?? "");
+  check(focused === "step-heading-mission", `${tag} navigating all five steps works and focuses the step heading`);
   check(errors.length === 0, `${tag} no page errors overall${errors.length ? ` (${errors.join(" | ")})` : ""}`);
   await page.close();
 }

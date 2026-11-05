@@ -36,20 +36,33 @@ export function makeDescriber(scenario: Scenario, registry: ReviewRegistry) {
   };
 }
 
+/** Feasible tasks (under the current constraints) that the reviewed ranking could not assess. */
+export function feasibleExcluded(reviewed: ReviewedRanking, provisional: ProvisionalRanking): string[] {
+  const infeasible = new Set(provisional.recommendation.infeasible.map((t) => t.taskId));
+  return reviewed.notAssessed.map((t) => t.taskId).filter((id) => !infeasible.has(id));
+}
+
 export function ReviewedRankingSection({
   reviewed,
+  excludedCount,
   taskTitle,
 }: {
   reviewed: ReviewedRanking;
+  /** Feasible tasks excluded because their scientific review is incomplete. */
+  excludedCount: number;
   taskTitle: (id: string) => string;
 }) {
   const rec = reviewed.recommendation;
+  const top = rec?.ranking[0];
   return (
     <Section title="Reviewed scenario ranking">
       <div data-testid="reviewed-ranking">
         <p className="flex flex-wrap items-center gap-1.5 text-xs">
           <EpistemicBadge kind="reviewed" />
-          <span className="text-muted">{"Uses only relationships approved by a named human reviewer."}</span>
+          <span className="text-muted">{"Uses only relationships approved by a named human reviewer. Not a NASA recommendation or endorsement."}</span>
+        </p>
+        <p className="mt-1 text-xs" data-testid="excluded-count">
+          {`Feasible tasks excluded because their scientific review is incomplete: ${excludedCount}`}
         </p>
         {reviewed.status.state === "unavailable" ? (
           <div className="mt-2 rounded-md border border-warn/60 bg-background p-3" data-testid="reviewed-status" data-state="unavailable">
@@ -61,6 +74,13 @@ export function ReviewedRankingSection({
           </div>
         ) : rec ? (
           <div className="mt-2" data-testid="reviewed-status" data-state={reviewed.status.state}>
+            {top ? (
+              <p className="text-sm font-semibold" data-testid="reviewed-top">
+                {reviewed.status.state === "partial"
+                  ? `Top among reviewed tasks: ${taskTitle(top.taskId)}`
+                  : `Top-ranked task (all feasible tasks reviewed): ${taskTitle(top.taskId)}`}
+              </p>
+            ) : null}
             {reviewed.status.state === "partial" ? (
               <p className="mb-2 rounded border border-warn/60 px-2 py-1 text-xs text-warn">
                 {`Partial comparison: ${reviewed.status.notAssessedTaskIds.map(taskTitle).join("; ")} not assessed (awaiting review). This ranking does not compare against those tasks.`}
