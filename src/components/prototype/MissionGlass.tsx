@@ -11,7 +11,9 @@ import { selectEvidenceAsOf } from "@/lib/evidence/snapshot";
 import type { MapFeature } from "@/lib/geo/features";
 import {
   consumedEffort,
+  addability,
   fitInOrder,
+  planFit,
   initialMissionState,
   missionReducer,
   taskViews,
@@ -21,6 +23,7 @@ import {
 import { MarsMapLoader } from "@/components/map/MarsMapLoader";
 import { EvaHud } from "./EvaHud";
 import { EvidenceSheet } from "./EvidenceSheet";
+import { PlanReview } from "./PlanReview";
 import { TaskCard } from "./TaskCard";
 
 type Props = {
@@ -48,6 +51,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const [expanded, setExpanded] = useState<string | null>(null);
   const [evidenceFor, setEvidenceFor] = useState<string | null>(null);
   const [verifiedPick, setVerifiedPick] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const sourceById = useMemo(() => new Map(sources.map((x) => [x.id, x])), [sources]);
   const costs = useMemo(() => Object.fromEntries(snapshot.tasks.map((t) => [t.id, t.costs["res-effort"] ?? Infinity])), [snapshot]);
   const stepsByTask = useMemo(() => Object.fromEntries(s.actions.map((a) => [a.taskId, a.steps.length])), [s]);
@@ -82,8 +86,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   };
   const picked = verifiedPick ? features.find((f) => f.id === verifiedPick) : undefined;
 
-  const draftCost = state.draft.reduce((sum, id) => sum + (costs[id] ?? 0), 0);
-  const draftFits = draftCost <= state.budget;
+  const draftFit = planFit(state.draft, costs, state.budget);
   const suggested = fitInOrder(
     planning.views.filter((v) => v.rank !== null).map((v) => v.taskId),
     costs,
@@ -186,23 +189,32 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
 
           <aside
             aria-labelledby="mg-plan-title"
-            className="mg-glass relative z-10 m-3 flex flex-col lg:absolute lg:inset-y-4 lg:right-4 lg:m-0 lg:w-[27.5rem]"
+            className="mg-glass relative z-10 m-3 flex flex-col overflow-hidden lg:absolute lg:inset-y-4 lg:right-4 lg:m-0 lg:w-[27.5rem]"
             data-testid="mg-planning"
           >
             <div className="border-b border-[var(--mg-line)] px-5 pt-4 pb-3">
-              <p className="text-[13px] uppercase tracking-[0.12em] text-[var(--mg-faint)]">{"Mission planning"}</p>
-              <h1 id="mg-plan-title" className="mt-0.5 text-xl font-semibold">
-                {"Choose the next investigation"}
+              <ol className="flex gap-3 text-[13px]" aria-label="Planning progress" data-testid="mg-flow">
+                {["Compare", "Add", "Review & create"].map((label, n) => {
+                  const step = state.plan ? 3 : state.draft.length ? 2 : 1;
+                  return (
+                    <li key={label} aria-current={n + 1 === step ? "step" : undefined} className={n + 1 === step ? "font-semibold text-[var(--mg-text)]" : n + 1 < step ? "text-[var(--mg-dim)]" : "text-[var(--mg-faint)]"}>
+                      {`${n + 1} ${label}`}
+                    </li>
+                  );
+                })}
+              </ol>
+              <h1 id="mg-plan-title" className="mt-1.5 text-xl font-semibold">
+                {"Plan the next investigation"}
               </h1>
-              <p className="mt-0.5 text-sm text-[var(--mg-dim)]">{s.title}</p>
-              <label className="mt-3 block text-sm">
-                <span className="flex items-baseline justify-between">
-                  <span className="text-[var(--mg-dim)]">{"Simulated effort budget"}</span>
-                  <span className="text-lg font-semibold" data-testid="mg-budget">
-                    {`${state.budget} pts`}
-                  </span>
-                </span>
+              <p className="mt-0.5 text-[13px] text-[var(--mg-dim)]" data-testid="mg-ranking-note">
+                {`Priorities are provisional: existing MDI engine, not scientifically validated (${planning.reviewed.awaitingReview.length} relationships await expert review).`}
+              </p>
+              <div className="mt-3 flex items-center gap-3 text-sm">
+                <label htmlFor="mg-budget-range" className="shrink-0 text-[var(--mg-dim)]">
+                  {"Simulated effort"}
+                </label>
                 <input
+                  id="mg-budget-range"
                   type="range"
                   min={0}
                   max={200}
@@ -210,19 +222,23 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                   value={state.budget}
                   onChange={(e) => dispatch({ type: "set-budget", budget: Number(e.target.value) })}
                   aria-label="Simulated effort budget"
-                  className="mt-1 w-full accent-[var(--mg-coral)]"
+                  disabled={Boolean(state.plan)}
+                  className="min-w-0 flex-1 accent-[var(--mg-coral)] disabled:opacity-40"
                 />
-              </label>
+                <span className="shrink-0 whitespace-nowrap text-right text-lg font-semibold" data-testid="mg-budget">
+                  {`${state.budget} pts`}
+                </span>
+              </div>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" data-testid="mg-cards">
               {planning.views.map((v) => (
                 <TaskCard
                   key={v.taskId}
                   view={v}
                   target={targetByTask.get(v.taskId)}
                   selected={state.selectedTaskId === v.taskId}
-                  inPlan={state.draft.includes(v.taskId)}
+                  addable={addability(v, state.draft, costs, state.budget)}
                   expanded={expanded === v.taskId}
                   limitations={limitationsFor(v.taskId)}
                   onSelect={() => {
@@ -234,77 +250,86 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                   onEvidence={() => setEvidenceFor(v.taskId)}
                 />
               ))}
-              <p className="px-1 text-[13px] text-[var(--mg-faint)]" data-testid="mg-ranking-note">
-                {`Ranks: existing MDI engine, provisional and not scientifically validated. No reviewed ranking is available (${planning.reviewed.awaitingReview.length} relationships await expert review).`}
-              </p>
             </div>
 
             <div className="border-t border-[var(--mg-line)] px-4 py-3" data-testid="mg-plan-bar">
               {state.plan ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm">
-                    <span className="font-semibold">{"Plan ready"}</span>
-                    <span className="text-[var(--mg-dim)]">{` · ${state.plan.items.map((i) => planViewById.get(i.taskId)?.shortTitle).join(" → ")}`}</span>
+                  <p className="min-w-0 text-sm">
+                    <span className="block font-semibold">{`Plan created · ${state.plan.items.length} action(s)`}</span>
+                    <span className="block text-[var(--mg-dim)]">{state.plan.items.map((i) => planViewById.get(i.taskId)?.shortTitle).join(" → ")}</span>
                   </p>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => dispatch({ type: "reset-plan" })} className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm">
-                      {"Clear"}
+                    <button type="button" onClick={() => dispatch({ type: "reset-plan" })} className="min-h-11 rounded-xl border border-[var(--mg-line)] px-3 text-sm" data-testid="mg-clear-plan">
+                      {"Discard plan"}
                     </button>
-                    <button type="button" onClick={() => dispatch({ type: "set-mode", mode: "eva" })} className="rounded-xl bg-[var(--mg-coral)] px-4 py-1.5 text-sm font-medium text-[#1a0f0c]" data-testid="mg-start-eva">
-                      {"Start EVA →"}
+                    <button type="button" onClick={() => dispatch({ type: "set-mode", mode: "eva" })} className="min-h-11 rounded-xl bg-[var(--mg-coral)] px-4 text-sm font-semibold text-[#1a0f0c]" data-testid="mg-start-eva">
+                      {"Open EVA HUD →"}
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="flex items-baseline justify-between text-sm">
-                    <span className="font-semibold">{"Your plan"}</span>
-                    <span className={draftFits ? "text-[var(--mg-dim)]" : "text-[var(--mg-caution)]"} data-testid="mg-draft-cost">
-                      {`${draftCost} / ${state.budget} pts`}
+                  <div className="flex items-baseline justify-between gap-2 text-sm">
+                    <span className="font-semibold" data-testid="mg-plan-summary">
+                      {state.draft.length ? `Your plan · ${state.draft.length} action(s)` : "Your plan is empty"}
+                    </span>
+                    <span className={draftFit.overBy ? "text-[var(--mg-caution)]" : "text-[var(--mg-dim)]"} data-testid="mg-draft-cost">
+                      {`${draftFit.total} of ${state.budget} pts`}
                     </span>
                   </div>
-                  {state.draft.length ? (
-                    <ol className="mt-2 space-y-1" data-testid="mg-draft">
-                      {state.draft.map((id, n) => (
-                        <li key={id} className="flex items-center justify-between gap-2 rounded-lg bg-[var(--mg-surface)] px-2 py-1 text-sm">
-                          <span>{`${n + 1}. ${planViewById.get(id)?.shortTitle ?? id}`}</span>
-                          <span className="flex gap-1">
-                            <button type="button" aria-label="Move up" onClick={() => dispatch({ type: "move-draft", taskId: id, by: -1 })} className="rounded px-1.5 text-[var(--mg-dim)] hover:text-[var(--mg-text)]">
-                              {"↑"}
-                            </button>
-                            <button type="button" aria-label="Move down" onClick={() => dispatch({ type: "move-draft", taskId: id, by: 1 })} className="rounded px-1.5 text-[var(--mg-dim)] hover:text-[var(--mg-text)]">
-                              {"↓"}
-                            </button>
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  ) : (
-                    <p className="mt-1 text-sm text-[var(--mg-dim)]">{"Add tasks, or use the suggested order."}</p>
-                  )}
-                  {!draftFits ? <p className="mt-1 text-sm text-[var(--mg-caution)]">{"The plan exceeds the simulated budget."}</p> : null}
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  {/* Effort used by each added action, in plan order. */}
+                  <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-[var(--mg-line)]" aria-hidden data-testid="mg-plan-meter">
+                    {draftFit.items.map((it, n) => (
+                      <span
+                        key={it.taskId}
+                        className={`h-full ${it.fits ? (n % 2 ? "bg-[var(--mg-cyan)]" : "bg-[#3fa9bb]") : "bg-[var(--mg-caution)]"}`}
+                        style={{ width: `${Math.min(100, (it.cost / Math.max(state.budget, 1)) * 100)}%` }}
+                      />
+                    ))}
+                  </div>
+                  <p className={`mt-1.5 text-[13px] ${draftFit.overBy ? "text-[var(--mg-caution)]" : "text-[var(--mg-dim)]"}`} data-testid="mg-plan-hint">
+                    {!state.draft.length
+                      ? "Add actions above, then review."
+                      : draftFit.overBy
+                        ? `Over budget by ${draftFit.overBy} pts: remove an action or raise the budget.`
+                        : `${draftFit.left} pts left. Review the order, then create the plan.`}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => dispatch({ type: "use-suggested", order: suggested })}
-                      className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm hover:border-[var(--mg-line-strong)]"
+                      className="text-sm text-[var(--mg-dim)] underline underline-offset-2 hover:text-[var(--mg-text)]"
                       data-testid="mg-use-suggested"
                     >
-                      {"Use suggested order"}
+                      {"Fill with suggested order"}
                     </button>
                     <button
                       type="button"
-                      onClick={() => dispatch({ type: "create-plan" })}
-                      disabled={!state.draft.length || !draftFits}
-                      className="rounded-xl bg-[var(--mg-coral)] px-4 py-1.5 text-sm font-medium text-[#1a0f0c] disabled:opacity-40"
-                      data-testid="mg-create-plan"
+                      onClick={() => setReviewOpen(true)}
+                      disabled={!state.draft.length || draftFit.overBy > 0}
+                      className="min-h-11 rounded-xl bg-[var(--mg-coral)] px-5 text-sm font-semibold text-[#1a0f0c] disabled:opacity-40"
+                      data-testid="mg-review-plan"
                     >
-                      {"Create mission plan"}
+                      {state.draft.length ? `Review plan (${state.draft.length})` : "Review plan"}
                     </button>
                   </div>
                 </>
               )}
             </div>
+            <PlanReview
+              open={reviewOpen && !state.plan}
+              fit={draftFit}
+              budget={state.budget}
+              viewById={planViewById}
+              onMove={(taskId, by) => dispatch({ type: "move-draft", taskId, by })}
+              onRemove={(taskId) => dispatch({ type: "toggle-draft", taskId })}
+              onCreate={() => {
+                dispatch({ type: "create-plan" });
+                setReviewOpen(false);
+              }}
+              onClose={() => setReviewOpen(false)}
+            />
           </aside>
         </main>
       ) : (

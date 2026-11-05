@@ -1,17 +1,21 @@
 "use client";
 
-import type { SimulatedTarget, TaskView } from "@/lib/prototype/mission-glass";
+import { useEffect, useRef } from "react";
+import type { Addability, SimulatedTarget, TaskView } from "@/lib/prototype/mission-glass";
 
 /**
- * Level 1 (always visible): rank, action, one-line rationale, status.
- * Level 2 (expand): what, equipment, target, resources, priority conditions,
- * limitations. Level 3 is the evidence sheet (onEvidence).
+ * MG-1 task card.
+ * Level 1 (always visible): provisional rank, action, one-line rationale,
+ *   cost vs budget, and a plain-language feasibility line.
+ * Level 2 (Details): what, equipment, target, priority conditions, limitations.
+ * Level 3 is the evidence sheet (onEvidence).
+ * Only one control per card competes for attention: the add/remove toggle.
  */
 export function TaskCard({
   view,
   target,
   selected,
-  inPlan,
+  addable,
   expanded,
   limitations,
   onSelect,
@@ -22,7 +26,7 @@ export function TaskCard({
   view: TaskView;
   target: SimulatedTarget | undefined;
   selected: boolean;
-  inPlan: boolean;
+  addable: Addability;
   expanded: boolean;
   limitations: string[];
   onSelect: () => void;
@@ -30,69 +34,88 @@ export function TaskCard({
   onToggleExpand: () => void;
   onEvidence: () => void;
 }) {
-  const fits = view.status === "fits";
+  const ref = useRef<HTMLElement>(null);
+  // Map → card: bring the selected card into view.
+  useEffect(() => {
+    if (selected) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selected]);
+
+  const inPlan = addable.state === "in-plan";
+  const blocked = addable.state === "infeasible" || addable.state === "no-room";
   const pct = Math.min(100, Math.round((view.cost / Math.max(view.budget, 1)) * 100));
+  const tone = blocked ? "text-[var(--mg-caution)]" : inPlan ? "text-[var(--mg-coral)]" : "text-[var(--mg-dim)]";
+
   return (
     <article
+      ref={ref}
       data-testid={`mg-card-${view.taskId}`}
       data-selected={selected}
       data-rank={view.rank ?? ""}
-      onClick={onSelect}
-      className={`group relative cursor-pointer rounded-2xl border p-4 transition-[background-color,border-color,transform] duration-200 ease-out ${
-        selected ? "border-[var(--mg-coral)] bg-[var(--mg-surface)]" : "border-[var(--mg-line)] bg-[var(--mg-glass)] hover:border-[var(--mg-line-strong)]"
+      data-addable={addable.state}
+      className={`rounded-2xl border p-4 transition-[background-color,border-color] duration-200 ease-out ${
+        selected ? "border-[var(--mg-coral)] bg-[var(--mg-surface)]" : "border-[var(--mg-line)] bg-[var(--mg-glass)]"
       }`}
     >
       <div className="flex items-start gap-3">
-        <div
-          aria-label={view.rank ? `Provisional rank ${view.rank}` : "Not ranked"}
-          className={`flex size-10 shrink-0 items-center justify-center rounded-full border text-lg font-semibold ${
-            view.rank ? "border-[var(--mg-line-strong)] text-[var(--mg-text)]" : "border-dashed border-[var(--mg-line)] text-[var(--mg-faint)]"
+        <span
+          aria-label={view.rank ? `Provisional priority ${view.rank}` : "Not ranked under current budget"}
+          className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full border text-base font-semibold ${
+            view.rank ? "border-[var(--mg-line-strong)]" : "border-dashed border-[var(--mg-line)] text-[var(--mg-faint)]"
           }`}
         >
           {view.rank ? `${view.rank}` : "–"}
-        </div>
+        </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[17px] font-semibold leading-snug">{view.shortTitle}</h3>
-          <p className="mt-0.5 text-sm text-[var(--mg-dim)]" data-testid="mg-rationale">
-            {view.rationale}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[13px]">
-            <span
-              className={`rounded-full px-2 py-0.5 ${fits ? "bg-[var(--mg-cyan-soft)] text-[var(--mg-cyan)]" : "bg-[rgba(241,200,120,0.12)] text-[var(--mg-caution)]"}`}
-              data-testid="mg-status"
+          <div className="flex items-baseline justify-between gap-2">
+            <button
+              type="button"
+              onClick={onSelect}
+              aria-pressed={selected}
+              className="text-left text-[17px] font-semibold leading-snug hover:underline focus-visible:underline focus:outline-none"
+              data-testid="mg-select"
             >
-              {view.statusText}
+              {view.shortTitle}
+            </button>
+            <span className="shrink-0 text-sm text-[var(--mg-dim)]" data-testid="mg-cost">
+              {`${view.cost} pts`}
             </span>
-            {inPlan ? <span className="rounded-full border border-[var(--mg-coral)] px-2 py-0.5 text-[var(--mg-coral)]">{"In plan"}</span> : null}
-            <span className="text-[var(--mg-faint)]">{"Provisional"}</span>
           </div>
+          <p className="mt-0.5 text-sm text-[var(--mg-dim)]" data-testid="mg-rationale">
+            {view.rationale.replace(/ · \d+ pts$/, "")}
+          </p>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--mg-line)]" aria-hidden>
+            <div className={`h-full rounded-full ${blocked ? "bg-[var(--mg-caution)]" : "bg-[var(--mg-cyan)]"}`} style={{ width: `${pct}%` }} />
+          </div>
+          <p className={`mt-1.5 text-[13px] ${tone}`} data-testid="mg-status">
+            {addable.text}
+          </p>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={onTogglePlan}
-          disabled={!fits && !inPlan}
-          aria-pressed={inPlan}
-          data-testid="mg-plan-toggle"
-          className={`rounded-xl px-3 py-1 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
-            inPlan ? "bg-[var(--mg-coral-soft)] text-[var(--mg-coral)]" : "bg-[var(--mg-coral)] text-[#1a0f0c] hover:brightness-110"
-          }`}
-        >
-          {inPlan ? "✓ In plan" : "+ Add to plan"}
-        </button>
+
+      <div className="mt-3 flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={onToggleExpand}
           aria-expanded={expanded}
           aria-controls={`mg-detail-${view.taskId}`}
           data-testid="mg-expand"
-          className="rounded-xl border border-[var(--mg-line)] px-3 py-1 text-sm text-[var(--mg-dim)] hover:text-[var(--mg-text)]"
+          className="text-sm text-[var(--mg-dim)] underline-offset-2 hover:text-[var(--mg-text)] hover:underline"
         >
           {expanded ? "Hide details" : "Details"}
         </button>
+        <button
+          type="button"
+          onClick={onTogglePlan}
+          disabled={blocked && !inPlan}
+          aria-pressed={inPlan}
+          data-testid="mg-plan-toggle"
+          className={`min-h-10 rounded-xl border px-4 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
+            inPlan ? "border-[var(--mg-coral)] bg-[var(--mg-coral-soft)] text-[var(--mg-coral)]" : "border-[var(--mg-line-strong)] text-[var(--mg-text)] hover:border-[var(--mg-coral)]"
+          }`}
+        >
+          {inPlan ? "✓ Added · remove" : "Add to plan"}
+        </button>
       </div>
-
 
       {/* Level 2: animated height via grid rows; content stays mounted for state. */}
       <div
@@ -101,8 +124,8 @@ export function TaskCard({
         aria-hidden={!expanded}
         data-testid="mg-detail"
       >
-        <div className="overflow-hidden" onClick={(e) => e.stopPropagation()}>
-          <dl className="mt-4 grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-2 text-sm">
+        <div className="overflow-hidden">
+          <dl className="mt-4 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-2 text-sm">
             <dt className="text-[var(--mg-faint)]">{"What"}</dt>
             <dd>{view.description}</dd>
             <dt className="text-[var(--mg-faint)]">{"Equipment"}</dt>
@@ -112,13 +135,6 @@ export function TaskCard({
               {target
                 ? `${target.name}: scenario-defined position, ${target.distanceFromAnchorM} m straight-line from the verified Lefroy Bay site. No route or safety assessment.`
                 : "No target"}
-            </dd>
-            <dt className="text-[var(--mg-faint)]">{"Resources"}</dt>
-            <dd>
-              <span className="block">{`${view.cost} of ${view.budget} simulated effort points`}</span>
-              <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-[var(--mg-line)]">
-                <span className={`block h-full rounded-full ${fits ? "bg-[var(--mg-cyan)]" : "bg-[var(--mg-caution)]"}`} style={{ width: `${pct}%` }} />
-              </span>
             </dd>
             <dt className="text-[var(--mg-faint)]">{"Priority holds"}</dt>
             <dd>
@@ -141,7 +157,8 @@ export function TaskCard({
             type="button"
             onClick={onEvidence}
             data-testid="mg-evidence"
-            className="mt-3 rounded-xl border border-[var(--mg-cyan)] px-3 py-1.5 text-sm text-[var(--mg-cyan)] hover:bg-[var(--mg-cyan-soft)]"
+            tabIndex={expanded ? 0 : -1}
+            className="mt-3 text-sm text-[var(--mg-cyan)] underline underline-offset-2"
           >
             {"Evidence and sources →"}
           </button>

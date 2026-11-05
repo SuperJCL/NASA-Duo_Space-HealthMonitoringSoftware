@@ -6,7 +6,7 @@ import { rankProvisional, rankReviewed } from "@/lib/decision/review-modes";
 import { loadJezeroMarginScenario } from "@/lib/evidence/repository";
 import { selectEvidenceAsOf } from "@/lib/evidence/snapshot";
 import { loadJezeroGeo } from "@/lib/geo/repository";
-import { initialMissionState, missionReducer, parseScenario, simulatedTargets, taskViews, type MissionState } from "./mission-glass";
+import { addability, initialMissionState, missionReducer, parseScenario, planFit, simulatedTargets, taskViews, type MissionState } from "./mission-glass";
 
 const { scenario, registry } = loadJezeroMarginScenario();
 const geo = loadJezeroGeo();
@@ -110,5 +110,26 @@ describe("shared mission state (Planning ↔ EVA)", () => {
     st = missionReducer(st, { type: "constraint-event", budget: 50, label: "cut", rankedTaskIds: ["task-standoff-survey", "task-abrasion-proximity"], costs });
     expect(st.replan).toBeNull();
     expect(st.budget).toBe(50);
+  });
+});
+
+describe("MG-1 plan fit and plain-language feasibility", () => {
+  it("keeps a running total and reports what is left or over", () => {
+    expect(planFit(["task-abrasion-proximity", "task-core-for-earth"], costs, 100)).toMatchObject({ total: 95, left: 5, overBy: 0 });
+    const over = planFit(["task-abrasion-proximity", "task-core-for-earth", "task-standoff-survey"], costs, 100);
+    expect(over.overBy).toBe(10);
+    expect(over.items.map((i) => i.fits)).toEqual([true, true, false]);
+  });
+
+  it("explains fits, no-room, infeasible and in-plan states", () => {
+    const v100 = new Map(views(100).map((v) => [v.taskId, v]));
+    expect(addability(v100.get("task-abrasion-proximity")!, [], costs, 100)).toEqual({ state: "fits", text: "Fits: 40 pts, leaving 60 pts." });
+    expect(addability(v100.get("task-standoff-survey")!, ["task-abrasion-proximity", "task-core-for-earth"], costs, 100)).toEqual({
+      state: "no-room",
+      text: "Doesn't fit your plan: needs 15 pts, only 5 pts left. Remove an action or raise the budget.",
+    });
+    expect(addability(v100.get("task-core-for-earth")!, ["task-core-for-earth"], costs, 100).state).toBe("in-plan");
+    const v50 = new Map(views(50).map((v) => [v.taskId, v]));
+    expect(addability(v50.get("task-core-for-earth")!, [], costs, 50)).toEqual({ state: "infeasible", text: "Not possible: needs 55 pts, but the whole budget is 50 pts." });
   });
 });

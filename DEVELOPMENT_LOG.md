@@ -1635,3 +1635,72 @@ This task is tracked separately. Earlier durations are unchanged.
    rule-defined questions), and the sheet background is more opaque.
 5. **A plan timeline was added to the HUD** so task states are visible at a
    glance.
+
+---
+
+## MG-1: Mission Glass planning flow (compare → add → review → create)
+
+- **Started:** 2026-11-05T22:50:06Z. Branch `mg-refinement` was created from
+  `mdi2-mission-glass-prototype` (`323622c`).
+- **Completed:** 2026-11-05T22:56:10Z, at commit.
+- **Wall-clock elapsed:** 6 min 4 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Files changed
+
+- `src/lib/prototype/mission-glass.ts`: added `planFit` and `addability`
+  (plain-language feasibility; simulated effort arithmetic only).
+- `src/components/prototype/TaskCard.tsx`, redesigned:
+  - one add/remove toggle;
+  - a selectable title (keyboard);
+  - cost and an effort bar;
+  - a feasibility line;
+  - "Details" demoted to a text link.
+- `src/components/prototype/PlanReview.tsx` (new): a review dialog with
+  order, running totals, remove, caveats, and "Create plan".
+- `src/components/prototype/MissionGlass.tsx`, planning panel:
+  - flow indicator (1 Compare · 2 Add · 3 Review & create);
+  - a single provisional-priority note;
+  - a plan bar with a per-action effort meter and a plain-language hint;
+  - the single primary action "Review plan (N)";
+  - the budget is locked once a plan exists.
+- `src/lib/prototype/mission-glass.test.ts` (+2 tests) and
+  `scripts/smoke-mission-glass.mjs` (planning section rewritten).
+
+### Interaction changes
+
+- **One primary button per state:** "Review plan" before the plan exists,
+  "Create plan" in review, "Open EVA HUD" after creation. "Fill with
+  suggested order" is a secondary text link.
+- **Each card says why it can or cannot be added:**
+  - fits, with what remains;
+  - "Doesn't fit your plan: needs 15 pts, only 5 pts left…";
+  - "Not possible: needs 55 pts, but the whole budget is 50 pts."
+- **Selecting a card title highlights its target on the map.** Clicking a
+  target selects its card and scrolls it into view.
+
+### Tests
+
+- **Unit:** 196/196 (+2 plan-fit and feasibility tests).
+- **Prototype smoke** (dev): 52/52. New checks cover:
+  - one primary button;
+  - empty-plan state;
+  - feasibility texts, including budget 50 infeasible and no-room;
+  - keyboard Enter to add;
+  - the flow indicator;
+  - the review dialog (focus, totals, caveats, reorder, Escape keeps the
+    draft);
+  - create;
+  - the budget locked after creation.
+- **`npm run check`:** passes.
+
+### Bugs and rework
+
+1. **Escape did not close the review.** After a reorder, the moved row lost
+   focus (React moves the DOM node), so the dialog's own key handler never
+   ran. The dialog now listens on `window` while open.
+2. **The budget value wrapped onto two lines** at the fixed width; it is now
+   `nowrap`.
+3. **Two smoke checks referred to removed elements** (the Level-2 resources
+   row; card-body click selection). Updated.

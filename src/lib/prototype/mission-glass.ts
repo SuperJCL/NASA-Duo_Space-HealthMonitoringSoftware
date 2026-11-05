@@ -323,3 +323,46 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
       return { ...state, plan: null, replan: null, mode: "planning", log: [...state.log, "Plan cleared."] };
   }
 }
+
+// ── MG-1: plan fit and plain-language feasibility (simulated effort arithmetic only) ──
+
+export type PlanFit = {
+  items: { taskId: string; cost: number; cumulative: number; fits: boolean }[];
+  total: number;
+  left: number;
+  overBy: number;
+};
+
+/** Running total of simulated effort for an ordered plan. */
+export function planFit(order: readonly string[], costs: Record<string, number>, budget: number): PlanFit {
+  let cumulative = 0;
+  const items = order.map((taskId) => {
+    const cost = costs[taskId] ?? Infinity;
+    cumulative += cost;
+    return { taskId, cost, cumulative, fits: cumulative <= budget };
+  });
+  return { items, total: cumulative, left: budget - cumulative, overBy: Math.max(0, cumulative - budget) };
+}
+
+export type Addability =
+  | { state: "in-plan"; text: string }
+  | { state: "fits"; text: string }
+  | { state: "no-room"; text: string }
+  | { state: "infeasible"; text: string };
+
+/**
+ * Why an action can or cannot be added, in plain language. "infeasible"
+ * comes from the engine (cost above the whole budget, or platform
+ * unavailable); "no-room" is plan arithmetic against the actions already added.
+ */
+export function addability(view: TaskView, draft: readonly string[], costs: Record<string, number>, budget: number): Addability {
+  if (draft.includes(view.taskId)) {
+    const fit = planFit(draft, costs, budget);
+    return { state: "in-plan", text: fit.overBy ? `In your plan, which is now ${fit.overBy} pts over budget.` : `In your plan · ${fit.left} pts left after all added actions.` };
+  }
+  if (view.status === "unavailable") return { state: "infeasible", text: "Not possible: its platform is unavailable in this scenario." };
+  if (view.status === "over-budget") return { state: "infeasible", text: `Not possible: needs ${view.cost} pts, but the whole budget is ${budget} pts.` };
+  const left = budget - planFit(draft, costs, budget).total;
+  if (view.cost > left) return { state: "no-room", text: `Doesn't fit your plan: needs ${view.cost} pts, only ${left} pts left. Remove an action or raise the budget.` };
+  return { state: "fits", text: `Fits: ${view.cost} pts, leaving ${left - view.cost} pts.` };
+}

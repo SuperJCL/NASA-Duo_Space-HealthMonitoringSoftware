@@ -50,15 +50,18 @@ try {
   const order = await cards.evaluateAll((els) => els.map((e) => [e.getAttribute("data-testid").replace("mg-card-", ""), e.getAttribute("data-rank")]));
   check(JSON.stringify(order) === JSON.stringify([["task-abrasion-proximity", "1"], ["task-core-for-earth", "2"], ["task-standoff-survey", "3"]]), `three scenario actions, ranked by the existing engine (got ${JSON.stringify(order)})`);
   const first = page.getByTestId("mg-card-task-abrasion-proximity");
-  check((await text(first.getByTestId("mg-rationale"))) === "Covers 2 of 3 open questions · adds close-up rover evidence · 40 pts", "Level 1 shows a one-line rationale");
-  check(/Fits: 40 of 100 pts/.test(await text(first.getByTestId("mg-status"))) && /Provisional/.test(await text(first)), "Level 1 shows status and that the rank is provisional");
-  check(/provisional and not scientifically validated/.test(await text(page.getByTestId("mg-ranking-note"))) && /50 relationships await expert review/.test(await text(page.getByTestId("mg-ranking-note"))), "ranking is stated as not validated; 50 relationships await review");
+  check((await text(first.getByTestId("mg-rationale"))) === "Covers 2 of 3 open questions · adds close-up rover evidence" && (await text(first.getByTestId("mg-cost"))) === "40 pts", "MG-1: Level 1 shows a one-line rationale and the cost");
+  check((await text(first.getByTestId("mg-status"))) === "Fits: 40 pts, leaving 60 pts.", "MG-1: Level 1 states feasibility in plain language");
+  check(/Priorities are provisional: existing MDI engine, not scientifically validated/.test(await text(page.getByTestId("mg-ranking-note"))) && /50 relationships await expert review/.test(await text(page.getByTestId("mg-ranking-note"))), "MG-1: provisional priorities are stated once, at the top");
+  const primaries = await page.getByTestId("mg-planning").locator("button.bg-\\[var\\(--mg-coral\\)\\]").count();
+  check(primaries === 1, `MG-1: one primary (filled) button in the planning panel (got ${primaries})`);
+  check((await page.getByTestId("mg-review-plan").isDisabled()) && /Your plan is empty/.test(await text(page.getByTestId("mg-plan-summary"))) && /1 Compare/.test(await text(page.getByTestId("mg-flow"))), "MG-1: empty plan: review disabled; the flow shows step 1");
   check(/Simulated target \(scenario-defined position\)/.test(await text(page.getByTestId("mg-legend"))) && /Verified NASA\/PDS data/.test(await text(page.getByTestId("mg-legend"))), "legend separates verified data from simulated targets");
 
   // ── Map ↔ card synchronisation ──
   await clickLonLat(page, targetLonLat({ east: -110, north: 120 })); // target A (survey)
   check((await page.getByTestId("mg-card-task-standoff-survey").getAttribute("data-selected")) === "true", "clicking a simulated target on the map selects its task card");
-  await first.click();
+  await first.getByTestId("mg-select").click();
   await settle(page);
   check((await first.getAttribute("data-selected")) === "true" && (await page.getByTestId("mg-card-task-standoff-survey").getAttribute("data-selected")) === "false", "selecting a card moves the selection (map highlights its target)");
   await clickLonLat(page, LEFROY);
@@ -72,7 +75,7 @@ try {
   const d = await text(detail);
   check(/Target B: scenario-defined position, 118 m straight-line from the verified Lefroy Bay site\. No route or safety assessment\./.test(d), "Level 2: target is scenario-defined; no route or safety claim");
   check(/Stays #1 in 6 of 6 runs/.test(d) && /at least 40 points/.test(d) && /await expert review/.test(d), "Level 2: priority conditions (stability, budget, pending review)");
-  check(/PIXL, SHERLOC, WATSON/.test(d) && /40 of 100 simulated effort points/.test(d), "Level 2: equipment and simulated resources");
+  check(/PIXL, SHERLOC, WATSON/.test(d), "Level 2: equipment");
 
   // ── Level 3 ──
   await first.getByTestId("mg-evidence").click();
@@ -86,23 +89,43 @@ try {
   await page.keyboard.press("Escape");
   check(!(await sheet.isVisible()), "Escape closes the evidence sheet");
 
-  // ── Simulated constraints ──
+  // ── MG-1: resources and feasibility ──
   await page.getByLabel("Simulated effort budget").fill("50");
   await settle(page);
   const order50 = await cards.evaluateAll((els) => els.map((e) => e.getAttribute("data-testid").replace("mg-card-", "")));
-  check(order50[0] === "task-standoff-survey" && /Needs 55 pts, budget is 50/.test(await text(page.getByTestId("mg-card-task-core-for-earth"))), "budget 50: the engine re-ranks; coring no longer fits");
-  check(await page.getByTestId("mg-card-task-core-for-earth").getByTestId("mg-plan-toggle").isDisabled(), "an infeasible task cannot be added to the plan");
+  const core = page.getByTestId("mg-card-task-core-for-earth");
+  check(order50[0] === "task-standoff-survey" && (await text(core.getByTestId("mg-status"))) === "Not possible: needs 55 pts, but the whole budget is 50 pts.", "MG-1: budget 50: engine re-ranks; coring explains why it is not possible");
+  check(await core.getByTestId("mg-plan-toggle").isDisabled(), "MG-1: an infeasible action cannot be added");
   await page.getByLabel("Simulated effort budget").fill("100");
   await settle(page);
 
-  // ── Create a plan ──
-  await page.getByTestId("mg-use-suggested").click();
-  check((await page.getByTestId("mg-draft").locator("li").count()) === 2 && /95 \/ 100 pts/.test(await text(page.getByTestId("mg-draft-cost"))), "suggested order fills the plan within the budget (95 of 100)");
-  await page.getByRole("button", { name: "Move down" }).first().click();
-  check(/1\. Collect a core sample/.test(await text(page.getByTestId("mg-draft"))), "the user can reorder the plan");
-  await page.getByRole("button", { name: "Move down" }).first().click();
+  // ── MG-1: compare → add → review → create ──
+  await first.getByTestId("mg-plan-toggle").click();
+  check((await first.getAttribute("data-addable")) === "in-plan" && /In your plan · 60 pts left/.test(await text(first.getByTestId("mg-status"))), "MG-1: adding updates the card and the remaining effort");
+  check(/2 Add/.test(await text(page.locator('[data-testid="mg-flow"] [aria-current="step"]'))), "MG-1: the flow indicator moves to step 2");
+  // Keyboard: focus the coring toggle and press Enter.
+  await core.getByTestId("mg-plan-toggle").focus();
+  await page.keyboard.press("Enter");
+  check((await core.getAttribute("data-addable")) === "in-plan", "MG-1: keyboard Enter adds an action");
+  const survey = page.getByTestId("mg-card-task-standoff-survey");
+  check((await text(survey.getByTestId("mg-status"))) === "Doesn't fit your plan: needs 15 pts, only 5 pts left. Remove an action or raise the budget." && (await survey.getByTestId("mg-plan-toggle").isDisabled()), "MG-1: explains why an action no longer fits the plan");
+  check(/Your plan · 2 action\(s\)/.test(await text(page.getByTestId("mg-plan-summary"))) && /95 of 100 pts/.test(await text(page.getByTestId("mg-draft-cost"))) && (await page.getByTestId("mg-plan-meter").locator("span").count()) === 2, "MG-1: plan bar summarises actions and effort");
+  await page.getByTestId("mg-review-plan").click();
+  await settle(page);
+  const review = page.getByTestId("mg-review");
+  check(await review.isVisible(), "MG-1: Review opens a plan summary before confirmation");
+  check((await page.evaluate(() => document.activeElement?.id)) === "mg-review-title", "MG-1: focus moves to the review heading");
+  check(/Uses 95 of 100 simulated points · 5 left/.test(await text(page.getByTestId("mg-review-total"))) && /executes nothing/.test(await text(review)) && /not scientifically validated/.test(await text(review)), "MG-1: summary shows total, remaining effort and caveats");
+  await page.getByRole("button", { name: "Move Collect a core sample up" }).click();
+  check(/^1\.Collect a core sample/.test((await text(page.getByTestId("mg-review-list"))).replace(/\s+/g, "")) || /1\.\s*Collect a core sample/.test(await text(page.getByTestId("mg-review-list"))), "MG-1: the order can be changed in review");
+  await page.getByRole("button", { name: "Move Collect a core sample down" }).click();
+  await page.keyboard.press("Escape");
+  check(!(await review.isVisible()) && (await page.getByTestId("mg-review-plan").isEnabled()), "MG-1: Escape returns to the actions without losing the draft");
+  await page.getByTestId("mg-review-plan").click();
   await page.getByTestId("mg-create-plan").click();
-  check(/Plan ready/.test(await text(page.getByTestId("mg-plan-bar"))), "a simulated mission plan is created");
+  await settle(page);
+  check(/Plan created · 2 action\(s\)/.test(await text(page.getByTestId("mg-plan-bar"))) && /Abrade and analyse a rock → Collect a core sample/.test(await text(page.getByTestId("mg-plan-bar"))), "MG-1: a simulated plan is created and summarised");
+  check(await page.getByLabel("Simulated effort budget").isDisabled(), "MG-1: the budget is locked while a plan exists (constraint changes come from scenario events)");
   await page.getByTestId("mg-start-eva").click();
   await settle(page, 1200);
 
@@ -139,7 +162,7 @@ try {
   // ── State shared with Planning ──
   await page.getByTestId("mg-mode-planning").click();
   await settle(page, 1000);
-  check(/Plan ready/.test(await text(page.getByTestId("mg-plan-bar"))), "Planning and EVA share one mission state");
+  check(/Plan created/.test(await text(page.getByTestId("mg-plan-bar"))), "Planning and EVA share one mission state");
 
   const body = await text(page.locator("body"));
   check(!/\bsafe route\b|real astronaut telemetry|validated ranking/i.test(body) && !/\b(live|real) telemetry\b/i.test(body.replace(/not real telemetry/g, "")), "no safe-route, real-telemetry or validated-ranking claims");
@@ -167,6 +190,7 @@ try {
   await tp.getByLabel("Simulated effort budget").fill("50");
   await tp.getByTestId("mg-card-task-abrasion-proximity").getByTestId("mg-expand").click();
   await tp.getByTestId("mg-use-suggested").click();
+  await tp.getByTestId("mg-review-plan").click();
   await tp.getByTestId("mg-create-plan").click();
   await tp.getByTestId("mg-start-eva").click();
   await settle(tp, 800);
