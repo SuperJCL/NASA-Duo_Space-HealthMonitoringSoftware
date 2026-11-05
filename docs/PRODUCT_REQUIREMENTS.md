@@ -1,7 +1,9 @@
 # Mars Discovery Intelligence (MDI) — Product Requirements
 
-Status: **v0.3 — direction approved 2026-11-04** (retrospective simulator,
-Zod validation, vertical-slice-first)
+Status: **v0.4 — present-day mission simulation is the default (owner
+decision 2026-11-05).** Historical replay, the former retrospective default,
+is an advanced feature. Earlier decisions: Zod validation, vertical slice
+first. Map-first design: `docs/MAP_FIRST_DESIGN.md`.
 Supersedes: "Mars Science Detective" concept (v0.1). This is an evolution of
 that concept, not a restart: the map, NASA data layer and app shell carry over.
 
@@ -10,8 +12,21 @@ that concept, not a restart: the map, NASA data layer and app shell carry over.
 > Given incomplete scientific evidence and limited mission resources, what
 > should a Mars explorer investigate next, and why?
 
-MDI is a **retrospective scientific investigation simulator** with decision
-support. The user picks a historical **snapshot date**; MDI uses only the
+**Default (since 2026-11-05):**
+- **A simulated present-day mission (2026)** that uses all verified records
+  in the dataset.
+- **The Mars map is the primary interface.** Users explore scientific
+  targets, compare simulated observation actions and choose a next action.
+- **Verified historical rover activity** (traverse, sample sites) is shown
+  separately from **simulated future actions**.
+- **It is not a NASA mission, an astronaut mission or live telemetry.**
+
+The engine, evidence model, review registry and citation rules are unchanged.
+The retrospective mode described below is kept as **Historical replay**, an
+advanced feature.
+
+**Historical replay:** MDI works as a **retrospective scientific
+investigation simulator** with decision support. The user picks a historical **snapshot date**; MDI uses only the
 evidence that was available on that date and ranks candidate observation tasks
 with explicit, deterministic logic. Each recommendation shows the evidence,
 assumptions and limitations behind it. Afterwards, the observations that came
@@ -52,7 +67,12 @@ Rules:
 - A recommendation must list every assumption and simulated parameter it used.
 - Simulated values are visibly labelled wherever they appear, including in exports.
 
-## 4. Temporal model (retrospective simulation)
+## 4. Temporal model
+
+**Present-day mode (default).** Evidence is selected with the existing
+`selectEvidenceAsOf` at the latest record date in the dataset, so no record
+is withheld. "2026" is a mission label, not a filter date. The sections below
+describe **Historical replay**.
 
 - **Scenario.** A site plus a default snapshot date and a pool of candidate
   tasks. Kept as data, so more scenarios can be added later without code
@@ -168,6 +188,10 @@ Out of scope for MVP:
 | 2026-11-05 (acceptance) | **Deferred:** Zastrow & Glotch and Moreland, recorded as outstanding research tasks (`docs/EVIDENCE_CURATION.md`). |
 | 2026-11-05 (RI-1) | One Zod-validated review registry covering every ranking-relevant relationship, including local/regional classification. Statuses: pending, approved, rejected, needs_revision. |
 | 2026-11-05 (RI-1) | The reviewed scenario ranking (approved relationships only) is the primary result. The provisional exploratory ranking is collapsed by default and labelled not validated. |
+| 2026-11-05 (product update) | **Default scenario: simulated present-day mission (2026)** using all verified records in the dataset. The retrospective 2023-09-08 scenario becomes the optional **Historical replay** (`defaultSnapshotDate` is kept as the replay default). |
+| 2026-11-05 (product update) | **Map-first.** Show the full verified Perseverance traverse, sample locations and NASA imagery. No mandatory wizard. Principle: Map First, Action First, Evidence on Demand, Human in Control. |
+| 2026-11-05 (product update) | Distinguish verified historical rover activity from simulated future actions. Never present the app as a real NASA or astronaut mission, or as live telemetry. |
+| 2026-11-05 (product update) | Evidence model, ranking integrity, citation provenance and review restrictions are preserved. **The scoring engine is not changed** until a change has been reviewed explicitly. |
 
 ## 9. Open questions
 

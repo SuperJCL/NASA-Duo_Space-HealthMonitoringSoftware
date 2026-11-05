@@ -934,3 +934,90 @@ D1–D5, listed in `docs/UX_REDESIGN_PROPOSAL.md` §7.
    buttons. Its behaviour with real screen readers is untested.
 9. **The reasons for NE values in the comparison table are still shown only
    on hover.**
+
+---
+
+## Assessment task: map-first interaction & 3D feasibility
+
+This task is tracked separately. Earlier recorded durations are unchanged.
+
+- **Started:** 2026-11-05T05:48:32Z (first command after the request).
+- **Completed:** 2026-11-05T05:58:55Z, when commit `f369591` was pushed on
+  branch `map-first-assessment` (from `main` `80e54d0`).
+- **Wall-clock elapsed:** 10 min 23 s.
+  - No subagents were used.
+  - No human intervention.
+  - The owner's review time is not included.
+- **Scope:** read-only research and documentation. No application code,
+  data or dependencies changed. UX-1 (`ux1-guided-workflow`, `09e8fa4`) is
+  untouched and not merged. Output: `docs/MAP_FIRST_ASSESSMENT.md`.
+
+### Findings recorded (details in the assessment)
+
+- **Jezero DTMs.**
+  - Trek serves the CTX (20 m) and HiRISE (1 m) Jezero DTMs as GeoTIFF
+    downloads only, not as WMTS.
+  - The CTX DTM was downloaded and inspected: float32, Mars 2000 sphere,
+    heights relative to the areoid. It agrees with the PDS coring-site
+    elevations to within 3 m.
+  - The HiRISE DTM is 1.84 GB, and its endpoint ignores Range requests.
+- **Perseverance traverse.**
+  - It is available as queryable vector polylines with a `sol` field: 332
+    segments, sols 14–1176.
+  - The dataset's catalog date is 2024-07-03, after the snapshot. This is
+    an open temporal-policy decision.
+- **PDS coring coordinates** lie within 2.5 m of the traverse. This
+  corroborates a planetocentric, east-positive convention and partly
+  resolves R3. All three sites are after the snapshot.
+- **Blocked by the proxy (403), not bypassed:** www.usgs.gov,
+  hirise.lpl.arizona.edu and registry.opendata.aws.
+
+### Rework
+
+- A Python parser assumed every traverse feature was a `LineString`. Four
+  are `MultiLineString`; this was fixed in the scratch script.
+- A Range-request probe streamed 480 MB before timing out. It showed that
+  the server does not support Range, and the partial file was deleted.
+
+---
+
+## Requirement change: present-day mission simulation (design update)
+
+This task is tracked separately. Earlier recorded durations are unchanged,
+including the map-first assessment's 10 min 23 s.
+
+- **Started:** 2026-11-05T06:12:43Z (first command after the owner's decision).
+- **Completed:** 2026-11-05T06:17:18Z, when the documents were committed on branch
+  `map-first-assessment`.
+- **Wall-clock elapsed:** 4 min 35 s.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:** design and documentation only. No application code, data,
+  dependencies or engine changes. MF-0 had not started, so there was no
+  completed work to preserve. UX-1 is untouched and not merged.
+
+### Work performed
+
+- **Engine check (read-only, scratch test outside the repo).**
+  - In present-day mode (all records) the existing engine gives the same
+    result as the `2025-05-06` baseline state:
+    - reviewed ranking unavailable (50 awaiting review);
+    - provisional top task abrasion (0.743), ahead of coring (0.700);
+    - margin 0.043; 3 pivotal inputs;
+    - `gap-no-in-situ-data` addressed.
+  - No engine change is needed.
+- **Data probes.**
+  - The Trek traverse ends at sol 1176. The rover's last position in the
+    dataset is 18.49568° N, 77.30381° E.
+  - mars.nasa.gov (MMGIS) is blocked by the proxy (403).
+  - Trek has no sample-location layer.
+  - PDS sample-dossier initial reports exist as volumes 1–5 (volume 5
+    label dated 2026-02-10).
+  - Volume 4 states the coordinates for Pelican Point, Lefroy Bay and Comet
+    Geyser. Lefroy Bay is now confirmed from the source text.
+- **Documents.**
+  - New `docs/MAP_FIRST_DESIGN.md`: MF-0 design, revised MF-1 to MF-4 and
+    decisions D1–D6.
+  - Updated `docs/PRODUCT_REQUIREMENTS.md` (v0.4, decisions log),
+    `docs/DEVELOPMENT_PLAN.md` (MF rows; stale RI-1 row corrected) and the
+    superseded note in `docs/MAP_FIRST_ASSESSMENT.md`.
