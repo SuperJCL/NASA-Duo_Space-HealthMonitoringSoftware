@@ -587,3 +587,85 @@ above is unchanged.
 ### Human decisions required
 
 D1–D5, listed in `docs/UX_REDESIGN_PROPOSAL.md` §7.
+
+---
+
+## UX-0: Translation-crash fix and acceptance stability
+
+- **Started:** 2026-11-05T02:54:05Z, after the owner's acceptance decisions
+  (recorded in the PRD decisions log).
+- **Completed:** the merge commit on `main` (see git log), at about
+  2026-11-05T03:05Z.
+- **Wall-clock elapsed:** about 11 min.
+  - No subagents were used.
+  - No human intervention during the work.
+- **Baseline:** branch `ux0-stability` from `ux-proposal` @ `c2c4480`. Its
+  code is identical to M3 `64506ea`; it only adds the proposal docs.
+
+### Fixed
+
+- **The crash.**
+  - The comparison-table header rendered `{inBasis ? "" : "*"}` as a bare text
+    node. When every task becomes infeasible (all platforms off, or budget 0),
+    React removes that node.
+  - Under browser page translation the node had already been replaced, so
+    React threw `NotFoundError: removeChild`.
+  - Fix: render it as a single template string inside the `<th>`.
+- **The same problem elsewhere** (translation safety). All other dynamic or
+  conditional text was audited in `DecisionSection`, `EvidenceSection`,
+  `RevealSection`, `InvestigationWorkspace`, `Citations` and
+  `EpistemicBadge`.
+  - Every changeable string is now the **sole child of an element** (one
+    template string). Under translation, React then updates whole elements
+    instead of orphaned text nodes.
+  - This prevents both crashes and **stale values**: without it, scores,
+    weights and reasons would stop updating on screen after translation.
+- **The misleading label.** With no feasible task, the basis labels read
+  "Ranking basis: not applicable — no task is feasible…" instead of "In
+  ranking basis", and the table shows no `*` markers.
+  - This is a UI-level change; the engine output is unchanged (see below).
+
+### Verification (all passed)
+
+- **Engine unchanged.**
+  - The full `recommend()` output for 36 states (3 dates × 6 constraint
+    sets × 2 weight sets) is **byte-identical** before and after the change.
+  - `git diff` shows no changes under `src/lib` or `src/data`, apart from
+    one added test.
+- **`npx vitest run`:** 86/86. The new real-data test covers both no-feasible
+  states: all four tasks are excluded with explicit reasons, and the status
+  is not-ranked.
+- **Static checks and build:** `tsc`, `eslint`, `npm run build` and
+  `npm run check` are clean (03:03:08Z).
+- **Smoke test:** 47/47 against `next start` (with `SMOKE_LIVE=1`) and 47/47
+  against `next dev`. It includes **22 new UX-0 checks**, run twice: once
+  clean and once under a simulated page translation.
+  - Disabling all platforms or setting the budget to 0 raises no page error,
+    shows the explanation and the "not applicable" basis label.
+  - Reset restores the default top task.
+  - With the budget at 30 the top task changes to the stand-off survey, and
+    the weight label refreshes to `w5` (the stale-value check).
+- **The regression check catches the bug.** The same smoke script, run
+  against the pre-fix M3 build, failed. Under translation it reproduced the
+  `removeChild` crash, and the "not applicable" checks failed.
+- **`npm run verify:citations`:** 37/37 quotes matched live (03:03:58Z).
+
+### Rework
+
+- A smoke-test locator first matched the "Deterministic" badge instead of
+  the weight value. The bug was in the test, not the app; it was fixed in
+  about 1 min.
+
+### Also delivered
+
+- `docs/RANKING_INTEGRITY_PROPOSAL.md`: a follow-up design for owner
+  decision 4. Not implemented.
+- Outstanding research tasks R1–R3 recorded in `docs/EVIDENCE_CURATION.md`.
+- PRD decisions log and plan milestone table updated.
+
+### Known open items (unchanged scientific behavior)
+
+- **The exploratory ranking is still shown as "Top-ranked".** Unreviewed
+  links still drive it. They are flagged in the explanations, but the
+  validated/provisional split (decision 4) waits for RI-1.
+- **All 11 curation items are pending.** D1 stays unapproved.

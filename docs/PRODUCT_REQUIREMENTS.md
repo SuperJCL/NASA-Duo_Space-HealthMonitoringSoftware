@@ -159,6 +159,13 @@ Out of scope for MVP:
 | 2026-11-05 | Default snapshot 2023-09-08 confirmed by the user. |
 | 2026-11-05 (M3) | Records carry `relevance` (local / regional-context); SIM 3464 unit Nue reclassified as regional context (see `docs/SCIENTIFIC_REVIEW_M3.md`). |
 | 2026-11-05 (M3) | Five-dimension decision model; curated criteria require human approval; Not Evaluated instead of fabricated scores (see `docs/DECISION_MODEL.md`). |
+| 2026-11-05 (acceptance) | **Approved:** the guided five-step experience (Mission → Evidence → Unknowns → Decision → Result). |
+| 2026-11-05 (acceptance) | **Approved:** the map stays persistently accessible and is connected to the selected scientific context. |
+| 2026-11-05 (acceptance) | **Approved:** progressive disclosure, with provenance, limitations, pending-review status and warnings kept visible when relevant. |
+| 2026-11-05 (acceptance) | **Not approved:** unreviewed AI-curated relationships silently influencing an authoritative recommendation. Follow-up: `docs/RANKING_INTEGRITY_PROPOSAL.md`. |
+| 2026-11-05 (acceptance) | **Pending review:** all 11 curation items, none auto-approved; D1 stays unapproved. |
+| 2026-11-05 (acceptance) | **Approved in principle:** fix the translation crash (UX-0), run regression tests, then merge M3 into `main` if the scientific behavior is preserved. |
+| 2026-11-05 (acceptance) | **Deferred:** Zastrow & Glotch and Moreland, recorded as outstanding research tasks (`docs/EVIDENCE_CURATION.md`). |
 
 ## 9. Open questions
 

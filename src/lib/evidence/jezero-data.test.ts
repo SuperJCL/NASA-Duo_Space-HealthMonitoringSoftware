@@ -85,6 +85,27 @@ describe("Jezero Margin Unit scenario data", () => {
     });
   });
 
+  it("UX-0: all platforms disabled or budget 0 → no ranking, every task excluded with a reason", () => {
+    const { snapshot } = selectEvidenceAsOf(scenario, scenario.defaultSnapshotDate);
+    const noPlatforms = recommend(snapshot, DEFAULT_WEIGHTS, {
+      budgets: { "res-effort": 100 },
+      unavailablePlatforms: ["orbital", "rover", "lab"],
+    });
+    const budgetZero = recommend(snapshot, DEFAULT_WEIGHTS, { budgets: { "res-effort": 0 }, unavailablePlatforms: [] });
+    for (const rec of [noPlatforms, budgetZero]) {
+      expect(rec.status).toEqual({ state: "not-ranked", reason: "No task is feasible under the current constraints." });
+      expect(rec.ranking).toEqual([]);
+      expect(rec.unranked).toEqual([]);
+      expect(rec.infeasible.map((t) => t.taskId).sort()).toEqual(scenario.tasks.map((t) => t.id).sort());
+    }
+    expect(noPlatforms.infeasible.find((t) => t.taskId === "task-abrasion-proximity")?.reason).toBe(
+      'Platform "rover" is unavailable under the current constraints.',
+    );
+    expect(budgetZero.infeasible.find((t) => t.taskId === "task-orbital-stereo")?.reason).toBe(
+      "Needs 10 points of Investigation effort; simulated budget is 0.",
+    );
+  });
+
   it("keeps SIM 3464 (unit Nue) and the crater-wide mineral map as regional context", () => {
     const relevance = (id: string) =>
       [...scenario.observations, ...scenario.interpretations, ...scenario.gaps].find((r) => r.id === id)?.relevance;

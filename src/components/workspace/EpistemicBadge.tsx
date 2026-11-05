@@ -24,8 +24,7 @@ export function EpistemicBadge({ kind, detail }: { kind: EpistemicKind; detail?:
     <span
       className={`inline-flex shrink-0 items-center rounded border px-1.5 py-px font-mono text-[10px] uppercase tracking-wider ${style.className}`}
     >
-      {style.label}
-      {detail ? ` · ${detail}` : ""}
+      {detail ? `${style.label} · ${detail}` : style.label}
     </span>
   );
 }

@@ -63,7 +63,7 @@ export function InvestigationWorkspace({ scenario, sources }: Props) {
         </h2>
         <details className="mt-1 text-xs text-muted">
           <summary className="cursor-pointer">
-            {scenario.site.name} · {scenario.site.parentFeature}
+            {`${scenario.site.name} · ${scenario.site.parentFeature}`}
           </summary>
           <p className="mt-1">{scenario.site.description}</p>
           <Citations citations={scenario.site.citations} sourceById={sourceById} />
@@ -98,12 +98,15 @@ export function InvestigationWorkspace({ scenario, sources }: Props) {
           </button>
         </div>
         <p className="mt-2 text-[11px] text-muted" data-testid="snapshot-summary">
-          Using evidence public on or before {asOf}:{" "}
-          {snapshot.observations.filter((o) => o.relevance === "local").length} margin-unit observations,{" "}
-          {snapshot.interpretations.filter((i) => i.relevance === "local").length} hypotheses/interpretations,{" "}
-          {snapshot.gaps.filter((g) => g.relevance === "local").length} gaps, plus{" "}
-          {[...snapshot.observations, ...snapshot.interpretations, ...snapshot.gaps].filter((r) => r.relevance === "regional-context").length}{" "}
-          regional-context records. {snapshot.hiddenLaterCount} later record(s) withheld.
+          {`Using evidence public on or before ${asOf}: ${
+            snapshot.observations.filter((o) => o.relevance === "local").length
+          } margin-unit observations, ${
+            snapshot.interpretations.filter((i) => i.relevance === "local").length
+          } hypotheses/interpretations, ${snapshot.gaps.filter((g) => g.relevance === "local").length} gaps, plus ${
+            [...snapshot.observations, ...snapshot.interpretations, ...snapshot.gaps].filter(
+              (r) => r.relevance === "regional-context",
+            ).length
+          } regional-context records. ${snapshot.hiddenLaterCount} later record(s) withheld.`}
         </p>
       </div>
 

@@ -78,10 +78,12 @@ function InterpretationCard({
       <p className="mt-1.5 text-sm font-medium">{i.title}</p>
       <p className="mt-0.5 text-xs text-foreground/85">{i.claim}</p>
       {i.supportingObservationIds.length ? (
-        <p className="mt-1 text-[11px] text-muted">Based on: {i.supportingObservationIds.map(titleOf).join("; ")}</p>
+        <p className="mt-1 text-[11px] text-muted">{`Based on: ${i.supportingObservationIds.map(titleOf).join("; ")}`}</p>
       ) : null}
       {i.contextRecordIds.length ? (
-        <p className="mt-1 text-[11px] text-muted">Regional context (not local support): {i.contextRecordIds.map(titleOf).join("; ")}</p>
+        <p className="mt-1 text-[11px] text-muted">
+          {`Regional context (not local support): ${i.contextRecordIds.map(titleOf).join("; ")}`}
+        </p>
       ) : null}
       <Citations citations={i.citations} sourceById={sourceById} />
       <CurationNote note={i.curationNote} />
@@ -112,16 +114,16 @@ function GapCard({
       <p className="mt-0.5 text-xs text-foreground/85">{g.question}</p>
       {g.discriminatesInterpretationIds.length ? (
         <p className="mt-0.5 text-[11px] text-muted">
-          Competing hypotheses it concerns: {g.discriminatesInterpretationIds.map(titleOf).join(" vs. ")}
+          {`Competing hypotheses it concerns: ${g.discriminatesInterpretationIds.map(titleOf).join(" vs. ")}`}
         </p>
       ) : null}
       {g.status.state === "addressed" ? (
-        <p className="mt-0.5 text-[11px] text-ok">Addressed by: {g.status.byObservationIds.map(titleOf).join("; ")}</p>
+        <p className="mt-0.5 text-[11px] text-ok">{`Addressed by: ${g.status.byObservationIds.map(titleOf).join("; ")}`}</p>
       ) : null}
       {g.origin.kind === "cited" ? (
         <Citations citations={g.origin.citations} sourceById={sourceById} />
       ) : (
-        <p className="mt-1 text-[11px] text-muted">Derived by rule: {g.origin.rule}</p>
+        <p className="mt-1 text-[11px] text-muted">{`Derived by rule: ${g.origin.rule}`}</p>
       )}
       {g.priority ? (
         <div className="mt-2 rounded border border-border px-2 py-1.5">
@@ -226,8 +228,8 @@ export function Section({
     <details open={defaultOpen} className="group border-b border-border px-4 py-3">
       <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold">
         <span>
-          {title}
-          {count !== undefined ? <span className="ml-1.5 font-normal text-muted">({count})</span> : null}
+          <span>{title}</span>
+          {count !== undefined ? <span className="ml-1.5 font-normal text-muted">{`(${count})`}</span> : null}
         </span>
         <span aria-hidden className="text-muted transition-transform group-open:rotate-90">
           ›
@@ -242,7 +244,8 @@ export function CurationNote({ note }: { note?: string }) {
   if (!note) return null;
   return (
     <p className="mt-2 rounded bg-background/60 px-2 py-1 text-[11px] text-muted">
-      <span className="font-semibold">MDI curation note:</span> {note}
+      <span className="font-semibold">{"MDI curation note: "}</span>
+      <span>{note}</span>
     </p>
   );
 }

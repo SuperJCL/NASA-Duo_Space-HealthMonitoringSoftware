@@ -31,7 +31,7 @@ export function RevealSection({ asOf, later, review, tasks, allGaps, sourceById 
       {!revealed ? (
         <div>
           <p className="text-xs text-muted">
-            {count} record(s) published after {asOf} are hidden and were not used for the recommendation.
+            {`${count} record(s) published after ${asOf} are hidden and were not used for the recommendation.`}
           </p>
           <button
             type="button"
@@ -49,20 +49,20 @@ export function RevealSection({ asOf, later, review, tasks, allGaps, sourceById 
             {review.topTaskId ? (
               <>
                 <p className="mt-1">
-                  The top-ranked task (&ldquo;{topTitle}&rdquo;) targeted {review.topTaskGapsAddressedLater.length +
-                    review.topTaskGapsNotAddressedLater.length}{" "}
-                  open gap(s).
+                  {`The top-ranked task (\u201c${topTitle}\u201d) targeted ${
+                    review.topTaskGapsAddressedLater.length + review.topTaskGapsNotAddressedLater.length
+                  } open gap(s).`}
                 </p>
                 {review.topTaskGapsAddressedLater.length ? (
                   <p className="mt-1 text-ok">
-                    Later evidence bears on:{" "}
-                    {review.topTaskGapsAddressedLater.map((g) => gapQuestion.get(g) ?? g).join(" · ")}
+                    {`Later evidence bears on: ${review.topTaskGapsAddressedLater.map((g) => gapQuestion.get(g) ?? g).join(" · ")}`}
                   </p>
                 ) : null}
                 {review.topTaskGapsNotAddressedLater.length ? (
                   <p className="mt-1 text-muted">
-                    Not addressed by later evidence in this dataset:{" "}
-                    {review.topTaskGapsNotAddressedLater.map((g) => gapQuestion.get(g) ?? g).join(" · ")}
+                    {`Not addressed by later evidence in this dataset: ${review.topTaskGapsNotAddressedLater
+                      .map((g) => gapQuestion.get(g) ?? g)
+                      .join(" · ")}`}
                   </p>
                 ) : null}
               </>
@@ -81,9 +81,10 @@ export function RevealSection({ asOf, later, review, tasks, allGaps, sourceById 
           </ul>
           {later.interpretations.length || later.gaps.length ? (
             <p className="mt-2 text-[11px] text-muted">
-              Also published later: {later.interpretations.map((i) => `${i.title} (${i.availableFrom})`).join("; ")}
-              {later.interpretations.length && later.gaps.length ? "; " : ""}
-              {later.gaps.map((g) => `${g.title} (${g.availableFrom})`).join("; ")}
+              {`Also published later: ${[
+                ...later.interpretations.map((i) => `${i.title} (${i.availableFrom})`),
+                ...later.gaps.map((g) => `${g.title} (${g.availableFrom})`),
+              ].join("; ")}`}
             </p>
           ) : null}
         </div>

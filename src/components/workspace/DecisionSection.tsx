@@ -66,6 +66,15 @@ export function DecisionSection(props: Props) {
   const rows: (TaskEvaluation & { rank?: number; total?: number })[] = rec.status.state === "ranked" ? rec.ranking : rec.unranked;
   const top = rec.ranking[0];
   const topTask = top ? taskById.get(top.taskId) : undefined;
+  // With no feasible task there is nothing to rank, so "ranking basis" does not apply.
+  const noFeasibleTask = rec.ranking.length === 0 && rec.unranked.length === 0;
+  const stabilityText = `stays #1 in ${rec.stability.topUnchanged} of ${rec.stability.trials} runs with each basis weight changed by ±${pct(
+    rec.stability.perturbation,
+  )}%${rec.stability.margin !== null ? `; lead over #2: ${pct(rec.stability.margin)} points.` : "."}`;
+
+  // Translation safety: every piece of text that can change is the sole child
+  // of an element (a single template string). Browser page translators replace
+  // text nodes; React can then update or remove only whole elements.
 
   return (
     <>
@@ -79,14 +88,12 @@ export function DecisionSection(props: Props) {
             <li key={t.id} className="rounded-md border border-border bg-surface-raised p-3" data-record-id={t.id}>
               <div className="flex flex-wrap items-center gap-1.5">
                 <EpistemicBadge kind="simulated" detail="task" />
-                <span className="text-[11px] text-muted">
-                  {t.platform} · {t.instruments.join(", ")}
-                </span>
+                <span className="text-[11px] text-muted">{`${t.platform} · ${t.instruments.join(", ")}`}</span>
               </div>
               <p className="mt-1.5 text-sm font-medium">{t.title}</p>
               <p className="mt-0.5 text-xs text-foreground/85">{t.description}</p>
               <p className="mt-1 text-[11px] text-muted">
-                Cost: {resources.map((r) => `${t.costs[r.id] ?? "missing"} ${r.unit} (${r.name})`).join("; ")}
+                {`Cost: ${resources.map((r) => `${t.costs[r.id] ?? "missing"} ${r.unit} (${r.name})`).join("; ")}`}
               </p>
               <div className="mt-2" data-testid="task-gap-links">
                 <p className="text-[11px] font-semibold">Evidence gaps this task addresses (MDI curation)</p>
@@ -103,7 +110,7 @@ export function DecisionSection(props: Props) {
                             {g?.status.state === "addressed" ? <span className="text-ok">(addressed)</span> : null}
                             <ReviewBadge review={l.review} />
                           </span>
-                          <span className="block text-muted">Why: {l.rationale}</span>
+                          <span className="block text-muted">{`Why: ${l.rationale}`}</span>
                           <Citations citations={l.citations} sourceById={sourceById} />
                         </li>
                       );
@@ -118,13 +125,13 @@ export function DecisionSection(props: Props) {
                     <p className="flex flex-wrap items-center gap-1.5">
                       <EpistemicBadge kind="curated" detail="discrimination" /> <ReviewBadge review={a.review} />
                     </p>
-                    <p className="mt-1">Competing: {a.hypothesisIds.map(interpTitle).join(" vs. ")}</p>
+                    <p className="mt-1">{`Competing: ${a.hypothesisIds.map(interpTitle).join(" vs. ")}`}</p>
                     <ul className="mt-1 list-disc pl-4">
                       {a.outcomes.map((o, n) => (
                         <li key={n}>
-                          If observed: {o.ifObserved}
-                          {o.favors.length ? ` → favors ${o.favors.map(interpTitle).join(", ")}` : ""}
-                          {o.weakens.length ? ` → weakens ${o.weakens.map(interpTitle).join(", ")}` : ""}
+                          {`If observed: ${o.ifObserved}${o.favors.length ? ` → favors ${o.favors.map(interpTitle).join(", ")}` : ""}${
+                            o.weakens.length ? ` → weakens ${o.weakens.map(interpTitle).join(", ")}` : ""
+                          }`}
                         </li>
                       ))}
                     </ul>
@@ -146,9 +153,7 @@ export function DecisionSection(props: Props) {
           {resources.map((r) => (
             <label key={r.id} className="block text-xs">
               <span className="flex justify-between">
-                <span className="font-medium">
-                  {r.name} budget ({r.unit})
-                </span>
+                <span className="font-medium">{`${r.name} budget (${r.unit})`}</span>
                 <span className="font-mono text-muted">{constraints.budgets[r.id] ?? r.budget}</span>
               </span>
               <input
@@ -180,7 +185,7 @@ export function DecisionSection(props: Props) {
                 }
                 className="accent-accent"
               />
-              {p.label} available
+              <span>{`${p.label} available`}</span>
             </label>
           ))}
           <button type="button" onClick={props.onResetConstraints} className="rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised">
@@ -203,7 +208,7 @@ export function DecisionSection(props: Props) {
                   <span className="flex items-center gap-1.5 font-medium">
                     {c.name} <EpistemicBadge kind={c.basis} />
                   </span>
-                  <span className="font-mono text-muted">w{weights[c.id]}</span>
+                  <span className="font-mono text-muted">{`w${weights[c.id]}`}</span>
                 </span>
                 <input
                   type="range"
@@ -219,8 +224,15 @@ export function DecisionSection(props: Props) {
                 <span id={`rule-${c.id}`} className="block text-[11px] text-muted">
                   {c.rule}
                 </span>
-                <span className={`block text-[11px] ${b.inBasis ? "text-ok" : "text-warn"}`} data-testid={`basis-${c.id}`}>
-                  {b.inBasis ? "In ranking basis." : `Not in ranking basis: ${b.reason}`}
+                <span
+                  className={`block text-[11px] ${noFeasibleTask ? "text-muted" : b.inBasis ? "text-ok" : "text-warn"}`}
+                  data-testid={`basis-${c.id}`}
+                >
+                  {noFeasibleTask
+                    ? "Ranking basis: not applicable — no task is feasible under the current constraints."
+                    : b.inBasis
+                      ? "In ranking basis."
+                      : `Not in ranking basis: ${b.reason}`}
                 </span>
               </label>
             );
@@ -234,7 +246,7 @@ export function DecisionSection(props: Props) {
       <Section title="Comparison">
         {rec.status.state === "not-ranked" ? (
           <p className="mb-2 text-xs text-warn" data-testid="not-ranked">
-            Not ranked: {rec.status.reason}
+            {`Not ranked: ${rec.status.reason}`}
           </p>
         ) : null}
         <div className="overflow-x-auto">
@@ -245,8 +257,7 @@ export function DecisionSection(props: Props) {
                 <th className="py-1 pr-2 font-normal">Task</th>
                 {CRITERIA.map((c) => (
                   <th key={c.id} className="py-1 pr-2 text-right font-normal" title={c.rule}>
-                    {SHORT_LABEL[c.id]}
-                    {inBasis.has(c.id) ? "" : "*"}
+                    {`${SHORT_LABEL[c.id]}${noFeasibleTask || inBasis.has(c.id) ? "" : "*"}`}
                   </th>
                 ))}
                 <th className="py-1 text-right font-normal">Score</th>
@@ -269,9 +280,7 @@ export function DecisionSection(props: Props) {
         {rec.infeasible.length ? (
           <ul className="mt-2 space-y-1 text-[11px] text-warn" data-testid="infeasible">
             {rec.infeasible.map((t) => (
-              <li key={t.taskId}>
-                Not ranked — {taskById.get(t.taskId)?.title ?? t.taskId}: {t.reason}
-              </li>
+              <li key={t.taskId}>{`Not ranked — ${taskById.get(t.taskId)?.title ?? t.taskId}: ${t.reason}`}</li>
             ))}
           </ul>
         ) : null}
@@ -286,7 +295,7 @@ export function DecisionSection(props: Props) {
           <div data-testid="recommendation">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-muted">Top-ranked as of {rec.asOf}</p>
+                <p className="text-[11px] uppercase tracking-wider text-muted">{`Top-ranked as of ${rec.asOf}`}</p>
                 <p className="text-base font-semibold" data-testid="top-task">
                   {topTask.title}
                 </p>
@@ -326,11 +335,9 @@ export function DecisionSection(props: Props) {
               })}
             </ul>
 
-            <p className="mt-3 text-xs">
-              <span className="font-semibold">Stability: </span>
-              stays #1 in {rec.stability.topUnchanged} of {rec.stability.trials} runs with each basis weight changed by ±
-              {pct(rec.stability.perturbation)}%
-              {rec.stability.margin !== null ? `; lead over #2: ${pct(rec.stability.margin)} points.` : "."}
+            <p className="mt-3 text-xs" data-testid="stability">
+              <span className="font-semibold">{"Stability: "}</span>
+              <span>{stabilityText}</span>
             </p>
 
             <h4 className="mt-3 text-xs font-semibold">Assumptions</h4>
@@ -340,7 +347,7 @@ export function DecisionSection(props: Props) {
                 if (!a) return null;
                 return (
                   <li key={id} className="text-xs">
-                    <EpistemicBadge kind="assumed" /> {a.statement}
+                    <EpistemicBadge kind="assumed" /> <span>{a.statement}</span>
                     <span className="block text-[11px] text-muted">{a.rationale}</span>
                     <Citations citations={a.citations} sourceById={sourceById} />
                   </li>
@@ -354,11 +361,11 @@ export function DecisionSection(props: Props) {
                 <li key={l}>{l}</li>
               ))}
             </ul>
-            <p className="mt-2 font-mono text-[10px] text-muted">engine v{rec.engineVersion}</p>
+            <p className="mt-2 font-mono text-[10px] text-muted">{`engine v${rec.engineVersion}`}</p>
           </div>
         ) : (
           <p className="text-xs text-warn" data-testid="no-recommendation">
-            No recommendation: {rec.status.state === "not-ranked" ? rec.status.reason : "no ranked task."}
+            {`No recommendation: ${rec.status.state === "not-ranked" ? rec.status.reason : "no ranked task."}`}
           </p>
         )}
       </Section>
