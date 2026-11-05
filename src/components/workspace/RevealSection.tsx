@@ -76,14 +76,14 @@ export function RevealSection({ asOf, later, review, tasks, allGaps, sourceById 
           </div>
           <ul className="mt-2 space-y-2">
             {later.observations.map((o) => (
-              <ObservationCard key={o.id} observation={o} sourceById={sourceById} later />
+              <ObservationCard key={o.id} observation={o} sourceById={sourceById} revealedAfter={asOf} />
             ))}
           </ul>
           {later.interpretations.length || later.gaps.length ? (
             <p className="mt-2 text-[11px] text-muted">
-              Also published later: {later.interpretations.map((i) => i.title).join("; ")}
+              Also published later: {later.interpretations.map((i) => `${i.title} (${i.availableFrom})`).join("; ")}
               {later.interpretations.length && later.gaps.length ? "; " : ""}
-              {later.gaps.map((g) => g.question).join("; ")}
+              {later.gaps.map((g) => `${g.title} (${g.availableFrom})`).join("; ")}
             </p>
           ) : null}
         </div>

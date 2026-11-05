@@ -1,10 +1,18 @@
 const STYLES = {
   observed: { label: "Observed", className: "border-ok/60 text-ok" },
+  measured: { label: "Measured in situ", className: "border-emerald-300/60 text-emerald-200" },
   interpreted: { label: "Interpreted", className: "border-sky-400/60 text-sky-300" },
+  hypothesis: { label: "Hypothesis", className: "border-cyan-400/60 text-cyan-300" },
+  context: { label: "Regional context", className: "border-stone-400/60 text-stone-300" },
   gap: { label: "Gap", className: "border-warn/60 text-warn" },
   assumed: { label: "Assumed", className: "border-violet-400/60 text-violet-300" },
   simulated: { label: "Simulated", className: "border-accent/70 text-accent" },
   later: { label: "Published later", className: "border-muted/60 text-muted" },
+  deterministic: { label: "Deterministic", className: "border-ok/50 text-ok" },
+  curated: { label: "Curated", className: "border-violet-400/60 text-violet-300" },
+  pending: { label: "AI draft · pending review", className: "border-warn/70 text-warn" },
+  approved: { label: "Human-approved", className: "border-ok/70 text-ok" },
+  rejected: { label: "Rejected", className: "border-error/70 text-error" },
 } as const;
 
 export type EpistemicKind = keyof typeof STYLES;
@@ -20,4 +28,12 @@ export function EpistemicBadge({ kind, detail }: { kind: EpistemicKind; detail?:
       {detail ? ` · ${detail}` : ""}
     </span>
   );
+}
+
+export function ReviewBadge({ review }: { review: { status: "pending" | "approved" | "rejected"; draftedBy: string; reviewedBy?: string; reviewedOn?: string } }) {
+  if (review.status === "approved") {
+    return <EpistemicBadge kind="approved" detail={`${review.reviewedBy} ${review.reviewedOn}`} />;
+  }
+  if (review.status === "rejected") return <EpistemicBadge kind="rejected" />;
+  return review.draftedBy === "ai-agent" ? <EpistemicBadge kind="pending" /> : <EpistemicBadge kind="curated" detail="pending review" />;
 }

@@ -149,6 +149,33 @@ try {
   console.log(`INFO  top task at default snapshot: ${topAtDefault}`);
   check((await page.getByTestId("comparison-table").locator("tbody tr").count()) > 0, "comparison table has ranked tasks");
 
+  // M3: regional context, Not Evaluated criteria, curated links, constraints.
+  const regionalSim = page.locator('[data-record-id="obs-upper-etched-unit-mapping"]');
+  check(
+    (await regionalSim.getAttribute("data-relevance")) === "regional-context",
+    "SIM 3464 unit Nue is shown as regional context, not a margin-unit observation",
+  );
+  check(
+    (await page.getByTestId("comparison-table").getByText("NE").count()) > 0,
+    "comparison table shows Not Evaluated (NE) for unapproved curated criteria",
+  );
+  check(
+    (await page.getByTestId("basis-hypothesis-discrimination").textContent())?.includes("Not in ranking basis") ?? false,
+    "hypothesis discrimination is excluded from the ranking basis with a reason",
+  );
+  check(
+    (await page.getByTestId("task-gap-links").first().getByText("AI draft · pending review").count()) > 0,
+    "task-gap links show their rationale and pending-review status",
+  );
+  const budget = page.getByLabel("Investigation effort budget");
+  await budget.fill("30");
+  const infeasibleText = (await page.getByTestId("infeasible").textContent()) ?? "";
+  check(/Needs 40 points of Investigation effort; simulated budget is 30/.test(infeasibleText), "lower budget excludes tasks with a stated reason");
+  const topAt30 = (await page.getByTestId("top-task").textContent())?.trim();
+  console.log(`INFO  top task with budget 30: ${topAt30}`);
+  check(topAt30 === "Stand-off survey of margin outcrops", "re-ranking under the budget constraint is deterministic");
+  await page.getByRole("button", { name: "Reset constraints" }).click();
+
   await page.getByRole("button", { name: "Reveal later evidence" }).click();
   check((await page.getByTestId("reveal").count()) === 1, "reveal shows later evidence on request");
 

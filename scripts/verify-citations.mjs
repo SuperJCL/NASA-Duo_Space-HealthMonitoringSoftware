@@ -46,8 +46,13 @@ const add = (record, citations) => {
 add("site", scenario.site.citations);
 for (const o of scenario.observations) add(o.id, o.citations);
 for (const i of scenario.interpretations) add(i.id, i.citations);
-for (const g of scenario.gaps) if (g.origin.kind === "cited") add(g.id, g.origin.citations);
+for (const g of scenario.gaps) {
+  if (g.origin.kind === "cited") add(g.id, g.origin.citations);
+  if (g.priority) add(`${g.id} (priority)`, g.priority.citations);
+}
 for (const a of scenario.assumptions) add(a.id, a.citations);
+for (const t of scenario.tasks) for (const l of t.addresses) add(`${t.id} → ${l.gapId}`, l.citations);
+for (const a of scenario.discriminationAssessments ?? []) add(a.id, a.citations);
 
 const work = mkdtempSync(join(tmpdir(), "mdi-verify-"));
 let failures = 0;

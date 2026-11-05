@@ -15,6 +15,12 @@
 - Evidence records must quote their sources verbatim. After any edit to
   `src/data/`, run `npm run verify:citations` (live check) and `npm test`.
   Curation rules: `docs/EVIDENCE_CURATION.md`.
+- Records must declare `relevance`. Regional context (e.g. SIM 3464 unit Nue)
+  must never be used as local evidence or as a competing hypothesis; integrity
+  checks enforce this.
+- Curated judgements (task–gap links, priority statements, discrimination
+  assessments) that the agent drafts must have `review.status: "pending"`.
+  Only a human may set "approved". Unapproved judgements are never scored.
 - Never let an LLM assign scores, gaps or rankings. The decision engine
   (`src/lib/decision/`) is deterministic and only accepts `SnapshotEvidence`
   from `selectEvidenceAsOf`, which prevents future-data leakage.

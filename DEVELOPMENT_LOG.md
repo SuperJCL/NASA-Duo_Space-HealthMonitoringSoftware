@@ -377,3 +377,157 @@ See `docs/DEVELOPMENT_PLAN.md` §5.
   differentiates tasks later. The criterion design may need refinement in M3.
 - **Bundle size:** the dataset ships to the client, which is fine at this
   size. Larger datasets may need server-side filtering via a Route Handler.
+
+---
+
+## Milestone 3: Scientific integrity & decision-engine refinement
+
+- **Session start:** 2026-11-05T00:06:38Z.
+  - Container check, then the M2 review server for the user, built from
+    `main` 05cafae.
+- **M3 start:** 2026-11-05T00:08:15Z, when branch `m3-scientific-integrity`
+  was created from `main` 05cafae.
+- **M3 implementation complete:** about 2026-11-05T00:27Z, when the branch
+  commit was pushed. **Not merged to `main`**, because one acceptance item is
+  blocked (literature access, below).
+- **Wall-clock elapsed:** about 19 min from branch creation to push.
+  - No subagents were used in M3, so there was no parallel agent time.
+  - Human intervention and approval time inside this window: none.
+  - The user's network change (allowing `doi.org`, `www.nasa.gov` and
+    `jpl.nasa.gov`) happened before the session started.
+
+### Implemented
+
+- **Schema** (`src/lib/evidence/schema.ts`):
+  - `relevance` (local / regional-context) on observations, interpretations
+    and gaps.
+  - `stance` (hypothesis / interpretation).
+  - `contextRecordIds`.
+  - A `Review` record (draftedBy, status, reviewer, date).
+  - Curated `GapLink` with rationale, citations and review, replacing the bare
+    `addressesGapIds` on tasks.
+  - Gap `priority` statements.
+  - `DiscriminationAssessment`, with outcomes listing what each would favor
+    or weaken.
+- **Integrity** (`integrity.ts`):
+  - Regional context cannot be local support, cannot address a local gap,
+    and cannot be a hypothesis.
+  - An assessment may reference only local hypotheses concerned by the task's
+    gaps; every outcome must favor or weaken something, never both for the
+    same hypothesis.
+  - Curated items cannot appear before their citations.
+  - `observedOn` cannot be later than `availableFrom`.
+- **Snapshot:** also filters task–gap links, assessments and context
+  references by date.
+- **Engine v0.2.0** (`engine.ts`, `criteria.ts`):
+  - Five criteria: 3 deterministic, 2 curated and review-gated.
+  - Explicit Not Evaluated results.
+  - Ranking basis limited to criteria evaluated for every feasible task.
+  - Mission constraints: budgets and unavailable platforms.
+  - A missing cost makes a task "not ranked" (it is never treated as 0).
+  - Explicit not-ranked states.
+  - Stability check over the basis criteria.
+- **Data:**
+  - Reclassified to regional context: SIM 3464 Nue observation,
+    interpretation and gap; the PIA23380 crater-wide map.
+  - Added 3 local hypotheses from the 2024 Mars 2020 team post, and a new
+    cited gap ("How the margin rocks formed", 2023).
+  - Added 2 AI-drafted priority statements (pending), 8 task–gap links with
+    rationale (pending), and 1 discrimination assessment (pending).
+  - Added margin-unit locator quotes for the PDS and Comet Geyser records.
+  - Added an evidence-hierarchy assumption.
+  - 37 citations in total.
+- **UI:**
+  - Separate sections for "Observations (margin unit)", "Hypotheses &
+    interpretations", "Evidence gaps" and "Regional geological context".
+  - Badges for observed vs measured in situ, hypothesis vs interpreted, and
+    curated vs deterministic, with review status.
+  - Date labels: observed / public / published / identified / revealed N days
+    after the snapshot.
+  - Per-task gap links with rationale.
+  - Assessment display.
+  - Mission constraints panel.
+  - NE cells, basis status and Not Evaluated reasons in "Why".
+- **Tooling:**
+  - `verify:citations` now also checks priority, link and assessment
+    citations.
+  - The smoke test gains M3 checks.
+- **Docs:**
+  - New: `docs/DECISION_MODEL.md`, `docs/SCIENTIFIC_REVIEW_M3.md`.
+  - Updated: PRD, plan, curation doc, CLAUDE.md, README.
+
+### Tests executed (all passed)
+
+- **`npx vitest run`:** 85/85 across 7 files. The new
+  `scientific-integrity.test.ts` covers the six required properties:
+  1. future evidence, including future approved assessments and future-cited
+     links, cannot change an earlier recommendation;
+  2. regional context cannot be used as local evidence;
+  3. unsupported hypothesis relationships produce no discrimination score;
+  4. constraints give deterministic, explained outcomes;
+  5. missing data is handled explicitly;
+  6. citations resolve.
+
+  A hand-computed regression on the real Jezero data is also included.
+- **Static checks:** `npx tsc --noEmit` and `npx eslint` are clean;
+  `npm run build` passes.
+- **`SMOKE_LIVE=1 npm run smoke`:** 29/29 against `next start`, and again
+  against `next dev` (one OpenLayers viewport). It checks:
+  - Nue appears as regional context;
+  - NE cells and basis exclusion;
+  - pending-review links;
+  - budget 30 excludes abrasion with a stated reason, and the stand-off
+    survey ranks first.
+- **`npm run verify:citations`:** 37/37 quotes matched against the live
+  sources, run twice.
+
+### Bugs and rework
+
+- **Engine design fix.** The first draft returned Not Evaluated for tasks that
+  address no open gap. That would have removed whole criteria from the basis
+  because of one irrelevant task. Changed to a rule-derived 0. This was found
+  while hand-computing the fixture totals, before running the tests.
+- **Coverage gap in `verify:citations`.** The script did not yet check the
+  new citation locations (priority, links, assessments). Found in self-review
+  and extended; it went from 23 to 37 quotes.
+- **Wrong build on port 3000 (my error).** After rebuilding for M3, port 3000
+  was serving M3 instead of the M2 build the user asked to review. Fixed by
+  serving `main` from a git worktree (`/home/user/mdi-m2-review`) on port
+  3000, with M3 on port 3002.
+- **Regression values.** The M2 values (0.92 / 0.87 / 0.69 / 0.58) were
+  replaced by new hand-computed values (0.8857 / 0.8143 / 0.5571 / 0.4).
+- **Minor:** one ESLint warning fixed; `useMemo` dependencies cleaned up.
+
+### Blockers
+
+- **Zastrow & Glotch (2021):** `pmc.ncbi.nlm.nih.gov` is denied by the proxy;
+  it is not in the allowed list.
+- **Moreland et al. (2025):** `doi.org` resolves to `agupubs`, which returns a
+  Cloudflare challenge. `api.crossref.org` is also proxy-denied.
+- **Neither paper was added. M3 is not merged until this is resolved, or
+  until the user waives the item.**
+- `www.jpl.nasa.gov` is proxy-denied: `jpl.nasa.gov` redirects to it.
+
+### Human intervention required
+
+- Allow `pmc.ncbi.nlm.nih.gov` (and optionally `www.jpl.nasa.gov`), or upload
+  the PDFs.
+- Review the AI-drafted curated judgements (`docs/SCIENTIFIC_REVIEW_M3.md`
+  §4).
+- Approve merging M3 into `main`.
+
+### Remaining risks
+
+- **Scientific:**
+  - Gap coverage still relies on AI-drafted task–gap links, which are shown
+    as pending.
+  - Discrimination and priority stay unscored until a human reviews them.
+  - The evidence-quality ordering is an MDI methodological assumption.
+  - The default snapshot has only one margin-unit observation, because the
+    journal literature is missing.
+- **Engineering:**
+  - The ranking-basis rule can exclude a curated criterion as soon as one
+    task cannot be evaluated. This is intentional, but it means partial
+    reviews have no effect on the ranking until coverage is complete.
+  - The PDS coordinate convention is unconfirmed, so there are no sample
+    markers.

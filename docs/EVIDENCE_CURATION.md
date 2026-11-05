@@ -31,6 +31,21 @@ Schemas live in `src/lib/evidence/schema.ts`; integrity rules in
 5. **Allowed hosts only.** Every source must be readable from the build
    environment. `jezero-data.test.ts` enforces a host allowlist.
 
+6. **Relevance (M3).**
+   - `local` means the source explicitly places the record in the margin
+     unit (Marginal Carbonates).
+   - Anything crater-wide or regional is `regional-context`. It is shown
+     separately and never used as local support, as a competing hypothesis,
+     or in gap coverage.
+7. **Stance (M3).** `hypothesis` marks candidate explanations ("may",
+   "alternative hypothesis", "could be"); `interpretation` marks authors'
+   conclusions.
+8. **Review (M3).** Curated judgements carry a `review`. AI-drafted items stay
+   `pending` until a human approves them, and pending items are not scored.
+
+M3 data changes and their reasoning are in `docs/SCIENTIFIC_REVIEW_M3.md`.
+After M3 the dataset has 37 verbatim citations (live-verified 2026-11-05).
+
 ## Verification performed (2026-11-04)
 
 - **Saved-copy check.** Two research subagents fetched and saved each source,

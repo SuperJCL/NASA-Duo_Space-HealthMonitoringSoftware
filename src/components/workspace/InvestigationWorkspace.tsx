@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DEFAULT_WEIGHTS, type CriterionId, type Weights } from "@/lib/decision/criteria";
-import { recommend } from "@/lib/decision/engine";
+import { defaultConstraints, recommend, type Constraints } from "@/lib/decision/engine";
 import { reviewAgainstLaterEvidence } from "@/lib/decision/retrospective";
 import type { Scenario, Source } from "@/lib/evidence/schema";
 import { selectEvidenceAsOf } from "@/lib/evidence/snapshot";
@@ -31,7 +31,15 @@ export function InvestigationWorkspace({ scenario, sources }: Props) {
   );
 
   const { snapshot, later } = useMemo(() => selectEvidenceAsOf(scenario, asOf), [scenario, asOf]);
-  const recommendation = useMemo(() => recommend(snapshot, weights), [snapshot, weights]);
+  const [constraintsOverride, setConstraints] = useState<Constraints | null>(null);
+  const constraints = useMemo(
+    () => constraintsOverride ?? defaultConstraints(snapshot),
+    [constraintsOverride, snapshot],
+  );
+  const recommendation = useMemo(
+    () => recommend(snapshot, weights, constraints),
+    [snapshot, weights, constraints],
+  );
   const review = useMemo(
     () => reviewAgainstLaterEvidence(recommendation, later),
     [recommendation, later],
@@ -90,9 +98,12 @@ export function InvestigationWorkspace({ scenario, sources }: Props) {
           </button>
         </div>
         <p className="mt-2 text-[11px] text-muted" data-testid="snapshot-summary">
-          Using evidence public on or before {asOf}: {snapshot.observations.length} observations,{" "}
-          {snapshot.interpretations.length} interpretations, {snapshot.gaps.length} gaps.{" "}
-          {snapshot.hiddenLaterCount} later record(s) withheld.
+          Using evidence public on or before {asOf}:{" "}
+          {snapshot.observations.filter((o) => o.relevance === "local").length} margin-unit observations,{" "}
+          {snapshot.interpretations.filter((i) => i.relevance === "local").length} hypotheses/interpretations,{" "}
+          {snapshot.gaps.filter((g) => g.relevance === "local").length} gaps, plus{" "}
+          {[...snapshot.observations, ...snapshot.interpretations, ...snapshot.gaps].filter((r) => r.relevance === "regional-context").length}{" "}
+          regional-context records. {snapshot.hiddenLaterCount} later record(s) withheld.
         </p>
       </div>
 
@@ -106,11 +117,17 @@ export function InvestigationWorkspace({ scenario, sources }: Props) {
         <DecisionSection
           recommendation={recommendation}
           tasks={snapshot.tasks}
+          gaps={snapshot.gaps}
+          interpretations={snapshot.interpretations}
+          assessments={snapshot.discriminationAssessments}
           resources={snapshot.resources}
           assumptions={snapshot.assumptions}
           weights={weights}
           onWeightChange={onWeightChange}
           onResetWeights={() => setWeights(DEFAULT_WEIGHTS)}
+          constraints={constraints}
+          onConstraintsChange={setConstraints}
+          onResetConstraints={() => setConstraints(null)}
           sourceById={sourceById}
         />
         <RevealSection

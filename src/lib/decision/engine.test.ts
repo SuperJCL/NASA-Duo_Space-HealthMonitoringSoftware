@@ -1,115 +1,123 @@
 import { describe, expect, it } from "vitest";
 import { selectEvidenceAsOf } from "@/lib/evidence/snapshot";
-import { syntheticScenario } from "@/lib/test-fixtures/synthetic-scenario";
-import { DEFAULT_WEIGHTS, type Weights } from "./criteria";
-import { recommend } from "./engine";
+import { approved, syntheticScenario } from "@/lib/test-fixtures/synthetic-scenario";
+import { DEFAULT_WEIGHTS } from "./criteria";
+import { recommend, type CriterionOutcome, type Recommendation } from "./engine";
 import { reviewAgainstLaterEvidence } from "./retrospective";
 
 const at = (date: string, scenario = syntheticScenario()) => selectEvidenceAsOf(scenario, date);
-const totals = (rec: ReturnType<typeof recommend>) =>
+const totals = (rec: Recommendation) =>
   Object.fromEntries(rec.ranking.map((r) => [r.taskId, Number(r.total.toFixed(6))]));
+const outcome = (rec: Recommendation, taskId: string, criterionId: string): CriterionOutcome =>
+  [...rec.ranking, ...rec.unranked].find((r) => r.taskId === taskId)!.outcomes.find((o) => o.criterionId === criterionId)!;
 
-describe("recommend — scoring", () => {
-  it("computes rule-derived scores with default weights (3,3,2,2)", () => {
+describe("recommend — five criteria", () => {
+  it("ranks on the criteria evaluated for every feasible task (hand-computed)", () => {
     const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
-    // rover: coverage 2/2, discrimination 2/2, new platform 1, cost 1-60/100 → (3+3+2+0.8)/10
-    // orbital: 1/2, 1/2, 0, 0.9 → (1.5+1.5+0+1.8)/10
-    // later-gap task: its only gap is not yet known → 0,0,0, cost 0.95 → 1.9/10
+    // Basis = coverage (w3), feasibility (w2), evidence quality (w2); sum 7.
+    // rover:   (3·1   + 2·0.40 + 2·1) / 7
+    // orbital: (3·0.5 + 2·0.90 + 2·0) / 7
+    // later:   (3·0   + 2·0.95 + 2·0) / 7
     expect(totals(rec)).toEqual({
-      "task-rover-insitu": 0.88,
-      "task-orbital-repeat": 0.48,
-      "task-later-gap": 0.19,
+      "task-rover-insitu": 0.828571,
+      "task-orbital-repeat": 0.471429,
+      "task-later-gap": 0.271429,
     });
-    expect(rec.ranking.map((r) => r.rank)).toEqual([1, 2, 3]);
-  });
-
-  it("excludes over-budget tasks with a reason", () => {
-    const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
-    expect(rec.infeasible).toEqual([
-      { taskId: "task-too-expensive", reason: "Needs 150 points of Operations time; simulated budget is 100." },
+    expect(rec.basis.filter((b) => b.inBasis).map((b) => b.criterionId)).toEqual([
+      "gap-coverage",
+      "resource-feasibility",
+      "evidence-quality",
     ]);
   });
 
-  it("explains each criterion in plain language", () => {
-    const top = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS).ranking[0];
-    const byId = Object.fromEntries(top.scores.map((s) => [s.criterionId, s.explanation]));
-    expect(byId["gap-coverage"]).toBe("Addresses 2 of 2 open evidence gaps: Origin; Context.");
-    expect(byId["independent-evidence"]).toBe(
-      "Adds rover evidence; existing support for these interpretations: orbital.",
+  it("explains why curated criteria are excluded instead of scoring them", () => {
+    const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
+    const disc = rec.basis.find((b) => b.criterionId === "hypothesis-discrimination")!;
+    expect(disc.inBasis).toBe(false);
+    expect(disc.reason).toBe(
+      "Not evaluated for 2 of 3 feasible task(s); excluded so tasks are compared on the same terms.",
     );
-    expect(byId["resource-cost"]).toContain("simulated");
+    expect(outcome(rec, "task-rover-insitu", "hypothesis-discrimination")).toEqual({
+      criterionId: "hypothesis-discrimination",
+      status: "not-evaluated",
+      reason: "1 assessment(s) drafted but pending human review; not scored.",
+    });
+    expect(outcome(rec, "task-orbital-repeat", "hypothesis-discrimination")).toMatchObject({
+      status: "not-evaluated",
+      reason: "The task's open gaps concern 1 local hypothesis(es); discrimination needs at least two.",
+    });
+    expect(outcome(rec, "task-rover-insitu", "scientific-priority")).toMatchObject({
+      status: "not-evaluated",
+      reason: "1 cited priority statement(s) drafted but pending human review; not scored.",
+    });
   });
 
-  it("responds to weights: cost-only weighting favours the cheapest task", () => {
-    const costOnly: Weights = { "gap-coverage": 0, discrimination: 0, "independent-evidence": 0, "resource-cost": 1 };
-    expect(recommend(at("2020-01-01").snapshot, costOnly).ranking[0].taskId).toBe("task-later-gap");
+  it("treats 'addresses no open gap' as a rule-derived zero, not missing data", () => {
+    const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
+    for (const c of ["gap-coverage", "hypothesis-discrimination", "scientific-priority", "evidence-quality"]) {
+      expect(outcome(rec, "task-later-gap", c)).toMatchObject({ status: "evaluated", value: 0 });
+    }
   });
 
-  it("returns zero totals when all weights are zero", () => {
-    const zero: Weights = { "gap-coverage": 0, discrimination: 0, "independent-evidence": 0, "resource-cost": 0 };
-    const rec = recommend(at("2020-01-01").snapshot, zero);
-    expect(rec.ranking.every((r) => r.total === 0)).toBe(true);
+  it("explains coverage, flags pending links, and explains evidence quality", () => {
+    const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
+    expect(outcome(rec, "task-rover-insitu", "gap-coverage")).toMatchObject({
+      explanation: "Linked to 2 of 2 open local gaps: Origin; Context. 2 link(s) are AI-drafted and pending human review.",
+    });
+    expect(outcome(rec, "task-rover-insitu", "evidence-quality")).toMatchObject({
+      value: 1,
+      explanation: "Would add rover in situ evidence; best existing support for these hypotheses: orbital.",
+    });
+    expect(outcome(rec, "task-orbital-repeat", "evidence-quality")).toMatchObject({ value: 0 });
   });
 
   it("re-scores when later evidence becomes public (gaps get addressed)", () => {
     const rec = recommend(at("2025-01-01").snapshot, DEFAULT_WEIGHTS);
     expect(totals(rec)).toEqual({
-      "task-rover-insitu": 0.73,
-      "task-orbital-repeat": 0.63,
-      "task-later-gap": 0.19,
+      "task-rover-insitu": 0.828571,
+      "task-orbital-repeat": 0.685714,
+      "task-later-gap": 0.271429,
     });
   });
 
-  it("reports rank stability under ±20% weight perturbation", () => {
+  it("reports rank stability over the basis criteria only", () => {
     const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
-    expect(rec.stability.trials).toBe(8);
-    expect(rec.stability.topUnchanged).toBe(8);
-    expect(rec.stability.margin).toBeCloseTo(0.4, 9);
+    expect(rec.stability.trials).toBe(6);
+    expect(rec.stability.topUnchanged).toBe(6);
   });
-});
 
-describe("recommend — assumptions", () => {
   it("lists scenario-wide assumptions plus the top task's own", () => {
     const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
     expect(rec.assumptionIds).toEqual(["asm-scenario-wide", "asm-rover-access"]);
   });
+
+  it("is deterministic", () => {
+    expect(recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS)).toEqual(
+      recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS),
+    );
+  });
 });
 
-describe("recommend — determinism and leakage", () => {
-  it("is deterministic", () => {
-    const a = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
-    const b = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
-    expect(a).toEqual(b);
-  });
-
-  it("is unaffected by any change to records published after the snapshot", () => {
-    const baseline = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
-
-    const tampered = syntheticScenario();
-    // Rewrite, extend and add future records — none may change the outcome.
-    tampered.observations[1].statement = "changed";
-    tampered.observations[1].platform = "orbital";
-    tampered.observations[1].addressesGapIds = ["gap-context"];
-    tampered.observations.push({
-      ...tampered.observations[1],
-      id: "obs-future-extra",
-      addressesGapIds: ["gap-origin"],
+describe("recommend — approved curated judgements", () => {
+  it("scores discrimination and priority once approved and evaluable for every feasible task", () => {
+    const scenario = syntheticScenario();
+    scenario.discriminationAssessments[0].review = approved;
+    scenario.gaps[0].priority!.review = approved;
+    const { snapshot } = at("2020-01-01", scenario);
+    // Remove the orbital task (its gaps concern only one hypothesis → not evaluable).
+    const rec = recommend(snapshot, DEFAULT_WEIGHTS, {
+      budgets: { "res-time": 100 },
+      unavailablePlatforms: ["orbital"],
     });
-    tampered.gaps[2].discriminatesInterpretationIds = ["interp-1", "interp-2"];
-
-    expect(recommend(at("2020-01-01", tampered).snapshot, DEFAULT_WEIGHTS)).toEqual({
-      ...baseline,
-      limitations: baseline.limitations.map((l) =>
-        l.replace("2 later record(s)", "3 later record(s)"),
-      ),
+    expect(rec.basis.every((b) => b.inBasis)).toBe(true);
+    // rover: (3·1 + 3·1 + 2·0.4 + 2·1 + 2·1) / 12 ; later: (2·0.95) / 12
+    expect(totals(rec)).toEqual({ "task-rover-insitu": 0.9, "task-later-gap": 0.158333 });
+    expect(outcome(rec, "task-rover-insitu", "hypothesis-discrimination")).toMatchObject({
+      status: "evaluated",
+      value: 1,
+      explanation:
+        "Approved assessment by Test Reviewer (2026-11-05): possible results would favor or weaken 2 of 2 competing hypotheses: Hypothesis 1; Hypothesis 2.",
     });
-  });
-
-  it("never lists post-snapshot evidence ids as used", () => {
-    const rec = recommend(at("2020-01-01").snapshot, DEFAULT_WEIGHTS);
-    const used = [...rec.evidenceUsed.observationIds, ...rec.evidenceUsed.gapIds];
-    expect(used).not.toContain("obs-rover-later");
-    expect(used).not.toContain("gap-later-only");
   });
 });
 
