@@ -129,35 +129,60 @@ try {
   await page.getByTestId("mg-start-eva").click();
   await settle(page, 1200);
 
-  // ── EVA HUD ──
-  check(/SIMULATED EVA · not real telemetry/.test(await text(page.getByTestId("mg-eva"))), "EVA HUD is labelled simulated, not real telemetry");
-  check(/Abrade and analyse a rock/.test(await text(page.getByTestId("mg-current"))) && /Provisional priority #1/.test(await text(page.getByTestId("mg-current-why"))), "EVA shows the current planned task and why it is first");
-  check(/100 \/ 100 pts/.test(await text(page.getByTestId("mg-effort-left"))) && (await page.getByTestId("mg-warnings").locator("li").count()) >= 3, "EVA shows constraints and warnings");
-  check(await page.getByTestId("mg-minimap").locator("canvas").first().isVisible(), "EVA has minimal map access");
-  await page.getByTestId("mg-start").click();
-  await page.getByTestId("mg-complete-step").click();
+  // ── MG-2: EVA glance ──
+  const inView = async (loc, h = 900) => {
+    const b = await loc.boundingBox();
+    return Boolean(b && b.y >= 0 && b.y + b.height <= h);
+  };
+  check(/SIMULATED EVA · training prototype, not flight software or real telemetry/.test(await text(page.getByTestId("mg-eva-label"))), "MG-2: HUD says simulated training prototype, not flight software or telemetry");
+  check(/Abrade and analyse a rock/.test(await text(page.locator("#mg-current-title"))) && /Priority #1 · provisional, not validated/.test(await text(page.getByTestId("mg-uncertainty"))), "MG-2: current action with its provisional priority (uncertainty shown)");
+  check((await text(page.getByTestId("mg-start"))) === "Start action" && (await page.evaluate(() => document.activeElement?.getAttribute("data-testid"))) === "mg-start", "MG-2: one primary next action, focused on entry");
+  check((await page.getByTestId("mg-current").locator("button.bg-\\[var\\(--mg-coral\\)\\]").count()) === 1, "MG-2: exactly one primary button in the HUD");
+  check((await page.getByTestId("mg-minimap").count()) === 0 && (await page.getByTestId("mg-scenario-controls").count()) === 0 && (await page.getByTestId("mg-warnings").count()) === 0 && !(await page.getByTestId("mg-skip").isVisible()), "MG-2: map, caveats, scenario controls and skip sit behind optional controls");
+  check(/100/.test(await text(page.getByTestId("mg-effort-left"))) && /95/.test(await text(page.getByTestId("mg-plan-need"))) && /Committed so far: 0 of 100/.test(await text(page.getByTestId("mg-effort-note"))), "MG-2: essential constraints (available, this action, plan left; committed vs estimates)");
+  await page.keyboard.press("Enter"); // keyboard: start the action from the focused primary button
+  await settle(page);
+  check((await text(page.getByTestId("mg-current-step"))) === "Reach target B (simulated)" && /Action 1 of 2 · Step 1 of 4/.test(await text(page.getByTestId("mg-eva-progress"))), "MG-2: keyboard Enter starts the action; current step is shown");
+  await page.keyboard.press("Enter");
   await settle(page);
   const states = await page.getByTestId("mg-steps").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
-  check(JSON.stringify(states) === JSON.stringify(["done", "current", "todo", "todo"]), `simulated task state updates step by step (${states.join(",")})`);
-  check((await page.getByTestId("mg-plan-timeline").locator('[data-status="active"]').count()) === 1, "the plan timeline shows the active task");
+  check(JSON.stringify(states) === JSON.stringify(["done", "current", "todo", "todo"]) && (await text(page.getByTestId("mg-current-step"))) === "Document the natural surface", `MG-2: completed and pending steps update (${states.join(",")})`);
+  check((await text(page.getByTestId("mg-complete-step"))) === "Complete step 2" && /Then: Abrade a small patch/.test(await text(page.getByTestId("mg-next-step"))), "MG-2: the primary button names the step; the next step is previewed");
+  const stepSize = await page.getByTestId("mg-current-step").evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+  const btnBox = await page.getByTestId("mg-complete-step").boundingBox();
+  check(stepSize >= 32 && (btnBox?.height ?? 0) >= 56, `MG-2: large step text (${stepSize}px) and a large primary control (${Math.round(btnBox?.height ?? 0)}px)`);
+  check((await inView(page.getByTestId("mg-current-step"))) && (await inView(page.getByTestId("mg-complete-step"))) && (await inView(page.getByTestId("mg-constraints"))), "MG-2: step, primary action and constraints are visible without scrolling at 1440×900");
+  check((await page.getByTestId("mg-plan-timeline").locator('[data-status="active"]').count()) === 1 && (await page.getByTestId("mg-back-planning").isVisible()), "MG-2: brief progress and a clear route back to Planning");
+  await page.getByTestId("mg-toggle-map").click();
+  check(await page.getByTestId("mg-minimap").locator("canvas").first().isVisible(), "MG-2: map opens on demand");
+  await page.getByTestId("mg-toggle-caveats").click();
+  check((await page.getByTestId("mg-warnings").locator("li").count()) === 3 && (await page.getByTestId("mg-minimap").count()) === 0, "MG-2: caveats open on demand (one optional panel at a time)");
+  await page.getByTestId("mg-more").click();
+  check(await page.getByTestId("mg-skip").isVisible(), "MG-2: skip is available under More");
+  await page.getByTestId("mg-more").click();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await settle(page, 400);
+  check((await inView(page.getByTestId("mg-current-step"), 800)) && (await inView(page.getByTestId("mg-complete-step"), 800)), "MG-2: still no scrolling needed for the primary view at 1280×800");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await settle(page, 300);
 
   // ── Replanning ──
+  await page.getByTestId("mg-toggle-scenario").click();
   await page.getByTestId("mg-event-effort-cut").click();
   await settle(page);
   const replan = page.getByTestId("mg-replan");
   check(await replan.isVisible(), "a constraint change raises a replanning prompt");
   check(/needs 95 points, but only 50 simulated points are left/.test(await text(replan)) && /Abrade and analyse a rock/.test(await text(page.getByTestId("mg-replan-suggested"))), "the prompt explains why and suggests a plan in the engine's order");
-  check((await page.evaluate(() => document.activeElement?.id)) === "mg-replan-title", "focus moves to the replanning prompt");
   await page.getByTestId("mg-accept-replan").click();
   await settle(page);
   const timeline = await page.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
-  check(JSON.stringify(timeline) === JSON.stringify(["active", "skipped"]) && /50 \/ 50 pts/.test(await text(page.getByTestId("mg-effort-left"))), "accepting the replan skips coring; the user stays in control");
+  check(JSON.stringify(timeline) === JSON.stringify(["active", "skipped"]) && /50/.test(await text(page.getByTestId("mg-effort-left"))), "accepting the replan skips coring; the user stays in control");
   await page.getByTestId("mg-event-effort-restored").click();
   await settle(page);
   check((await replan.count()) === 0, "no prompt when the remaining plan still fits in the engine's order");
   for (let n = 0; n < 3; n++) await page.getByTestId("mg-complete-step").click();
   await settle(page);
-  check(/60 \/ 100 pts/.test(await text(page.getByTestId("mg-effort-left"))) && /Plan complete/.test(await text(page.getByTestId("mg-eva-progress"))), "completing the task consumes its simulated effort");
+  check(/60/.test(await text(page.getByTestId("mg-effort-left"))) && /Plan complete/.test(await text(page.getByTestId("mg-eva-progress"))) && (await page.getByTestId("mg-finish-plan").isVisible()), "completing the action commits its effort; the plan completes");
 
   // ── State shared with Planning ──
   await page.getByTestId("mg-mode-planning").click();
@@ -196,7 +221,9 @@ try {
   await settle(tp, 800);
   await tp.getByTestId("mg-start").click();
   await tp.getByTestId("mg-complete-step").click();
+  await tp.getByTestId("mg-toggle-scenario").click();
   await tp.getByTestId("mg-event-effort-restored").click();
+  await tp.getByTestId("mg-toggle-map").click();
   await settle(tp);
   check(terr.length === 0, `[translated] planning, plan creation and EVA updates without page errors${terr.length ? ` (${terr[0]})` : ""}`);
   await tp.close();

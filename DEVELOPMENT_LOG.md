@@ -1704,3 +1704,65 @@ This task is tracked separately. Earlier durations are unchanged.
    `nowrap`.
 3. **Two smoke checks referred to removed elements** (the Level-2 resources
    row; card-body click selection). Updated.
+
+---
+
+## MG-2: Mission Glass EVA glance HUD
+
+- **Started:** 2026-11-05T22:57:15Z.
+- **Completed:** 2026-11-05T23:01:20Z, at commit, on `mg-refinement`.
+- **Wall-clock elapsed:** 4 min 5 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Files changed
+
+- `src/components/prototype/EvaHud.tsx`: rewritten around the glance order.
+- `src/components/prototype/MissionGlass.tsx`: the HUD wiring, plus an
+  interim replan overlay at the top of the HUD (replaced in MG-3).
+- `scripts/smoke-mission-glass.mjs`: EVA section rewritten.
+
+### Interaction changes
+
+- **Primary view, in order:**
+  1. the current action, with an always-visible "Priority #N · provisional,
+     not validated" chip;
+  2. the current step in 34 px type, with a step progress bar and a "Then:
+     …" preview;
+  3. **one** primary button, at least 64 px tall, that names the step
+     ("Start action", "Complete step 2", "Finish action"). It receives focus
+     on entry and after each step, so Enter advances;
+  4. essential constraints: Available / This action / Plan left, with
+     "Committed so far … costs ahead are estimates";
+  5. a brief segmented mission progress bar.
+- **Secondary information is behind controls:** "More" (skip, why this
+  action), plus toggles for Map, Caveats (3), Scenario controls and Log.
+  Only one optional panel is open at a time.
+- **Always visible:** "← Planning", and the label "SIMULATED EVA · training
+  prototype, not flight software or real telemetry".
+
+### Tests
+
+- **Prototype smoke** (dev): 61/61. New MG-2 checks cover:
+  - the label;
+  - the current action and the uncertainty chip;
+  - a single primary button, focused on entry;
+  - secondary panels hidden by default and opened on demand;
+  - constraints, with committed vs estimated effort;
+  - keyboard Enter to start and to complete steps;
+  - completed and pending step states;
+  - the named primary button and next-step preview;
+  - step font ≥ 32 px and primary control ≥ 56 px;
+  - step, primary and constraints visible without scrolling at 1440×900 and
+    1280×800;
+  - progress and the route back;
+  - map, caveats and More on demand.
+- **Unit:** 196/196. **`npm run check`:** passes.
+
+### Bugs and rework
+
+1. **The primary button sat at the bottom of a tall card, far from its
+   step.** It now sits directly under the step, and the card no longer
+   stretches.
+2. **The old EVA smoke checks expected an always-visible map, warnings and
+   events.** They were rewritten to open the optional panels first.

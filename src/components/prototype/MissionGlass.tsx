@@ -354,8 +354,29 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
               costs,
             });
           }}
-          onAcceptReplan={() => dispatch({ type: "accept-replan" })}
-          onKeepPlan={() => dispatch({ type: "keep-plan" })}
+          replan={
+            state.replan ? (
+              <section role="alertdialog" aria-labelledby="mg-replan-title" className="mg-glass mg-rise absolute inset-x-4 top-4 z-30 bg-[var(--mg-glass-strong)] p-5" data-testid="mg-replan">
+                <h3 id="mg-replan-title" tabIndex={-1} className="text-lg font-semibold focus:outline-none">
+                  {"Constraints changed: replan?"}
+                </h3>
+                <p className="mt-1 text-[var(--mg-dim)]">{state.replan.reason}</p>
+                <ol className="mt-2 list-decimal pl-5" data-testid="mg-replan-suggested">
+                  {state.replan.suggested.map((id) => (
+                    <li key={id}>{viewById.get(id)?.shortTitle ?? id}</li>
+                  ))}
+                </ol>
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => dispatch({ type: "accept-replan" })} className="min-h-11 rounded-xl bg-[var(--mg-coral)] px-4 font-semibold text-[#1a0f0c]" data-testid="mg-accept-replan">
+                    {"Accept new plan"}
+                  </button>
+                  <button type="button" onClick={() => dispatch({ type: "keep-plan" })} className="min-h-11 rounded-xl border border-[var(--mg-line)] px-4" data-testid="mg-keep-plan">
+                    {"Keep my plan"}
+                  </button>
+                </div>
+              </section>
+            ) : null
+          }
           onBackToPlanning={() => dispatch({ type: "set-mode", mode: "planning" })}
           onEvidence={(id) => setEvidenceFor(id)}
         />
