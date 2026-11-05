@@ -843,3 +843,44 @@ This task is tracked separately. Earlier recorded durations are unchanged.
   are `MultiLineString`; this was fixed in the scratch script.
 - A Range-request probe streamed 480 MB before timing out. It showed that
   the server does not support Range, and the partial file was deleted.
+
+## Requirement change: present-day mission simulation (design update)
+
+This task is tracked separately. Earlier recorded durations are unchanged,
+including the map-first assessment's 10 min 23 s.
+
+- **Started:** 2026-11-05T06:12:43Z (first command after the owner's decision).
+- **Completed:** 2026-11-05T06:17:18Z, when the documents were committed on branch
+  `map-first-assessment`.
+- **Wall-clock elapsed:** 4 min 35 s.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:** design and documentation only. No application code, data,
+  dependencies or engine changes. MF-0 had not started, so there was no
+  completed work to preserve. UX-1 is untouched and not merged.
+
+### Work performed
+
+- **Engine check (read-only, scratch test outside the repo).**
+  - In present-day mode (all records) the existing engine gives the same
+    result as the `2025-05-06` baseline state:
+    - reviewed ranking unavailable (50 awaiting review);
+    - provisional top task abrasion (0.743), ahead of coring (0.700);
+    - margin 0.043; 3 pivotal inputs;
+    - `gap-no-in-situ-data` addressed.
+  - No engine change is needed.
+- **Data probes.**
+  - The Trek traverse ends at sol 1176. The rover's last position in the
+    dataset is 18.49568° N, 77.30381° E.
+  - mars.nasa.gov (MMGIS) is blocked by the proxy (403).
+  - Trek has no sample-location layer.
+  - PDS sample-dossier initial reports exist as volumes 1–5 (volume 5
+    label dated 2026-02-10).
+  - Volume 4 states the coordinates for Pelican Point, Lefroy Bay and Comet
+    Geyser. Lefroy Bay is now confirmed from the source text.
+- **Documents.**
+  - New `docs/MAP_FIRST_DESIGN.md`: MF-0 design, revised MF-1 to MF-4 and
+    decisions D1–D6.
+  - Updated `docs/PRODUCT_REQUIREMENTS.md` (v0.4, decisions log),
+    `docs/DEVELOPMENT_PLAN.md` (MF rows; stale RI-1 row corrected) and the
+    superseded note in `docs/MAP_FIRST_ASSESSMENT.md`.

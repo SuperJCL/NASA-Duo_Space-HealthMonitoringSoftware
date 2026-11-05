@@ -3,6 +3,11 @@
 Status: **assessment only, 2026-11-05.** No application code was changed,
 UX-1 is not merged, and no implementation has started.
 
+> **Partly superseded (2026-11-05).** The owner's "Present-Day Mission
+> Simulation" decision changes the default scenario. See
+> `MAP_FIRST_DESIGN.md` §8 for the sections it replaces. The data facts and
+> the 3D feasibility findings below still hold.
+
 **Labels:**
 - **[V]** verified live from this container today; the probe is listed in §10.
 - **[V-earlier]** verified in an earlier milestone (see `NASA_MAP_RESEARCH.md`).
