@@ -1898,3 +1898,69 @@ This task is tracked separately. Earlier durations are unchanged.
   replan.** Users may not tell them apart.
 - **Escape does nothing in the dialog.** This is deliberate, but some
   keyboard users may expect it to close.
+
+## MAP-0: integration (Mission Glass as the default entry point; merge into main)
+
+- **Context:** the user accepted MG-1 to MG-3 in manual review (Planning,
+  EVA HUD, Replanning and Recovery: PASS).
+- **Started:** 2026-11-05T23:35:41Z.
+- **Integration commit:** 2026-11-05T23:41:29Z, on `mg-refinement`, then merged into
+  `main` with `--no-ff`. The merge commit's time is in git.
+- **Wall-clock elapsed to the integration commit:** 5 min 48 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Upstream check
+
+Every local branch is an ancestor of `mg-refinement`, so all upstream
+features are included:
+- `main` (`80e54d0`);
+- M3, UX-0, RI-1, UX-1;
+- map-first assessment, MF-0, MF-1;
+- product value spike, BR-1, BR-2;
+- the Mission Glass prototype and MG-1 to MG-3.
+
+The one exception is `m2-vertical-slice` (2 commits). Its tree is identical
+to `main`'s squashed M2 commit `05cafae`, so no content is missing.
+
+### Changes
+
+- **`/`** is now Mission Glass (`src/app/page.tsx`).
+- **The research workspace** (BR-2 briefings, plus the advanced ranking
+  workspace) moved unchanged to **`/research`** (`src/app/research/page.tsx`).
+  Each app links to the other: "Research" in the Mission Glass header,
+  "← Mission Glass" in the research header. Nothing is duplicated.
+- **`/mission-glass`** redirects (307) to `/`, via `next.config.ts`.
+- **`npm run typecheck`** is now `next typegen && tsc --noEmit`. See issue 2.
+- **Smoke tests:**
+  - the research smoke now targets `/research`, and its header check
+    includes the link back;
+  - the Mission Glass smoke targets `/`, with 3 new routing checks.
+- **Docs:** README (routes table, scripts), `CLAUDE.md`,
+  `docs/MISSION_GLASS_PROTOTYPE.md` and `docs/MG_USABILITY_TEST.md`.
+
+### Verification (production build, `next start`)
+
+- **`npm run check`:** passes. 201/201 unit tests; the routes are `/`,
+  `/research` and `/_not-found`, all static.
+- **Smoke tests:**
+  - Mission Glass: 82/82;
+  - research workspace: 116/116 with `SMOKE_LIVE=1` (tiles loaded 4,
+    failed 0).
+- **Data verifiers:**
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 location checks, 0 problems.
+- **Engine, evidence, geo, briefing and mission code and data:** unchanged.
+
+### Integration issues
+
+1. **After the route move, stale generated route types in `.next` broke
+   `tsc` locally.** Regenerating them fixed it. This affects only an
+   existing local build directory.
+2. **On a fresh clone, `npm run check` failed at typecheck (pre-existing,
+   not caused by MAP-0).** `tsc` needs Next's generated `LayoutProps` type,
+   which only `next build` produced, and the build runs after typecheck.
+   This was verified on a clean worktree of `88b9f75`. `typecheck` now
+   runs `next typegen` first; the clean worktree then passes.
+3. **Old links to `/mission-glass` still work** through the redirect.

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useReducer, useState } from "react";
 import type { BriefingView } from "@/lib/briefing/view";
 import { DEFAULT_WEIGHTS } from "@/lib/decision/criteria";
@@ -171,6 +172,9 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           >
             {"Evidence"}
           </button>
+          <Link href="/research" className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm text-[var(--mg-dim)] hover:border-[var(--mg-line-strong)] hover:text-[var(--mg-text)]" data-testid="mg-link-research">
+            {"Research"}
+          </Link>
         </div>
       </header>
 

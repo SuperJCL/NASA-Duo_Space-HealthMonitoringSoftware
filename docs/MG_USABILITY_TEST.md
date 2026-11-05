@@ -32,7 +32,8 @@ npm start
 ```
 
 Open http://localhost:3000/mission-glass at 1440 × 900 (desktop), with
-browser translation off. Repeat task 3 on a phone or at 390 × 844 for at
+browser translation off. (Since MAP-0, Mission Glass is at `/`, and this URL
+redirects there, so the same URL works for both builds.) Repeat task 3 on a phone or at 390 × 844 for at
 least two participants.
 
 ## Participants and procedure

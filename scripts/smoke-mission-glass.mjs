@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Browser smoke test for the MDI 2.0 Mission Glass prototype (/mission-glass).
+ * Browser smoke test for MDI 2.0 Mission Glass, the default entry point (/).
  *
  *   BASE_URL=http://localhost:3000 node scripts/smoke-mission-glass.mjs
  *
@@ -9,7 +9,8 @@
  */
 import { chromium } from "playwright";
 
-const BASE_URL = (process.env.BASE_URL ?? "http://localhost:3000") + "/mission-glass";
+const ORIGIN = process.env.BASE_URL ?? "http://localhost:3000";
+const BASE_URL = ORIGIN + "/";
 const failures = [];
 let checks = 0;
 const check = (ok, msg) => {
@@ -43,6 +44,15 @@ try {
   await page.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
   await page.waitForFunction(() => document.querySelector('[data-testid="mars-map"]')?.getAttribute("data-view-extent"), undefined, { timeout: 15_000 });
   await settle(page, 800);
+
+  // ── MAP-0: entry point and routing ──
+  check((await page.getByTestId("mission-glass").count()) === 1 && (await page.title()) === "Mission Glass · MDI 2.0", "MAP-0: Mission Glass is the default entry point (/)");
+  {
+    const res = await fetch(ORIGIN + "/mission-glass", { redirect: "manual" });
+    check(res.status === 307 && new URL(res.headers.get("location"), ORIGIN).pathname === "/", `MAP-0: the old /mission-glass route redirects to / (${res.status} → ${res.headers.get("location")})`);
+    const research = await fetch(ORIGIN + "/research");
+    check(research.status === 200 && (await page.getByTestId("mg-link-research").getAttribute("href")) === "/research", "MAP-0: the research workspace is reachable at /research and linked from Mission Glass");
+  }
 
   // ── Planning: Level 1 ──
   check(/Simulated scenario/.test(await text(page.getByTestId("mg-sim-pill"))), "the simulated scenario is labelled in the top bar");

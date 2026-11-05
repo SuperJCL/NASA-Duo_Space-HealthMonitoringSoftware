@@ -4,7 +4,7 @@
  * including the MF-1 advanced ranking workspace.
  *
  * Usage (the app must already be running, e.g. `npm run build && npm start`):
- *   npm run smoke                       # BASE_URL defaults to http://localhost:3000
+ *   npm run smoke                       # BASE_URL defaults to http://localhost:3000 (tests /research)
  *   SMOKE_LIVE=1 npm run smoke          # also require real NASA tiles to load (+2 checks)
  *   SMOKE_SCREENSHOT=out.png npm run smoke   # also writes out-mobile.png
  *
@@ -16,7 +16,8 @@
  */
 import { chromium } from "playwright";
 
-const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
+// MAP-0: the research workspace moved to /research (Mission Glass is now /).
+const BASE_URL = (process.env.BASE_URL ?? "http://localhost:3000") + "/research";
 const LIVE = process.env.SMOKE_LIVE === "1";
 const SCREENSHOT = process.env.SMOKE_SCREENSHOT;
 
@@ -52,7 +53,7 @@ try {
   });
 
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-  check((await page.getByRole("heading", { name: "Mars Discovery Intelligence" }).count()) === 1, "header renders");
+  check((await page.getByRole("heading", { name: "Mars Discovery Intelligence" }).count()) === 1 && (await page.getByTestId("link-mission-glass").getAttribute("href")) === "/", "header renders, with a link back to Mission Glass");
   check((await page.getByTestId("location-panel").count()) === 1, "location panel renders");
 
   await page.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 15_000 });

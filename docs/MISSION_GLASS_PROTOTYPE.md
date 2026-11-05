@@ -1,8 +1,10 @@
 # MDI 2.0 "Mission Glass": interaction prototype
 
-Status: **prototype for manual usability review, 2026-11-05.** Branch
-`mdi2-mission-glass-prototype`, route **`/mission-glass`**. The main app at
-`/` (BR-2) is unchanged. This is not the full MDI 2.0 implementation.
+Status: **default entry point since MAP-0 (2026-11-05),** route **`/`**,
+after MG-1 to MG-3 passed manual acceptance. The research workspace (BR-2)
+moved to `/research`, and the old `/mission-glass` URL redirects to `/`. It
+is still a simulated training prototype, not the full MDI 2.0
+implementation. (Originally built on branch `mdi2-mission-glass-prototype`.)
 
 Run it:
 
@@ -14,7 +16,7 @@ npm run build
 npm start
 ```
 
-Then open http://localhost:3000/mission-glass.
+Then open http://localhost:3000/.
 
 ## Design system (scoped to `.mission-glass` in `src/app/globals.css`)
 
