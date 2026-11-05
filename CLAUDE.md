@@ -19,6 +19,13 @@
   `stated` by the source or `inferred-cross-validation`. Rover positions are
   historical: never label one as live or current. Run `npm run verify:geo`
   after changing `src/data/geo/` (`docs/GEO_DATA.md`).
+- Location briefings (`src/data/briefings/`) are not engine inputs. Each
+  item has exactly one classification (measured, interpreted, open-question,
+  proposed-by-source, simulated-idea). Quotes must be verified within the
+  sample's own report section: run `npm run verify:briefing` after any edit.
+  Wording shared with another sample's report is Margin-unit scope only.
+  Simulated ideas stay `pending` and never propose repeating operations already
+  performed. Future investigations always state their conditions.
 - Records must declare `relevance`. Regional context (e.g. SIM 3464 unit Nue)
   must never be used as local evidence or as a competing hypothesis; integrity
   checks enforce this.
@@ -50,6 +57,8 @@
 - `src/lib/mission/` — present-day vs historical-replay selection and mission
   framing (simulated 2026 astronaut mission). It selects one evidence date for
   the existing `selectEvidenceAsOf`, and contains no science logic.
+- `src/lib/briefing/` — location science briefings: Zod schema, integrity
+  rules, loader. Not imported by `lib/evidence` or `lib/decision`.
 - `src/data/` — curated JSON evidence records (validated at build time);
   `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 

@@ -1387,3 +1387,63 @@ This task is tracked separately. Earlier durations are unchanged.
 - **Mapped the existing scenario records that bear on Lefroy Bay.** Only
   `obs-lefroy-bay-hydrated-silica` is site-specific; the hypotheses and
   `gap-sedimentary-or-igneous` are margin-unit level.
+
+---
+
+## BR-1: curated Lefroy Bay science briefing data
+
+- **Started:** 2026-11-05T08:11:34Z. Branch `br-lefroy-briefing` was created from
+  `product-value-spike` (`5b6ab13`), which is MF-1 plus the spike docs.
+- **Completed:** 2026-11-05T08:21:27Z, at the BR-1 commit.
+- **Wall-clock elapsed:** 9 min 53 s. This includes the
+  190 MB PDF download for section-scoped verification.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:**
+  - Data, schema, integrity, verification and tests.
+  - No UI change, no engine change, no review approvals, no new sources.
+
+### Implemented
+
+- **`src/data/briefings/lefroy-bay.json`:** 24 items, 1 quarantined
+  statement, 4 source notes, and the report-section map (11 headings).
+  Items by classification:
+  - measured: 15;
+  - interpreted: 2;
+  - open question: 3;
+  - proposed by source: 2;
+  - simulated idea: 2.
+- **`src/lib/briefing/`:**
+  - `schema.ts` (Zod);
+  - `integrity.ts` (offline rules: topic and classification, shared-wording
+    scope, conditions on future investigations, pending simulated ideas
+    with no repeated operations, all operations stated, quarantine);
+  - `repository.ts` (validated loader; it fails the build on bad data).
+- **`scripts/verify-briefing.mjs`** (`npm run verify:briefing`): live,
+  section-scoped verification by page label.
+- **`scripts/lib/source-text.mjs`:** shared fetch and text helpers.
+  `verify-citations.mjs` now imports them and also checks the briefing
+  quotes.
+- **Docs:** `docs/BRIEFINGS.md`; CLAUDE.md rules and layout.
+
+### Checkpoint results (all passed)
+
+- **`npm run check`:** lint, typecheck, build, **179/179** unit tests (+15
+  briefing tests).
+- **`npm run verify:briefing`:** **35 location checks, 0 problems.**
+  - Shared with Pelican Point, as declared: 3 item quotes and the
+    quarantined sentence.
+  - Mutation test: 4 out of 4 injected errors detected (wrong section,
+    wrong page, undeclared sharing, a quote only in the Pelican Point
+    report).
+- **`npm run verify:citations`:** **129/129** (100 earlier + 29 briefing
+  citations).
+- **`npm run verify:geo`:** 0 problems.
+- **Engine and provisional grids:** byte-identical to MF-1. No diff in
+  `src/lib/decision`, `src/lib/evidence`, `src/data/scenarios`,
+  `src/data/geo` or `sources.json`.
+
+### Rework
+
+- **Test-harness path:** the scratch probe test was outside the scratch
+  vitest root. The real test file was written instead. No product impact.
