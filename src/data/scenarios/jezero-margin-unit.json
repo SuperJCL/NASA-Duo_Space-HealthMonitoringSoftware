@@ -699,7 +699,7 @@
   "limitations": [
     "Small curated subset of public sources the MDI build environment could access; key journal articles (e.g. Zastrow & Glotch 2021) could not be read and are not included.",
     "Where a journal's own online date could not be accessed, the USGS Publications Warehouse record date is used.",
-    "No Margin Unit outline or sample markers are drawn: no published footprint was found, and the PDS sample coordinates' convention is not stated in the source.",
+    "Verified historical sample locations are displayed on the map (in historical replay, only once their source is public); their coordinate convention is inferred by cross-validation. No verified Margin Unit boundary is available, and simulated observation tasks have not been assigned precise geographic locations.",
     "Task-gap links and the gaps each observation addresses are AI-drafted curation, pending human review; curated scientific judgements (discrimination, priority) are not scored until approved."
   ],
   "discriminationAssessments": [

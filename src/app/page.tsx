@@ -1,21 +1,39 @@
-import { AppHeader } from "@/components/layout/AppHeader";
-import { MarsMapLoader } from "@/components/map/MarsMapLoader";
-import { InvestigationWorkspace } from "@/components/workspace/InvestigationWorkspace";
+import type { Metadata } from "next";
+import scenarioJson from "@/data/prototype/mission-glass.json";
+import { MissionGlass } from "@/components/prototype/MissionGlass";
+import { loadBriefings } from "@/lib/briefing/repository";
+import { briefingView } from "@/lib/briefing/view";
 import { loadJezeroMarginScenario } from "@/lib/evidence/repository";
+import { loadJezeroGeo } from "@/lib/geo/repository";
+import { latestRecordDate, loadMission, missionContext, selectGeoFeatures } from "@/lib/mission/mode";
+import { parseScenario, simulatedTargets } from "@/lib/prototype/mission-glass";
 
-export default function Home() {
-  // Curated JSON is validated (Zod + integrity rules) here, at build time.
+export const metadata: Metadata = {
+  title: "Mission Glass · MDI 2.0",
+  description: "Simulated mission planning and EVA HUD over verified NASA/PDS context (training prototype, not flight software).",
+};
+
+/**
+ * Default entry point (MAP-0): MDI 2.0 Mission Glass. The research workspace
+ * (location briefings, full ranking workspace) is at /research.
+ */
+export default function MissionGlassPage() {
   const { scenario, sources, registry } = loadJezeroMarginScenario();
-
+  const geo = loadJezeroGeo();
+  const s = parseScenario(scenarioJson, scenario, geo.catalog);
+  const ctx = missionContext(loadMission(), scenario, "present-day");
+  const { features } = selectGeoFeatures(geo, ctx);
+  const lefroy = loadBriefings().find((b) => b.locationId === s.verifiedAnchorId);
   return (
-    <div className="flex h-dvh flex-col">
-      <AppHeader />
-      <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <section aria-label="Mars map" className="relative h-[45dvh] shrink-0 lg:h-auto lg:flex-1">
-          <MarsMapLoader />
-        </section>
-        <InvestigationWorkspace scenario={scenario} sources={sources} registry={registry} />
-      </main>
-    </div>
+    <MissionGlass
+      scenario={scenario}
+      registry={registry}
+      sources={sources}
+      s={s}
+      targets={simulatedTargets(s, geo.catalog)}
+      features={features}
+      asOf={latestRecordDate(scenario)}
+      briefing={lefroy ? briefingView(lefroy, geo, sources) : null}
+    />
   );
 }

@@ -1,0 +1,633 @@
+{
+  "id": "briefing-lefroy-bay",
+  "locationId": "sample-lefroy-bay",
+  "title": "Lefroy Bay",
+  "subtitle": "Rock core M2020-949-26 · Margin unit, Jezero crater",
+  "whyItMattersItemId": "lb-why-carbonate",
+  "keyQuestionItemId": "lb-oq-rock-type",
+  "report": {
+    "id": "M2020-949-26",
+    "title": "M2020-949-26 Lefroy Bay",
+    "sourceId": "pds-m2020-initial-reports-vol4",
+    "pagePrefix": "26",
+    "reportDate": "2023-12-18",
+    "reportDateQuote": "December 18, 2023",
+    "sections": [
+      "Sample Designation:",
+      "Summary Description",
+      "Stratigraphic and Geologic Context",
+      "Pre and Post Coring/Abrasion Images",
+      "Bulk Composition",
+      "Mineralogy and Organics – SHERLOC",
+      "Elemental Geochemistry and Mineralogy – SuperCam",
+      "Core orientation",
+      "Preliminary Scientific Assessment",
+      "Returned Sample Science Considerations",
+      "References"
+    ],
+    "otherReports": [
+      { "id": "M2020-923-25", "title": "M2020-923-25 Pelican Point", "pagePrefix": "25" },
+      { "id": "M2020-1088-27", "title": "M2020-1088-27 Comet Geyser", "pagePrefix": "27" }
+    ]
+  },
+  "items": [
+    {
+      "id": "lb-why-carbonate",
+      "locationId": "sample-lefroy-bay",
+      "topic": "why-here",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "The rock was sampled at Turquoise Bay, a local high in the Margin unit that was chosen because orbital (CRISM) data show a particularly strong carbonate signature there.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Turquoise Bay represents a local topographic high of the Margin unit targeted for investigation because it contains a particularly strong CRISM carbonate signature.",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["The specific CRISM observation is not identified in the report or in this app."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-why-second-sample",
+      "locationId": "sample-lefroy-bay",
+      "topic": "why-here",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "It is the second rock sample of the rover's Margin Campaign, which explored rocks between the western edge of the Jezero fan and the inner crater rim.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Lefroy Bay is the second sample of the Margin Campaign exploring rocks exposed between the western edge of the Jezero fan and the inner crater rim.",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": [],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-silica-cement",
+      "locationId": "sample-lefroy-bay",
+      "topic": "measured",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "Silica fills the spaces between the grains, possibly as a cement.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Silica fills the space between grains, possibly as a cement.",
+          "section": "Sample Designation:",
+          "pages": ["26-1"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["“Possibly as a cement” is the report’s own hedge."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-grains",
+      "locationId": "sample-lefroy-bay",
+      "topic": "measured",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "The rock is made of sand-sized grains of olivine, pyroxene and altered silicates, with finer-grained Fe-Cr-Ti spinel.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "The rock consists of sand-sized grains of olivine, pyroxene, altered silicates, and finer grained Fe-Cr-Ti-spinel, likely sourced from aqueously altered basalt and/or ultramafic rocks.",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["Where the grains came from (“likely sourced from aqueously altered basalt and/or ultramafic rocks”) is the report’s interpretation, not a measurement."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-carbonate-sulfate",
+      "locationId": "sample-lefroy-bay",
+      "topic": "measured",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "Mg/Fe-carbonate and Mg-sulfate minerals are present.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Mg/Fe-carbonate and Mg-sulfate are present.",
+          "section": "Sample Designation:",
+          "pages": ["26-1"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["Mineral identifications come from instrument spectra and chemistry, as reported."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-sherloc-silica",
+      "locationId": "sample-lefroy-bay",
+      "topic": "measured",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "SHERLOC Raman scans (sols 938 and 939) show peaks assigned to carbonate and to hydrated silica, the first SHERLOC detection of hydrated silica.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "The Raman spectra from scans on sols 938 and 939 contain peaks that can be assigned to carbonates (~1090 cm–1) and hydrated/hydroxylated silica (~800, 965, 1075 cm–1)",
+          "section": "Mineralogy and Organics – SHERLOC",
+          "pages": ["26-26"],
+          "sharedWith": []
+        },
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "This is the first time that hydrated/hydroxylated silica has been detected by SHERLOC.",
+          "section": "Mineralogy and Organics – SHERLOC",
+          "pages": ["26-26"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["Peaks “can be assigned to” these minerals: a model-based identification."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-organics",
+      "locationId": "sample-lefroy-bay",
+      "topic": "measured",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "No obvious organic signal was found; any organic compounds, if present, are in very low abundance.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "The weak fluorescence signal and the absence of any obvious organic signals in the Raman spectra suggest that any organic compounds, if present, are in generally very low abundance.",
+          "section": "Mineralogy and Organics – SHERLOC",
+          "pages": ["26-26"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["No signal is not proof that organics are absent."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-texture",
+      "locationId": "sample-lefroy-bay",
+      "topic": "measured",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "In the abraded patch, a light-toned cement fills the pores; there are no cavities, vugs or veins.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Light-toned pore-filling cement is present. No cavities, vugs or veins are present.",
+          "section": "Preliminary Scientific Assessment",
+          "pages": ["26-35"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": [],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-heterogeneous",
+      "locationId": "sample-lefroy-bay",
+      "topic": "measured",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "SuperCam laser analyses show that the Turquoise Bay rocks vary in composition from spot to spot.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "SuperCam LIBS observations of Bills Bay and three natural surface targets at Turquoise Bay show that the rocks are compositionally heterogeneous.",
+          "section": "Elemental Geochemistry and Mineralogy – SuperCam",
+          "pages": ["26-29"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": [],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-interp-sandstone",
+      "locationId": "sample-lefroy-bay",
+      "topic": "interpreted",
+      "classification": "interpreted",
+      "scope": "sample",
+      "claim": "The science team tentatively interprets the rock as a silica-cemented, medium- to coarse-grained sandstone.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Lefroy Bay is tentatively interpreted here to be a compositionally heterogeneous silica-cemented medium to coarse sandstone.",
+          "section": "Returned Sample Science Considerations",
+          "pages": ["26-36"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["“Tentatively”: a preliminary interpretation in an initial report."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-interp-vs-pelican",
+      "locationId": "sample-lefroy-bay",
+      "topic": "interpreted",
+      "classification": "interpreted",
+      "scope": "sample",
+      "claim": "It closely resembles the earlier Pelican Point sample, about 380 m to the south-east, but is slightly coarser and has more abundant and different alteration minerals.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Lefroy Bay shows many similarities in texture, chemistry and mineralogy to the previous Margin sample Pelican Point, but is slightly coarser and contains more abundant and different alteration phases.",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": []
+        },
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "This sample is in-family with the Pelican Point sample acquired about 380 meters to the southeast.",
+          "section": "Preliminary Scientific Assessment",
+          "pages": ["26-35"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["“In-family” is the team’s comparison. The 380 m is the report’s figure; the app’s PDS coordinates give 370 m at a bearing of 147°."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-oq-rock-type",
+      "locationId": "sample-lefroy-bay",
+      "topic": "uncertain",
+      "classification": "open-question",
+      "scope": "sample",
+      "claim": "How did this rock form? It is probably a sandstone, but the setting it was deposited in is uncertain (shoreline, river or lake, or wind). Less likely, it is an altered igneous rock.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "probably a sandstone, deposited in a currently uncertain setting (possibilities include shoreline, fluviolacustrine and aeolian). Less likely, an altered igneous deposit (intrusive, extrusive, or pyroclastic).",
+          "section": "Sample Designation:",
+          "pages": ["26-1"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["Stated in a preliminary initial report (December 2023); later studies are not in this app’s dataset."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-oq-environment",
+      "locationId": "sample-lefroy-bay",
+      "topic": "uncertain",
+      "classification": "open-question",
+      "scope": "margin-unit",
+      "claim": "For the Margin unit as a whole, the environment where its rocks were deposited has not been established: beach, river or lake, wind and pyroclastic settings all remain under consideration.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "the environment in which the Margin unit rocks were deposited has not yet been established; in addition to a beach setting, fluviolacustrine, aeolian, and pyroclastic deposition remain under consideration.",
+          "section": "Returned Sample Science Considerations",
+          "pages": ["26-36"],
+          "sharedWith": ["M2020-923-25 Pelican Point"]
+        }
+      ],
+      "limitations": ["Identical wording appears in the M2020-923-25 Pelican Point report: a Margin-unit-wide statement, not specific to this rock."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-oq-stratigraphy",
+      "locationId": "sample-lefroy-bay",
+      "topic": "uncertain",
+      "classification": "open-question",
+      "scope": "margin-unit",
+      "claim": "Where the Margin unit sits relative to deeper layers of the Jezero fan (for example the Shenandoah formation) is unknown.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "its stratigraphic position relative to strata deeper in the fan (e.g., the Shenandoah formation) is unknown.",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": ["M2020-923-25 Pelican Point"]
+        }
+      ],
+      "limitations": ["Identical wording appears in the M2020-923-25 Pelican Point report: a Margin-unit-wide statement, not specific to this rock."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-done-imaged",
+      "locationId": "sample-lefroy-bay",
+      "topic": "already-done",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "Sol 920: the core location was imaged with WATSON and RMI.",
+      "sols": [920],
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Sol 920 WATSON and RMI (inset image) documentation of the Lefroy Bay core location.",
+          "section": "Pre and Post Coring/Abrasion Images",
+          "pages": ["26-11"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": [],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-done-abraded",
+      "locationId": "sample-lefroy-bay",
+      "topic": "already-done",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "Sol 935: an 8 mm deep abrasion patch, “Bills Bay”, was ground into the rock.",
+      "sols": [935],
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Lefroy Bay is associated with the Bills Bay abrasion patch, acquired on sol 935.",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": []
+        },
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Abrasion Patch Name and Depth: Bills Bay, 8 mm",
+          "section": "Sample Designation:",
+          "pages": ["26-1"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": [],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-done-analysed",
+      "locationId": "sample-lefroy-bay",
+      "topic": "already-done",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "Sols 936–939: the abraded patch was analysed with Mastcam-Z multispectral imaging (sol 936) and SHERLOC (sols 938–939).",
+      "sols": [936, 938, 939],
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Mastcam-Z multispectral image products from Sol 936",
+          "section": "Pre and Post Coring/Abrasion Images",
+          "pages": ["26-14"],
+          "sharedWith": []
+        },
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "The Raman spectra from scans on sols 938 and 939",
+          "section": "Mineralogy and Organics – SHERLOC",
+          "pages": ["26-26"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["PIXL and SuperCam analyses are also reported; their sols are not summarised here."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-done-cored",
+      "locationId": "sample-lefroy-bay",
+      "topic": "already-done",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "Sol 942 (13 October 2023): the rock was drilled and a core was collected at the Lake Newell outcrop.",
+      "sols": [942],
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "It was cored at the Lake Newell outcrop on sol 942 in the Turquoise Bay region of the Margin",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": []
+        },
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Date of Coring: 13-October-2023",
+          "section": "Sample Designation:",
+          "pages": ["26-1"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["The report spells the outcrop both “Lake Newell” and “Lake Newall” (see source notes)."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-done-sealed",
+      "locationId": "sample-lefroy-bay",
+      "topic": "already-done",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "Sol 949: the sample tube was sealed. A sampling-arm fault had left the tube unsealed since drilling on sol 942.",
+      "sols": [949],
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Lefroy Bay was drilled on sol 942, however, due to faults of the Sampling Handling Arm (SHA) the tube was not sealed until sol 949, leaving the tube open in the bit carousel for a prolonged time.",
+          "section": "Sample Designation:",
+          "pages": ["26-1"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["The report lists this under “Anomalous Behavior”."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-next-ages",
+      "locationId": "sample-lefroy-bay",
+      "topic": "next",
+      "classification": "proposed-by-source",
+      "scope": "sample",
+      "claim": "If the sample reaches Earth, dating igneous grains in it could set an upper limit on when the Margin unit formed, and so on the possible timing of Lake Jezero.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Crystallization ages of detrital igneous clasts and/or minerals within the Lefroy Bay sample would provide upper bounds on the timing of deposition of the Margin unit and therefore the permissible timing of Lake Jezero.",
+          "section": "Returned Sample Science Considerations",
+          "pages": ["26-36"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": [
+        "Requires the sample to be returned to Earth, which is not guaranteed.",
+        "Discussed in the report; not an approved NASA mission activity."
+      ],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-next-paleomagnetism",
+      "locationId": "sample-lefroy-bay",
+      "topic": "next",
+      "classification": "proposed-by-source",
+      "scope": "sample",
+      "claim": "If the sample reaches Earth, its sediments might allow a relative measurement of the strength of Mars’s ancient magnetic field.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "The sedimentary lithologies of the Lefroy Bay sample may enable a relative measurement of the paleointensity of the Martian dynamo.",
+          "section": "Returned Sample Science Considerations",
+          "pages": ["26-37"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": [
+        "Requires the sample to be returned to Earth, which is not guaranteed.",
+        "Discussed in the report; not an approved NASA mission activity.",
+        "Conditional on the rock being sedimentary (“may enable”)."
+      ],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-next-return-status",
+      "locationId": "sample-lefroy-bay",
+      "topic": "next",
+      "classification": "measured",
+      "scope": "sample",
+      "claim": "As of NASA’s December 2023 page, the sample was stored on the rover, and its return to Earth was described only as hoped for.",
+      "citations": [
+        {
+          "sourceId": "nasa-meet-lefroy-bay",
+          "sourceUrl": "https://science.nasa.gov/resource/meet-the-mars-samples-lefroy-bay-sample-23/",
+          "quote": "Lefroy Bay is currently stored on the rover and will hopefully be brought back to Earth.",
+          "section": null,
+          "pages": [],
+          "sharedWith": []
+        }
+      ],
+      "limitations": ["A December 2023 statement; this app has no newer verified information on sample return."],
+      "provenance": { "kind": "source-statement" }
+    },
+    {
+      "id": "lb-sim-sedimentary-structures",
+      "locationId": "sample-lefroy-bay",
+      "topic": "next",
+      "classification": "simulated-idea",
+      "scope": "margin-unit",
+      "claim": "Simulated idea: look for distinctive sedimentary structures (such as layering) in other Margin-unit outcrops, since their absence is what keeps an igneous origin possible.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "In the absence of strong evidence for sedimentary structures, the Margin unit could alternatively be a pyroclastic or extrusive or intrusive igneous deposit.",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": ["M2020-923-25 Pelican Point"]
+        }
+      ],
+      "limitations": [
+        "MDI idea, not reviewed by a scientist; not a NASA plan.",
+        "No target outcrop is mapped in this app.",
+        "This outcrop was already imaged (sol 920) and abraded (sol 935); this idea does not propose repeating those operations here.",
+        "Identical wording appears in the M2020-923-25 Pelican Point report: a Margin-unit-wide statement."
+      ],
+      "provenance": {
+        "kind": "mdi-simulated-idea",
+        "review": { "draftedBy": "ai-agent", "status": "pending" },
+        "addressesItemIds": ["lb-oq-rock-type"],
+        "rationale": "The source names the lack of strong evidence for sedimentary structures as the reason an igneous origin stays open; finding such structures would bear on that question."
+      }
+    },
+    {
+      "id": "lb-sim-compare-pelican",
+      "locationId": "sample-lefroy-bay",
+      "topic": "next",
+      "classification": "simulated-idea",
+      "scope": "sample",
+      "claim": "Simulated idea: compare Lefroy Bay with the Pelican Point sample, 380 m south-east, using the published measurements of both. No new rover operation is involved.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "sourceUrl": "https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_sample_dossier/initial_reports/initial_reports_volume4.pdf",
+          "quote": "Lefroy Bay shows many similarities in texture, chemistry and mineralogy to the previous Margin sample Pelican Point, but is slightly coarser and contains more abundant and different alteration phases.",
+          "section": "Summary Description",
+          "pages": ["26-2"],
+          "sharedWith": []
+        }
+      ],
+      "limitations": [
+        "MDI idea, not reviewed by a scientist; not a NASA plan.",
+        "It reuses existing measurements; no new imaging, abrasion, drilling or sealing is proposed."
+      ],
+      "provenance": {
+        "kind": "mdi-simulated-idea",
+        "review": { "draftedBy": "ai-agent", "status": "pending" },
+        "addressesItemIds": ["lb-oq-rock-type"],
+        "rationale": "The report itself compares the two samples; a side-by-side view could show which differences bear on the rock-type question."
+      }
+    }
+  ],
+  "quarantine": [
+    {
+      "id": "q-pelican-copy",
+      "quote": "make Pelican Point of great interest for astrobiological investigation",
+      "section": "Returned Sample Science Considerations",
+      "pages": ["26-37"],
+      "sharedWith": ["M2020-923-25 Pelican Point"],
+      "reason": "The Lefroy Bay report's habitability paragraph ends by naming Pelican Point, apparently text copied from the Pelican Point report. It cannot be attributed reliably to Lefroy Bay, so the paragraph's conclusion is not used."
+    }
+  ],
+  "sourceNotes": [
+    {
+      "id": "note-newell-newall",
+      "kind": "spelling",
+      "text": "The outcrop is spelled “Lake Newell” in the Summary and “Lake Newall” in the image section. Both are kept verbatim; the briefing uses “Lake Newell”, as in the cited Summary sentence.",
+      "quote": "The Lake Newall workspace",
+      "section": "Pre and Post Coring/Abrasion Images",
+      "pages": ["26-10"],
+      "sharedWith": []
+    },
+    {
+      "id": "note-ls-comma",
+      "kind": "typo",
+      "text": "The solar longitude at sealing is printed with a decimal comma (“Ls 136,6”). It is not used in the briefing.",
+      "quote": "Sol 949, Ls 136,6",
+      "section": "Sample Designation:",
+      "pages": ["26-1"],
+      "sharedWith": []
+    },
+    {
+      "id": "note-sample-numbering",
+      "kind": "numbering",
+      "text": "NASA’s page calls this “Sample 23”, while the PDS designation is M2020-949-26. These are different numbering schemes; both are shown as printed and not reconciled.",
+      "quote": "Sample Designation: M2020-949-26 Lefroy Bay",
+      "section": "Sample Designation:",
+      "pages": ["26-1"],
+      "sharedWith": []
+    },
+    {
+      "id": "note-report-date",
+      "kind": "dating",
+      "text": "The report is dated December 18, 2023, inside volume 4 version 2.0 (2025-05-06). The interpretations are preliminary as of that report.",
+      "quote": "December 18, 2023",
+      "section": "Sample Designation:",
+      "pages": ["26-1"],
+      "sharedWith": []
+    }
+  ]
+}

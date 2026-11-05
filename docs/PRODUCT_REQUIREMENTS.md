@@ -1,7 +1,9 @@
 # Mars Discovery Intelligence (MDI) — Product Requirements
 
-Status: **v0.3 — direction approved 2026-11-04** (retrospective simulator,
-Zod validation, vertical-slice-first)
+Status: **v0.4 — present-day mission simulation is the default (owner
+decision 2026-11-05).** Historical replay, the former retrospective default,
+is an advanced feature. Earlier decisions: Zod validation, vertical slice
+first. Map-first design: `docs/MAP_FIRST_DESIGN.md`.
 Supersedes: "Mars Science Detective" concept (v0.1). This is an evolution of
 that concept, not a restart: the map, NASA data layer and app shell carry over.
 
@@ -10,8 +12,21 @@ that concept, not a restart: the map, NASA data layer and app shell carry over.
 > Given incomplete scientific evidence and limited mission resources, what
 > should a Mars explorer investigate next, and why?
 
-MDI is a **retrospective scientific investigation simulator** with decision
-support. The user picks a historical **snapshot date**; MDI uses only the
+**Default (since 2026-11-05):**
+- **A simulated present-day mission (2026)** that uses all verified records
+  in the dataset.
+- **The Mars map is the primary interface.** Users explore scientific
+  targets, compare simulated observation actions and choose a next action.
+- **Verified historical rover activity** (traverse, sample sites) is shown
+  separately from **simulated future actions**.
+- **It is not a NASA mission, an astronaut mission or live telemetry.**
+
+The engine, evidence model, review registry and citation rules are unchanged.
+The retrospective mode described below is kept as **Historical replay**, an
+advanced feature.
+
+**Historical replay:** MDI works as a **retrospective scientific
+investigation simulator** with decision support. The user picks a historical **snapshot date**; MDI uses only the
 evidence that was available on that date and ranks candidate observation tasks
 with explicit, deterministic logic. Each recommendation shows the evidence,
 assumptions and limitations behind it. Afterwards, the observations that came
@@ -19,6 +34,17 @@ later can be revealed for a retrospective comparison. MDI does not claim to
 know what NASA should have done.
 
 ## 2. User workflow
+
+> **MF-1 (2026-11-05):** the default is now map-first, with no step
+> sequence:
+> 1. explore verified geographic features on the map (context cards show
+>    provenance);
+> 2. compare the simulated actions in the action strip under a simulated
+>    budget;
+> 3. choose a next action (a simulated decision);
+> 4. open evidence and the advanced workspace on demand.
+>
+> The steps below describe the underlying investigation logic.
 
 1. **Explore** a location on a real NASA Mars basemap (Mars Trek WMTS).
 2. **Review** existing scientific observations and interpretations, with sources.
@@ -52,7 +78,12 @@ Rules:
 - A recommendation must list every assumption and simulated parameter it used.
 - Simulated values are visibly labelled wherever they appear, including in exports.
 
-## 4. Temporal model (retrospective simulation)
+## 4. Temporal model
+
+**Present-day mode (default).** Evidence is selected with the existing
+`selectEvidenceAsOf` at the latest record date in the dataset, so no record
+is withheld. "2026" is a mission label, not a filter date. The sections below
+describe **Historical replay**.
 
 - **Scenario.** A site plus a default snapshot date and a pool of candidate
   tasks. Kept as data, so more scenarios can be added later without code
@@ -168,6 +199,18 @@ Out of scope for MVP:
 | 2026-11-05 (acceptance) | **Deferred:** Zastrow & Glotch and Moreland, recorded as outstanding research tasks (`docs/EVIDENCE_CURATION.md`). |
 | 2026-11-05 (RI-1) | One Zod-validated review registry covering every ranking-relevant relationship, including local/regional classification. Statuses: pending, approved, rejected, needs_revision. |
 | 2026-11-05 (RI-1) | The reviewed scenario ranking (approved relationships only) is the primary result. The provisional exploratory ranking is collapsed by default and labelled not validated. |
+| 2026-11-05 (product update) | **Default scenario: simulated present-day mission (2026)** using all verified records in the dataset. The retrospective 2023-09-08 scenario becomes the optional **Historical replay** (`defaultSnapshotDate` is kept as the replay default). |
+| 2026-11-05 (product update) | **Map-first.** Show the full verified Perseverance traverse, sample locations and NASA imagery. No mandatory wizard. Principle: Map First, Action First, Evidence on Demand, Human in Control. |
+| 2026-11-05 (product update) | Distinguish verified historical rover activity from simulated future actions. Never present the app as a real NASA or astronaut mission, or as live telemetry. |
+| 2026-11-05 (product update) | Evidence model, ranking integrity, citation provenance and review restrictions are preserved. **The scoring engine is not changed** until a change has been reviewed explicitly. |
+| 2026-11-05 (MF-0 approval) | **Mission:** a simulated 2026 mission using the latest verified evidence in the dataset (now through 2025-05-06), never implying it is the latest NASA data overall. |
+| 2026-11-05 (MF-0 approval) | **Sample sites:** the three PDS vol. 4 sites may be displayed. The coordinate convention is documented as inferred by cross-validation, not confirmed by authoritative CRS metadata. |
+| 2026-11-05 (MF-0 approval) | **Astronaut framing:** "astronaut" is used for the simulated user experience only. Rover, orbital and laboratory remain the observation platforms, with no astronaut platform and no engine change. |
+| 2026-11-05 (MF-0 approval) | **Traverse:** the verified traverse through sol 1176 is shown, labelled historical, with its last position marked as the last in the available dataset, never as live or current. |
+| 2026-11-05 (MF-0 approval) | **Branching:** MF-0 builds on `ux1-guided-workflow`. UX-1 is not merged separately, and the wizard is removed in MF-1. |
+| 2026-11-05 (MF-0 approval) | **R4:** follow-up research task to reassess the four simulated actions for 2026. The 2023 assumptions must not be presented as current recommendations. |
+| 2026-11-05 (MF-1 approval) | **Map-first UI replaces the five-step wizard** in the default interface: objective strip, map, action strip, feature context card, evidence drawer, advanced workspace drawer (historical replay lives there). |
+| 2026-11-05 (MF-1 approval) | **Authorised output-text change** to one scenario limitation (sample markers). It is a text change only; scores, order, feasibility, review statuses and replay behaviour are unchanged (test: `src/lib/decision/limitation-text.test.ts`). Exact delta in `DEVELOPMENT_LOG.md` (MF-1). |
 
 ## 9. Open questions
 

@@ -1,0 +1,21 @@
+{
+  "id": "jezero-2026-simulated",
+  "scenarioId": "jezero-margin-unit",
+  "defaultMode": "present-day",
+  "missionYear": 2026,
+  "persona": "astronaut",
+  "title": "Simulated astronaut mission to Jezero crater, 2026",
+  "disclaimer": "Simulation for learning and exploration. This is not a NASA mission, not a real astronaut mission and not live telemetry. Rover data shown are historical.",
+  "presentDay": {
+    "evidenceNote": "Uses the latest verified evidence in this app's dataset, through {latestRecordDate}. This is not all NASA data, and newer findings may exist."
+  },
+  "historicalReplay": {
+    "label": "Historical replay (advanced)",
+    "evidenceNote": "Historical replay: only evidence public on or before {replayDate} is used; later records are withheld."
+  },
+  "actionFraming": "Simulated future action, not a NASA plan. The observation platform is the one in the scientific model: rover, orbital or laboratory.",
+  "caveats": [
+    "The four candidate actions and their assumptions were curated for the 2023 margin-unit situation. Their reassessment for a 2026 mission is pending (research task R4), so they are not current scientific recommendations.",
+    "Scientific relationships that experts have not yet reviewed are shown as provisional, never as validated."
+  ]
+}

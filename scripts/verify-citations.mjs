@@ -13,10 +13,10 @@
  *
  * Requires: curl, and pdftotext (poppler-utils) for PDF sources.
  */
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fetchTo, htmlToText, isPdf, normalise, pdfText } from "./lib/source-text.mjs";
 
 const root = new URL("..", import.meta.url).pathname;
 const sources = JSON.parse(readFileSync(join(root, "src/data/sources.json"), "utf8"));
@@ -27,16 +27,6 @@ const registry = JSON.parse(
   readFileSync(join(root, "src/data/scenarios/jezero-margin-unit.reviews.json"), "utf8"),
 );
 const skip = new Set((process.env.VERIFY_SKIP ?? "").split(",").filter(Boolean));
-
-const NAMED = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", mdash: "—", ndash: "–", hellip: "…", deg: "°" };
-const decodeEntities = (t) =>
-  t.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
-    if (e[0] === "#") return String.fromCodePoint(e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : Number(e.slice(1)));
-    return NAMED[e.toLowerCase()] ?? m;
-  });
-const htmlToText = (html) =>
-  decodeEntities(html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " "));
-const normalise = (t) => t.normalize("NFKC").replace(/­/g, "").replace(/\s+/g, " ");
 
 // Collect quotes by source.
 const quotesBySource = new Map();
@@ -58,6 +48,13 @@ for (const t of scenario.tasks) for (const l of t.addresses) add(`${t.id} → ${
 for (const a of scenario.discriminationAssessments ?? []) add(a.id, a.citations);
 // Review-registry evidence (RI-1): verified quotes, which are NOT scientific approvals.
 for (const e of registry.entries) add(`review ${e.id}`, e.evidence);
+// Geographic records and coordinate conventions (MF-0).
+const geo = JSON.parse(readFileSync(join(root, "src/data/geo/jezero-geo.json"), "utf8"));
+for (const c of geo.conventions) add(`geo convention ${c.id}`, c.citations);
+for (const r of geo.records) add(`geo ${r.id}`, r.citations);
+// Location briefings (BR-1): presence here; section scope in verify-briefing.mjs.
+const briefing = JSON.parse(readFileSync(join(root, "src/data/briefings/lefroy-bay.json"), "utf8"));
+for (const i of briefing.items) add(`briefing ${i.id}`, i.citations);
 
 const work = mkdtempSync(join(tmpdir(), "mdi-verify-"));
 let failures = 0;
@@ -73,16 +70,13 @@ try {
     for (const [n, url] of (source.fullTextUrls ?? [source.url]).entries()) {
       const file = join(work, `${source.id}-${n}`);
       try {
-        execFileSync("curl", ["-sSfL", "--max-time", "600", "-A", "MDI-citation-check", "-o", file, url]);
+        fetchTo(url, file);
       } catch {
         console.log(`FAIL  ${source.id}: could not fetch ${url}`);
         failures++;
         continue;
       }
-      const isPdf = readFileSync(file).subarray(0, 5).toString() === "%PDF-";
-      text += " " + (isPdf
-        ? execFileSync("pdftotext", [file, "-"], { maxBuffer: 1 << 30 }).toString()
-        : htmlToText(readFileSync(file, "utf8")));
+      text += " " + (isPdf(file) ? pdfText(file) : htmlToText(readFileSync(file, "utf8")));
     }
     const haystack = normalise(text);
     for (const { record, quote } of quotes) {

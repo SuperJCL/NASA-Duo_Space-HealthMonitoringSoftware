@@ -7,7 +7,19 @@ MDI is an independent practice prototype, not an official NASA product. It is
 a retrospective scientific investigation simulator built on real NASA Mars
 Trek data. The initial scope is **Jezero Crater, Margin Unit**.
 
-**Status: M3 in review on branch `m3-scientific-integrity`; `main` holds M2.**
+**Status (MAP-0, 2026-11-05):** `main` holds everything up to and including
+MDI 2.0 Mission Glass (MG-1 to MG-3, accepted in manual review).
+
+| Route | What it is |
+|---|---|
+| `/` | **Mission Glass,** the default entry point: simulated mission planning, EVA HUD and replanning over verified NASA/PDS context. A training prototype, not flight software. See [`docs/MISSION_GLASS_PROTOTYPE.md`](docs/MISSION_GLASS_PROTOTYPE.md) |
+| `/research` | **Research workspace:** Lefroy Bay sample-site science briefings (BR-2), plus the full evidence and ranking workspace in its advanced drawer |
+| `/mission-glass` | Old prototype URL; redirects (307) to `/` |
+
+Earlier status note: `main` held M3 + UX-0 + RI-1 (ranking integrity), with
+UX-1 (guided five-step workflow) in review on `ux1-guided-workflow`.
+
+Earlier status note, kept for history:
 M3 adds:
 - local vs regional-context evidence;
 - a five-dimension decision model in which curated judgements need human
@@ -46,11 +58,13 @@ machine running the browser needs internet access to that host.
 |---|---|
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build and server |
-| `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
+| `npm run lint` / `npm run typecheck` | ESLint / `next typegen` then `tsc --noEmit` |
 | `npm test` | Unit tests (Vitest) |
 | `npm run check` | Lint, typecheck, tests and build |
-| `npm run smoke` | Browser smoke test against a running server (`BASE_URL`, default `http://localhost:3000`). See below |
+| `npm run smoke` | Browser smoke test of the research workspace (`/research`) against a running server (`BASE_URL`, default `http://localhost:3000`). See below |
+| `npm run smoke:mission-glass` | Browser smoke test of Mission Glass (`/`), including routing, against a running server (`BASE_URL`) |
 | `npm run verify:citations` | Re-fetch every source and check that each quote in the data is verbatim. Needs `curl` and `pdftotext` |
+| `npm run verify:geo` / `npm run verify:briefing` | Live checks of the geographic records and of the briefing quotes |
 
 The smoke test options:
 

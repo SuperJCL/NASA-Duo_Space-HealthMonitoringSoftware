@@ -3,8 +3,10 @@
 Status: **proposal; direction approved 2026-11-05** (decisions 1–3; see the
 PRD decisions log). D2 was decided as *not approved*: unreviewed
 relationships must not silently drive an authoritative recommendation (see
-`docs/RANKING_INTEGRITY_PROPOSAL.md`). UX-0 was implemented on 2026-11-05;
-UX-1 onward are not started.
+`docs/RANKING_INTEGRITY_PROPOSAL.md`). UX-0 was implemented on 2026-11-05.
+**UX-1 (guided shell) was implemented on 2026-11-05 on branch
+`ux1-guided-workflow`**, not yet merged; manual test script:
+`docs/UX1_MANUAL_TEST.md`. UX-2 to UX-5 are not started.
 Date: 2026-11-05. Baseline: branch `m3-scientific-integrity` @ `64506ea`.
 
 ## 1. M3 acceptance status

@@ -108,5 +108,55 @@
     "publishedOn": "2025-05-06",
     "dateBasis": "Modification date of version 2.0, the version whose text was verified. Version 1.0 was published 2024-09-01 but its text was not checked, so the later date is used to avoid leaking content early",
     "accessedOn": "2026-11-04"
+  },
+  {
+    "id": "trek-jezero-ctx-ortho",
+    "title": "MRO CTX, Jezero Mosaic, Controlled (JEZ_ctx_B_soc_008_orthoMosaic_6m_Eqc_latTs0_lon0)",
+    "publisher": "NASA Solar System Treks (Mars Trek), JPL",
+    "kind": "dataset",
+    "url": "https://trek.nasa.gov/mars/TrekServices/ws/index/eq/getItem?productLabel=JEZ_ctx_B_soc_008_orthoMosaic_6m_Eqc_latTs0_lon0",
+    "publishedOn": "2020-08-03",
+    "dateBasis": "Mars Trek catalog data_created_date (2020-08-03T22:38:00Z); the catalog record is the source of the extent quoted",
+    "accessedOn": "2026-11-05"
+  },
+  {
+    "id": "trek-jezero-hirise-ortho",
+    "title": "MRO HiRISE, Jezero Mosaic, Controlled (JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd)",
+    "publisher": "NASA Solar System Treks (Mars Trek), JPL",
+    "kind": "dataset",
+    "url": "https://trek.nasa.gov/mars/TrekServices/ws/index/eq/getItem?productLabel=JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+    "publishedOn": "2020-08-03",
+    "dateBasis": "Mars Trek catalog data_created_date (2020-08-03T22:48:28Z); the catalog record is the source of the extent quoted",
+    "accessedOn": "2026-11-05"
+  },
+  {
+    "id": "trek-jezero-ctx-dtm",
+    "title": "MRO CTX, Jezero DEM, Controlled (JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0)",
+    "publisher": "NASA Solar System Treks (Mars Trek), JPL",
+    "kind": "dataset",
+    "url": "https://trek.nasa.gov/mars/TrekServices/ws/index/eq/getItem?productLabel=JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0",
+    "publishedOn": "2020-08-03",
+    "dateBasis": "Mars Trek catalog data_created_date (2020-08-03T21:19:28Z); the catalog record is the source of the extent quoted",
+    "accessedOn": "2026-11-05"
+  },
+  {
+    "id": "trek-jezero-hirise-dtm",
+    "title": "MRO HiRISE, Jezero DEM, Controlled (JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40)",
+    "publisher": "NASA Solar System Treks (Mars Trek), JPL",
+    "kind": "dataset",
+    "url": "https://trek.nasa.gov/mars/TrekServices/ws/index/eq/getItem?productLabel=JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40",
+    "publishedOn": "2020-08-03",
+    "dateBasis": "Mars Trek catalog data_created_date (2020-08-03T22:42:53Z); the catalog record is the source of the extent quoted",
+    "accessedOn": "2026-11-05"
+  },
+  {
+    "id": "trek-perseverance-traverse",
+    "title": "Perseverance (Mars 2020) Path (Perseverance_Traverse_Path)",
+    "publisher": "NASA Solar System Treks (Mars Trek), JPL",
+    "kind": "dataset",
+    "url": "https://trek.nasa.gov/mars/TrekServices/ws/index/eq/getItem?productLabel=Perseverance_Traverse_Path",
+    "publishedOn": "2024-07-03",
+    "dateBasis": "Mars Trek catalog data_created_date (2024-07-03T03:26:45Z); the catalog record is the source of the extent quoted",
+    "accessedOn": "2026-11-05"
   }
 ]

@@ -1,0 +1,41 @@
+{
+  "id": "mission-glass-lefroy",
+  "title": "Simulated EVA · Margin unit near Lefroy Bay",
+  "label": "Simulated scenario (2026). Targets, steps and events are scenario-defined. Rankings come from the existing engine and are provisional, not scientifically validated.",
+  "verifiedAnchorId": "sample-lefroy-bay",
+  "excludedPlatforms": ["orbital"],
+  "actions": [
+    {
+      "taskId": "task-standoff-survey",
+      "shortTitle": "Survey the outcrops",
+      "targetId": "sim-target-a",
+      "steps": ["Reach the simulated observation point", "Image outcrop texture and layering", "Pick composition targets", "Log observations"]
+    },
+    {
+      "taskId": "task-abrasion-proximity",
+      "shortTitle": "Abrade and analyse a rock",
+      "targetId": "sim-target-b",
+      "steps": ["Reach target B (simulated)", "Document the natural surface", "Abrade a small patch", "Analyse chemistry and mineralogy"]
+    },
+    {
+      "taskId": "task-core-for-earth",
+      "shortTitle": "Collect a core sample",
+      "targetId": "sim-target-c",
+      "steps": ["Reach target C (simulated)", "Confirm the target with context imaging", "Drill and collect the core", "Seal and log the sample"]
+    }
+  ],
+  "targets": [
+    { "id": "sim-target-a", "name": "Target A", "offsetM": { "east": -110, "north": 120 } },
+    { "id": "sim-target-b", "name": "Target B", "offsetM": { "east": 70, "north": 95 } },
+    { "id": "sim-target-c", "name": "Target C", "offsetM": { "east": 130, "north": -45 } }
+  ],
+  "events": [
+    { "id": "effort-cut", "label": "Available effort drops to 50 points", "budget": 50 },
+    { "id": "effort-restored", "label": "Available effort restored to 100 points", "budget": 100 }
+  ],
+  "warnings": [
+    "Target positions are scenario-defined, not verified outcrops.",
+    "Priorities are provisional and not scientifically validated.",
+    "No route or safety assessment is provided."
+  ]
+}

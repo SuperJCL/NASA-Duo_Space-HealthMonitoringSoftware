@@ -801,3 +801,1166 @@ D1–D5, listed in `docs/UX_REDESIGN_PROPOSAL.md` §7.
   counts only approved local gaps.
 - **Reviewer identity is self-declared.** The registry records the
   reviewer's name; there is no authentication.
+
+---
+
+## RI-1 merge into `main`
+
+- **Started:** 2026-11-05T04:42:51Z. **Completed:** 2026-11-05T04:43:58Z,
+  when the push finished. **Elapsed:** 1 min 7 s.
+- **Pre-merge checks (all passed):**
+  - Working tree clean.
+  - `ri1-ranking-integrity` is exactly 1 commit (`78b15b2`) on top of `main`
+    `09821a9`.
+  - `npm run check`: 107 tests, typecheck, lint and build.
+  - 36-state engine baseline byte-identical.
+  - Smoke test 56/56 against `next start` with `SMOKE_LIVE=1`.
+- **Merge:** `--no-ff`, giving merge commit **`80e54d0`** on `main`. The
+  merged tree is identical to `78b15b2`. All branches are kept.
+
+---
+
+## UX-1: Guided five-step workflow
+
+- **Started:** 2026-11-05T04:45:04Z, when branch `ux1-guided-workflow` was
+  created from `main` `80e54d0`.
+- **Implementation and verification complete:** about 2026-11-05T04:55Z.
+  The exact time is the branch commit (see git log).
+- **Wall-clock elapsed:** about 10 min.
+  - No subagents were used.
+  - No human intervention.
+- **Not merged** to `main`; it awaits the owner's acceptance.
+
+### Interface changes (UI layer only)
+
+- **`components/flow/`:**
+  - `Stepper` is the five-step indicator. Each step is a button, and the
+    current one has `aria-current="step"`.
+  - `IntegrityBar` appears on every step and shows the mission date, hidden
+    record count, "simulated · not a NASA plan or endorsement", the reviewed
+    ranking status (a link to Result), the number of feasible tasks excluded
+    pending review, and the number of relationships awaiting review.
+  - `steps.ts` defines the five steps.
+- **`InvestigationWorkspace` is now the step controller.**
+  - Mission date, weights, constraints and the current step live in one
+    component.
+  - All five panels stay mounted and only the current one is shown
+    (`hidden`). Every selection therefore survives navigation, including the
+    open/closed state of sections and the reveal.
+  - Back and Next buttons sit at the bottom of the panel. On navigation the
+    panel scrolls to the top and focus moves to the step heading; focus is
+    not moved on first load.
+  - The map stays visible on desktop. On mobile it is above the panel.
+- **Content of each step:**
+  - **Mission:** the mission question, a plain explanation, a 5-step
+    "how it works" list, the scenario card, mission-date controls with the
+    valid range, and caveats (simulation, not NASA, simulated costs, scores
+    are not probabilities, AI-drafted relationships pending review).
+  - **Evidence:** observations, hypotheses and interpretations, regional
+    context.
+  - **Unknowns:** evidence gaps.
+  - **Decision:** a ranking status box with a "See the result" button,
+    tasks, constraints, weights, and a collapsed provisional comparison.
+  - **Result:** the reviewed ranking, the provisional ranking (collapsed),
+    "What happened later", and the review registry.
+- **Reviewed ranking wording:**
+  - A partial result reads "**Top among reviewed tasks: …**".
+  - A full result reads "Top-ranked task (all feasible tasks reviewed): …".
+  - "Feasible tasks excluded because their scientific review is incomplete:
+    N" is always shown.
+  - "Not a NASA recommendation or endorsement" was added.
+- **Reuse.** `EvidenceSection` gained a `show` prop.
+  `DecisionSection.part` is now `inputs`, `comparison` or `recommendation`,
+  and the existing card components are reused.
+- **Unchanged:** no changes under `src/lib` or `src/data`, and no new
+  dependencies.
+
+### Tests executed (all passed)
+
+- **`npm run check`:** 107/107 unit tests, typecheck, lint and production
+  build (04:53Z).
+- **36-state regression set:** direct engine output and `rankProvisional`
+  output are both byte-identical to the M3 baseline. Reviewed ranking logic
+  is unchanged; `git diff main -- src/lib src/data` is empty and the
+  `review-modes` tests pass.
+- **Smoke test: 75/75** against `next start` with `SMOKE_LIVE=1`, and 75/75
+  against `next dev`. 19 checks are new for UX-1:
+  - 5 steps, with Mission current on load and only one panel shown;
+  - Next and Back by mouse, with the focus check;
+  - Enter on a stepper button and on Next by keyboard, with the focus check;
+  - the integrity bar and the map are visible on all five steps;
+  - the bar content (reviewed status, NASA disclaimer, 4 excluded tasks);
+  - Result is one click from Mission, and the excluded count of 4 is shown;
+  - budget and weight selections persist across steps;
+  - no NASA-endorsement wording appears anywhere;
+  - all five steps can be navigated cleanly **and** under simulated
+    translation.
+
+  All earlier checks (map, M3, RI-1, UX-0 translation) pass after adding
+  step navigation.
+- **`npm run verify:citations`:** 85/85.
+- **Mobile at 390 px:** 0 px horizontal overflow; screenshot reviewed.
+
+### Bugs and rework
+
+- **Environment problem, about 3 min.** A `next-server` child process from
+  the previous smoke run kept port 3000. The new server failed to start, and
+  the first screenshot script reached the stale server. `pkill -f "next
+  start"` does not kill the `next-server` child. Fixed by killing
+  `next-server` explicitly.
+- **Test bug.** The smoke test referenced a top-level `const` before it was
+  initialised. It was moved into the function.
+- **Expected adaptation.** Existing smoke checks now navigate to the right
+  step before they interact.
+
+### Remaining UX problems (for UX-2 and later)
+
+1. **The Decision step is still long** (about 3.4 screens at 1440×900).
+   Tasks with link rationales and the weights should move behind
+   "Advanced / scientific details".
+2. **Internal terminology remains in the main UI:** "Evidence gap", "NE",
+   "Curated", "Deterministic", "Regional context" (UX-2 vocabulary).
+3. **Mobile:** the header, stepper, a four-line integrity bar and the map
+   take about 70% of the screen, leaving little room for step content. The
+   map and the bar need collapsing on small screens.
+4. **The map is not yet linked to steps or selections** (UX-4).
+5. **The Result step has no outcome summary.** When the reviewed ranking is
+   unavailable, the screen is mostly warnings, and the provisional ranking
+   needs a click (UX-3).
+6. **The no-feasible-task state has no one-click recovery actions** (UX-3).
+7. **Navigation is not tied to the URL.** Browser Back does not move between
+   steps, and steps have no shareable deep links.
+8. **The integrity bar is a polite live region** that also contains
+   buttons. Its behaviour with real screen readers is untested.
+9. **The reasons for NE values in the comparison table are still shown only
+   on hover.**
+
+---
+
+## Assessment task: map-first interaction & 3D feasibility
+
+This task is tracked separately. Earlier recorded durations are unchanged.
+
+- **Started:** 2026-11-05T05:48:32Z (first command after the request).
+- **Completed:** 2026-11-05T05:58:55Z, when commit `f369591` was pushed on
+  branch `map-first-assessment` (from `main` `80e54d0`).
+- **Wall-clock elapsed:** 10 min 23 s.
+  - No subagents were used.
+  - No human intervention.
+  - The owner's review time is not included.
+- **Scope:** read-only research and documentation. No application code,
+  data or dependencies changed. UX-1 (`ux1-guided-workflow`, `09e8fa4`) is
+  untouched and not merged. Output: `docs/MAP_FIRST_ASSESSMENT.md`.
+
+### Findings recorded (details in the assessment)
+
+- **Jezero DTMs.**
+  - Trek serves the CTX (20 m) and HiRISE (1 m) Jezero DTMs as GeoTIFF
+    downloads only, not as WMTS.
+  - The CTX DTM was downloaded and inspected: float32, Mars 2000 sphere,
+    heights relative to the areoid. It agrees with the PDS coring-site
+    elevations to within 3 m.
+  - The HiRISE DTM is 1.84 GB, and its endpoint ignores Range requests.
+- **Perseverance traverse.**
+  - It is available as queryable vector polylines with a `sol` field: 332
+    segments, sols 14–1176.
+  - The dataset's catalog date is 2024-07-03, after the snapshot. This is
+    an open temporal-policy decision.
+- **PDS coring coordinates** lie within 2.5 m of the traverse. This
+  corroborates a planetocentric, east-positive convention and partly
+  resolves R3. All three sites are after the snapshot.
+- **Blocked by the proxy (403), not bypassed:** www.usgs.gov,
+  hirise.lpl.arizona.edu and registry.opendata.aws.
+
+### Rework
+
+- A Python parser assumed every traverse feature was a `LineString`. Four
+  are `MultiLineString`; this was fixed in the scratch script.
+- A Range-request probe streamed 480 MB before timing out. It showed that
+  the server does not support Range, and the partial file was deleted.
+
+---
+
+## Requirement change: present-day mission simulation (design update)
+
+This task is tracked separately. Earlier recorded durations are unchanged,
+including the map-first assessment's 10 min 23 s.
+
+- **Started:** 2026-11-05T06:12:43Z (first command after the owner's decision).
+- **Completed:** 2026-11-05T06:17:18Z, when the documents were committed on branch
+  `map-first-assessment`.
+- **Wall-clock elapsed:** 4 min 35 s.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:** design and documentation only. No application code, data,
+  dependencies or engine changes. MF-0 had not started, so there was no
+  completed work to preserve. UX-1 is untouched and not merged.
+
+### Work performed
+
+- **Engine check (read-only, scratch test outside the repo).**
+  - In present-day mode (all records) the existing engine gives the same
+    result as the `2025-05-06` baseline state:
+    - reviewed ranking unavailable (50 awaiting review);
+    - provisional top task abrasion (0.743), ahead of coring (0.700);
+    - margin 0.043; 3 pivotal inputs;
+    - `gap-no-in-situ-data` addressed.
+  - No engine change is needed.
+- **Data probes.**
+  - The Trek traverse ends at sol 1176. The rover's last position in the
+    dataset is 18.49568° N, 77.30381° E.
+  - mars.nasa.gov (MMGIS) is blocked by the proxy (403).
+  - Trek has no sample-location layer.
+  - PDS sample-dossier initial reports exist as volumes 1–5 (volume 5
+    label dated 2026-02-10).
+  - Volume 4 states the coordinates for Pelican Point, Lefroy Bay and Comet
+    Geyser. Lefroy Bay is now confirmed from the source text.
+- **Documents.**
+  - New `docs/MAP_FIRST_DESIGN.md`: MF-0 design, revised MF-1 to MF-4 and
+    decisions D1–D6.
+  - Updated `docs/PRODUCT_REQUIREMENTS.md` (v0.4, decisions log),
+    `docs/DEVELOPMENT_PLAN.md` (MF rows; stale RI-1 row corrected) and the
+    superseded note in `docs/MAP_FIRST_ASSESSMENT.md`.
+
+---
+
+## MF-0: present-day geographic data foundation
+
+- **Started:** 2026-11-05T06:20:06Z. Branch `mf0-geo-data` was created from
+  `ux1-guided-workflow` (`09e8fa4`), and the design branch
+  `map-first-assessment` was merged in at 06:20:29Z.
+- **Completed:** 2026-11-05T06:35:05Z, implementation and verification complete, at commit.
+- **Wall-clock elapsed:** 14 min 59 s. This includes data
+  processing and debugging.
+  - No subagents were used.
+  - No human intervention.
+- **Not merged.** UX-1 is not merged separately.
+
+### Timeline (UTC)
+
+- **06:20–06:21:** branch, docs merge (two conflicts resolved), source
+  probes.
+- **06:22–06:24:** traverse fetch script; first data run at 06:23
+  (332 segments, 20,720 → 2,947 vertices).
+- **06:24–06:27:** curation of geographic records and sources; quick live
+  quote check of the Trek and Gazetteer quotes (9/9).
+- **06:27–06:30:** `lib/geo` and `lib/mission`, then tests.
+- **06:30–06:31:** `verify:geo` (live), then the full `verify:citations`
+  (100/100).
+- **06:31–06:34:** `npm run check`, engine baseline, smoke test.
+- **06:34 to the end:** documentation.
+
+### Implemented (data and pure logic; no UI change, no new dependency)
+
+- **`src/data/geo/jezero-geo.json`:**
+  - four coordinate conventions, two "stated" and two
+    "inferred-cross-validation";
+  - the documented cross-validation checks;
+  - 8 records: the crater centre, three PDS vol. 4 sample sites, and the CTX
+    and HiRISE ortho and DTM extents.
+- **`src/data/geo/perseverance-traverse.json`:** generated by
+  `scripts/fetch-traverse.mjs`. Trek traverse, 332 segments, sols 14–1176,
+  simplified within 0.5 m, with provenance, CRS interpretation and
+  length-check metadata.
+- **`src/data/missions/jezero-2026.json`:** the simulated astronaut mission
+  2026, with disclaimer, evidence notes, action framing and the R4 caveat.
+- **`src/data/sources.json`:** +5 Mars Trek catalog sources (four products
+  and the traverse).
+- **`src/lib/geo/`:**
+  - `schema.ts`: Zod schemas;
+  - `integrity.ts`: quotes equal the values, availableFrom equals the source
+    date, bboxes equal the quoted catalog bbox and the map-layer extent, a
+    related observation must name the sample, traverse ordering and the
+    final-sol rule;
+  - `repository.ts`: validated loader;
+  - `geometry.ts`: Mars-sphere distances;
+  - `features.ts`: render-neutral `MapFeature` adapters, the last-position
+    feature and `toGeoJson`.
+- **`src/lib/mission/`:**
+  - `schema.ts` and `mode.ts`: present-day vs historical-replay context (one
+    evidence date for the existing `selectEvidenceAsOf`);
+  - `selectGeoFeatures`, which withholds post-date features and, in replay,
+    the whole traverse until MF-2.
+- **`scripts/verify-geo.mjs`** (`npm run verify:geo`): live traverse
+  comparison, catalog bbox check, and CTX DTM elevation at the sample sites
+  (minimal TIFF reader, no dependency).
+- **`scripts/verify-citations.mjs`** now also checks the geographic quotes.
+- **Docs:**
+  - new `docs/GEO_DATA.md`;
+  - CLAUDE.md layout and rules;
+  - `EVIDENCE_CURATION.md`: R3 partly resolved, R4 added;
+  - status and decisions updates in the design, requirements and plan docs.
+
+### Tests executed (all passed)
+
+- **`npm run check`:** lint, typecheck, production build, and **147/147**
+  unit tests (107 existing + 40 new geo and mission tests).
+- **Engine regression:** the 36-state engine output and the provisional
+  ranking output are **byte-identical** to the M3 and UX-1 baselines. `git
+  diff ux1-guided-workflow -- src/lib/decision src/lib/evidence
+  src/components src/app src/data/scenarios` shows only the orphan-source
+  test extension.
+- **`npm run verify:citations`:** **100/100**, live (85 existing + 15 new
+  geographic).
+- **`npm run verify:geo`:** **9/9** checks.
+  - The traverse matches live per segment.
+  - All vertices are inside the catalog bbox.
+  - The CTX DTM georeference matches the catalog.
+  - PDS − DTM elevation: +1.8, +3.6 and +3.0 m.
+- **Smoke** (`next start`, `SMOKE_LIVE=1`): all checks passed, 0 failures.
+  - The script is unchanged from UX-1.
+  - This run printed 77 PASS lines (64 clean + 13 translated). The UX-1
+    entry above records 75. The reason for the difference was not
+    investigated; the UI is unchanged.
+
+### Rework and debugging
+
+1. **Merge conflicts** in `DEVELOPMENT_LOG.md` and `docs/DEVELOPMENT_PLAN.md`
+   when merging the design branch. Resolved by keeping both log entries in
+   chronological order and writing a combined plan table.
+2. **Trek ignores `orderByFields` for `f=geojson`.** Segments are now sorted
+   locally by sol and FID.
+3. **Wrong metadata URL.** The layer's `?f=json` has no spatial reference,
+   which produced "wkid unknown". Fixed by reading the MapServer root
+   (wkid 104905).
+4. **Wrong first-draft comment.** It said the traverse z values were
+   placeholders. Checking showed 12,360 distinct values from −3989 to
+   +2559 m. They are now documented as undocumented and not elevations,
+   and they are dropped.
+5. **Over-strict length test.** It expected the simplified geometry to match
+   the length attribute within 0.5%; it is 1.1% shorter, as simplification
+   is expected to make it. The simplified length is now recorded, with a
+   note to use the attribute for distances.
+6. **Test bug:** the key regex `/lat/` matched `platform`. Anchored.
+7. **Existing orphan-source test failed,** because the new Trek sources are
+   cited only by geographic data. The test now includes geographic
+   citations (a test-only import), and the separation test checks
+   production files only.
+
+### Blockers
+
+None for MF-0. As before, `mars.nasa.gov`, `www.usgs.gov`,
+`hirise.lpl.arizona.edu` and `registry.opendata.aws` are blocked by the
+proxy. Newer traverse data was deliberately not pursued (owner decision 4).
+
+---
+
+## MF-1: map-first mission explorer UI
+
+- **Started:** 2026-11-05T06:54:28Z. Branch `mf1-map-first-ui` was created from
+  `mf0-geo-data` (`495ed84`).
+- **Completed:** 2026-11-05T07:18:22Z, implementation and verification complete, at commit.
+- **Wall-clock elapsed:** 23 min 54 s. This includes
+  debugging and screenshots.
+  - No subagents were used.
+  - No human intervention.
+- **Not merged.** `main` and `ux1-guided-workflow` are untouched.
+
+### Timeline (UTC)
+
+- **06:54–06:58:** read the UI code; 77-vs-75 investigation; limitation text
+  change and its regression test.
+- **06:58–07:06:** map layers and selection; feature-details and action
+  view models; workspace shell (objective strip, cards, action strip,
+  drawers); stepper removed.
+- **07:06–07:09:** first screenshots and layout fixes.
+- **07:09–07:12:** smoke-test rewrite and view-model unit tests.
+- **07:12–07:18:** full verification, zoom fix, final screenshots.
+- **07:18 to the end:** docs and log.
+
+### Main UI changes
+
+- **The five-step wizard is removed** (`Stepper`, `steps.ts`,
+  `InvestigationWorkspace`). It is replaced by `MissionWorkspace`, a single
+  screen with:
+  - **Objective strip:** mission badge, objective, the evidence label
+    "latest verified in this dataset, through 2025-05-06 (not all NASA
+    data)", the reused UX-1 `IntegrityBar`, the disclaimer, and the
+    simulated choice.
+  - **The NASA map** as the dominant area.
+  - **A feature context card** (`FeatureCard`).
+  - **An action strip** (`ActionStrip`, with the constraint controls) and
+    action details (`ActionDetail`).
+  - **An evidence drawer** and an **advanced scientific workspace drawer**
+    (`Drawer`, non-modal: Escape closes it, and focus moves to the heading
+    and back to the opener).
+- **Reused, not duplicated:**
+  - `DecisionSection` parts (`tasks`, `weights`, `comparison`,
+    `recommendation`) and the new shared `ConstraintsControls`;
+  - `ReviewedRankingSection`, `ProvisionalSection`,
+    `ReviewRegistrySection`, `RevealSection` and `EvidenceSection`;
+  - the MF-0 libraries.
+- **Historical replay** (date picker, reveal, retrospective) moved into the
+  advanced drawer as an optional mode.
+- **New pure modules:**
+  - `src/lib/geo/details.ts` (card content from geographic records);
+  - `src/lib/mission/actions.ts` (action view model built from engine output
+    only);
+  - `src/lib/map/geo-layers.ts` (layer configuration and click priority).
+- **Layout:** a CSS grid. On phones the order is map, feature card, action
+  strip, action details. On desktop the cards float over the map cell.
+  Everything stays mounted, so state survives drawers.
+
+### Map interaction
+
+- **Vector layers** (OpenLayers, no new dependency):
+  - the traverse (332 drives, light blue);
+  - the PDS sample sites (dot plus dashed ring = inferred convention);
+  - the last position in the dataset (diamond plus dashed ring);
+  - the Jezero centre (white cross; stated convention);
+  - the optional imagery/DTM extents (dashed outlines, off by default).
+- **Legend:** independent toggles with counts, a legend entry explaining the
+  dashed ring, and an explicit note that simulated actions are not drawn.
+- **Selection:**
+  - by click: points first, then lines, then outlines;
+  - or by keyboard, from a "Select a feature" list (it centres the map,
+    re-enables a hidden layer, and caps zoom at 15 near the CTX native
+    resolution).
+  - Hiding a layer clears its selected feature. The map container is
+    focusable (arrow keys pan, + and − zoom).
+- **No Margin Unit polygon, astronaut position or task coordinates** are
+  drawn. Labels show only when zoomed in or selected.
+
+### Limitation text change (owner-authorised; output text only)
+
+Scenario `limitations[2]`, which also appears in the engine's
+`Recommendation.limitations`:
+
+- **Before:** "No Margin Unit outline or sample markers are drawn: no published footprint was found, and the PDS sample coordinates' convention is not stated in the source."
+- **After:** "Verified historical sample locations are displayed on the map (in historical replay, only once their source is public); their coordinate convention is inferred by cross-validation. No verified Margin Unit boundary is available, and simulated observation tasks have not been assigned precise geographic locations."
+
+The wording keeps the owner's meaning and adds two facts already
+documented: replay hides sample sites until their source is public, and the
+convention is inferred.
+
+**Engine outputs are NOT byte-identical** after this change: every one of the
+36 states contains the new sentence. With the new sentence mapped back to
+the old one, the engine grid and the provisional grid are byte-identical to
+the UX-1 baseline (scratch harness, 07:15Z). In addition,
+`src/lib/decision/limitation-text.test.ts` runs a metamorphic comparison over
+the same 36 states. It checks that, apart from this string, the following
+are unchanged for `recommend`, `rankProvisional` and `rankReviewed`:
+- ranking, totals and outcomes;
+- feasibility (`infeasible`, `unranked`);
+- stability and basis;
+- review statuses.
+
+It also checks replay: 11 records withheld on 2023-09-08, the same top tasks
+at budgets 100 and 30, and 28 relationships awaiting review.
+
+### Ranking and science integrity
+
+- **RI-1 semantics are unchanged.** The reviewed ranking stays unavailable
+  (50 pending; 4 feasible actions excluded).
+- **The provisional rank is never on the action cards.** It sits in a
+  collapsed "Inspect provisional ranking (not scientifically validated)"
+  section and in the collapsed provisional ranking in the advanced drawer.
+- **Essential limitations sit next to each selected action:**
+  - provisional review status;
+  - reviewed ranking unavailable;
+  - simulated future action, not a NASA operation;
+  - the R4 2026-reassessment caveat;
+  - "Location: none assigned".
+- **Choosing an action** records a simulated decision in session state only.
+  Nothing is executed. An infeasible choice is flagged.
+- **No changes** to `src/lib/decision` or `src/lib/evidence` production code,
+  the registry, or evidence records (apart from the limitation sentence). No
+  relationship was approved.
+
+### Tests executed (all passed)
+
+- **`npm run check`:** lint, typecheck, production build, **164/164** unit
+  tests (147 earlier + 6 limitation-change + 11 view-model).
+- **`npm run verify:citations`:** **100/100** live.
+- **`npm run verify:geo`:** 0 problems.
+- **Engine grids:** identical to the UX-1 baseline except for the authorised
+  sentence (see above).
+- **Smoke** (`next start`): **120 checks with `SMOKE_LIVE=1`**, **118
+  without**, 0 failures. The smoke test was rewritten for MF-1, and its
+  summary now prints the number of checks. New checks cover:
+  - geographic selection (by list and by map click);
+  - card content and the inferred-convention mark;
+  - evidence on demand with highlight and focus return;
+  - the traverse drive card;
+  - layer toggles (traverse, extents, HiRISE tiles);
+  - the last-position warning;
+  - action selection, simulated choice and the infeasible-choice flag;
+  - budget-dependent feasibility;
+  - drawers and state persistence;
+  - historical replay (withheld map features, 28 registry entries, reveal);
+  - keyboard (action card, map zoom, drawer Escape and focus);
+  - no live or current-position wording;
+  - translation regression (clean vs simulated translation, including
+    infeasible states);
+  - mobile (no overflow, map in the first screen, collapsed layer panel,
+    order, drawer width).
+
+  The M3 and RI-1 checks (NE values, basis exclusion, pivotal inputs, 50 and
+  28 registry entries, Nue as regional context) were kept and adapted to the
+  drawers.
+
+### The 77 vs 75 PASS lines
+
+Each PASS line is one executed `check()` assertion; INFO lines are logs.
+Two checks run only with `SMOKE_LIVE=1` ("real NASA tiles loaded" and "no
+tile errors").
+
+The UX-1 entry's "75" came from a second run **without** `SMOKE_LIVE=1`
+(`npm run smoke | grep -c "^PASS"`). The live run was only grepped for
+failures. MF-0 counted the live run, giving 77 = 75 + 2.
+
+So both counts are real tests, and both runs passed. The UX-1 entry's
+wording "75/75 with SMOKE_LIVE=1" was inaccurate. The MF-1 runs confirm the
+pattern: 120 live vs 118 plain.
+
+### Rework and debugging
+
+1. **Sample markers invisible.** OpenLayers decluttering hid each sample's
+   dot and label behind its own dashed-ring style. Decluttering was
+   removed; labels now show only when zoomed in (≤ 0.00012°/px) or
+   selected.
+2. **Mobile horizontal overflow of 14 px,** from the budget control's minimum
+   widths. It now wraps.
+3. **Mobile order:** action details appeared above the strip. Fixed with
+   grid areas.
+4. **The layer panel overlapped the tile-status badge.** Its maximum height
+   was reduced.
+5. **Feature-list zoom of 17 was far past the CTX native zoom (13) and looked
+   blurry.** Capped at 15.
+6. **Smoke:** the advanced drawer covers the strip's "Reset constraints"
+   button, so the test closes the drawer first. This is also a known UX
+   limitation, below. A malformed check line was fixed.
+7. **Lint:** an unused variable after splitting `DecisionSection`.
+
+### Known UX limitations
+
+1. **Drawers cover part of the map and action strip on desktop.** Constraints
+   cannot be changed while the advanced drawer is open.
+2. **The objective strip is about 4 lines on desktop and about 9 on phones.**
+   On phones the map starts about 390 px down.
+3. **Canvas features are not individually focusable.** The keyboard path is
+   the feature list, and its 332 traverse drives make it long.
+4. **Sample sites lie within about 700 m of each other** and overlap at crater
+   scale. The CTX and HiRISE ortho and DTM extents nearly coincide, so a
+   click picks one; use the list.
+5. **Vocabulary is mixed:** the integrity bar still says "task(s)" while the
+   strip says "actions".
+6. **Replay hides post-date geographic features, but not the base imagery
+   layers.** The 2020 mosaics also appear for earlier replay dates.
+7. **The simulated choice is session-only:** it is lost on reload, and there
+   are no URL deep links.
+8. **The advanced workspace is still long.** It is the former dashboard
+   content, now opt-in.
+9. **Not tested with real screen readers.**
+
+---
+
+## Product value spike: location-specific science briefing (Lefroy Bay)
+
+This task is tracked separately. Earlier durations are unchanged.
+
+- **Started:** 2026-11-05T07:36:58Z (first command after the owner's request).
+- **Completed:** 2026-11-05T07:40:18Z, at commit, on the docs-only branch
+  `product-value-spike` (from `mf1-map-first-ui` `e2b910f`).
+- **Wall-clock elapsed:** 3 min 20 s.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:**
+  - Read-only evidence audit and documentation.
+  - No UI, engine, evidence or review-registry change; nothing merged.
+- **Output:** `docs/PRODUCT_VALUE_SPIKE.md`.
+
+### Work performed
+
+- **Read the Lefroy Bay initial report** (PDS vol. 4, report 26). Read
+  sections: summary, lithology header, SHERLOC, SuperCam, preliminary
+  assessment, returned-sample science considerations.
+- **Verified 21 candidate briefing quotes verbatim** against the source text
+  (21/21 found).
+  - Seven of them occur twice in the volume: text shared with the Pelican
+    Point report (a curation risk; section-scoped verification is needed).
+  - Found two source editorial errors: the copied "make Pelican Point …"
+    sentence, and "Lake Newell" vs "Lake Newall".
+- **Cross-checked the source against our coordinates:** Pelican Point is
+  370 m from Lefroy Bay at a bearing of 147° (south-east). The source says
+  "about 380 meters to the southeast".
+- **Mapped the existing scenario records that bear on Lefroy Bay.** Only
+  `obs-lefroy-bay-hydrated-silica` is site-specific; the hypotheses and
+  `gap-sedimentary-or-igneous` are margin-unit level.
+
+---
+
+## BR-1: curated Lefroy Bay science briefing data
+
+- **Started:** 2026-11-05T08:11:34Z. Branch `br-lefroy-briefing` was created from
+  `product-value-spike` (`5b6ab13`), which is MF-1 plus the spike docs.
+- **Completed:** 2026-11-05T08:21:27Z, at the BR-1 commit.
+- **Wall-clock elapsed:** 9 min 53 s. This includes the
+  190 MB PDF download for section-scoped verification.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:**
+  - Data, schema, integrity, verification and tests.
+  - No UI change, no engine change, no review approvals, no new sources.
+
+### Implemented
+
+- **`src/data/briefings/lefroy-bay.json`:** 24 items, 1 quarantined
+  statement, 4 source notes, and the report-section map (11 headings).
+  Items by classification:
+  - measured: 15;
+  - interpreted: 2;
+  - open question: 3;
+  - proposed by source: 2;
+  - simulated idea: 2.
+- **`src/lib/briefing/`:**
+  - `schema.ts` (Zod);
+  - `integrity.ts` (offline rules: topic and classification, shared-wording
+    scope, conditions on future investigations, pending simulated ideas
+    with no repeated operations, all operations stated, quarantine);
+  - `repository.ts` (validated loader; it fails the build on bad data).
+- **`scripts/verify-briefing.mjs`** (`npm run verify:briefing`): live,
+  section-scoped verification by page label.
+- **`scripts/lib/source-text.mjs`:** shared fetch and text helpers.
+  `verify-citations.mjs` now imports them and also checks the briefing
+  quotes.
+- **Docs:** `docs/BRIEFINGS.md`; CLAUDE.md rules and layout.
+
+### Checkpoint results (all passed)
+
+- **`npm run check`:** lint, typecheck, build, **179/179** unit tests (+15
+  briefing tests).
+- **`npm run verify:briefing`:** **35 location checks, 0 problems.**
+  - Shared with Pelican Point, as declared: 3 item quotes and the
+    quarantined sentence.
+  - Mutation test: 4 out of 4 injected errors detected (wrong section,
+    wrong page, undeclared sharing, a quote only in the Pelican Point
+    report).
+- **`npm run verify:citations`:** **129/129** (100 earlier + 29 briefing
+  citations).
+- **`npm run verify:geo`:** 0 problems.
+- **Engine and provisional grids:** byte-identical to MF-1. No diff in
+  `src/lib/decision`, `src/lib/evidence`, `src/data/scenarios`,
+  `src/data/geo` or `sources.json`.
+
+### Rework
+
+- **Test-harness path:** the scratch probe test was outside the scratch
+  vitest root. The real test file was written instead. No product impact.
+
+---
+
+## BR-2: minimal Lefroy Bay science-briefing UI
+
+- **Started:** 2026-11-05T08:22:17Z, after the BR-1 checkpoint passed (BR-1 commit
+  `b9701e1`).
+- **Completed:** 2026-11-05T08:41:00Z, at the BR-2 commit.
+- **Wall-clock elapsed:** 18 min 43 s.
+  - No subagents were used.
+  - No human intervention.
+- **Same branch** `br-lefroy-briefing`; BR-2 is a separate commit.
+- **Not merged.**
+
+### Interface changes
+
+- **Default view:** the Mars map (left) plus a location panel (right; below
+  the map on phones). The panel shows:
+  - a **site chooser** (what the app does, and the 3 real sample sites, with
+    Lefroy Bay marked "Science briefing");
+  - the **Lefroy Bay briefing**;
+  - or the existing **feature card** for other features (sites without a
+    briefing say so).
+- **Briefing (`BriefingPanel`),** in this order:
+  - why the location matters;
+  - a prominent **"Still unknown"** box (the sample-level open question, with
+    the two Margin-unit-wide questions below it);
+  - what was measured;
+  - what the team thinks (preliminary);
+  - already done here (sols 920, 935, 936–939, 942, 949, with "does not
+    suggest repeating them");
+  - what the source proposes next (conditions shown as chips: return not
+    guaranteed; not an approved NASA activity), the NASA sample-status
+    statement, and a separate "Simulated ideas (MDI): not NASA plans, not
+    reviewed" box;
+  - "Is the rover at Lefroy Bay now?" (computed from the historical
+    traverse).
+
+  Each line has a **Source** toggle (collapsed by default) with the exact
+  quotation, report section and page, and a link to the source. The footer
+  has links to the original report, **Methods & audit** and the **Advanced
+  ranking workspace**.
+- **Methods & audit drawer (`BriefingMethods`):** how the briefing was built,
+  counts per classification, section-scoped verification, the 3 statements
+  shared with Pelican Point, the quarantined sentence, and the 4 source
+  notes.
+- **Advanced ranking workspace:** the MF-1 functionality is preserved and
+  moved here:
+  - integrity bar;
+  - the four simulated actions, now stated as "not tied to any location",
+    with constraints, action details and the simulated choice;
+  - mission mode and historical replay;
+  - reviewed and provisional rankings;
+  - comparison, weights, tasks and registry.
+
+  The four actions are **no longer shown in the default view** and never as
+  location recommendations.
+- **Map:**
+  - sample-site and last-position labels are always on;
+  - the first view frames the three sites and the last position;
+  - the layer panel starts collapsed so the sites stay visible;
+  - a site selected from the panel is brought into view (no animation).
+
+  There are no new map features and no task geometry.
+- **Wording fix:** the last-position warning no longer says "The rover has
+  continued since". That claim has no source in the app; it now reads "This
+  app has no rover data after this sol." This is a `lib/geo/details.ts`
+  text change, not an engine change.
+
+### Tests (all passed)
+
+- **`npm run check`:** lint, typecheck, build, **185/185** unit tests (+6
+  briefing view-model tests).
+- **Smoke** (`next start`): **116 checks with `SMOKE_LIVE=1`**, **114
+  without**, 0 failures. Rewritten for BR-2, it covers:
+  - the site chooser; actions not in the default view;
+  - the briefing sections;
+  - the open question visible without scrolling at 1280 × 800;
+  - the answer to Q1 in the first screen;
+  - classification separation per section;
+  - already done with sols; conditional future work (Q3); the rover note
+    (Q4);
+  - Source toggles with quote, page and report link;
+  - map-click selection; a non-briefing site; Methods & audit;
+  - traverse, extent, HiRISE and last-position checks;
+  - the full advanced-workspace regression (actions, simulated choice,
+    budget feasibility, RI-1 unavailable/provisional/pivotal, NE values,
+    registry 50/28, replay, reveal, persistence across drawers);
+  - keyboard (Enter on a site, Enter on Source, map zoom, Escape focus
+    return);
+  - endorsement and live-position wording;
+  - translation regression (clean vs simulated);
+  - mobile (no overflow, order, drawer width).
+- **`npm run verify:briefing`:** 35 location checks, 0 problems.
+- **`npm run verify:geo`:** 0 problems.
+- **Engine and provisional grids:** byte-identical to MF-1. No diff in
+  `src/lib/decision`, `src/lib/evidence` or `src/data` since BR-1.
+
+### Rework
+
+1. **The layer panel open by default covered the sample sites.** It now
+   starts collapsed in this view, and the map brings a selected site into
+   view.
+2. **A per-line "MEASURED" badge on every line was visual noise.** Single-
+   classification sections now state the label in their heading; per-line
+   badges remain only in mixed sections.
+3. **Smoke:**
+   - a helper replacement accidentally made the layer-panel helper call
+     itself, and the run hung; it was stopped and fixed;
+   - one regex expected text at the start of a block with a heading;
+   - one check still looked for the removed MF-1 heading.
+4. **Unsourced wording** "The rover has continued since" was removed (see
+   above).
+
+### Known limitations
+
+- **No usability result yet.** The protocol is
+  `docs/BR2_USABILITY_TEST.md` (BR-2 vs the MF-1 baseline). No improvement
+  is claimed.
+- **Only Lefroy Bay has a briefing.** Pelican Point and Comet Geyser show
+  location cards (BR-3).
+- **The briefing rests mainly on one preliminary report** (2023-12-18). Newer
+  literature is not in the dataset.
+- **The panel is long when fully scrolled**, though the key answers sit in
+  the first screen on desktop. On phones the briefing starts below a 42%
+  map.
+- **"Source" links open the whole 190 MB PDS PDF;** there is no page anchor.
+
+---
+
+## MDI 2.0 Mission Glass interaction prototype
+
+- **Started:** 2026-11-05T18:33:25Z. Branch `mdi2-mission-glass-prototype` was created
+  from `br-lefroy-briefing` (`b92e027`).
+- **Completed:** 2026-11-05T18:46:50Z, at commit.
+- **Wall-clock elapsed:** 13 min 25 s.
+  - No subagents were used.
+  - No human intervention.
+- **Not merged.** The full MDI 2.0 implementation has not been started.
+  Stopped for manual usability review.
+
+### Built
+
+- **Route `/mission-glass`**, with Planning and EVA HUD modes sharing one
+  mission state. Details: `docs/MISSION_GLASS_PROTOTYPE.md`, which covers:
+  - design tokens;
+  - the state contract;
+  - actual vs scenario data;
+  - implemented vs mocked interactions.
+- **Pure state module** `src/lib/prototype/mission-glass.ts` (9 tests) and
+  scenario file `src/data/prototype/mission-glass.json`:
+  - the 3 surface tasks;
+  - targets defined as offsets from the verified Lefroy Bay site;
+  - steps, events and warnings.
+- **Components** in `src/components/prototype/`: `MissionGlass`,
+  `TaskCard` (Levels 1 and 2), `EvidenceSheet` (Level 3), `EvaHud`.
+- **`MarsMap`** gained optional props, with no change to existing behaviour:
+  - a simulated-target layer;
+  - minimal chrome;
+  - initial overlays;
+  - a view-extent attribute.
+- **Engine use:** `rankProvisional` / `rankReviewed` with the scenario's
+  excluded platform (orbital). The ranks at 100 points are abrasion 1,
+  coring 2, survey 3. At 50 points, coring is infeasible and survey moves
+  to 1.
+
+### Tests (all passed)
+
+- **`npm run check`:** 194/194 unit tests (+9), typecheck, lint and build
+  (the new route is static).
+- **Main app smoke (BR-2):** 116 checks with `SMOKE_LIVE=1`, 0 failures.
+- **Prototype smoke** (`npm run smoke:mission-glass`): 41 checks, 0
+  failures, against `next start`.
+- **Engine and provisional grids:** byte-identical to MF-1 and BR-2. No diff
+  in `lib/decision`, `lib/evidence`, `lib/geo`, `lib/briefing`, scenario,
+  geo or briefing data, or `sources.json`.
+
+### Rework
+
+1. **The planning panel hid the map's legacy controls.** The planning map now
+   uses minimal chrome.
+2. **"SIM · Sim target A" was redundant.** Targets are renamed "Target A–C".
+3. **Cards were too tall.** Status and buttons were merged into one row.
+4. **Level 3 had no source quotation,** because the task–gap links carry
+   none. Each question's own source quotation is now shown (or its rule, for
+   rule-defined questions), and the sheet background is more opaque.
+5. **A plan timeline was added to the HUD** so task states are visible at a
+   glance.
+
+---
+
+## MG-1: Mission Glass planning flow (compare → add → review → create)
+
+- **Started:** 2026-11-05T22:50:06Z. Branch `mg-refinement` was created from
+  `mdi2-mission-glass-prototype` (`323622c`).
+- **Completed:** 2026-11-05T22:56:10Z, at commit.
+- **Wall-clock elapsed:** 6 min 4 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Files changed
+
+- `src/lib/prototype/mission-glass.ts`: added `planFit` and `addability`
+  (plain-language feasibility; simulated effort arithmetic only).
+- `src/components/prototype/TaskCard.tsx`, redesigned:
+  - one add/remove toggle;
+  - a selectable title (keyboard);
+  - cost and an effort bar;
+  - a feasibility line;
+  - "Details" demoted to a text link.
+- `src/components/prototype/PlanReview.tsx` (new): a review dialog with
+  order, running totals, remove, caveats, and "Create plan".
+- `src/components/prototype/MissionGlass.tsx`, planning panel:
+  - flow indicator (1 Compare · 2 Add · 3 Review & create);
+  - a single provisional-priority note;
+  - a plan bar with a per-action effort meter and a plain-language hint;
+  - the single primary action "Review plan (N)";
+  - the budget is locked once a plan exists.
+- `src/lib/prototype/mission-glass.test.ts` (+2 tests) and
+  `scripts/smoke-mission-glass.mjs` (planning section rewritten).
+
+### Interaction changes
+
+- **One primary button per state:** "Review plan" before the plan exists,
+  "Create plan" in review, "Open EVA HUD" after creation. "Fill with
+  suggested order" is a secondary text link.
+- **Each card says why it can or cannot be added:**
+  - fits, with what remains;
+  - "Doesn't fit your plan: needs 15 pts, only 5 pts left…";
+  - "Not possible: needs 55 pts, but the whole budget is 50 pts."
+- **Selecting a card title highlights its target on the map.** Clicking a
+  target selects its card and scrolls it into view.
+
+### Tests
+
+- **Unit:** 196/196 (+2 plan-fit and feasibility tests).
+- **Prototype smoke** (dev): 52/52. New checks cover:
+  - one primary button;
+  - empty-plan state;
+  - feasibility texts, including budget 50 infeasible and no-room;
+  - keyboard Enter to add;
+  - the flow indicator;
+  - the review dialog (focus, totals, caveats, reorder, Escape keeps the
+    draft);
+  - create;
+  - the budget locked after creation.
+- **`npm run check`:** passes.
+
+### Bugs and rework
+
+1. **Escape did not close the review.** After a reorder, the moved row lost
+   focus (React moves the DOM node), so the dialog's own key handler never
+   ran. The dialog now listens on `window` while open.
+2. **The budget value wrapped onto two lines** at the fixed width; it is now
+   `nowrap`.
+3. **Two smoke checks referred to removed elements** (the Level-2 resources
+   row; card-body click selection). Updated.
+
+---
+
+## MG-2: Mission Glass EVA glance HUD
+
+- **Started:** 2026-11-05T22:57:15Z.
+- **Completed:** 2026-11-05T23:01:20Z, at commit, on `mg-refinement`.
+- **Wall-clock elapsed:** 4 min 5 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Files changed
+
+- `src/components/prototype/EvaHud.tsx`: rewritten around the glance order.
+- `src/components/prototype/MissionGlass.tsx`: the HUD wiring, plus an
+  interim replan overlay at the top of the HUD (replaced in MG-3).
+- `scripts/smoke-mission-glass.mjs`: EVA section rewritten.
+
+### Interaction changes
+
+- **Primary view, in order:**
+  1. the current action, with an always-visible "Priority #N · provisional,
+     not validated" chip;
+  2. the current step in 34 px type, with a step progress bar and a "Then:
+     …" preview;
+  3. **one** primary button, at least 64 px tall, that names the step
+     ("Start action", "Complete step 2", "Finish action"). It receives focus
+     on entry and after each step, so Enter advances;
+  4. essential constraints: Available / This action / Plan left, with
+     "Committed so far … costs ahead are estimates";
+  5. a brief segmented mission progress bar.
+- **Secondary information is behind controls:** "More" (skip, why this
+  action), plus toggles for Map, Caveats (3), Scenario controls and Log.
+  Only one optional panel is open at a time.
+- **Always visible:** "← Planning", and the label "SIMULATED EVA · training
+  prototype, not flight software or real telemetry".
+
+### Tests
+
+- **Prototype smoke** (dev): 61/61. New MG-2 checks cover:
+  - the label;
+  - the current action and the uncertainty chip;
+  - a single primary button, focused on entry;
+  - secondary panels hidden by default and opened on demand;
+  - constraints, with committed vs estimated effort;
+  - keyboard Enter to start and to complete steps;
+  - completed and pending step states;
+  - the named primary button and next-step preview;
+  - step font ≥ 32 px and primary control ≥ 56 px;
+  - step, primary and constraints visible without scrolling at 1440×900 and
+    1280×800;
+  - progress and the route back;
+  - map, caveats and More on demand.
+- **Unit:** 196/196. **`npm run check`:** passes.
+
+### Bugs and rework
+
+1. **The primary button sat at the bottom of a tall card, far from its
+   step.** It now sits directly under the step, and the card no longer
+   stretches.
+2. **The old EVA smoke checks expected an always-visible map, warnings and
+   events.** They were rewritten to open the optional panels first.
+
+## MG-3: Mission Glass replanning (constraint changed → impact → compare → confirm or retain)
+
+- **Started:** 2026-11-05T23:01:54Z.
+- **Completed:** 2026-11-05T23:13:44Z, at commit, on `mg-refinement`.
+- **Wall-clock elapsed:** 11 min 50 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Files changed
+
+- `src/lib/prototype/mission-glass.ts`:
+  - `ReplanProposal` and `buildProposal`;
+  - new state fields `retained`, `previous` and `notice`;
+  - rewritten `constraint-event`, `accept-replan` and `keep-plan`;
+  - new `undo-replan` and `dismiss-notice`;
+  - progress actions clear the undo snapshot.
+- `src/components/prototype/ReplanDialog.tsx` (new): the replanning alert
+  dialog.
+- `src/components/prototype/EvaHud.tsx`: the retained-infeasible warning,
+  the notice with Undo, and focus returning to the primary action after a
+  decision.
+- `src/components/prototype/MissionGlass.tsx`: `checkConstraints` (the
+  engine at the newly available effort) replaces the interim MG-2 overlay.
+- `src/lib/prototype/mission-glass.test.ts`: the replanning tests rewritten
+  and extended.
+- `scripts/smoke-mission-glass.mjs`:
+  - the replanning section rewritten;
+  - repeated translation passes;
+  - a reduced-motion check;
+  - the no-feasible sequence on a phone viewport.
+- `docs/MISSION_GLASS_PROTOTYPE.md`: updated for MG-1 to MG-3.
+- `docs/MG_USABILITY_TEST.md` (new): the manual protocol.
+
+### Interaction changes
+
+- **Constraint changed.** A scenario event opens a modal alert dialog fixed
+  in the viewport. Its decision footer is always visible, also on a phone,
+  where the body scrolls. It shows:
+  - the trigger, "Constraint changed · Available effort drops to 50 points
+    (scenario event)";
+  - a heading for the situation ("Your plan no longer fits", "No remaining
+    action fits" or "The suggested order changed").
+- **Explain impact.**
+  - Committed (spent), Available now (budget − committed) and Remaining plan
+    (estimated) are shown separately.
+  - Each action in the plan gets a verdict (Done · kept / Still fits / No
+    longer fits / Too large now) and a sentence, e.g. "Needs 55 pts, more
+    than the 50 pts now available." An in-progress action says "In
+    progress, 1 of 4 steps done; those steps are kept."
+- **Compare options.**
+  - **Suggested:** the remaining actions only, in the engine's provisional
+    order, with the total and the actions that would be marked skipped.
+    Labelled "provisional, not scientifically validated".
+  - **Keep current plan,** labelled "Infeasible: needs 95 pts, 45 more than
+    available" when it does not fit.
+- **Confirm or retain.**
+  - "Use suggested plan" (or "End remaining work" when nothing fits) and
+    "Keep current plan (anyway)".
+  - Escape does not dismiss the dialog without a decision, and Tab stays
+    inside it.
+- **After the decision:**
+  - **Accept:** completed actions and in-progress steps are kept, and dropped
+    actions are marked skipped, not deleted. A notice offers Undo until the
+    mission moves on.
+  - **Keep, when the plan is infeasible:** a persistent warning ("You kept a
+    plan that exceeds the available effort by 45 pts…") with "Review
+    replanning".
+  - **Constraint change that still fits:** a notice instead of a dialog.
+  - Focus returns to the primary action.
+
+### Tests
+
+- **Unit:** 201/201 (+5).
+  - There are 16 prototype tests.
+  - The MG-3 tests cover:
+    - the proposal contents (committed vs estimated);
+    - verdicts and plain-language explanations;
+    - preserving done actions and in-progress steps;
+    - keep → retained;
+    - accept → undo, including restoring an infeasible plan;
+    - undo cleared after progress;
+    - a later fitting check that clears the warning;
+    - "no longer fits because of the actions before it";
+    - no-feasible → end remaining work.
+- **Prototype smoke:** 79/79 against `next start` (+18 since MG-2). The new
+  checks cover:
+  - the dialog and both decisions in the viewport;
+  - focus and `alertdialog`;
+  - the trigger;
+  - committed vs estimated;
+  - named affected actions;
+  - the options;
+  - Escape and Tab containment;
+  - keep → warning, with focus back on the primary;
+  - Review replanning;
+  - accept, with steps kept;
+  - the Undo notice;
+  - undo → warning again;
+  - the "still fits" notice and its dismissal;
+  - repeated translation passes through keep, review, accept and undo;
+  - reduced motion (no `mg-rise` animation, 0 ms transitions);
+  - the phone EVA fitting the viewport;
+  - on the phone: the no-feasible state (committed 40, available 10), the
+    decision on screen without overflow, and ending the remaining work.
+- **Main app smoke (BR-2):** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Engine, evidence, geo, briefing and mission code and data:** 0 lines of
+  diff against the prototype base `323622c`.
+
+### Bugs and rework
+
+1. **On a phone, the two decision buttons wrapped unevenly.** They now stack
+   full-width, with the primary on top.
+2. **In the no-feasible state, the reason repeated the heading.** It now
+   gives the numbers ("Only 10 pts are left after 40 pts committed; the
+   remaining plan needs 55 pts.").
+3. **"Core no longer fit"** is now singular or plural, as needed.
+
+### Remaining UX risks (not tested with users)
+
+- **The dialog is information-dense.** It has five sections, and the 30 s
+  replanning target may still be missed on a first encounter.
+- **On a phone,** the "Keep current plan" details are below the first
+  screen of the dialog body.
+- **The retained warning, the notice and the timeline push the EVA card
+  down.** At 1440×900 the primary stays visible, but on short screens with
+  both banners it may not.
+- **"Skipped" is used both for user skips and for actions dropped by a
+  replan.** Users may not tell them apart.
+- **Escape does nothing in the dialog.** This is deliberate, but some
+  keyboard users may expect it to close.
+
+## MAP-0: integration (Mission Glass as the default entry point; merge into main)
+
+- **Context:** the user accepted MG-1 to MG-3 in manual review (Planning,
+  EVA HUD, Replanning and Recovery: PASS).
+- **Started:** 2026-11-05T23:35:41Z.
+- **Integration commit:** 2026-11-05T23:41:29Z, on `mg-refinement`, then merged into
+  `main` with `--no-ff`. The merge commit's time is in git.
+- **Wall-clock elapsed to the integration commit:** 5 min 48 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Upstream check
+
+Every local branch is an ancestor of `mg-refinement`, so all upstream
+features are included:
+- `main` (`80e54d0`);
+- M3, UX-0, RI-1, UX-1;
+- map-first assessment, MF-0, MF-1;
+- product value spike, BR-1, BR-2;
+- the Mission Glass prototype and MG-1 to MG-3.
+
+The one exception is `m2-vertical-slice` (2 commits). Its tree is identical
+to `main`'s squashed M2 commit `05cafae`, so no content is missing.
+
+### Changes
+
+- **`/`** is now Mission Glass (`src/app/page.tsx`).
+- **The research workspace** (BR-2 briefings, plus the advanced ranking
+  workspace) moved unchanged to **`/research`** (`src/app/research/page.tsx`).
+  Each app links to the other: "Research" in the Mission Glass header,
+  "← Mission Glass" in the research header. Nothing is duplicated.
+- **`/mission-glass`** redirects (307) to `/`, via `next.config.ts`.
+- **`npm run typecheck`** is now `next typegen && tsc --noEmit`. See issue 2.
+- **Smoke tests:**
+  - the research smoke now targets `/research`, and its header check
+    includes the link back;
+  - the Mission Glass smoke targets `/`, with 3 new routing checks.
+- **Docs:** README (routes table, scripts), `CLAUDE.md`,
+  `docs/MISSION_GLASS_PROTOTYPE.md` and `docs/MG_USABILITY_TEST.md`.
+
+### Verification (production build, `next start`)
+
+- **`npm run check`:** passes. 201/201 unit tests; the routes are `/`,
+  `/research` and `/_not-found`, all static.
+- **Smoke tests:**
+  - Mission Glass: 82/82;
+  - research workspace: 116/116 with `SMOKE_LIVE=1` (tiles loaded 4,
+    failed 0).
+- **Data verifiers:**
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 location checks, 0 problems.
+- **Engine, evidence, geo, briefing and mission code and data:** unchanged.
+
+### Integration issues
+
+1. **After the route move, stale generated route types in `.next` broke
+   `tsc` locally.** Regenerating them fixed it. This affects only an
+   existing local build directory.
+2. **On a fresh clone, `npm run check` failed at typecheck (pre-existing,
+   not caused by MAP-0).** `tsc` needs Next's generated `LayoutProps` type,
+   which only `next build` produced, and the build runs after typecheck.
+   This was verified on a clean worktree of `88b9f75`. `typecheck` now
+   runs `next typegen` first; the clean worktree then passes.
+3. **Old links to `/mission-glass` still work** through the redirect.

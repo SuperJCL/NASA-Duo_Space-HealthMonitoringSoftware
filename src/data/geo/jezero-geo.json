@@ -1,0 +1,212 @@
+{
+  "scenarioId": "jezero-margin-unit",
+  "conventions": [
+    {
+      "id": "gazetteer-planetocentric-east",
+      "frame": "Mars, IAU 2000; USGS Gazetteer MDIM 2.1 control network",
+      "latitude": "planetocentric",
+      "longitude": "east-positive",
+      "basis": "stated",
+      "citations": [{ "sourceId": "usgs-gazetteer-jezero", "quote": "Planetocentric, +East, 0 - 360" }]
+    },
+    {
+      "id": "trek-equirectangular-sphere",
+      "frame": "Mars 2000 sphere (R = 3,396,190 m), equirectangular; Mars Trek",
+      "latitude": "planetocentric",
+      "longitude": "east-positive",
+      "basis": "stated",
+      "note": "On a sphere, planetocentric and planetographic latitude coincide, so the sphere CRS fixes the convention.",
+      "citations": [{ "sourceId": "trek-jezero-ctx-dtm", "quote": "Equirectangular Mars 2000 Sphere IAU" }]
+    },
+    {
+      "id": "pds-sample-north-east",
+      "frame": "Mars; PDS Mars 2020 sample dossier, Initial Reports vol. 4",
+      "latitude": "planetocentric",
+      "longitude": "east-positive",
+      "basis": "inferred-cross-validation",
+      "note": "The source states only \"Latitude (N), Longitude (E), Elevation\". It does not state the latitude type, datum or elevation reference. Planetocentric latitude, east-positive longitude on the Mars 2000 frame, with elevation relative to the areoid, is INFERRED from the cross-checks below. It is not confirmed by complete authoritative CRS metadata.",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Latitude (N), Longitude (E), Elevation: 18.48344692°, 77.35065098°, -2423.102833 m",
+          "locator": "Initial report M2020-923-25 Pelican Point"
+        }
+      ]
+    },
+    {
+      "id": "trek-traverse-mars2000",
+      "frame": "Mars 2000 geographic (ArcGIS wkid 104905, GCS_Mars_2000); Mars Trek traverse service",
+      "latitude": "planetocentric",
+      "longitude": "east-positive",
+      "basis": "inferred-cross-validation",
+      "note": "The service states the Mars 2000 geographic CRS, but not whether latitude is planetocentric or planetographic. Its GeoJSON output is mislabelled \"EPSG:4326\"; the values are Mars degrees and must not be reprojected with Earth parameters. Planetocentric latitude is INFERRED from the cross-checks below.",
+      "citations": [{ "sourceId": "trek-perseverance-traverse", "quote": "\"trekProjection\":\"urn:ogc:def:crs:EPSG::104905\"" }]
+    }
+  ],
+  "crossValidation": {
+    "checkedOn": "2026-11-05",
+    "reproduce": "Unit tests in src/lib/geo/geo-data.test.ts (sample sites vs traverse) and `npm run verify:geo` (live: traverse attributes and CTX DTM elevations at the sample sites).",
+    "reasoning": "The PDS sample coordinates, the Trek traverse and the Trek sphere-based CTX DTM come from separate products. Mixing planetocentric and planetographic latitude at 18.5° N would shift positions by about 12 km. Agreement at metre level therefore supports a shared planetocentric convention.",
+    "checks": [
+      {
+        "id": "samples-vs-traverse",
+        "description": "Distance from each PDS sample site to the nearest point on the Trek traverse",
+        "result": "2.2–2.5 m for all three sites (raw traverse vertices, 2026-11-05)",
+        "threshold": "≤ 5 m (unit test, against the committed simplified traverse)"
+      },
+      {
+        "id": "samples-vs-ctx-dtm",
+        "description": "PDS sample elevation minus CTX DTM elevation (20 m grid, areoid-referenced, Mars 2000 sphere) at the sample position",
+        "result": "Pelican Point +1.8 m, Lefroy Bay +3.6 m, Comet Geyser +3.0 m (npm run verify:geo, 2026-11-05)",
+        "threshold": "≤ 10 m (verify:geo; the 20 m DTM cannot resolve metre-scale relief)"
+      }
+    ]
+  },
+  "records": [
+    {
+      "id": "jezero-crater-centre",
+      "kind": "crater-centre",
+      "layer": "reference",
+      "name": "Jezero crater",
+      "position": [77.69, 18.41],
+      "diameterKm": 47.52,
+      "conventionId": "gazetteer-planetocentric-east",
+      "citations": [{ "sourceId": "usgs-gazetteer-jezero", "quote": "Diameter 47.52 km Center Latitude 18.41 ° Center Longitude 77.69 °" }],
+      "availableFrom": "2010-11-17"
+    },
+    {
+      "id": "sample-pelican-point",
+      "kind": "sample-site",
+      "layer": "historical-rover",
+      "name": "Pelican Point",
+      "designation": "M2020-923-25 Pelican Point",
+      "coringDate": "2023-09-23",
+      "sealingSol": 923,
+      "campaign": "Margin",
+      "regionOfInterest": "Mandu Wall",
+      "position": [77.35065098, 18.48344692],
+      "elevationM": -2423.102833,
+      "conventionId": "pds-sample-north-east",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Sample Designation: M2020-923-25 Pelican Point Date of Coring: 23-September-2023 Mars Time of Sample Core Sealing: 22:09 LMST, Sol 923, Ls 123.9 Latitude (N), Longitude (E), Elevation: 18.48344692°, 77.35065098°, -2423.102833 m",
+          "locator": "Initial report M2020-923-25"
+        },
+        { "sourceId": "pds-m2020-initial-reports-vol4", "quote": "Campaign: Margin Region of Interest: Mandu Wall", "locator": "Initial report M2020-923-25" }
+      ],
+      "availableFrom": "2025-05-06",
+      "relatedObservationIds": []
+    },
+    {
+      "id": "sample-lefroy-bay",
+      "kind": "sample-site",
+      "layer": "historical-rover",
+      "name": "Lefroy Bay",
+      "designation": "M2020-949-26 Lefroy Bay",
+      "coringDate": "2023-10-13",
+      "sealingSol": 949,
+      "campaign": "Margin",
+      "regionOfInterest": "Turquoise Bay",
+      "position": [77.34704595, 18.48867278],
+      "elevationM": -2407.641882,
+      "conventionId": "pds-sample-north-east",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Sample Designation: M2020-949-26 Lefroy Bay Date of Coring: 13-October-2023 Mars Time of Sample Core Sealing: 15:15 LMST, Sol 949, Ls 136,6 Latitude (N), Longitude (E), Elevation: 18.48867278°, 77.34704595°, - 2407.641882m",
+          "locator": "Initial report M2020-949-26"
+        },
+        { "sourceId": "pds-m2020-initial-reports-vol4", "quote": "Campaign: Margin Region of Interest: Turquoise Bay", "locator": "Initial report M2020-949-26" }
+      ],
+      "availableFrom": "2025-05-06",
+      "relatedObservationIds": ["obs-lefroy-bay-hydrated-silica"]
+    },
+    {
+      "id": "sample-comet-geyser",
+      "kind": "sample-site",
+      "layer": "historical-rover",
+      "name": "Comet Geyser",
+      "designation": "M2020-1088-27 Comet Geyser",
+      "coringDate": "2024-03-11",
+      "sealingSol": 1088,
+      "campaign": "Margin",
+      "regionOfInterest": "Western Margin",
+      "position": [77.3272192, 18.49186664],
+      "elevationM": -2382.434036,
+      "conventionId": "pds-sample-north-east",
+      "citations": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Sample Designation: M2020-1088-27 Comet Geyser Date of Coring: 11-March-2024 Mars Time of Sample Core Sealing: 19:30 LMST, Sol 1088, Ls 215.7 Latitude (N), Longitude (E), Elevation: 18.49186664 °, 77.3272192 °, - 2382.434036 m",
+          "locator": "Initial report M2020-1088-27"
+        },
+        { "sourceId": "pds-m2020-initial-reports-vol4", "quote": "Campaign: Margin Region of Interest: Western Margin", "locator": "Initial report M2020-1088-27" }
+      ],
+      "availableFrom": "2025-05-06",
+      "relatedObservationIds": ["obs-comet-geyser-carbonate-silica"]
+    },
+    {
+      "id": "extent-ctx-ortho",
+      "kind": "product-extent",
+      "layer": "reference",
+      "title": "MRO CTX, Jezero Mosaic, Controlled",
+      "productLabel": "JEZ_ctx_B_soc_008_orthoMosaic_6m_Eqc_latTs0_lon0",
+      "product": "orthoimage",
+      "instrument": "CTX",
+      "nominalResolution": "6m",
+      "servedAs": "wmts-tiles",
+      "trekLayerKey": "jezeroCtx",
+      "bbox": [77.1604655, 18.2110274, 77.6991776, 18.7211945],
+      "conventionId": "trek-equirectangular-sphere",
+      "citations": [{ "sourceId": "trek-jezero-ctx-ortho", "quote": "\"bbox\":\"77.1604655,18.2110274,77.6991776,18.7211945\"" }],
+      "availableFrom": "2020-08-03"
+    },
+    {
+      "id": "extent-hirise-ortho",
+      "kind": "product-extent",
+      "layer": "reference",
+      "title": "MRO HiRISE, Jezero Mosaic, Controlled",
+      "productLabel": "JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd",
+      "product": "orthoimage",
+      "instrument": "HiRISE",
+      "nominalResolution": "25cm",
+      "servedAs": "wmts-tiles",
+      "trekLayerKey": "jezeroHirise",
+      "bbox": [77.2229331, 18.3067994, 77.583964, 18.669315],
+      "conventionId": "trek-equirectangular-sphere",
+      "citations": [{ "sourceId": "trek-jezero-hirise-ortho", "quote": "\"bbox\":\"77.2229331,18.3067994,77.583964,18.669315\"" }],
+      "availableFrom": "2020-08-03"
+    },
+    {
+      "id": "extent-ctx-dtm",
+      "kind": "product-extent",
+      "layer": "reference",
+      "title": "MRO CTX, Jezero DEM, Controlled",
+      "productLabel": "JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0",
+      "product": "elevation-model",
+      "instrument": "CTX",
+      "nominalResolution": "20m",
+      "servedAs": "download-only",
+      "bbox": [77.1604655, 18.2110274, 77.6989752, 18.7211945],
+      "conventionId": "trek-equirectangular-sphere",
+      "citations": [{ "sourceId": "trek-jezero-ctx-dtm", "quote": "\"bbox\":\"77.1604655,18.2110274,77.6989752,18.7211945\"" }],
+      "availableFrom": "2020-08-03"
+    },
+    {
+      "id": "extent-hirise-dtm",
+      "kind": "product-extent",
+      "layer": "reference",
+      "title": "MRO HiRISE, Jezero DEM, Controlled",
+      "productLabel": "JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40",
+      "product": "elevation-model",
+      "instrument": "HiRISE",
+      "nominalResolution": "1m",
+      "servedAs": "download-only",
+      "bbox": [77.2229331, 18.3067994, 77.583964, 18.669315],
+      "conventionId": "trek-equirectangular-sphere",
+      "citations": [{ "sourceId": "trek-jezero-hirise-dtm", "quote": "\"bbox\":\"77.2229331,18.3067994,77.583964,18.669315\"" }],
+      "availableFrom": "2020-08-03"
+    }
+  ]
+}
