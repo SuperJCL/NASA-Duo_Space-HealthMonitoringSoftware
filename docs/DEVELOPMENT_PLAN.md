@@ -147,9 +147,12 @@ Priority (approved): **build the vertical slice first, then add breadth.**
 |---|---|---|---|
 | M1 / M1b | Shell + real NASA map | **Done 2026-11-04**: Trek basemaps plus Jezero CTX/HiRISE overlays, Mars scale line, smoke test | — |
 | M2 | Thin vertical slice, end to end | **Done 2026-11-04** (see below and `docs/EVIDENCE_CURATION.md`) | Review the seed records; confirm the snapshot date |
-| M3 | Breadth and rigour | More observations, interpretations and gaps from the literature; rubric-based judgement criteria with curated assessments; criteria table UI | Curation time; rubric approval |
-| M4 | Report + optional LLM narration | Print/Markdown report from engine output; optional server-side LLM rephrasing, with input and output shown | API key (server-side); approval |
-| M5 | Deploy | Vercel preview deploy | Approval |
+| M3 | Scientific integrity & decision-engine refinement | **Done; merged to `main` together with UX-0 on 2026-11-05.** The literature item is deferred as research tasks R1–R2 | — |
+| UX-0 | Stability fix | **Done 2026-11-05.** Translation-safe dynamic text; "not applicable" ranking basis when no task is feasible; regression checks, clean and under simulated translation | — |
+| RI-1 (proposed) | Ranking integrity | Validated vs provisional ranking, using only approved relationships; see `docs/RANKING_INTEGRITY_PROPOSAL.md` | Approval of the design choices |
+| UX-1 – UX-5 (proposed) | Guided five-step experience | See `docs/UX_REDESIGN_PROPOSAL.md` §5 | Authorisation per milestone |
+| Science review | Curation decisions | 11 items in `docs/M3_CURATION_REVIEW.md`; research tasks R1–R3 | Reviewer time; source access |
+| Later | Report, optional LLM narration, deploy | As previously planned | Approval |
 
 **M2 deliverables:**
 
@@ -170,17 +173,16 @@ Priority (approved): **build the vertical slice first, then add breadth.**
 
 **MVP = M1b + M2** (reached 2026-11-04). M3 makes it credible; M4 makes it presentable.
 
-**Proposed M3 scope** (to be confirmed):
-
-- **More literature.** Add records from journal articles the team supplies as
-  PDFs (publisher sites block automated access), and resolve which version of
-  the PDS Initial Reports was first public.
-- **Map integration.** Draw the USGS Gazetteer crater outline, which is a
-  sourced WKT polygon. Show sampled-rock locations as points; the PDS coring
-  coordinates are reported.
-- **Judgement criteria.** Add one rubric-based criterion with curated,
-  justified assessments, kept visibly separate from the rule-derived ones.
-- **Mobile UX.** Make the layer control collapsible.
+**M3 outcome.**
+- Evidence relevance classes: local vs regional context. SIM 3464 unit Nue is
+  reclassified as regional context.
+- Hypotheses are separated from interpretations, and dates are labelled
+  explicitly.
+- Five-dimension decision model with review-gated curated criteria and
+  explicit Not Evaluated.
+- Mission constraints in the UI.
+- Scientific integrity test suite.
+- Details: `docs/DECISION_MODEL.md` and `docs/SCIENTIFIC_REVIEW_M3.md`.
 
 ## 5. Risks
 

@@ -34,12 +34,15 @@ Initial scope: one site, **Jezero Crater — Margin Unit**.
 
 | Category | Definition | Origin | UI label |
 |---|---|---|---|
-| Observation | What an instrument measured or imaged, as reported by a cited source | Curated from NASA / peer-reviewed sources | OBSERVED |
-| Interpretation | A scientific claim inferred from observations, attributed to its authors | Curated from cited sources | INTERPRETED |
+| Orbital observation | What an orbital instrument detected or imaged, as reported by a cited source | Curated from NASA / USGS / peer-reviewed sources | OBSERVED · ORBITAL |
+| In-situ measurement | What a rover instrument measured at the target, as reported | Curated from NASA / PDS sources | MEASURED IN SITU |
+| Interpretation | An author's conclusion from observations, attributed | Curated from cited sources | INTERPRETED |
+| Hypothesis | A candidate explanation still under consideration, attributed | Curated from cited sources | HYPOTHESIS |
+| Regional context (M3) | Crater-wide or regional record not explicitly about the target unit; never local evidence | Curated from cited sources | REGIONAL CONTEXT |
 | Evidence gap | An open question, either cited from literature or produced by a stated rule | Cited, or derived by a documented rule | GAP (cited / derived) |
 | Assumption | A premise the decision model relies on, stated by the MDI team | Team-authored, user-visible | ASSUMED |
 | Simulated parameter | A hypothetical mission resource value (time, power, data volume…) | Team-authored, **never real NASA values** | SIMULATED |
-| Team judgement | A rubric score assigned by a human curator, with written justification | Team-authored | JUDGEMENT |
+| Curated judgement (M3) | Task–gap link, priority statement or discrimination assessment; AI-drafted ones are not scored until a human approves them | Drafted by agent or team; approved by a human | CURATED + review status |
 
 Rules:
 
@@ -76,27 +79,28 @@ Rules:
 - **Not in the MVP:** versioned records, superseded interpretations over time,
   and multiple snapshot comparisons. One date filter is enough.
 
-## 5. Decision logic (MVP)
+## 5. Decision logic (engine v0.2.0, M3)
 
-- **Deterministic weighted multi-criteria scoring**, a pure function with the
-  same output for the same inputs, versioned (`engineVersion`).
-- Example criteria (to be finalised with the team):
-  - **Gap coverage**: how many open gaps the task addresses.
-  - **Discriminating power**: how many competing interpretations the result
-    could tell apart.
-  - **Resource cost**: from simulated parameters.
-  - **Feasibility / risk**: team judgement.
-- Scores come from one of two places. Each score records which.
-  1. **Rule-derived**: computed from structured data, e.g. counting the gaps a
-     task links to.
-  2. **Team judgement**: a 0–3 rubric score with a fixed meaning for each
-     level and a written justification.
-- Users can adjust the criterion weights. The breakdown updates live.
-- **Rank stability check**: report whether the top-ranked task stays on top
-  when weights are perturbed (e.g. ±20%).
-- **LLMs are never used to assign scores, gaps or rankings.** Later, an LLM may
-  only rephrase the structured engine output into prose. Its input and output
-  must be shown, and it runs server-side.
+The full specification is in `docs/DECISION_MODEL.md`. Summary:
+
+- **Five separate dimensions:**
+  - evidence-gap coverage (deterministic);
+  - hypothesis discrimination (curated);
+  - resource feasibility (deterministic, under mission constraints);
+  - scientific priority (curated);
+  - evidence quality gain (deterministic).
+- **Curated = human-approved.** AI-drafted judgements are shown but return
+  "Not Evaluated" until approved. Hypothesis discrimination requires an
+  explicit list of possible results and the hypotheses each would favor or
+  weaken.
+- **Not Evaluated is explicit.** A criterion that cannot be justified (e.g.
+  because of missing data) returns a reason, never a fabricated number.
+- **Same terms for every task.** Only criteria evaluated for every feasible
+  task enter the ranking basis.
+- **Mission constraints** (budget, platform availability) give
+  deterministic, explained exclusions.
+- **Weight stability check:** each basis weight is changed by ±20%.
+- **LLMs never assign scores, gaps or rankings.**
 
 ## 6. MVP scope (smallest working product)
 
@@ -152,12 +156,22 @@ Out of scope for MVP:
 | 2026-11-04 (M2) | `availableFrom` = latest cited source date, not earliest, so a multi-source record cannot reveal a later quote early. |
 | 2026-11-04 (M2) | Scenario default snapshot: **2023-09-08**, the day after NASA's margin-unit preview post and before Perseverance's first margin-unit abrasion (Sol 915, 2023-09-16). Proposed by the agent; awaiting confirmation. |
 | 2026-11-04 (M2) | Candidate tasks may target an Earth-lab platform (returned-sample analysis), separate from rover and orbital. |
+| 2026-11-05 | Default snapshot 2023-09-08 confirmed by the user. |
+| 2026-11-05 (M3) | Records carry `relevance` (local / regional-context); SIM 3464 unit Nue reclassified as regional context (see `docs/SCIENTIFIC_REVIEW_M3.md`). |
+| 2026-11-05 (M3) | Five-dimension decision model; curated criteria require human approval; Not Evaluated instead of fabricated scores (see `docs/DECISION_MODEL.md`). |
+| 2026-11-05 (acceptance) | **Approved:** the guided five-step experience (Mission → Evidence → Unknowns → Decision → Result). |
+| 2026-11-05 (acceptance) | **Approved:** the map stays persistently accessible and is connected to the selected scientific context. |
+| 2026-11-05 (acceptance) | **Approved:** progressive disclosure, with provenance, limitations, pending-review status and warnings kept visible when relevant. |
+| 2026-11-05 (acceptance) | **Not approved:** unreviewed AI-curated relationships silently influencing an authoritative recommendation. Follow-up: `docs/RANKING_INTEGRITY_PROPOSAL.md`. |
+| 2026-11-05 (acceptance) | **Pending review:** all 11 curation items, none auto-approved; D1 stays unapproved. |
+| 2026-11-05 (acceptance) | **Approved in principle:** fix the translation crash (UX-0), run regression tests, then merge M3 into `main` if the scientific behavior is preserved. |
+| 2026-11-05 (acceptance) | **Deferred:** Zastrow & Glotch and Moreland, recorded as outstanding research tasks (`docs/EVIDENCE_CURATION.md`). |
 
 ## 9. Open questions
 
 1. Who curates and approves evidence records and rubric scores? The agent can
    draft records only from sources it can actually read.
-2. Confirm the default snapshot date (2023-09-08) or choose another.
+2. Review the AI-drafted curated judgements (priority statements, task–gap links, one discrimination assessment) — see `docs/SCIENTIFIC_REVIEW_M3.md` §4.
 3. Several important journal articles are behind publisher bot protection
    (e.g. Zastrow & Glotch 2021; Williford et al., *Science*, Dec 2025 per search
    snippets — unverified). Should the team supply PDFs for M3?

@@ -1,11 +1,11 @@
 /**
  * SYNTHETIC TEST FIXTURE — NOT SCIENTIFIC DATA.
  *
- * Abstract placeholder records ("Observation A", "example.org") used only to
+ * Abstract placeholder records ("Hypothesis 1", "example.org") used only to
  * exercise the schema, integrity checks, snapshot filter and decision engine.
  * Never import this from application code.
  */
-import type { Scenario, Source } from "@/lib/evidence/schema";
+import type { Review, Scenario, Source } from "@/lib/evidence/schema";
 
 export const syntheticSources: Source[] = [
   {
@@ -41,6 +41,13 @@ export const syntheticSources: Source[] = [
 ];
 
 const cite = (sourceId: string) => [{ sourceId, quote: "fixture quote" }];
+export const pending: Review = { draftedBy: "ai-agent", status: "pending" };
+export const approved: Review = {
+  draftedBy: "ai-agent",
+  status: "approved",
+  reviewedBy: "Test Reviewer",
+  reviewedOn: "2026-11-05",
+};
 
 export function syntheticScenario(): Scenario {
   return {
@@ -55,8 +62,21 @@ export function syntheticScenario(): Scenario {
         title: "Orbital observation A",
         statement: "fixture",
         platform: "orbital",
+        relevance: "local",
         mission: "Orbiter",
         instruments: ["Spectrometer"],
+        availableFrom: "2010-01-01",
+        addressesGapIds: [],
+        citations: cite("src-2010"),
+      },
+      {
+        id: "obs-regional",
+        title: "Regional mapping",
+        statement: "fixture",
+        platform: "orbital",
+        relevance: "regional-context",
+        mission: "Orbiter",
+        instruments: ["Camera"],
         availableFrom: "2010-01-01",
         addressesGapIds: [],
         citations: cite("src-2010"),
@@ -66,8 +86,10 @@ export function syntheticScenario(): Scenario {
         title: "Rover observation (later)",
         statement: "fixture",
         platform: "rover",
+        relevance: "local",
         mission: "Rover",
         instruments: ["Arm instrument"],
+        observedOn: "2024-02-01",
         availableFrom: "2024-03-01",
         addressesGapIds: ["gap-origin", "gap-later-only"],
         citations: cite("src-2024"),
@@ -78,8 +100,11 @@ export function syntheticScenario(): Scenario {
         id: "interp-1",
         title: "Hypothesis 1",
         claim: "fixture",
+        stance: "hypothesis",
+        relevance: "local",
         attributedTo: "Team 1",
         supportingObservationIds: ["obs-orbital-a"],
+        contextRecordIds: [],
         availableFrom: "2010-01-01",
         citations: cite("src-2010"),
       },
@@ -87,10 +112,25 @@ export function syntheticScenario(): Scenario {
         id: "interp-2",
         title: "Hypothesis 2",
         claim: "fixture",
+        stance: "hypothesis",
+        relevance: "local",
         attributedTo: "Team 2",
-        supportingObservationIds: ["obs-orbital-a"],
+        supportingObservationIds: [],
+        contextRecordIds: ["obs-regional"],
         availableFrom: "2015-06-01",
         citations: cite("src-2015"),
+      },
+      {
+        id: "interp-regional",
+        title: "Regional interpretation",
+        claim: "fixture",
+        stance: "interpretation",
+        relevance: "regional-context",
+        attributedTo: "Team 3",
+        supportingObservationIds: ["obs-regional"],
+        contextRecordIds: [],
+        availableFrom: "2010-01-01",
+        citations: cite("src-2010"),
       },
     ],
     gaps: [
@@ -98,22 +138,35 @@ export function syntheticScenario(): Scenario {
         id: "gap-origin",
         title: "Origin",
         question: "Which hypothesis is right?",
+        relevance: "local",
         discriminatesInterpretationIds: ["interp-1", "interp-2"],
         availableFrom: "2015-06-01",
         origin: { kind: "cited", citations: cite("src-2015") },
+        priority: { statement: "Critical question.", citations: cite("src-2015"), review: pending },
       },
       {
         id: "gap-context",
         title: "Context",
         question: "Context question",
+        relevance: "local",
         discriminatesInterpretationIds: ["interp-1"],
         availableFrom: "2015-06-01",
         origin: { kind: "derived", rule: "fixture rule" },
       },
       {
+        id: "gap-regional",
+        title: "Regional question",
+        question: "Regional question",
+        relevance: "regional-context",
+        discriminatesInterpretationIds: [],
+        availableFrom: "2010-01-01",
+        origin: { kind: "cited", citations: cite("src-2010") },
+      },
+      {
         id: "gap-later-only",
         title: "Later gap",
         question: "A gap first identified later",
+        relevance: "local",
         discriminatesInterpretationIds: ["interp-1"],
         availableFrom: "2024-03-01",
         origin: { kind: "cited", citations: cite("src-2024") },
@@ -140,7 +193,10 @@ export function syntheticScenario(): Scenario {
         description: "fixture",
         platform: "rover",
         instruments: ["Arm instrument"],
-        addressesGapIds: ["gap-origin", "gap-context"],
+        addresses: [
+          { gapId: "gap-origin", rationale: "fixture", citations: [], review: pending },
+          { gapId: "gap-context", rationale: "fixture", citations: [], review: pending },
+        ],
         costs: { "res-time": 60 },
         assumptionIds: ["asm-rover-access"],
       },
@@ -150,7 +206,7 @@ export function syntheticScenario(): Scenario {
         description: "fixture",
         platform: "orbital",
         instruments: ["Spectrometer"],
-        addressesGapIds: ["gap-context"],
+        addresses: [{ gapId: "gap-context", rationale: "fixture", citations: [], review: pending }],
         costs: { "res-time": 10 },
         assumptionIds: [],
       },
@@ -158,9 +214,9 @@ export function syntheticScenario(): Scenario {
         id: "task-too-expensive",
         title: "Over-budget task",
         description: "fixture",
-        platform: "rover",
-        instruments: ["Drill"],
-        addressesGapIds: ["gap-origin"],
+        platform: "lab",
+        instruments: ["Lab"],
+        addresses: [{ gapId: "gap-origin", rationale: "fixture", citations: [], review: pending }],
         costs: { "res-time": 150 },
         assumptionIds: [],
       },
@@ -170,9 +226,29 @@ export function syntheticScenario(): Scenario {
         description: "fixture",
         platform: "rover",
         instruments: ["Camera"],
-        addressesGapIds: ["gap-later-only"],
+        addresses: [
+          {
+            gapId: "gap-later-only",
+            rationale: "fixture",
+            citations: cite("src-2024"),
+            availableFrom: "2024-03-01",
+            review: pending,
+          },
+        ],
         costs: { "res-time": 5 },
         assumptionIds: [],
+      },
+    ],
+    discriminationAssessments: [
+      {
+        id: "da-rover",
+        taskId: "task-rover-insitu",
+        hypothesisIds: ["interp-1", "interp-2"],
+        outcomes: [{ ifObserved: "Result A", favors: ["interp-1"], weakens: ["interp-2"] }],
+        rationale: "fixture",
+        citations: [],
+        availableFrom: "2015-06-01",
+        review: pending,
       },
     ],
     limitations: ["fixture limitation"],

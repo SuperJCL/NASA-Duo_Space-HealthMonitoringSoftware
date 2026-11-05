@@ -149,6 +149,33 @@ try {
   console.log(`INFO  top task at default snapshot: ${topAtDefault}`);
   check((await page.getByTestId("comparison-table").locator("tbody tr").count()) > 0, "comparison table has ranked tasks");
 
+  // M3: regional context, Not Evaluated criteria, curated links, constraints.
+  const regionalSim = page.locator('[data-record-id="obs-upper-etched-unit-mapping"]');
+  check(
+    (await regionalSim.getAttribute("data-relevance")) === "regional-context",
+    "SIM 3464 unit Nue is shown as regional context, not a margin-unit observation",
+  );
+  check(
+    (await page.getByTestId("comparison-table").getByText("NE").count()) > 0,
+    "comparison table shows Not Evaluated (NE) for unapproved curated criteria",
+  );
+  check(
+    (await page.getByTestId("basis-hypothesis-discrimination").textContent())?.includes("Not in ranking basis") ?? false,
+    "hypothesis discrimination is excluded from the ranking basis with a reason",
+  );
+  check(
+    (await page.getByTestId("task-gap-links").first().getByText("AI draft · pending review").count()) > 0,
+    "task-gap links show their rationale and pending-review status",
+  );
+  const budget = page.getByLabel("Investigation effort budget");
+  await budget.fill("30");
+  const infeasibleText = (await page.getByTestId("infeasible").textContent()) ?? "";
+  check(/Needs 40 points of Investigation effort; simulated budget is 30/.test(infeasibleText), "lower budget excludes tasks with a stated reason");
+  const topAt30 = (await page.getByTestId("top-task").textContent())?.trim();
+  console.log(`INFO  top task with budget 30: ${topAt30}`);
+  check(topAt30 === "Stand-off survey of margin outcrops", "re-ranking under the budget constraint is deterministic");
+  await page.getByRole("button", { name: "Reset constraints" }).click();
+
   await page.getByRole("button", { name: "Reveal later evidence" }).click();
   check((await page.getByTestId("reveal").count()) === 1, "reveal shows later evidence on request");
 
@@ -175,6 +202,10 @@ try {
   await page.waitForTimeout(2_000);
   check(requestsFor(MOLA_ID) > 0, `MOLA basemap requests MOLA tiles (${requestsFor(MOLA_ID)})`);
 
+  // UX-0 regression: no-feasible-task states, clean and under simulated page translation.
+  await checkInfeasibleStates(browser, false);
+  await checkInfeasibleStates(browser, true);
+
   // Mobile layout: map stacked above the panel, no horizontal scroll.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
@@ -190,6 +221,77 @@ try {
   }
 } finally {
   await browser.close();
+}
+
+/**
+ * Simulates browser page translation (e.g. Chrome/Google Translate): every
+ * text node outside translate="no" is replaced by <font><font>text</font></font>.
+ * React-owned text nodes are thereby detached, which is what caused the
+ * "removeChild … not a child of this node" crash found in M3 manual testing.
+ */
+async function simulateTranslation(page) {
+  await page.evaluate(() => {
+    const skip = (n) => n.parentElement?.closest('[translate="no"], script, style');
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.nodeValue.trim() && !skip(n) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const n of nodes) {
+      const outer = document.createElement("font");
+      const inner = document.createElement("font");
+      inner.textContent = n.nodeValue;
+      outer.appendChild(inner);
+      n.parentNode.replaceChild(outer, n);
+    }
+  });
+}
+
+async function checkInfeasibleStates(browser, translated) {
+  const tag = translated ? "[translated]" : "[clean]";
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e).split("\n")[0]));
+  await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="recommendation"]', { timeout: 15_000 });
+  await page.waitForTimeout(800);
+  if (translated) await simulateTranslation(page);
+  const text = async (id) => ((await page.getByTestId(id).textContent().catch(() => null)) ?? "").trim();
+  const platform = (label) => page.locator("label", { hasText: label }).locator("input");
+
+  for (const label of ["Orbital imaging available", "Rover operations available", "Earth laboratories"]) {
+    await platform(label).click();
+  }
+  await page.waitForTimeout(300);
+  check(errors.length === 0, `${tag} all platforms disabled: no page error${errors.length ? ` (${errors[0]})` : ""}`);
+  check(/No task is feasible under the current constraints/.test(await text("not-ranked")), `${tag} all platforms disabled: explains that no task is feasible`);
+  check(/not applicable/.test(await text("basis-gap-coverage")), `${tag} all platforms disabled: ranking basis shown as not applicable`);
+  check(!/\*/.test((await page.getByTestId("comparison-table").locator("thead").textContent()) ?? ""), `${tag} all platforms disabled: no 'not in basis' markers`);
+
+  await page.getByRole("button", { name: "Reset constraints" }).click();
+  await page.waitForTimeout(300);
+  check((await text("top-task")) === "Abrade a margin rock and analyse it up close", `${tag} reset restores the default recommendation`);
+
+  await page.getByLabel("Investigation effort budget").fill("0");
+  await page.waitForTimeout(300);
+  check(errors.length === 0, `${tag} budget 0: no page error${errors.length ? ` (${errors[0]})` : ""}`);
+  check(/No task is feasible/.test(await text("no-recommendation")), `${tag} budget 0: no-recommendation message shown`);
+
+  // Values must refresh, not stay stale, after translation replaced text nodes.
+  await page.getByLabel("Investigation effort budget").fill("30");
+  await page.waitForTimeout(300);
+  check((await text("top-task")) === "Stand-off survey of margin outcrops", `${tag} budget 30: top task updates`);
+  check(/stays #1 in \d+ of \d+ runs/.test(await text("stability")), `${tag} budget 30: stability text present`);
+  await page.getByLabel("Resource feasibility weight").fill("5");
+  await page.waitForTimeout(300);
+  const weightLabel = await page
+    .locator("label", { hasText: "Resource feasibility" })
+    .locator("span.font-mono", { hasText: /^w\d+$/ })
+    .first()
+    .textContent();
+  check(weightLabel?.trim() === "w5", `${tag} weight label updates to w5 (got ${weightLabel?.trim()})`);
+  check(errors.length === 0, `${tag} no page errors overall${errors.length ? ` (${errors.join(" | ")})` : ""}`);
+  await page.close();
 }
 
 if (failures.length) {

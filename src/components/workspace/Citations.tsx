@@ -15,7 +15,7 @@ export function Citations({
         const source = sourceById.get(c.sourceId);
         return (
           <li key={`${c.sourceId}-${index}`} className="border-l-2 border-border pl-2">
-            <blockquote className="text-xs italic text-foreground/85">&ldquo;{c.quote}&rdquo;</blockquote>
+            <blockquote className="text-xs italic text-foreground/85">{`\u201c${c.quote}\u201d`}</blockquote>
             {source ? (
               <p className="mt-0.5 text-[11px] text-muted">
                 <a
@@ -25,9 +25,8 @@ export function Citations({
                   className="underline decoration-border underline-offset-2 hover:text-foreground"
                 >
                   {source.title}
-                </a>{" "}
-                — {source.publisher}, {source.publishedOn}
-                {c.locator ? `, ${c.locator}` : ""}
+                </a>
+                <span>{` — ${source.publisher}, ${source.publishedOn}${c.locator ? `, ${c.locator}` : ""}`}</span>
               </p>
             ) : null}
           </li>

@@ -31,6 +31,21 @@ Schemas live in `src/lib/evidence/schema.ts`; integrity rules in
 5. **Allowed hosts only.** Every source must be readable from the build
    environment. `jezero-data.test.ts` enforces a host allowlist.
 
+6. **Relevance (M3).**
+   - `local` means the source explicitly places the record in the margin
+     unit (Marginal Carbonates).
+   - Anything crater-wide or regional is `regional-context`. It is shown
+     separately and never used as local support, as a competing hypothesis,
+     or in gap coverage.
+7. **Stance (M3).** `hypothesis` marks candidate explanations ("may",
+   "alternative hypothesis", "could be"); `interpretation` marks authors'
+   conclusions.
+8. **Review (M3).** Curated judgements carry a `review`. AI-drafted items stay
+   `pending` until a human approves them, and pending items are not scored.
+
+M3 data changes and their reasoning are in `docs/SCIENTIFIC_REVIEW_M3.md`.
+After M3 the dataset has 37 verbatim citations (live-verified 2026-11-05).
+
 ## Verification performed (2026-11-04)
 
 - **Saved-copy check.** Two research subagents fetched and saved each source,
@@ -89,3 +104,15 @@ map layer for M3.
 - The PDS preface says the rover traversed the unit "Between November 2023 and
   August 2024". NASA blogs report the first margin-unit abrasion on
   2023-09-16. The dataset uses the blog dates for the blog records only.
+
+## Outstanding research tasks (owner decision 7, 2026-11-05)
+
+These are **research tasks, not evidence**. Nothing from them is in the
+dataset, and nothing may be cited from them until they have been read and
+verified.
+
+| Task | Source | Blocker | To unblock |
+|---|---|---|---|
+| R1 | Zastrow & Glotch (2021), https://pmc.ncbi.nlm.nih.gov/articles/PMC8243932/ | `pmc.ncbi.nlm.nih.gov` is proxy-denied (not in the allowed domains) | Allow the domain, or upload the PDF |
+| R2 | Moreland et al. (2025), https://doi.org/10.1029/2024JE008797 | DOI resolves to agupubs, which returns a Cloudflare bot challenge; `api.crossref.org` is proxy-denied | Upload the PDF (or a PMC copy, if one exists) |
+| R3 | PDS sample coring-coordinate convention | Not stated in Initial Reports Vol. 4 or its label | Locate the PDS dossier documentation that defines it |

@@ -1,6 +1,7 @@
 import type {
   Assumption,
   CandidateTask,
+  DiscriminationAssessment,
   EvidenceGap,
   Interpretation,
   Observation,
@@ -17,8 +18,10 @@ export type GapStatus =
 export type SnapshotGap = EvidenceGap & { status: GapStatus };
 
 /**
- * Everything the decision engine is allowed to see: evidence that was public
- * on or before `asOf`, plus the scenario's simulated tasks and resources.
+ * Everything the decision engine is allowed to see: records that were public
+ * on or before `asOf` ("public availability" snapshot policy), plus the
+ * scenario's simulated tasks and resources, with every reference to a
+ * not-yet-public record removed.
  *
  * The brand means a SnapshotEvidence value can only be created by
  * `selectEvidenceAsOf`, so the engine cannot be handed unfiltered evidence.
@@ -30,10 +33,11 @@ export type SnapshotEvidence = {
   readonly interpretations: readonly Interpretation[];
   readonly gaps: readonly SnapshotGap[];
   readonly tasks: readonly CandidateTask[];
+  readonly discriminationAssessments: readonly DiscriminationAssessment[];
   readonly resources: readonly SimulatedResource[];
   readonly assumptions: readonly Assumption[];
   readonly limitations: readonly string[];
-  /** Count only: how many records exist after `asOf` (their content is withheld). */
+  /** Count only: how many evidence records exist after `asOf` (their content is withheld). */
   readonly hiddenLaterCount: number;
 };
 
@@ -52,14 +56,21 @@ export function selectEvidenceAsOf(
   const hidden = <T extends { availableFrom: string }>(r: T) => r.availableFrom > asOf;
 
   const visibleGapIds = new Set(scenario.gaps.filter(visible).map((g) => g.id));
-  // Strip references to gaps that did not exist yet, so not even their ids leak.
+  const visibleInterpretationIds = new Set(scenario.interpretations.filter(visible).map((i) => i.id));
+  const visibleObservationIds = new Set(scenario.observations.filter(visible).map((o) => o.id));
+  const visibleRecordIds = new Set([...visibleInterpretationIds, ...visibleObservationIds]);
+
+  // Strip references to records that did not exist yet, so not even their ids leak.
   const observations = scenario.observations.filter(visible).map((o) => ({
     ...o,
     addressesGapIds: o.addressesGapIds.filter((id) => visibleGapIds.has(id)),
   }));
-  const interpretations = scenario.interpretations.filter(visible);
-  const visibleInterpretationIds = new Set(interpretations.map((i) => i.id));
-  const visibleObservationIds = new Set(observations.map((o) => o.id));
+
+  const interpretations = scenario.interpretations.filter(visible).map((i) => ({
+    ...i,
+    supportingObservationIds: i.supportingObservationIds.filter((id) => visibleObservationIds.has(id)),
+    contextRecordIds: i.contextRecordIds.filter((id) => visibleRecordIds.has(id)),
+  }));
 
   const gaps: SnapshotGap[] = scenario.gaps.filter(visible).map((gap) => {
     const byObservationIds = observations
@@ -75,9 +86,12 @@ export function selectEvidenceAsOf(
     };
   });
 
-  const visibleInterpretations = interpretations.map((i) => ({
-    ...i,
-    supportingObservationIds: i.supportingObservationIds.filter((id) => visibleObservationIds.has(id)),
+  // A task-gap link exists in the snapshot only if its gap and its citations are public.
+  const tasks = scenario.tasks.map((t) => ({
+    ...t,
+    addresses: t.addresses.filter(
+      (l) => visibleGapIds.has(l.gapId) && (!l.availableFrom || l.availableFrom <= asOf),
+    ),
   }));
 
   const later: LaterEvidence = {
@@ -89,9 +103,10 @@ export function selectEvidenceAsOf(
   const snapshot = {
     asOf,
     observations,
-    interpretations: visibleInterpretations,
+    interpretations,
     gaps,
-    tasks: scenario.tasks,
+    tasks,
+    discriminationAssessments: scenario.discriminationAssessments.filter(visible),
     resources: scenario.resources,
     assumptions: scenario.assumptions,
     limitations: scenario.limitations,
