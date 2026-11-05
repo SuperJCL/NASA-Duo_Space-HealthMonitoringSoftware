@@ -540,9 +540,9 @@ This task is tracked separately from M2 and M3. The recorded M3 duration
 above is unchanged.
 
 - **Started:** 2026-11-05T01:29:05Z.
-- **Completed:** about 2026-11-05T01:36Z, at the commit on branch
-  `ux-proposal`.
-- **Elapsed:** about 7 min of wall-clock time.
+- **Completed:** 2026-11-05T01:34:57Z, when commit `2b1e621` was pushed on
+  branch `ux-proposal`.
+- **Elapsed:** 5 min 52 s of wall-clock time.
   - No subagents were used.
   - The owner's local setup and manual review time are not included.
 - **Not timed:** the earlier review-support turn (workflow walkthrough and
