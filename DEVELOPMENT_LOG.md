@@ -1352,3 +1352,38 @@ pattern: 120 live vs 118 plain.
 8. **The advanced workspace is still long.** It is the former dashboard
    content, now opt-in.
 9. **Not tested with real screen readers.**
+
+---
+
+## Product value spike: location-specific science briefing (Lefroy Bay)
+
+This task is tracked separately. Earlier durations are unchanged.
+
+- **Started:** 2026-11-05T07:36:58Z (first command after the owner's request).
+- **Completed:** 2026-11-05T07:40:18Z, at commit, on the docs-only branch
+  `product-value-spike` (from `mf1-map-first-ui` `e2b910f`).
+- **Wall-clock elapsed:** 3 min 20 s.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:**
+  - Read-only evidence audit and documentation.
+  - No UI, engine, evidence or review-registry change; nothing merged.
+- **Output:** `docs/PRODUCT_VALUE_SPIKE.md`.
+
+### Work performed
+
+- **Read the Lefroy Bay initial report** (PDS vol. 4, report 26). Read
+  sections: summary, lithology header, SHERLOC, SuperCam, preliminary
+  assessment, returned-sample science considerations.
+- **Verified 21 candidate briefing quotes verbatim** against the source text
+  (21/21 found).
+  - Seven of them occur twice in the volume: text shared with the Pelican
+    Point report (a curation risk; section-scoped verification is needed).
+  - Found two source editorial errors: the copied "make Pelican Point …"
+    sentence, and "Lake Newell" vs "Lake Newall".
+- **Cross-checked the source against our coordinates:** Pelican Point is
+  370 m from Lefroy Bay at a bearing of 147° (south-east). The source says
+  "about 380 meters to the southeast".
+- **Mapped the existing scenario records that bear on Lefroy Bay.** Only
+  `obs-lefroy-bay-hydrated-silica` is site-specific; the hypotheses and
+  `gap-sedimentary-or-igneous` are margin-unit level.
