@@ -1,3 +1,5 @@
+import type { Review } from "@/lib/evidence/schema";
+
 const STYLES = {
   observed: { label: "Observed", className: "border-ok/60 text-ok" },
   measured: { label: "Measured in situ", className: "border-emerald-300/60 text-emerald-200" },
@@ -13,6 +15,9 @@ const STYLES = {
   pending: { label: "AI draft · pending review", className: "border-warn/70 text-warn" },
   approved: { label: "Human-approved", className: "border-ok/70 text-ok" },
   rejected: { label: "Rejected", className: "border-error/70 text-error" },
+  revision: { label: "Needs revision", className: "border-warn/70 text-warn" },
+  provisional: { label: "Provisional · not validated", className: "border-warn/70 text-warn" },
+  reviewed: { label: "Reviewed relationships only", className: "border-ok/70 text-ok" },
 } as const;
 
 export type EpistemicKind = keyof typeof STYLES;
@@ -29,10 +34,11 @@ export function EpistemicBadge({ kind, detail }: { kind: EpistemicKind; detail?:
   );
 }
 
-export function ReviewBadge({ review }: { review: { status: "pending" | "approved" | "rejected"; draftedBy: string; reviewedBy?: string; reviewedOn?: string } }) {
+export function ReviewBadge({ review }: { review: Review }) {
   if (review.status === "approved") {
     return <EpistemicBadge kind="approved" detail={`${review.reviewedBy} ${review.reviewedOn}`} />;
   }
   if (review.status === "rejected") return <EpistemicBadge kind="rejected" />;
+  if (review.status === "needs_revision") return <EpistemicBadge kind="revision" />;
   return review.draftedBy === "ai-agent" ? <EpistemicBadge kind="pending" /> : <EpistemicBadge kind="curated" detail="pending review" />;
 }

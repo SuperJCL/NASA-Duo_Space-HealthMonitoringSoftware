@@ -1,0 +1,1207 @@
+{
+  "scenarioId": "jezero-margin-unit",
+  "policy": "Only a named human reviewer may change an entry's status. All entries were drafted by the AI agent during RI-1 (2026-11-05) and are pending. A verified citation is not a scientific approval.",
+  "entries": [
+    {
+      "id": "relevance:obs-crism-marginal-carbonates",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "observation",
+        "id": "obs-crism-marginal-carbonates"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "Using orbital visible/near-infrared hyperspectral images from the Compact Reconnaissance Imaging Spectrometer for Mars (CRISM) along with high resolution imagery and digital elevation models, we identify a distinct carbonate-bearing unit, the “Marginal Carbonates,” located along the inner margin of the crater, near the largest inlet valley and the western delta.",
+          "locator": "Abstract"
+        }
+      ],
+      "reasoning": "Horgan et al. locate the 'Marginal Carbonates' along the inner margin of Jezero crater, near the western delta.",
+      "limitations": [
+        "Treats Horgan et al.'s 'Marginal Carbonates' and the Mars 2020 'margin unit' as the same unit; no source in the dataset states this explicitly, although both are described along the inner (western) margin."
+      ]
+    },
+    {
+      "id": "relevance:obs-crism-ctx-mineral-map",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "observation",
+        "id": "obs-crism-ctx-mineral-map"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "regional-context"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-pia23380",
+          "quote": "The green color represents minerals called carbonates, which are especially good at preserving fossilized life on Earth. Red represents olivine sand eroding out of carbonate-containing rocks.",
+          "locator": "Image description"
+        }
+      ],
+      "reasoning": "The caption describes minerals across Jezero crater and never identifies the margin unit, so the record is regional context.",
+      "limitations": [
+        "The colour-coded carbonate probably includes margin-unit exposures, but the source does not say so."
+      ]
+    },
+    {
+      "id": "relevance:obs-upper-etched-unit-mapping",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "observation",
+        "id": "obs-upper-etched-unit-mapping"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "regional-context"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "usgs-sim3464",
+          "quote": "Upper etched unit—Indurated, rugged, moderately cratered to heavily cratered, light- to intermediate-toned unit located along and on the northern Jezero crater rim and wall, along the interior margin of Jezero crater, and throughout Nili Planum.",
+          "locator": "Map sheet, Description of Map Units (Nue)"
+        }
+      ],
+      "reasoning": "SIM 3464 defines Nue as a regional unit (crater rim and wall, interior margin, Nili Planum) and never uses the term 'margin unit'.",
+      "limitations": [
+        "Nue overlaps the interior margin geographically; a reviewer may judge part of it to be the margin unit."
+      ]
+    },
+    {
+      "id": "relevance:obs-first-margin-abrasion",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "observation",
+        "id": "obs-first-margin-abrasion"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-within-the-margin",
+          "quote": "This week on Mars, Perseverance officially kicked off the Margin Campaign by arriving at Mandu Wall and performing the first abrasion of a rock within the marginal carbonate unit!"
+        }
+      ],
+      "reasoning": "NASA states the abrasion was of 'a rock within the marginal carbonate unit'.",
+      "limitations": [
+        "Imaging of an abrasion patch only; no compositional result is recorded."
+      ]
+    },
+    {
+      "id": "relevance:obs-lefroy-bay-hydrated-silica",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "observation",
+        "id": "obs-lefroy-bay-hydrated-silica"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-meet-lefroy-bay",
+          "quote": "Sample 23 is called \"Lefroy Bay,\" and we collected it from the \"Turquoise Bay\" rock on the margin unit",
+          "locator": "Interview (Samantha Gwizd)"
+        }
+      ],
+      "reasoning": "The sample was collected 'from the \"Turquoise Bay\" rock on the margin unit'.",
+      "limitations": [
+        "Reported in an interview; the instrument is not named in the source."
+      ]
+    },
+    {
+      "id": "relevance:obs-comet-geyser-carbonate-silica",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "observation",
+        "id": "obs-comet-geyser-carbonate-silica"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-comet-geyser",
+          "quote": "at the Bunsen Peak workspace deep within the Margin Unit"
+        }
+      ],
+      "reasoning": "The core comes from 'the Bunsen Peak workspace deep within the Margin Unit'.",
+      "limitations": [
+        "'Appears to be composed primarily of' is a preliminary characterisation."
+      ]
+    },
+    {
+      "id": "relevance:obs-sherloc-hydrated-carbonates",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "observation",
+        "id": "obs-sherloc-hydrated-carbonates"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Campaign: Margin Region of Interest: Mandu Wall",
+          "locator": "Pelican Point initial report, header"
+        }
+      ],
+      "reasoning": "The PDS report header assigns Pelican Point to the Margin campaign at Mandu Wall.",
+      "limitations": [
+        "'Campaign: Margin' is a rover-campaign label in the PDS header; reading it as membership of the margin unit is an inference."
+      ]
+    },
+    {
+      "id": "relevance:obs-pixl-castle-geyser",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "observation",
+        "id": "obs-pixl-castle-geyser"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Campaign: Margin Region of Interest: Western Margin",
+          "locator": "Comet Geyser initial report, header"
+        }
+      ],
+      "reasoning": "The PDS report header assigns Comet Geyser (Castle Geyser abrasion) to the Margin campaign, Western Margin.",
+      "limitations": [
+        "'Campaign: Margin' is a rover-campaign label in the PDS header; reading it as membership of the margin unit is an inference."
+      ]
+    },
+    {
+      "id": "relevance:interp-lacustrine-carbonate",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-lacustrine-carbonate"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "Based on their strong carbonate signatures, topographic properties, and location in the crater, we propose that this unit may preserve authigenic lacustrine carbonates, precipitated in the near-shore environment of the Jezero paleolake.",
+          "locator": "Abstract"
+        }
+      ],
+      "reasoning": "The proposal concerns 'this unit', the Marginal Carbonates.",
+      "limitations": [
+        "Treats Horgan et al.'s 'Marginal Carbonates' and the Mars 2020 'margin unit' as the same unit; no source in the dataset states this explicitly, although both are described along the inner (western) margin."
+      ]
+    },
+    {
+      "id": "relevance:interp-mineral-carbonation",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-mineral-carbonation"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "An alternative hypothesis is that the carbonates formed through mineral carbonation, where silicate minerals (like olivine) react with CO₂ and are converted to carbonates."
+        }
+      ],
+      "reasoning": "Stated as an alternative explanation for the margin carbonate unit.",
+      "limitations": [
+        "Outreach blog; the hypothesis is not attributed to a specific study."
+      ]
+    },
+    {
+      "id": "relevance:interp-volcanic-drape",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-volcanic-drape"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "regional-context"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "usgs-sim3464",
+          "quote": "We therefore interpreted unit Nue, and unit Nle by proxy, as ash-fall or pyroclastic-surge deposits due to the draping morphology and banding observed in unit Nue",
+          "locator": "Pamphlet"
+        }
+      ],
+      "reasoning": "Interprets the regional unit Nue, not a named margin unit.",
+      "limitations": [
+        "Nue overlaps the interior margin; a reviewer may judge the interpretation relevant to the margin unit."
+      ]
+    },
+    {
+      "id": "relevance:hyp-sedimentary",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "interpretation",
+        "id": "hyp-sedimentary"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "discussing Perseverance’s most recent science campaign in the Margin unit"
+        },
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "a thought-provoking series of presentations that tackled the three hypotheses we’re carrying for the origin of this unit: sedimentary, volcanic (pyroclastic), or crystalline igneous."
+        }
+      ],
+      "reasoning": "The Mars 2020 team lists it among the hypotheses for the origin of 'this unit'; the preceding sentence identifies the unit as the Margin unit.",
+      "limitations": [
+        "Outreach summary of team discussion, not a publication."
+      ]
+    },
+    {
+      "id": "relevance:hyp-volcanic-pyroclastic",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "interpretation",
+        "id": "hyp-volcanic-pyroclastic"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "discussing Perseverance’s most recent science campaign in the Margin unit"
+        },
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "a thought-provoking series of presentations that tackled the three hypotheses we’re carrying for the origin of this unit: sedimentary, volcanic (pyroclastic), or crystalline igneous."
+        }
+      ],
+      "reasoning": "As for the sedimentary hypothesis: listed by the Mars 2020 team for the Margin unit.",
+      "limitations": [
+        "Outreach summary of team discussion, not a publication."
+      ]
+    },
+    {
+      "id": "relevance:hyp-crystalline-igneous",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "interpretation",
+        "id": "hyp-crystalline-igneous"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "discussing Perseverance’s most recent science campaign in the Margin unit"
+        },
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "a thought-provoking series of presentations that tackled the three hypotheses we’re carrying for the origin of this unit: sedimentary, volcanic (pyroclastic), or crystalline igneous."
+        }
+      ],
+      "reasoning": "As for the sedimentary hypothesis: listed by the Mars 2020 team for the Margin unit.",
+      "limitations": [
+        "Outreach summary of team discussion, not a publication."
+      ]
+    },
+    {
+      "id": "relevance:interp-silica-cemented-sandstone",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-silica-cemented-sandstone"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Campaign: Margin Region of Interest: Mandu Wall",
+          "locator": "Pelican Point initial report, header"
+        }
+      ],
+      "reasoning": "The interpreted sample (Pelican Point) belongs to the Margin campaign at Mandu Wall.",
+      "limitations": [
+        "'Campaign: Margin' is a rover-campaign label in the PDS header; reading it as membership of the margin unit is an inference.",
+        "Interprets one sample; extending it to the whole unit is not claimed."
+      ]
+    },
+    {
+      "id": "relevance:interp-altered-igneous",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-altered-igneous"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Campaign: Margin Region of Interest: Western Margin",
+          "locator": "Comet Geyser initial report, header"
+        }
+      ],
+      "reasoning": "The interpreted sample (Comet Geyser) belongs to the Margin campaign, Western Margin.",
+      "limitations": [
+        "'Campaign: Margin' is a rover-campaign label in the PDS header; reading it as membership of the margin unit is an inference."
+      ]
+    },
+    {
+      "id": "relevance:gap-lake-connection",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "gap",
+        "id": "gap-lake-connection"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "it is unclear whether or not the carbonates in Jezero are related to the lacustrine activity.",
+          "locator": "Abstract"
+        }
+      ],
+      "reasoning": "Applied to the margin unit because the same study identifies the Marginal Carbonates.",
+      "limitations": [
+        "The source asks about 'the carbonates in Jezero' in general, not only the margin unit.",
+        "Treats Horgan et al.'s 'Marginal Carbonates' and the Mars 2020 'margin unit' as the same unit; no source in the dataset states this explicitly, although both are described along the inner (western) margin."
+      ]
+    },
+    {
+      "id": "relevance:gap-formation-unknown",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "gap",
+        "id": "gap-formation-unknown"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "Although we don’t yet know exactly how the margin rocks, or the carbonate within them formed, the team is eager to drill into these rocks and unlock their secrets."
+        }
+      ],
+      "reasoning": "The source asks how 'the margin rocks, or the carbonate within them' formed.",
+      "limitations": []
+    },
+    {
+      "id": "relevance:gap-no-in-situ-data",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "Defined by an MDI rule that concerns the margin unit only.",
+      "limitations": [
+        "AI-authored rule; no source states this gap."
+      ]
+    },
+    {
+      "id": "relevance:gap-sedimentary-or-igneous",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "gap",
+        "id": "gap-sedimentary-or-igneous"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "local"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "discussing Perseverance’s most recent science campaign in the Margin unit"
+        },
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "a thought-provoking series of presentations that tackled the three hypotheses we’re carrying for the origin of this unit: sedimentary, volcanic (pyroclastic), or crystalline igneous."
+        }
+      ],
+      "reasoning": "The Mars 2020 team's open question about the origin of the Margin unit.",
+      "limitations": [
+        "Outreach summary of team discussion, not a publication."
+      ]
+    },
+    {
+      "id": "relevance:gap-origin-needs-rover",
+      "type": "relevance-classification",
+      "source": {
+        "kind": "gap",
+        "id": "gap-origin-needs-rover"
+      },
+      "target": {
+        "kind": "classification",
+        "id": "regional-context"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "usgs-sim3464",
+          "quote": "Confirming the origins of these units and their complete mineralogy will ultimately require analyses from higher resolution instruments on the Perseverance rover and from returned samples",
+          "locator": "Pamphlet"
+        }
+      ],
+      "reasoning": "SIM 3464's 'these units' are its regional map units (including Nue and Nle), so the gap is regional context.",
+      "limitations": [
+        "A reviewer may judge the statement applicable to the margin unit as well."
+      ]
+    },
+    {
+      "id": "priority:gap-lake-connection#statement",
+      "type": "priority-statement",
+      "source": {
+        "kind": "gap",
+        "id": "gap-lake-connection"
+      },
+      "target": {
+        "kind": "statement",
+        "id": "priority"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "This distinction is critical for evaluating the astrobiological potential of the site",
+          "locator": "Abstract"
+        }
+      ],
+      "reasoning": "Horgan et al. state explicitly that the lacustrine question is critical for the site's astrobiological potential.",
+      "limitations": [
+        "The authors are proponents of the lacustrine hypothesis.",
+        "Priority is binary in the engine."
+      ]
+    },
+    {
+      "id": "gap-hypothesis:gap-lake-connection->interp-lacustrine-carbonate",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-lake-connection"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "interp-lacustrine-carbonate"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "it is unclear whether or not the carbonates in Jezero are related to the lacustrine activity.",
+          "locator": "Abstract"
+        },
+        {
+          "sourceId": "horgan-2020",
+          "quote": "Based on their strong carbonate signatures, topographic properties, and location in the crater, we propose that this unit may preserve authigenic lacustrine carbonates, precipitated in the near-shore environment of the Jezero paleolake.",
+          "locator": "Abstract"
+        }
+      ],
+      "reasoning": "The lacustrine hypothesis is the 'yes' answer to whether the carbonates are related to the lake.",
+      "limitations": []
+    },
+    {
+      "id": "gap-hypothesis:gap-lake-connection->interp-mineral-carbonation",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-lake-connection"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "interp-mineral-carbonation"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "An alternative hypothesis is that the carbonates formed through mineral carbonation, where silicate minerals (like olivine) react with CO₂ and are converted to carbonates."
+        }
+      ],
+      "reasoning": "Mineral carbonation is presented as an alternative to lake deposition, i.e. a 'no' answer.",
+      "limitations": [
+        "Mineral carbonation could also involve lake water; the alternative is not strictly non-lacustrine."
+      ]
+    },
+    {
+      "id": "priority:gap-formation-unknown#statement",
+      "type": "priority-statement",
+      "source": {
+        "kind": "gap",
+        "id": "gap-formation-unknown"
+      },
+      "target": {
+        "kind": "statement",
+        "id": "priority"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "a special rock unit that played a pivotal role in selecting Jezero as the landing site for exploration"
+        }
+      ],
+      "reasoning": "Importance of the unit is used as a stand-in for importance of the formation question.",
+      "limitations": [
+        "Indirect: the source speaks about the unit, not the question.",
+        "Outreach blog by a student collaborator."
+      ]
+    },
+    {
+      "id": "gap-hypothesis:gap-formation-unknown->interp-lacustrine-carbonate",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-formation-unknown"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "interp-lacustrine-carbonate"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "Although we don’t yet know exactly how the margin rocks, or the carbonate within them formed, the team is eager to drill into these rocks and unlock their secrets."
+        }
+      ],
+      "reasoning": "The same source presents the lake hypothesis and then states that the formation is not yet known.",
+      "limitations": []
+    },
+    {
+      "id": "gap-hypothesis:gap-formation-unknown->interp-mineral-carbonation",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-formation-unknown"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "interp-mineral-carbonation"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "Although we don’t yet know exactly how the margin rocks, or the carbonate within them formed, the team is eager to drill into these rocks and unlock their secrets."
+        },
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "An alternative hypothesis is that the carbonates formed through mineral carbonation, where silicate minerals (like olivine) react with CO₂ and are converted to carbonates."
+        }
+      ],
+      "reasoning": "The same source presents mineral carbonation as the alternative and states that the formation is not yet known.",
+      "limitations": []
+    },
+    {
+      "id": "derived-gap:gap-no-in-situ-data#rule",
+      "type": "derived-gap",
+      "source": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "target": {
+        "kind": "rule",
+        "id": "derived"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "MDI rule: Open while every local observation supporting the competing hypotheses is orbital; addressed once a rover compositional measurement of margin-unit rock is published.",
+      "limitations": [
+        "AI-authored rule; no source states this gap.",
+        "Treats any published rover compositional result on margin-unit rock as closing the gap."
+      ]
+    },
+    {
+      "id": "gap-hypothesis:gap-no-in-situ-data->interp-lacustrine-carbonate",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "interp-lacustrine-carbonate"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "MDI rule: rover compositional data would bear on this hypothesis.",
+      "limitations": [
+        "Generic; does not say which result would favour which hypothesis."
+      ]
+    },
+    {
+      "id": "gap-hypothesis:gap-no-in-situ-data->interp-mineral-carbonation",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "interp-mineral-carbonation"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "MDI rule: rover compositional data would bear on this hypothesis.",
+      "limitations": [
+        "Generic; does not say which result would favour which hypothesis."
+      ]
+    },
+    {
+      "id": "gap-hypothesis:gap-sedimentary-or-igneous->hyp-sedimentary",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-sedimentary-or-igneous"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "hyp-sedimentary"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "a thought-provoking series of presentations that tackled the three hypotheses we’re carrying for the origin of this unit: sedimentary, volcanic (pyroclastic), or crystalline igneous."
+        }
+      ],
+      "reasoning": "Listed as one of the three hypotheses for the unit's origin.",
+      "limitations": []
+    },
+    {
+      "id": "gap-hypothesis:gap-sedimentary-or-igneous->hyp-volcanic-pyroclastic",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-sedimentary-or-igneous"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "hyp-volcanic-pyroclastic"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "a thought-provoking series of presentations that tackled the three hypotheses we’re carrying for the origin of this unit: sedimentary, volcanic (pyroclastic), or crystalline igneous."
+        }
+      ],
+      "reasoning": "Listed as one of the three hypotheses for the unit's origin.",
+      "limitations": []
+    },
+    {
+      "id": "gap-hypothesis:gap-sedimentary-or-igneous->hyp-crystalline-igneous",
+      "type": "gap-hypothesis-link",
+      "source": {
+        "kind": "gap",
+        "id": "gap-sedimentary-or-igneous"
+      },
+      "target": {
+        "kind": "interpretation",
+        "id": "hyp-crystalline-igneous"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-science-team-2024",
+          "quote": "a thought-provoking series of presentations that tackled the three hypotheses we’re carrying for the origin of this unit: sedimentary, volcanic (pyroclastic), or crystalline igneous."
+        }
+      ],
+      "reasoning": "Listed as one of the three hypotheses for the unit's origin.",
+      "limitations": []
+    },
+    {
+      "id": "observation-gap:obs-lefroy-bay-hydrated-silica->gap-no-in-situ-data",
+      "type": "observation-gap-link",
+      "source": {
+        "kind": "observation",
+        "id": "obs-lefroy-bay-hydrated-silica"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-meet-lefroy-bay",
+          "quote": "One of the things we saw was the presence of hydrated silica. The exciting thing about hydrated silica is that on Earth it has the highest potential to preserve biosignatures.",
+          "locator": "Interview (Samantha Gwizd)"
+        }
+      ],
+      "reasoning": "A published rover result on margin-unit rock composition; the derived gap rule treats such a result as closing the gap.",
+      "limitations": [
+        "Instrument not named in the source."
+      ]
+    },
+    {
+      "id": "observation-gap:obs-comet-geyser-carbonate-silica->gap-no-in-situ-data",
+      "type": "observation-gap-link",
+      "source": {
+        "kind": "observation",
+        "id": "obs-comet-geyser-carbonate-silica"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-comet-geyser",
+          "quote": "Although this rock’s origin remains under investigation and the rover team continues to explore different hypotheses, this core is particularly exciting because it appears to be composed primarily of two minerals: carbonate and silica."
+        }
+      ],
+      "reasoning": "A published rover result on margin-unit rock composition; the derived gap rule treats such a result as closing the gap.",
+      "limitations": [
+        "Instrument not named in the source; preliminary characterisation."
+      ]
+    },
+    {
+      "id": "observation-gap:obs-sherloc-hydrated-carbonates->gap-no-in-situ-data",
+      "type": "observation-gap-link",
+      "source": {
+        "kind": "observation",
+        "id": "obs-sherloc-hydrated-carbonates"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "SHERLOC spectra contain peaks that can be assigned to hydrated and non-hydrated carbonates and hydrated sulfates. This is the first time that hydrated carbonates have been detected in Jezero crater.",
+          "locator": "Pelican Point initial report"
+        }
+      ],
+      "reasoning": "A published rover result on margin-unit rock composition; the derived gap rule treats such a result as closing the gap.",
+      "limitations": []
+    },
+    {
+      "id": "observation-gap:obs-pixl-castle-geyser->gap-no-in-situ-data",
+      "type": "observation-gap-link",
+      "source": {
+        "kind": "observation",
+        "id": "obs-pixl-castle-geyser"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "PIXL analyses show that Castle Geyser consists almost entirely of silica-rich areas and Fe-Mg material containing both carbonate and silicates, with scattered Ca-sulfate and Ti-chromite, and possible NaCl.",
+          "locator": "Comet Geyser initial report"
+        }
+      ],
+      "reasoning": "A published rover result on margin-unit rock composition; the derived gap rule treats such a result as closing the gap.",
+      "limitations": []
+    },
+    {
+      "id": "hypothesis-support:interp-lacustrine-carbonate<-obs-crism-marginal-carbonates",
+      "type": "hypothesis-support",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-lacustrine-carbonate"
+      },
+      "target": {
+        "kind": "observation",
+        "id": "obs-crism-marginal-carbonates"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "Based on their strong carbonate signatures, topographic properties, and location in the crater, we propose that this unit may preserve authigenic lacustrine carbonates, precipitated in the near-shore environment of the Jezero paleolake.",
+          "locator": "Abstract"
+        }
+      ],
+      "reasoning": "Horgan et al. base the proposal on the unit's 'strong carbonate signatures', i.e. the CRISM identification.",
+      "limitations": []
+    },
+    {
+      "id": "hypothesis-support:interp-volcanic-drape<-obs-upper-etched-unit-mapping",
+      "type": "hypothesis-support",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-volcanic-drape"
+      },
+      "target": {
+        "kind": "observation",
+        "id": "obs-upper-etched-unit-mapping"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "usgs-sim3464",
+          "quote": "We therefore interpreted unit Nue, and unit Nle by proxy, as ash-fall or pyroclastic-surge deposits due to the draping morphology and banding observed in unit Nue",
+          "locator": "Pamphlet"
+        }
+      ],
+      "reasoning": "Sun & Stack base the interpretation on the mapped draping morphology and banding of Nue.",
+      "limitations": [
+        "Both records are regional context, so this link cannot affect a margin-unit ranking."
+      ]
+    },
+    {
+      "id": "hypothesis-support:interp-silica-cemented-sandstone<-obs-sherloc-hydrated-carbonates",
+      "type": "hypothesis-support",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-silica-cemented-sandstone"
+      },
+      "target": {
+        "kind": "observation",
+        "id": "obs-sherloc-hydrated-carbonates"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Pelican Point is tentatively interpreted here to be a silica-cemented medium to coarse sandstone that experienced aqueous alteration.",
+          "locator": "Pelican Point initial report"
+        }
+      ],
+      "reasoning": "The PDS report interprets the Pelican Point sample whose SHERLOC results it also reports.",
+      "limitations": [
+        "The interpretation rests on several data streams; SHERLOC is only one of them."
+      ]
+    },
+    {
+      "id": "hypothesis-support:interp-altered-igneous<-obs-pixl-castle-geyser",
+      "type": "hypothesis-support",
+      "source": {
+        "kind": "interpretation",
+        "id": "interp-altered-igneous"
+      },
+      "target": {
+        "kind": "observation",
+        "id": "obs-pixl-castle-geyser"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Alternatively, Comet Geyser could be an intrusive mafic to ultramafic igneous rock, highly altered by interaction with fluids. In retrospect, the same origin could also apply to the two previous Margin samples.",
+          "locator": "Comet Geyser initial report"
+        }
+      ],
+      "reasoning": "The PDS report raises the igneous alternative for the Comet Geyser rock whose PIXL results it also reports.",
+      "limitations": [
+        "The alternative rests on several data streams; PIXL is only one of them."
+      ]
+    },
+    {
+      "id": "task-gap:task-standoff-survey->gap-no-in-situ-data",
+      "type": "task-gap-link",
+      "source": {
+        "kind": "task",
+        "id": "task-standoff-survey"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "SuperCam and Mastcam-Z are rover instruments, so a stand-off survey would give rover-based observations of margin-unit rock.",
+      "limitations": [
+        "Mastcam-Z is multispectral imaging, not elemental chemistry.",
+        "Natural surfaces may be dust-coated or weathered.",
+        "The gap rule does not say whether stand-off data count as a compositional measurement."
+      ]
+    },
+    {
+      "id": "task-gap:task-standoff-survey->gap-formation-unknown",
+      "type": "task-gap-link",
+      "source": {
+        "kind": "task",
+        "id": "task-standoff-survey"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-formation-unknown"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "Composition and texture from a survey are inputs to the question of how the margin rocks formed.",
+      "limitations": [
+        "Loose 'input to' relation; under this standard almost any task addresses the gap."
+      ]
+    },
+    {
+      "id": "task-gap:task-abrasion-proximity->gap-no-in-situ-data",
+      "type": "task-gap-link",
+      "source": {
+        "kind": "task",
+        "id": "task-abrasion-proximity"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-no-in-situ-data"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "PIXL, SHERLOC and WATSON measure an abraded rock surface from the rover arm, matching the gap rule.",
+      "limitations": [
+        "No pre-snapshot instrument source is cited; using later rover results to justify it would be hindsight."
+      ]
+    },
+    {
+      "id": "task-gap:task-abrasion-proximity->gap-formation-unknown",
+      "type": "task-gap-link",
+      "source": {
+        "kind": "task",
+        "id": "task-abrasion-proximity"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-formation-unknown"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "Fine-scale chemistry, mineralogy and texture of an abraded surface bear directly on how the rock and its carbonate formed.",
+      "limitations": [
+        "No source states this before the snapshot.",
+        "Hindsight risk: such data were later collected and the origin remained undetermined."
+      ]
+    },
+    {
+      "id": "task-gap:task-abrasion-proximity->gap-lake-connection",
+      "type": "task-gap-link",
+      "source": {
+        "kind": "task",
+        "id": "task-abrasion-proximity"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-lake-connection"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [],
+      "reasoning": "Fine-scale textures and mineral relationships bear on whether the carbonate precipitated in a lake.",
+      "limitations": [
+        "Horgan et al.'s mention of detectable microbialite textures is conditional on a lacustrine origin; it is not a test of it."
+      ]
+    },
+    {
+      "id": "task-gap:task-core-for-earth->gap-formation-unknown",
+      "type": "task-gap-link",
+      "source": {
+        "kind": "task",
+        "id": "task-core-for-earth"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-formation-unknown"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "nasa-blog-reading-the-rocks",
+          "quote": "the team is eager to drill into these rocks and unlock their secrets"
+        }
+      ],
+      "reasoning": "The team states it is eager to drill into these rocks to learn how they formed.",
+      "limitations": [
+        "The quote is about rover drilling, not Earth laboratories.",
+        "The value depends on sample return (asm-sample-return)."
+      ]
+    },
+    {
+      "id": "task-gap:task-core-for-earth->gap-sedimentary-or-igneous",
+      "type": "task-gap-link",
+      "source": {
+        "kind": "task",
+        "id": "task-core-for-earth"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-sedimentary-or-igneous"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Detailed laboratory study of the suite of grains/clasts would address this unknown",
+          "locator": "Pelican Point initial report"
+        }
+      ],
+      "reasoning": "The PDS report states that detailed laboratory study of the grains/clasts would address whether the carbonate is detrital or formed in situ.",
+      "limitations": [
+        "The PDS question (detrital vs in-situ carbonate) is narrower than the sedimentary/volcanic/igneous question."
+      ]
+    },
+    {
+      "id": "task-gap:task-orbital-stereo->gap-lake-connection",
+      "type": "task-gap-link",
+      "source": {
+        "kind": "task",
+        "id": "task-orbital-stereo"
+      },
+      "target": {
+        "kind": "gap",
+        "id": "gap-lake-connection"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "horgan-2020",
+          "quote": "Based on their strong carbonate signatures, topographic properties, and location in the crater, we propose that this unit may preserve authigenic lacustrine carbonates, precipitated in the near-shore environment of the Jezero paleolake.",
+          "locator": "Abstract"
+        }
+      ],
+      "reasoning": "Horgan et al. based the lacustrine proposal partly on topographic properties; stereo topography would re-examine that basis.",
+      "limitations": [
+        "A HiRISE DTM of Jezero already appears in the Trek catalog (record dated 2020-08-03), so new imaging may be redundant.",
+        "Topography alone cannot settle the carbonate's origin."
+      ]
+    },
+    {
+      "id": "discrimination:da-core-detrital-carbonate",
+      "type": "discrimination-assessment",
+      "source": {
+        "kind": "task",
+        "id": "task-core-for-earth"
+      },
+      "target": {
+        "kind": "assessment",
+        "id": "da-core-detrital-carbonate"
+      },
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "evidence": [
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "the origin of the carbonate, whether detrital grains or the result of in situ alteration, is still unknown.",
+          "locator": "Pelican Point initial report"
+        },
+        {
+          "sourceId": "pds-m2020-initial-reports-vol4",
+          "quote": "Whether Comet Geyser is a carbonated ultramafic igneous rock (e.g., a listvenite) or a cemented and altered sedimentary rock remains undetermined.",
+          "locator": "Comet Geyser initial report"
+        }
+      ],
+      "reasoning": "Detrital carbonate grains would imply transport and deposition, which fits a sedimentary origin better than a crystalline igneous one.",
+      "limitations": [
+        "Ignores the volcanic (pyroclastic) hypothesis, which is also fragmental.",
+        "Only one outcome is defined; the in-situ alteration outcome favours nothing.",
+        "Assumes detrital carbonate cannot derive from an igneous protolith."
+      ]
+    }
+  ]
+}

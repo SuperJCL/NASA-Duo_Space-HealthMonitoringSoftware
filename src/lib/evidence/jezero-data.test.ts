@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_WEIGHTS } from "@/lib/decision/criteria";
 import { recommend } from "@/lib/decision/engine";
+import { rankProvisional, rankReviewed } from "@/lib/decision/review-modes";
 import { loadJezeroMarginScenario } from "./repository";
 import { selectEvidenceAsOf } from "./snapshot";
 
@@ -8,7 +9,7 @@ import { selectEvidenceAsOf } from "./snapshot";
  * Guards on the curated Jezero Margin Unit data (not on the code).
  * Schema + integrity are enforced by loadJezeroMarginScenario itself.
  */
-const { scenario, sources } = loadJezeroMarginScenario();
+const { scenario, sources, registry } = loadJezeroMarginScenario();
 
 const ALLOWED_SOURCE_HOSTS = [
   "science.nasa.gov",
@@ -140,6 +141,59 @@ describe("Jezero Margin Unit scenario data", () => {
     ];
     expect(reviews.length).toBeGreaterThan(0);
     for (const r of reviews) if (r.draftedBy === "ai-agent") expect(r.status).toBe("pending");
+  });
+
+  describe("RI-1 review registry and ranking integrity", () => {
+    it("covers all 50 ranking-relevant relationships, every one pending with no reviewer (no invented approvals)", () => {
+      expect(registry.entries).toHaveLength(50);
+      for (const e of registry.entries) {
+        expect(e.status, e.id).toBe("pending");
+        expect(e.draftedBy, e.id).toBe("ai-agent");
+        expect(e.reviewedBy, e.id).toBeUndefined();
+        expect(e.reviewedOn, e.id).toBeUndefined();
+        expect(e.reasoning.length, e.id).toBeGreaterThan(0);
+      }
+    });
+
+    it("reviewed ranking is unavailable at the default snapshot and with all evidence — no fabricated winner", () => {
+      for (const [date, n] of [["2023-09-08", 28], ["2025-05-06", 50]] as const) {
+        const r = rankReviewed(scenario, registry, date, DEFAULT_WEIGHTS);
+        expect(r.recommendation).toBeNull();
+        expect(r.eligibleTaskIds).toEqual([]);
+        expect(r.status).toEqual({
+          state: "unavailable",
+          reason: `No candidate task has fully reviewed scientific relationships on this date (${n} relationship(s) await expert review).`,
+        });
+      }
+    });
+
+    it("provisional ranking reproduces the M3 ranking exactly", () => {
+      for (const date of ["2023-09-08", "2025-05-06"]) {
+        const p = rankProvisional(scenario, registry, date, DEFAULT_WEIGHTS);
+        expect(p.recommendation).toEqual(recommend(selectEvidenceAsOf(scenario, date).snapshot, DEFAULT_WEIGHTS));
+      }
+    });
+
+    it("identifies the unreviewed relationships that can flip the provisional top task", () => {
+      const at = (d: string) => rankProvisional(scenario, registry, d, DEFAULT_WEIGHTS).pivotalInputs;
+      expect(at("2023-09-08")).toEqual([
+        { reviewId: "relevance:gap-lake-connection", topTaskWithout: "task-standoff-survey" },
+        { reviewId: "task-gap:task-abrasion-proximity->gap-no-in-situ-data", topTaskWithout: "task-standoff-survey" },
+        { reviewId: "task-gap:task-abrasion-proximity->gap-formation-unknown", topTaskWithout: "task-standoff-survey" },
+        { reviewId: "task-gap:task-abrasion-proximity->gap-lake-connection", topTaskWithout: "task-standoff-survey" },
+      ]);
+      expect(at("2025-05-06").map((x) => x.reviewId)).toEqual([
+        "relevance:gap-lake-connection",
+        "task-gap:task-abrasion-proximity->gap-formation-unknown",
+        "task-gap:task-abrasion-proximity->gap-lake-connection",
+      ]);
+    });
+
+    it("lists pending curated judgements as unscored rather than hiding them", () => {
+      const p = rankProvisional(scenario, registry, "2023-09-08", DEFAULT_WEIGHTS);
+      expect(p.unreviewedNotScored).toEqual(["priority:gap-lake-connection#statement", "priority:gap-formation-unknown#statement"]);
+      expect(p.unreviewedInputs).toHaveLength(26);
+    });
   });
 
   it("keeps every simulated resource flagged as simulated", () => {

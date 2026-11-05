@@ -49,7 +49,7 @@ export function RevealSection({ asOf, later, review, tasks, allGaps, sourceById 
             {review.topTaskId ? (
               <>
                 <p className="mt-1">
-                  {`The top-ranked task (\u201c${topTitle}\u201d) targeted ${
+                  {`The provisional top-ranked task (\u201c${topTitle}\u201d, not scientifically validated) targeted ${
                     review.topTaskGapsAddressedLater.length + review.topTaskGapsNotAddressedLater.length
                   } open gap(s).`}
                 </p>

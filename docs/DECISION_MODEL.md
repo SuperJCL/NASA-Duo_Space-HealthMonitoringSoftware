@@ -86,3 +86,18 @@ The ranking basis is coverage (w3), feasibility (w2) and evidence quality
 - These values are locked in a regression test.
 - With the budget at 30, abrasion (40) and coring (55) are excluded with
   reasons, and the stand-off survey ranks first.
+
+## Reviewed vs provisional rankings (RI-1)
+
+The engine above is unchanged. It is run on two inputs:
+
+- **Reviewed scenario ranking** (primary):
+  - uses only relationships approved by a named human reviewer;
+  - only tasks whose relationships are all decided are assessed;
+  - it is unavailable, with a stated reason and no winner, when the reviewed
+    evidence is insufficient.
+- **Provisional exploratory ranking** (collapsed):
+  - all draft relationships except rejected ones; identical to the M3 output;
+  - lists its unreviewed inputs and the pivotal ones.
+
+Full rules: `docs/RANKING_INTEGRITY.md`.

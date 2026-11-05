@@ -1,6 +1,8 @@
 # Ranking integrity: reviewed vs exploratory relationships
 
-Status: **proposal (not implemented)**. Date: 2026-11-05.
+Status: **superseded.** It was implemented in RI-1; see
+`docs/RANKING_INTEGRITY.md`, whose §5 lists the differences. Date:
+2026-11-05.
 
 Owner decision 4 (2026-11-05): *Unreviewed AI-curated scientific
 relationships must not silently influence an authoritative recommendation.*

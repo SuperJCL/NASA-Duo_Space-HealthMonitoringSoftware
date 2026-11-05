@@ -166,6 +166,8 @@ Out of scope for MVP:
 | 2026-11-05 (acceptance) | **Pending review:** all 11 curation items, none auto-approved; D1 stays unapproved. |
 | 2026-11-05 (acceptance) | **Approved in principle:** fix the translation crash (UX-0), run regression tests, then merge M3 into `main` if the scientific behavior is preserved. |
 | 2026-11-05 (acceptance) | **Deferred:** Zastrow & Glotch and Moreland, recorded as outstanding research tasks (`docs/EVIDENCE_CURATION.md`). |
+| 2026-11-05 (RI-1) | One Zod-validated review registry covering every ranking-relevant relationship, including local/regional classification. Statuses: pending, approved, rejected, needs_revision. |
+| 2026-11-05 (RI-1) | The reviewed scenario ranking (approved relationships only) is the primary result. The provisional exploratory ranking is collapsed by default and labelled not validated. |
 
 ## 9. Open questions
 

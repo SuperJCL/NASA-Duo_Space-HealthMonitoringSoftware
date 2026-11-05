@@ -2,22 +2,25 @@
 
 import { useMemo, useState } from "react";
 import { DEFAULT_WEIGHTS, type CriterionId, type Weights } from "@/lib/decision/criteria";
-import { defaultConstraints, recommend, type Constraints } from "@/lib/decision/engine";
+import { defaultConstraints, type Constraints } from "@/lib/decision/engine";
 import { reviewAgainstLaterEvidence } from "@/lib/decision/retrospective";
+import { rankProvisional, rankReviewed, visibleRelationships } from "@/lib/decision/review-modes";
+import type { ReviewRegistry } from "@/lib/evidence/review-registry";
 import type { Scenario, Source } from "@/lib/evidence/schema";
 import { selectEvidenceAsOf } from "@/lib/evidence/snapshot";
 import { Citations } from "./Citations";
 import { DecisionSection } from "./DecisionSection";
 import { EvidenceSection } from "./EvidenceSection";
+import { makeDescriber, ProvisionalSection, ReviewedRankingSection, ReviewRegistrySection } from "./RankingIntegrity";
 import { RevealSection } from "./RevealSection";
 
-type Props = { scenario: Scenario; sources: Source[] };
+type Props = { scenario: Scenario; sources: Source[]; registry: ReviewRegistry };
 
 /**
  * Client-side investigation workflow. All logic lives in src/lib (pure,
  * tested); this component only holds UI state (snapshot date, weights).
  */
-export function InvestigationWorkspace({ scenario, sources }: Props) {
+export function InvestigationWorkspace({ scenario, sources, registry }: Props) {
   const [asOf, setAsOf] = useState(scenario.defaultSnapshotDate);
   const [weights, setWeights] = useState<Weights>(DEFAULT_WEIGHTS);
 
@@ -36,14 +39,24 @@ export function InvestigationWorkspace({ scenario, sources }: Props) {
     () => constraintsOverride ?? defaultConstraints(snapshot),
     [constraintsOverride, snapshot],
   );
-  const recommendation = useMemo(
-    () => recommend(snapshot, weights, constraints),
-    [snapshot, weights, constraints],
+  // RI-1: the reviewed ranking (approved relationships only) is the primary result;
+  // the provisional ranking reproduces the M3 engine output and is shown collapsed.
+  const provisional = useMemo(
+    () => rankProvisional(scenario, registry, asOf, weights, constraints),
+    [scenario, registry, asOf, weights, constraints],
   );
+  const reviewedRanking = useMemo(
+    () => rankReviewed(scenario, registry, asOf, weights, constraints),
+    [scenario, registry, asOf, weights, constraints],
+  );
+  const recommendation = provisional.recommendation;
   const review = useMemo(
     () => reviewAgainstLaterEvidence(recommendation, later),
     [recommendation, later],
   );
+  const describe = useMemo(() => makeDescriber(scenario, registry), [scenario, registry]);
+  const visibleReviewIds = useMemo(() => new Set(visibleRelationships(snapshot).map((r) => r.id)), [snapshot]);
+  const taskTitle = (id: string) => scenario.tasks.find((t) => t.id === id)?.title ?? id;
 
   const onDateChange = (value: string) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value) && value >= scenario.minSnapshotDate) setAsOf(value);
@@ -117,7 +130,9 @@ export function InvestigationWorkspace({ scenario, sources }: Props) {
           gaps={snapshot.gaps}
           sourceById={sourceById}
         />
+        <ReviewRegistrySection registry={registry} visibleIds={visibleReviewIds} describe={describe} sourceById={sourceById} />
         <DecisionSection
+          part="inputs"
           recommendation={recommendation}
           tasks={snapshot.tasks}
           gaps={snapshot.gaps}
@@ -133,6 +148,26 @@ export function InvestigationWorkspace({ scenario, sources }: Props) {
           onResetConstraints={() => setConstraints(null)}
           sourceById={sourceById}
         />
+        <ReviewedRankingSection reviewed={reviewedRanking} taskTitle={taskTitle} />
+        <ProvisionalSection provisional={provisional} describe={describe} taskTitle={taskTitle}>
+          <DecisionSection
+            part="results"
+            recommendation={recommendation}
+            tasks={snapshot.tasks}
+            gaps={snapshot.gaps}
+            interpretations={snapshot.interpretations}
+            assessments={snapshot.discriminationAssessments}
+            resources={snapshot.resources}
+            assumptions={snapshot.assumptions}
+            weights={weights}
+            onWeightChange={onWeightChange}
+            onResetWeights={() => setWeights(DEFAULT_WEIGHTS)}
+            constraints={constraints}
+            onConstraintsChange={setConstraints}
+            onResetConstraints={() => setConstraints(null)}
+            sourceById={sourceById}
+          />
+        </ProvisionalSection>
         <RevealSection
           asOf={asOf}
           later={later}
