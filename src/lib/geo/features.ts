@@ -24,7 +24,9 @@ export type MapFeature = {
   layer: "historical-rover" | "reference";
   kind: FeatureKind;
   geometry: FeatureGeometry;
-  /** Short, user-facing label. Historical rover items always say so. */
+  /** Short name for map labels and lists. */
+  name: string;
+  /** Longer, user-facing label. Historical rover items always say so. */
   label: string;
   provenance: {
     sourceIds: string[];
@@ -57,6 +59,7 @@ export function recordToFeature(record: GeoRecord, bundle: GeoBundle): MapFeatur
         layer: "historical-rover",
         kind: "sample-site",
         geometry: { type: "Point", coordinates: record.position },
+        name: record.name,
         label: `Sample ${record.designation} (historical, cored ${record.coringDate})`,
         provenance,
         event: { sol: record.sealingSol, date: record.coringDate },
@@ -68,6 +71,7 @@ export function recordToFeature(record: GeoRecord, bundle: GeoBundle): MapFeatur
         layer: "reference",
         kind: "crater-centre",
         geometry: { type: "Point", coordinates: record.position },
+        name: `${record.name} centre`,
         label: `${record.name} centre (USGS Gazetteer)`,
         provenance,
         relatedObservationIds: [],
@@ -78,6 +82,7 @@ export function recordToFeature(record: GeoRecord, bundle: GeoBundle): MapFeatur
         layer: "reference",
         kind: "product-extent",
         geometry: { type: "Polygon", coordinates: [bboxRing(record.bbox)] },
+        name: `${record.instrument} ${record.product === "orthoimage" ? "imagery" : "elevation data"} extent`,
         label: `${record.title}: coverage extent`,
         provenance,
         relatedObservationIds: [],
@@ -104,6 +109,7 @@ export function traverseFeatures(bundle: GeoBundle): MapFeature[] {
     layer: "historical-rover" as const,
     kind: "traverse-segment" as const,
     geometry: { type: "MultiLineString" as const, coordinates: s.lines },
+    name: `Sol ${s.sol}`,
     label: `Perseverance drive, sol ${s.sol} (historical)`,
     provenance,
     event: { sol: s.sol },
@@ -131,6 +137,7 @@ export function roverLastPositionFeature(bundle: GeoBundle): MapFeature {
     layer: "historical-rover",
     kind: "rover-last-position",
     geometry: { type: "Point", coordinates: lastLine[lastLine.length - 1] },
+    name: `Last position in dataset (sol ${segment.sol})`,
     label: `Last position in the available dataset: end of the sol ${segment.sol} drive (historical data; not a live or current position)`,
     provenance: traverseProvenance(bundle),
     event: { sol: segment.sol },
@@ -152,6 +159,7 @@ export type GeoJsonFeatureCollection = {
     properties: {
       layer: MapFeature["layer"];
       kind: FeatureKind;
+      name: string;
       label: string;
       availableFrom: string;
       conventionBasis: MapFeature["provenance"]["conventionBasis"];
@@ -174,6 +182,7 @@ export function toGeoJson(features: readonly MapFeature[]): GeoJsonFeatureCollec
       properties: {
         layer: f.layer,
         kind: f.kind,
+        name: f.name,
         label: f.label,
         availableFrom: f.provenance.availableFrom,
         conventionBasis: f.provenance.conventionBasis,

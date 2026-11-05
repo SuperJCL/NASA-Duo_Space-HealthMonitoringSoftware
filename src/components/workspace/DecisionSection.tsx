@@ -1,5 +1,6 @@
 import { CRITERIA, MAX_WEIGHT, type CriterionId, type Weights } from "@/lib/decision/criteria";
 import { relationshipIds } from "@/lib/evidence/review-registry";
+import { PLATFORMS } from "@/lib/mission/actions";
 import type { Constraints, CriterionOutcome, Recommendation, TaskEvaluation } from "@/lib/decision/engine";
 import type {
   Assumption,
@@ -8,7 +9,6 @@ import type {
   Interpretation,
   SimulatedResource,
   Source,
-  TaskPlatform,
 } from "@/lib/evidence/schema";
 import type { SnapshotGap } from "@/lib/evidence/snapshot";
 import { Citations } from "./Citations";
@@ -23,19 +23,17 @@ const SHORT_LABEL: Record<CriterionId, string> = {
   "scientific-priority": "Priority",
   "evidence-quality": "Quality",
 };
-const PLATFORMS: { id: TaskPlatform; label: string }[] = [
-  { id: "orbital", label: "Orbital imaging" },
-  { id: "rover", label: "Rover operations" },
-  { id: "lab", label: "Earth laboratories (sample return)" },
-];
+
 
 type Props = {
   /**
-   * "inputs": tasks, constraints, weights (Decision step).
-   * "comparison": provisional comparison table (Decision step).
-   * "recommendation": provisional top-task card (Result step).
+   * "tasks": task details with curated gap links (advanced workspace).
+   * "weights": criteria and weights (advanced workspace).
+   * "comparison": provisional comparison table.
+   * "recommendation": provisional top-task card.
+   * Mission constraints are rendered by `ConstraintsControls` (action strip).
    */
-  part: "inputs" | "comparison" | "recommendation";
+  part: "tasks" | "weights" | "comparison" | "recommendation";
   recommendation: Recommendation;
   tasks: readonly CandidateTask[];
   gaps: readonly SnapshotGap[];
@@ -64,7 +62,7 @@ function OutcomeCell({ o, inBasis }: { o: CriterionOutcome | undefined; inBasis:
 }
 
 export function DecisionSection(props: Props) {
-  const { recommendation: rec, tasks, gaps, interpretations, assessments, resources, weights, constraints, sourceById } = props;
+  const { recommendation: rec, tasks, gaps, interpretations, assessments, resources, weights, sourceById } = props;
   const gapById = new Map(gaps.map((g) => [g.id, g]));
   const interpTitle = (id: string) => interpretations.find((i) => i.id === id)?.title ?? id;
   // With no feasible task there is nothing to rank, so "ranking basis" does not apply.
@@ -74,10 +72,11 @@ export function DecisionSection(props: Props) {
   // of an element (a single template string). Browser page translators replace
   // text nodes; React can then update or remove only whole elements.
 
-  if (props.part !== "inputs") return <ProvisionalResults {...props} />;
+  if (props.part === "comparison" || props.part === "recommendation") return <ProvisionalResults {...props} />;
 
   return (
     <>
+      {props.part === "tasks" ? (
       <Section title="Candidate observation tasks" count={tasks.length}>
         <p className="text-xs text-muted">
           Tasks, costs and budgets are <EpistemicBadge kind="simulated" /> planning constructs, not NASA mission plans.
@@ -145,56 +144,9 @@ export function DecisionSection(props: Props) {
         </ul>
       </Section>
 
-      <Section title="Mission constraints">
-        <p className="text-xs text-muted">
-          <EpistemicBadge kind="simulated" /> Change the budget or platform availability; infeasible tasks are excluded with a
-          stated reason.
-        </p>
-        <div className="mt-2 space-y-2" data-testid="constraints">
-          {resources.map((r) => (
-            <label key={r.id} className="block text-xs">
-              <span className="flex justify-between">
-                <span className="font-medium">{`${r.name} budget (${r.unit})`}</span>
-                <span className="font-mono text-muted">{constraints.budgets[r.id] ?? r.budget}</span>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={r.budget * 2}
-                step={5}
-                value={constraints.budgets[r.id] ?? r.budget}
-                onChange={(e) =>
-                  props.onConstraintsChange({ ...constraints, budgets: { ...constraints.budgets, [r.id]: Number(e.target.value) } })
-                }
-                className="w-full accent-accent"
-                aria-label={`${r.name} budget`}
-              />
-            </label>
-          ))}
-          {PLATFORMS.map((p) => (
-            <label key={p.id} className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={!constraints.unavailablePlatforms.includes(p.id)}
-                onChange={(e) =>
-                  props.onConstraintsChange({
-                    ...constraints,
-                    unavailablePlatforms: e.target.checked
-                      ? constraints.unavailablePlatforms.filter((x) => x !== p.id)
-                      : [...constraints.unavailablePlatforms, p.id],
-                  })
-                }
-                className="accent-accent"
-              />
-              <span>{`${p.label} available`}</span>
-            </label>
-          ))}
-          <button type="button" onClick={props.onResetConstraints} className="rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised">
-            Reset constraints
-          </button>
-        </div>
-      </Section>
+      ) : null}
 
+      {props.part === "weights" ? (
       <Section title="Criteria and weights">
         <p className="text-xs text-muted">
           <EpistemicBadge kind="deterministic" /> computed by fixed rules. <EpistemicBadge kind="curated" /> derived from
@@ -243,7 +195,64 @@ export function DecisionSection(props: Props) {
           </button>
         </div>
       </Section>
+      ) : null}
     </>
+  );
+}
+
+/**
+ * Simulated mission constraints: budget and platform availability. Shown in
+ * the action strip so feasibility changes are visible next to the actions.
+ */
+export function ConstraintsControls({
+  resources,
+  constraints,
+  onConstraintsChange,
+  onResetConstraints,
+}: Pick<Props, "resources" | "constraints" | "onConstraintsChange" | "onResetConstraints">) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" data-testid="constraints">
+      {resources.map((r) => (
+        <label key={r.id} className="flex min-w-0 flex-1 basis-64 flex-wrap items-center gap-x-2">
+          <span className="font-medium">{`Simulated ${r.name.toLowerCase()} budget`}</span>
+          <input
+            type="range"
+            min={0}
+            max={r.budget * 2}
+            step={5}
+            value={constraints.budgets[r.id] ?? r.budget}
+            onChange={(e) => onConstraintsChange({ ...constraints, budgets: { ...constraints.budgets, [r.id]: Number(e.target.value) } })}
+            className="min-w-24 flex-1 accent-accent"
+            aria-label={`${r.name} budget`}
+          />
+          <span className="shrink-0 font-mono text-muted" data-testid="budget-value">{`${constraints.budgets[r.id] ?? r.budget} ${r.unit}`}</span>
+        </label>
+      ))}
+      <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <legend className="sr-only">{"Available platforms (simulated)"}</legend>
+        {PLATFORMS.map((p) => (
+          <label key={p.id} className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={!constraints.unavailablePlatforms.includes(p.id)}
+              onChange={(e) =>
+                onConstraintsChange({
+                  ...constraints,
+                  unavailablePlatforms: e.target.checked
+                    ? constraints.unavailablePlatforms.filter((x) => x !== p.id)
+                    : [...constraints.unavailablePlatforms, p.id],
+                })
+              }
+              className="accent-accent"
+            />
+            <span>{`${p.label} available`}</span>
+          </label>
+        ))}
+      </fieldset>
+      <button type="button" onClick={onResetConstraints} className="rounded border border-border px-2 py-1 hover:bg-surface-raised">
+        Reset constraints
+      </button>
+    </div>
   );
 }
 

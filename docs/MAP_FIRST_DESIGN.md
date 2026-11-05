@@ -1,6 +1,9 @@
 # MDI: map-first design (present-day mission simulation)
 
-Status: **MF-0 approved and implemented, 2026-11-05.** It is on branch
+Status: **MF-1 implemented, 2026-11-05,** on branch `mf1-map-first-ui`
+(from `mf0-geo-data`), not merged. Manual test: `docs/MF1_MANUAL_TEST.md`.
+
+Previous status: **MF-0 approved and implemented, 2026-11-05.** It is on branch
 `mf0-geo-data` and not merged. The owner approved D1–D6 as recommended; the
 implementation is described in `docs/GEO_DATA.md`. The rest of this document
 remains the design for MF-0b to MF-4.

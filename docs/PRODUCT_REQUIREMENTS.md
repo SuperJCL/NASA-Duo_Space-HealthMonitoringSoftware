@@ -35,6 +35,17 @@ know what NASA should have done.
 
 ## 2. User workflow
 
+> **MF-1 (2026-11-05):** the default is now map-first, with no step
+> sequence:
+> 1. explore verified geographic features on the map (context cards show
+>    provenance);
+> 2. compare the simulated actions in the action strip under a simulated
+>    budget;
+> 3. choose a next action (a simulated decision);
+> 4. open evidence and the advanced workspace on demand.
+>
+> The steps below describe the underlying investigation logic.
+
 1. **Explore** a location on a real NASA Mars basemap (Mars Trek WMTS).
 2. **Review** existing scientific observations and interpretations, with sources.
 3. **Identify evidence gaps**: questions the current evidence cannot settle.
@@ -198,6 +209,8 @@ Out of scope for MVP:
 | 2026-11-05 (MF-0 approval) | **Traverse:** the verified traverse through sol 1176 is shown, labelled historical, with its last position marked as the last in the available dataset, never as live or current. |
 | 2026-11-05 (MF-0 approval) | **Branching:** MF-0 builds on `ux1-guided-workflow`. UX-1 is not merged separately, and the wizard is removed in MF-1. |
 | 2026-11-05 (MF-0 approval) | **R4:** follow-up research task to reassess the four simulated actions for 2026. The 2023 assumptions must not be presented as current recommendations. |
+| 2026-11-05 (MF-1 approval) | **Map-first UI replaces the five-step wizard** in the default interface: objective strip, map, action strip, feature context card, evidence drawer, advanced workspace drawer (historical replay lives there). |
+| 2026-11-05 (MF-1 approval) | **Authorised output-text change** to one scenario limitation (sample markers). It is a text change only; scores, order, feasibility, review statuses and replay behaviour are unchanged (test: `src/lib/decision/limitation-text.test.ts`). Exact delta in `DEVELOPMENT_LOG.md` (MF-1). |
 
 ## 9. Open questions
 

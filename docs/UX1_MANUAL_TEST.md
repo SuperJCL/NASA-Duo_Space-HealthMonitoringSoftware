@@ -1,5 +1,8 @@
 # UX-1 manual test script: the guided five-step workflow
 
+> **Superseded by `MF1_MANUAL_TEST.md`.** MF-1 (2026-11-05) removed the
+> five-step wizard; this script applies only to branch `ux1-guided-workflow`.
+
 ## Setup
 
 Branch `ux1-guided-workflow`. Run:

@@ -1,7 +1,8 @@
 # Geographic data (MF-0)
 
-Status: **implemented on branch `mf0-geo-data`, 2026-11-05.** Data and pure
-logic only. No UI shows these records yet; MF-1 will.
+Status: **implemented on branch `mf0-geo-data`, 2026-11-05.** Since MF-1
+(branch `mf1-map-first-ui`), the map draws these records and context cards
+show their provenance and coordinate caveats (`src/lib/geo/details.ts`).
 
 ## What is in the dataset
 

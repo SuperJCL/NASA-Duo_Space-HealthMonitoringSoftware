@@ -69,3 +69,9 @@ body {
   top: 12px;
   left: 12px;
 }
+
+/* Evidence on demand: the record a map context card pointed at. */
+[data-highlight="true"] {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}

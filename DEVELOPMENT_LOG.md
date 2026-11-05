@@ -1142,3 +1142,213 @@ including the map-first assessment's 10 min 23 s.
 None for MF-0. As before, `mars.nasa.gov`, `www.usgs.gov`,
 `hirise.lpl.arizona.edu` and `registry.opendata.aws` are blocked by the
 proxy. Newer traverse data was deliberately not pursued (owner decision 4).
+
+---
+
+## MF-1: map-first mission explorer UI
+
+- **Started:** 2026-11-05T06:54:28Z. Branch `mf1-map-first-ui` was created from
+  `mf0-geo-data` (`495ed84`).
+- **Completed:** 2026-11-05T07:18:22Z, implementation and verification complete, at commit.
+- **Wall-clock elapsed:** 23 min 54 s. This includes
+  debugging and screenshots.
+  - No subagents were used.
+  - No human intervention.
+- **Not merged.** `main` and `ux1-guided-workflow` are untouched.
+
+### Timeline (UTC)
+
+- **06:54–06:58:** read the UI code; 77-vs-75 investigation; limitation text
+  change and its regression test.
+- **06:58–07:06:** map layers and selection; feature-details and action
+  view models; workspace shell (objective strip, cards, action strip,
+  drawers); stepper removed.
+- **07:06–07:09:** first screenshots and layout fixes.
+- **07:09–07:12:** smoke-test rewrite and view-model unit tests.
+- **07:12–07:18:** full verification, zoom fix, final screenshots.
+- **07:18 to the end:** docs and log.
+
+### Main UI changes
+
+- **The five-step wizard is removed** (`Stepper`, `steps.ts`,
+  `InvestigationWorkspace`). It is replaced by `MissionWorkspace`, a single
+  screen with:
+  - **Objective strip:** mission badge, objective, the evidence label
+    "latest verified in this dataset, through 2025-05-06 (not all NASA
+    data)", the reused UX-1 `IntegrityBar`, the disclaimer, and the
+    simulated choice.
+  - **The NASA map** as the dominant area.
+  - **A feature context card** (`FeatureCard`).
+  - **An action strip** (`ActionStrip`, with the constraint controls) and
+    action details (`ActionDetail`).
+  - **An evidence drawer** and an **advanced scientific workspace drawer**
+    (`Drawer`, non-modal: Escape closes it, and focus moves to the heading
+    and back to the opener).
+- **Reused, not duplicated:**
+  - `DecisionSection` parts (`tasks`, `weights`, `comparison`,
+    `recommendation`) and the new shared `ConstraintsControls`;
+  - `ReviewedRankingSection`, `ProvisionalSection`,
+    `ReviewRegistrySection`, `RevealSection` and `EvidenceSection`;
+  - the MF-0 libraries.
+- **Historical replay** (date picker, reveal, retrospective) moved into the
+  advanced drawer as an optional mode.
+- **New pure modules:**
+  - `src/lib/geo/details.ts` (card content from geographic records);
+  - `src/lib/mission/actions.ts` (action view model built from engine output
+    only);
+  - `src/lib/map/geo-layers.ts` (layer configuration and click priority).
+- **Layout:** a CSS grid. On phones the order is map, feature card, action
+  strip, action details. On desktop the cards float over the map cell.
+  Everything stays mounted, so state survives drawers.
+
+### Map interaction
+
+- **Vector layers** (OpenLayers, no new dependency):
+  - the traverse (332 drives, light blue);
+  - the PDS sample sites (dot plus dashed ring = inferred convention);
+  - the last position in the dataset (diamond plus dashed ring);
+  - the Jezero centre (white cross; stated convention);
+  - the optional imagery/DTM extents (dashed outlines, off by default).
+- **Legend:** independent toggles with counts, a legend entry explaining the
+  dashed ring, and an explicit note that simulated actions are not drawn.
+- **Selection:**
+  - by click: points first, then lines, then outlines;
+  - or by keyboard, from a "Select a feature" list (it centres the map,
+    re-enables a hidden layer, and caps zoom at 15 near the CTX native
+    resolution).
+  - Hiding a layer clears its selected feature. The map container is
+    focusable (arrow keys pan, + and − zoom).
+- **No Margin Unit polygon, astronaut position or task coordinates** are
+  drawn. Labels show only when zoomed in or selected.
+
+### Limitation text change (owner-authorised; output text only)
+
+Scenario `limitations[2]`, which also appears in the engine's
+`Recommendation.limitations`:
+
+- **Before:** "No Margin Unit outline or sample markers are drawn: no published footprint was found, and the PDS sample coordinates' convention is not stated in the source."
+- **After:** "Verified historical sample locations are displayed on the map (in historical replay, only once their source is public); their coordinate convention is inferred by cross-validation. No verified Margin Unit boundary is available, and simulated observation tasks have not been assigned precise geographic locations."
+
+The wording keeps the owner's meaning and adds two facts already
+documented: replay hides sample sites until their source is public, and the
+convention is inferred.
+
+**Engine outputs are NOT byte-identical** after this change: every one of the
+36 states contains the new sentence. With the new sentence mapped back to
+the old one, the engine grid and the provisional grid are byte-identical to
+the UX-1 baseline (scratch harness, 07:15Z). In addition,
+`src/lib/decision/limitation-text.test.ts` runs a metamorphic comparison over
+the same 36 states. It checks that, apart from this string, the following
+are unchanged for `recommend`, `rankProvisional` and `rankReviewed`:
+- ranking, totals and outcomes;
+- feasibility (`infeasible`, `unranked`);
+- stability and basis;
+- review statuses.
+
+It also checks replay: 11 records withheld on 2023-09-08, the same top tasks
+at budgets 100 and 30, and 28 relationships awaiting review.
+
+### Ranking and science integrity
+
+- **RI-1 semantics are unchanged.** The reviewed ranking stays unavailable
+  (50 pending; 4 feasible actions excluded).
+- **The provisional rank is never on the action cards.** It sits in a
+  collapsed "Inspect provisional ranking (not scientifically validated)"
+  section and in the collapsed provisional ranking in the advanced drawer.
+- **Essential limitations sit next to each selected action:**
+  - provisional review status;
+  - reviewed ranking unavailable;
+  - simulated future action, not a NASA operation;
+  - the R4 2026-reassessment caveat;
+  - "Location: none assigned".
+- **Choosing an action** records a simulated decision in session state only.
+  Nothing is executed. An infeasible choice is flagged.
+- **No changes** to `src/lib/decision` or `src/lib/evidence` production code,
+  the registry, or evidence records (apart from the limitation sentence). No
+  relationship was approved.
+
+### Tests executed (all passed)
+
+- **`npm run check`:** lint, typecheck, production build, **164/164** unit
+  tests (147 earlier + 6 limitation-change + 11 view-model).
+- **`npm run verify:citations`:** **100/100** live.
+- **`npm run verify:geo`:** 0 problems.
+- **Engine grids:** identical to the UX-1 baseline except for the authorised
+  sentence (see above).
+- **Smoke** (`next start`): **120 checks with `SMOKE_LIVE=1`**, **118
+  without**, 0 failures. The smoke test was rewritten for MF-1, and its
+  summary now prints the number of checks. New checks cover:
+  - geographic selection (by list and by map click);
+  - card content and the inferred-convention mark;
+  - evidence on demand with highlight and focus return;
+  - the traverse drive card;
+  - layer toggles (traverse, extents, HiRISE tiles);
+  - the last-position warning;
+  - action selection, simulated choice and the infeasible-choice flag;
+  - budget-dependent feasibility;
+  - drawers and state persistence;
+  - historical replay (withheld map features, 28 registry entries, reveal);
+  - keyboard (action card, map zoom, drawer Escape and focus);
+  - no live or current-position wording;
+  - translation regression (clean vs simulated translation, including
+    infeasible states);
+  - mobile (no overflow, map in the first screen, collapsed layer panel,
+    order, drawer width).
+
+  The M3 and RI-1 checks (NE values, basis exclusion, pivotal inputs, 50 and
+  28 registry entries, Nue as regional context) were kept and adapted to the
+  drawers.
+
+### The 77 vs 75 PASS lines
+
+Each PASS line is one executed `check()` assertion; INFO lines are logs.
+Two checks run only with `SMOKE_LIVE=1` ("real NASA tiles loaded" and "no
+tile errors").
+
+The UX-1 entry's "75" came from a second run **without** `SMOKE_LIVE=1`
+(`npm run smoke | grep -c "^PASS"`). The live run was only grepped for
+failures. MF-0 counted the live run, giving 77 = 75 + 2.
+
+So both counts are real tests, and both runs passed. The UX-1 entry's
+wording "75/75 with SMOKE_LIVE=1" was inaccurate. The MF-1 runs confirm the
+pattern: 120 live vs 118 plain.
+
+### Rework and debugging
+
+1. **Sample markers invisible.** OpenLayers decluttering hid each sample's
+   dot and label behind its own dashed-ring style. Decluttering was
+   removed; labels now show only when zoomed in (≤ 0.00012°/px) or
+   selected.
+2. **Mobile horizontal overflow of 14 px,** from the budget control's minimum
+   widths. It now wraps.
+3. **Mobile order:** action details appeared above the strip. Fixed with
+   grid areas.
+4. **The layer panel overlapped the tile-status badge.** Its maximum height
+   was reduced.
+5. **Feature-list zoom of 17 was far past the CTX native zoom (13) and looked
+   blurry.** Capped at 15.
+6. **Smoke:** the advanced drawer covers the strip's "Reset constraints"
+   button, so the test closes the drawer first. This is also a known UX
+   limitation, below. A malformed check line was fixed.
+7. **Lint:** an unused variable after splitting `DecisionSection`.
+
+### Known UX limitations
+
+1. **Drawers cover part of the map and action strip on desktop.** Constraints
+   cannot be changed while the advanced drawer is open.
+2. **The objective strip is about 4 lines on desktop and about 9 on phones.**
+   On phones the map starts about 390 px down.
+3. **Canvas features are not individually focusable.** The keyboard path is
+   the feature list, and its 332 traverse drives make it long.
+4. **Sample sites lie within about 700 m of each other** and overlap at crater
+   scale. The CTX and HiRISE ortho and DTM extents nearly coincide, so a
+   click picks one; use the list.
+5. **Vocabulary is mixed:** the integrity bar still says "task(s)" while the
+   strip says "actions".
+6. **Replay hides post-date geographic features, but not the base imagery
+   layers.** The 2020 mosaics also appear for earlier replay dates.
+7. **The simulated choice is session-only:** it is lost on reload, and there
+   are no URL deep links.
+8. **The advanced workspace is still long.** It is the former dashboard
+   content, now opt-in.
+9. **Not tested with real screen readers.**
