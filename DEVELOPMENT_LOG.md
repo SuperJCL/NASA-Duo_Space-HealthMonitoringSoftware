@@ -807,10 +807,9 @@ D1–D5, listed in `docs/UX_REDESIGN_PROPOSAL.md` §7.
 This task is tracked separately. Earlier recorded durations are unchanged.
 
 - **Started:** 2026-11-05T05:48:32Z (first command after the request).
-- **Research and writing complete:** 2026-11-05T05:59Z. This commit on
-  branch `map-first-assessment` (from `main` `80e54d0`) marks the end; its
-  push time is reported to the owner.
-- **Wall-clock elapsed:** about 11 min.
+- **Completed:** 2026-11-05T05:58:55Z, when commit `f369591` was pushed on
+  branch `map-first-assessment` (from `main` `80e54d0`).
+- **Wall-clock elapsed:** 10 min 23 s.
   - No subagents were used.
   - No human intervention.
   - The owner's review time is not included.
