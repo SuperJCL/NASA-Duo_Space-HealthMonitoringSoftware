@@ -1574,3 +1574,64 @@ This task is tracked separately. Earlier durations are unchanged.
   the first screen on desktop. On phones the briefing starts below a 42%
   map.
 - **"Source" links open the whole 190 MB PDS PDF;** there is no page anchor.
+
+---
+
+## MDI 2.0 Mission Glass interaction prototype
+
+- **Started:** 2026-11-05T18:33:25Z. Branch `mdi2-mission-glass-prototype` was created
+  from `br-lefroy-briefing` (`b92e027`).
+- **Completed:** 2026-11-05T18:46:50Z, at commit.
+- **Wall-clock elapsed:** 13 min 25 s.
+  - No subagents were used.
+  - No human intervention.
+- **Not merged.** The full MDI 2.0 implementation has not been started.
+  Stopped for manual usability review.
+
+### Built
+
+- **Route `/mission-glass`**, with Planning and EVA HUD modes sharing one
+  mission state. Details: `docs/MISSION_GLASS_PROTOTYPE.md`, which covers:
+  - design tokens;
+  - the state contract;
+  - actual vs scenario data;
+  - implemented vs mocked interactions.
+- **Pure state module** `src/lib/prototype/mission-glass.ts` (9 tests) and
+  scenario file `src/data/prototype/mission-glass.json`:
+  - the 3 surface tasks;
+  - targets defined as offsets from the verified Lefroy Bay site;
+  - steps, events and warnings.
+- **Components** in `src/components/prototype/`: `MissionGlass`,
+  `TaskCard` (Levels 1 and 2), `EvidenceSheet` (Level 3), `EvaHud`.
+- **`MarsMap`** gained optional props, with no change to existing behaviour:
+  - a simulated-target layer;
+  - minimal chrome;
+  - initial overlays;
+  - a view-extent attribute.
+- **Engine use:** `rankProvisional` / `rankReviewed` with the scenario's
+  excluded platform (orbital). The ranks at 100 points are abrasion 1,
+  coring 2, survey 3. At 50 points, coring is infeasible and survey moves
+  to 1.
+
+### Tests (all passed)
+
+- **`npm run check`:** 194/194 unit tests (+9), typecheck, lint and build
+  (the new route is static).
+- **Main app smoke (BR-2):** 116 checks with `SMOKE_LIVE=1`, 0 failures.
+- **Prototype smoke** (`npm run smoke:mission-glass`): 41 checks, 0
+  failures, against `next start`.
+- **Engine and provisional grids:** byte-identical to MF-1 and BR-2. No diff
+  in `lib/decision`, `lib/evidence`, `lib/geo`, `lib/briefing`, scenario,
+  geo or briefing data, or `sources.json`.
+
+### Rework
+
+1. **The planning panel hid the map's legacy controls.** The planning map now
+   uses minimal chrome.
+2. **"SIM · Sim target A" was redundant.** Targets are renamed "Target A–C".
+3. **Cards were too tall.** Status and buttons were merged into one row.
+4. **Level 3 had no source quotation,** because the task–gap links carry
+   none. Each question's own source quotation is now shown (or its rule, for
+   rule-defined questions), and the sheet background is more opaque.
+5. **A plan timeline was added to the HUD** so task states are visible at a
+   glance.

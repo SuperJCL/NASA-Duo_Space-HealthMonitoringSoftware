@@ -75,3 +75,81 @@ body {
   outline: 2px solid var(--foreground);
   outline-offset: 2px;
 }
+
+/*
+ * MDI 2.0 "Mission Glass" prototype tokens (scoped: the rest of the app is
+ * unchanged). Deep blue-grey surfaces, restrained Mars-coral accent, cyan
+ * for geography, larger type. Motion is short and only follows interaction.
+ */
+.mission-glass {
+  --mg-bg: #0b111c;
+  --mg-bg-2: #131d2d;
+  --mg-surface: #172235;
+  --mg-glass: rgba(22, 33, 52, 0.74);
+  --mg-glass-strong: rgba(18, 27, 43, 0.92);
+  --mg-line: rgba(160, 186, 218, 0.16);
+  --mg-line-strong: rgba(160, 186, 218, 0.32);
+  --mg-text: #eaf1f9;
+  --mg-dim: #a3b3c8;
+  --mg-faint: #74869e;
+  --mg-coral: #ff8066;
+  --mg-coral-soft: rgba(255, 128, 102, 0.14);
+  --mg-cyan: #62d4e6;
+  --mg-cyan-soft: rgba(98, 212, 230, 0.13);
+  --mg-ok: #84d8a6;
+  --mg-caution: #f1c878;
+  color: var(--mg-text);
+  background: radial-gradient(120% 120% at 75% -10%, #1a2740 0%, var(--mg-bg) 62%);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.mission-glass .mg-glass {
+  background: var(--mg-glass);
+  border: 1px solid var(--mg-line);
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px) saturate(120%);
+}
+
+.mission-glass .ol-zoom {
+  top: 16px;
+  left: 16px;
+}
+.mission-glass .ol-zoom button,
+.mission-glass .ol-attribution button {
+  background: var(--mg-glass-strong);
+  color: var(--mg-text);
+  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+}
+.mission-glass .ol-scale-line {
+  background: var(--mg-glass-strong);
+  border-radius: 8px;
+  left: 16px;
+  bottom: 16px;
+}
+
+@keyframes mg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mission-glass .mg-rise {
+  animation: mg-rise 220ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mission-glass .mg-rise {
+    animation: none;
+  }
+  .mission-glass * {
+    transition-duration: 0ms !important;
+  }
+}

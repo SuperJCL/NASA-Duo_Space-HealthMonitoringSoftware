@@ -59,6 +59,10 @@
   the existing `selectEvidenceAsOf`, and contains no science logic.
 - `src/lib/briefing/` — location science briefings: Zod schema, integrity
   rules, loader. Not imported by `lib/evidence` or `lib/decision`.
+- `src/lib/prototype/`, `src/data/prototype/` — the MDI 2.0 Mission Glass
+  prototype (`/mission-glass`). Its targets, steps and events are
+  scenario-defined and must stay labelled simulated; never copy them into
+  `src/data/geo/`. Ranks come only from the existing engine.
 - `src/data/` — curated JSON evidence records (validated at build time);
   `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 

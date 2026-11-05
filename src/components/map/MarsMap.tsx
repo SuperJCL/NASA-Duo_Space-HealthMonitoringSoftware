@@ -8,6 +8,8 @@ import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
+import Feature from "ol/Feature";
+import Point from "ol/geom/Point";
 import GeoJSON from "ol/format/GeoJSON";
 import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style, Text } from "ol/style";
 import MousePosition from "ol/control/MousePosition";
@@ -47,7 +49,19 @@ export type MarsMapProps = {
   initialExtent?: readonly [number, number, number, number];
   /** Whether the layer panel starts open on wide screens (default true). */
   layerPanelOpenOnDesktop?: boolean;
+  /**
+   * Scenario-defined (simulated) target positions. They are drawn in their
+   * own layer and style, apart from verified features; selection ids are
+   * shared through `selectedId` / `onSelect`.
+   */
+  simulatedTargets?: readonly { id: string; name: string; position: readonly [number, number] }[];
+  /** "minimal": only zoom buttons (EVA HUD); "full": layer panel, view buttons, tile status. */
+  chrome?: "full" | "minimal";
+  /** Imagery overlays shown at start (default: the CTX mosaic). */
+  initialOverlays?: readonly OverlayKey[];
 };
+
+const SIM = "#ff8a6b";
 
 const VIEW_MAX_ZOOM = 18;
 const FIT_PADDING = [24, 24, 24, 24];
@@ -135,19 +149,31 @@ function styleFor(feature: FeatureLike, selected: boolean, resolution: number, a
   }
 }
 
-export function MarsMap({ features, selectedId, onSelect, labelKinds = [], initialExtent, layerPanelOpenOnDesktop = true }: MarsMapProps) {
+export function MarsMap({
+  features,
+  selectedId,
+  onSelect,
+  labelKinds = [],
+  initialExtent,
+  layerPanelOpenOnDesktop = true,
+  simulatedTargets = [],
+  chrome = "full",
+  initialOverlays = DEFAULT_OVERLAYS,
+}: MarsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const coordinateRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<OlMap | null>(null);
   const layersRef = useRef<Partial<Record<TrekLayerKey, TileLayer>>>({});
   const geoLayersRef = useRef<Partial<Record<GeoLayerKey, VectorLayer>>>({});
+  const simLayerRef = useRef<VectorLayer | null>(null);
+  const [viewExtent, setViewExtent] = useState<string>("");
   const selectedRef = useRef<string | null>(selectedId);
   const onSelectRef = useRef(onSelect);
   const alwaysLabelRef = useRef<ReadonlySet<FeatureKind>>(new Set(labelKinds));
   const initialExtentRef = useRef(initialExtent);
 
   const [basemap, setBasemap] = useState<BasemapKey>(DEFAULT_BASEMAP);
-  const [overlays, setOverlays] = useState<ReadonlySet<OverlayKey>>(() => new Set(DEFAULT_OVERLAYS));
+  const [overlays, setOverlays] = useState<ReadonlySet<OverlayKey>>(() => new Set(initialOverlays));
   const [geoVisible, setGeoVisible] = useState<Record<GeoLayerKey, boolean>>(
     () => Object.fromEntries(GEO_LAYERS.map((l) => [l.key, l.defaultVisible])) as Record<GeoLayerKey, boolean>,
   );
@@ -205,9 +231,36 @@ export function MarsMap({ features, selectedId, onSelect, labelKinds = [], initi
       });
     }
 
+    // Simulated targets: coral hollow diamond with a "SIM" label. Never styled like verified data.
+    const simLayer = new VectorLayer({
+      source: new VectorSource(),
+      style: (f) => {
+        const selected = f.getId() === selectedRef.current;
+        return [
+          new Style({
+            image: new RegularShape({
+              points: 4,
+              radius: selected ? 13 : 10,
+              angle: 0,
+              fill: new Fill({ color: selected ? "rgba(255, 138, 107, 0.35)" : "rgba(14, 21, 32, 0.55)" }),
+              stroke: new Stroke({ color: selected ? "#ffffff" : SIM, width: selected ? 3 : 2, lineDash: [4, 3] }),
+            }),
+            text: new Text({
+              text: `SIM · ${String(f.get("name") ?? "")}`,
+              offsetY: selected ? -24 : -20,
+              font: "600 12px ui-sans-serif, system-ui, sans-serif",
+              fill: new Fill({ color: selected ? "#ffffff" : SIM }),
+              stroke: new Stroke({ color: "rgba(14, 21, 32, 0.9)", width: 3 }),
+            }),
+          }),
+        ];
+      },
+      properties: { simulated: true },
+    });
+
     const map = new OlMap({
       target,
-      layers: [...orderedKeys.map((key) => layers[key]!), ...GEO_LAYERS.map((g) => geoLayers[g.key]!)],
+      layers: [...orderedKeys.map((key) => layers[key]!), ...GEO_LAYERS.map((g) => geoLayers[g.key]!), simLayer],
       controls: defaultControls({ rotate: false }).extend([
         new ScaleLine({ units: "metric" }),
         new MousePosition({
@@ -221,12 +274,19 @@ export function MarsMap({ features, selectedId, onSelect, labelKinds = [], initi
       view: new View({ projection, center: [0, 0], zoom: 2, minZoom: 1, maxZoom: VIEW_MAX_ZOOM }),
     });
 
-    const vectorLayers = new Set(Object.values(geoLayers));
+    const vectorLayers = new Set<VectorLayer>([...Object.values(geoLayers).filter((l): l is VectorLayer => Boolean(l)), simLayer]);
     const hitsAt = (pixel: number[]) =>
       map
         .getFeaturesAtPixel(pixel, { hitTolerance: 6, layerFilter: (l) => vectorLayers.has(l as VectorLayer) })
         .map((f) => ({ id: String(f.getId()), kind: f.get("kind") as FeatureKind }));
-    map.on("singleclick", (e) => onSelectRef.current(pickFeature(hitsAt(e.pixel))?.id ?? null));
+    map.on("singleclick", (e) => {
+      const hits = hitsAt(e.pixel);
+      // A simulated target wins over verified features under the same pixel.
+      const sim = hits.find((h) => h.kind === undefined || String(h.id).startsWith("sim-"));
+      onSelectRef.current(sim ? sim.id : (pickFeature(hits.filter((h) => h.kind))?.id ?? null));
+    });
+    // Exposes the visible extent (Mars degrees) for tests and debugging.
+    map.on("moveend", () => setViewExtent(map.getView().calculateExtent(map.getSize()).map((v) => v.toFixed(6)).join(",")));
     map.on("pointermove", (e) => {
       if (e.dragging) return;
       target.style.cursor = hitsAt(e.pixel).length ? "pointer" : "";
@@ -239,6 +299,7 @@ export function MarsMap({ features, selectedId, onSelect, labelKinds = [], initi
     mapRef.current = map;
     layersRef.current = layers;
     geoLayersRef.current = geoLayers;
+    simLayerRef.current = simLayer;
     return () => {
       map.setTarget(undefined);
       map.dispose();
@@ -262,20 +323,40 @@ export function MarsMap({ features, selectedId, onSelect, labelKinds = [], initi
     }
   }, [features]);
 
+  // Load scenario-defined targets (kept apart from verified features).
+  const simKey = simulatedTargets.map((t) => `${t.id}:${t.position.join(",")}`).join("|");
+  useEffect(() => {
+    const source = simLayerRef.current?.getSource();
+    if (!source) return;
+    source.clear();
+    for (const t of simulatedTargets) {
+      const f = new Feature({ geometry: new Point([t.position[0], t.position[1]]), name: t.name });
+      f.setId(t.id);
+      source.addFeature(f);
+    }
+    // simKey captures the content of simulatedTargets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simKey]);
+
   // Restyle when the selection changes, and bring a selected point into view
   // (no animation, and no zoom change) if it is outside the visible area.
   useEffect(() => {
     selectedRef.current = selectedId;
     for (const layer of Object.values(geoLayersRef.current)) layer?.changed();
+    simLayerRef.current?.changed();
     const map = mapRef.current;
     const f = selectedId ? featureById.get(selectedId) : undefined;
-    if (!map || f?.geometry.type !== "Point") return;
-    const [lon, lat] = f.geometry.coordinates;
+    const sim = selectedId ? simulatedTargets.find((t) => t.id === selectedId) : undefined;
+    const point = sim ? sim.position : f?.geometry.type === "Point" ? f.geometry.coordinates : null;
+    if (!map || !point) return;
+    const [lon, lat] = point;
     const [w, s, e, n] = map.getView().calculateExtent(map.getSize());
     const mx = (e - w) * 0.1;
     const my = (n - s) * 0.1;
     if (lon < w + mx || lon > e - mx || lat < s + my || lat > n - my) map.getView().setCenter([lon, lat]);
-  }, [selectedId, featureById]);
+    // simulatedTargets is read for its positions only; simKey tracks changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, featureById, simKey]);
 
   useEffect(() => {
     for (const key of BASEMAP_KEYS) layersRef.current[key]?.setVisible(key === basemap);
@@ -326,12 +407,13 @@ export function MarsMap({ features, selectedId, onSelect, labelKinds = [], initi
         ref={containerRef}
         className="absolute inset-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foreground"
         data-testid="mars-map"
+        data-view-extent={viewExtent}
         tabIndex={0}
         role="application"
         aria-label="Mars map of Jezero crater. Arrow keys pan, plus and minus zoom. Use the feature list in the layer panel to select features with the keyboard."
       />
 
-      <div className="absolute right-3 top-3 flex max-h-[calc(100%-8rem)] max-w-[calc(100%-4.5rem)] flex-col items-end gap-2 text-xs">
+      <div hidden={chrome === "minimal"} className="absolute right-3 top-3 flex max-h-[calc(100%-8rem)] max-w-[calc(100%-4.5rem)] flex-col items-end gap-2 text-xs">
         <div className="flex gap-1">
           <button
             type="button"
@@ -456,7 +538,7 @@ export function MarsMap({ features, selectedId, onSelect, labelKinds = [], initi
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-10 right-3 flex flex-col items-end gap-1 text-[11px]">
+      <div hidden={chrome === "minimal"} className="pointer-events-none absolute bottom-10 right-3 flex flex-col items-end gap-1 text-[11px]">
         <TileStatus stats={tileStats} isLoading={isLoading} />
         <div ref={coordinateRef} className="rounded bg-surface/90 px-2 py-1 text-foreground" aria-live="off" />
       </div>
