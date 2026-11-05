@@ -801,3 +801,46 @@ D1–D5, listed in `docs/UX_REDESIGN_PROPOSAL.md` §7.
   counts only approved local gaps.
 - **Reviewer identity is self-declared.** The registry records the
   reviewer's name; there is no authentication.
+
+## Assessment task: map-first interaction & 3D feasibility
+
+This task is tracked separately. Earlier recorded durations are unchanged.
+
+- **Started:** 2026-11-05T05:48:32Z (first command after the request).
+- **Research and writing complete:** 2026-11-05T05:59Z. This commit on
+  branch `map-first-assessment` (from `main` `80e54d0`) marks the end; its
+  push time is reported to the owner.
+- **Wall-clock elapsed:** about 11 min.
+  - No subagents were used.
+  - No human intervention.
+  - The owner's review time is not included.
+- **Scope:** read-only research and documentation. No application code,
+  data or dependencies changed. UX-1 (`ux1-guided-workflow`, `09e8fa4`) is
+  untouched and not merged. Output: `docs/MAP_FIRST_ASSESSMENT.md`.
+
+### Findings recorded (details in the assessment)
+
+- **Jezero DTMs.**
+  - Trek serves the CTX (20 m) and HiRISE (1 m) Jezero DTMs as GeoTIFF
+    downloads only, not as WMTS.
+  - The CTX DTM was downloaded and inspected: float32, Mars 2000 sphere,
+    heights relative to the areoid. It agrees with the PDS coring-site
+    elevations to within 3 m.
+  - The HiRISE DTM is 1.84 GB, and its endpoint ignores Range requests.
+- **Perseverance traverse.**
+  - It is available as queryable vector polylines with a `sol` field: 332
+    segments, sols 14–1176.
+  - The dataset's catalog date is 2024-07-03, after the snapshot. This is
+    an open temporal-policy decision.
+- **PDS coring coordinates** lie within 2.5 m of the traverse. This
+  corroborates a planetocentric, east-positive convention and partly
+  resolves R3. All three sites are after the snapshot.
+- **Blocked by the proxy (403), not bypassed:** www.usgs.gov,
+  hirise.lpl.arizona.edu and registry.opendata.aws.
+
+### Rework
+
+- A Python parser assumed every traverse feature was a `LineString`. Four
+  are `MultiLineString`; this was fixed in the scratch script.
+- A Range-request probe streamed 480 MB before timing out. It showed that
+  the server does not support Range, and the partial file was deleted.
