@@ -1,4 +1,5 @@
 import { AppHeader } from "@/components/layout/AppHeader";
+import { loadBriefings } from "@/lib/briefing/repository";
 import { MissionWorkspace } from "@/components/mission/MissionWorkspace";
 import { loadJezeroMarginScenario } from "@/lib/evidence/repository";
 import { loadJezeroGeo } from "@/lib/geo/repository";
@@ -10,12 +11,13 @@ export default function Home() {
   const { scenario, sources, registry } = loadJezeroMarginScenario();
   const geo = loadJezeroGeo();
   const mission = loadMission();
+  const briefings = loadBriefings();
 
   return (
     <div className="flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden">
       <AppHeader />
-      {/* MF-1: map-first mission explorer (no step wizard). */}
-      <MissionWorkspace scenario={scenario} sources={sources} registry={registry} geo={geo} mission={mission} />
+      {/* BR-2: map plus location science briefing; the MF-1 ranking workspace is in the advanced drawer. */}
+      <MissionWorkspace scenario={scenario} sources={sources} registry={registry} geo={geo} mission={mission} briefings={briefings} />
     </div>
   );
 }

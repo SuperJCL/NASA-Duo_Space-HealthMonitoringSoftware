@@ -5,7 +5,7 @@ export function AppHeader() {
         <h1 className="text-base font-semibold tracking-tight sm:text-lg">Mars Discovery Intelligence</h1>
         <span className="rounded border border-accent-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">Prototype</span>
       </div>
-      <p className="text-xs text-muted">Jezero crater &middot; Margin Unit &middot; simulation, not a NASA mission</p>
+      <p className="text-xs text-muted">Jezero crater &middot; sample-site science briefings</p>
     </header>
   );
 }

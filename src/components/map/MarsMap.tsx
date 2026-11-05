@@ -41,6 +41,12 @@ export type MarsMapProps = {
   features: readonly MapFeature[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /** Feature kinds whose labels are always shown (e.g. sample sites in the briefing view). */
+  labelKinds?: readonly FeatureKind[];
+  /** [west, south, east, north] to fit on first render; defaults to the Jezero view. */
+  initialExtent?: readonly [number, number, number, number];
+  /** Whether the layer panel starts open on wide screens (default true). */
+  layerPanelOpenOnDesktop?: boolean;
 };
 
 const VIEW_MAX_ZOOM = 18;
@@ -69,8 +75,8 @@ const inferredRing = (radius: number) =>
 /** Labels appear only when zoomed in (≈ 7 m per pixel or closer) or for the selected feature, so close sites stay readable. */
 const LABEL_MAX_RESOLUTION = 0.00012;
 
-function styleFor(feature: FeatureLike, selected: boolean, resolution: number): Style[] {
-  const showLabel = selected || resolution <= LABEL_MAX_RESOLUTION;
+function styleFor(feature: FeatureLike, selected: boolean, resolution: number, alwaysLabel: ReadonlySet<FeatureKind>): Style[] {
+  const showLabel = selected || resolution <= LABEL_MAX_RESOLUTION || alwaysLabel.has(feature.get("kind") as FeatureKind);
   const kind = feature.get("kind") as FeatureKind;
   const inferred = feature.get("conventionBasis") === "inferred-cross-validation";
   const name = String(feature.get("name") ?? "");
@@ -129,7 +135,7 @@ function styleFor(feature: FeatureLike, selected: boolean, resolution: number): 
   }
 }
 
-export function MarsMap({ features, selectedId, onSelect }: MarsMapProps) {
+export function MarsMap({ features, selectedId, onSelect, labelKinds = [], initialExtent, layerPanelOpenOnDesktop = true }: MarsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const coordinateRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<OlMap | null>(null);
@@ -137,6 +143,8 @@ export function MarsMap({ features, selectedId, onSelect }: MarsMapProps) {
   const geoLayersRef = useRef<Partial<Record<GeoLayerKey, VectorLayer>>>({});
   const selectedRef = useRef<string | null>(selectedId);
   const onSelectRef = useRef(onSelect);
+  const alwaysLabelRef = useRef<ReadonlySet<FeatureKind>>(new Set(labelKinds));
+  const initialExtentRef = useRef(initialExtent);
 
   const [basemap, setBasemap] = useState<BasemapKey>(DEFAULT_BASEMAP);
   const [overlays, setOverlays] = useState<ReadonlySet<OverlayKey>>(() => new Set(DEFAULT_OVERLAYS));
@@ -144,7 +152,7 @@ export function MarsMap({ features, selectedId, onSelect }: MarsMapProps) {
     () => Object.fromEntries(GEO_LAYERS.map((l) => [l.key, l.defaultVisible])) as Record<GeoLayerKey, boolean>,
   );
   // The panel starts open on wide screens and collapsed on phones (the map is client-only).
-  const [panelOpen, setPanelOpen] = useState(() => window.matchMedia("(min-width: 1024px)").matches);
+  const [panelOpen, setPanelOpen] = useState(() => layerPanelOpenOnDesktop && window.matchMedia("(min-width: 1024px)").matches);
   const [tileStats, setTileStats] = useState<TileStats>({ loaded: 0, failed: 0 });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -192,7 +200,7 @@ export function MarsMap({ features, selectedId, onSelect }: MarsMapProps) {
     for (const g of GEO_LAYERS) {
       geoLayers[g.key] = new VectorLayer({
         source: new VectorSource(),
-        style: (f, resolution) => styleFor(f, f.getId() === selectedRef.current, resolution),
+        style: (f, resolution) => styleFor(f, f.getId() === selectedRef.current, resolution, alwaysLabelRef.current),
         properties: { geoLayer: g.key },
       });
     }
@@ -226,7 +234,7 @@ export function MarsMap({ features, selectedId, onSelect }: MarsMapProps) {
     map.on("loadstart", () => setIsLoading(true));
     map.on("loadend", () => setIsLoading(false));
 
-    map.getView().fit([...INITIAL_VIEWS[DEFAULT_VIEW].extent], { size: map.getSize(), padding: FIT_PADDING });
+    map.getView().fit([...(initialExtentRef.current ?? INITIAL_VIEWS[DEFAULT_VIEW].extent)], { size: map.getSize(), padding: FIT_PADDING });
 
     mapRef.current = map;
     layersRef.current = layers;
@@ -254,11 +262,20 @@ export function MarsMap({ features, selectedId, onSelect }: MarsMapProps) {
     }
   }, [features]);
 
-  // Restyle when the selection changes.
+  // Restyle when the selection changes, and bring a selected point into view
+  // (no animation, and no zoom change) if it is outside the visible area.
   useEffect(() => {
     selectedRef.current = selectedId;
     for (const layer of Object.values(geoLayersRef.current)) layer?.changed();
-  }, [selectedId]);
+    const map = mapRef.current;
+    const f = selectedId ? featureById.get(selectedId) : undefined;
+    if (!map || f?.geometry.type !== "Point") return;
+    const [lon, lat] = f.geometry.coordinates;
+    const [w, s, e, n] = map.getView().calculateExtent(map.getSize());
+    const mx = (e - w) * 0.1;
+    const my = (n - s) * 0.1;
+    if (lon < w + mx || lon > e - mx || lat < s + my || lat > n - my) map.getView().setCenter([lon, lat]);
+  }, [selectedId, featureById]);
 
   useEffect(() => {
     for (const key of BASEMAP_KEYS) layersRef.current[key]?.setVisible(key === basemap);

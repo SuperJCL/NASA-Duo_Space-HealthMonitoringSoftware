@@ -1,6 +1,9 @@
 # Location science briefings (BR-1)
 
-Status: **BR-1 implemented, 2026-11-05,** on branch `br-lefroy-briefing`. One
+Status: **BR-1 and BR-2 implemented, 2026-11-05,** on branch
+`br-lefroy-briefing`. BR-2 is the briefing panel in the UI
+(`src/components/briefing/`, `src/lib/briefing/view.ts`). Usability protocol:
+`docs/BR2_USABILITY_TEST.md`. One
 briefing so far: **Lefroy Bay** (`src/data/briefings/lefroy-bay.json`).
 
 ## What a briefing is

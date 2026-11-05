@@ -12,15 +12,18 @@ export function ActionStrip({
   chosenId,
   onSelect,
   constraints,
+  stacked = false,
 }: {
   actions: readonly ActionView[];
   selectedId: string | null;
   chosenId: string | null;
   onSelect: (id: string | null) => void;
   constraints: ReactNode;
+  /** Stacked cards (inside the advanced workspace) instead of a horizontal strip. */
+  stacked?: boolean;
 }) {
   return (
-    <section aria-labelledby="actions-heading" className="min-w-0 border-t border-border bg-surface px-3 py-2 [grid-area:strip]" data-testid="action-strip">
+    <section aria-labelledby="actions-heading" className={`min-w-0 border-t border-border bg-surface px-3 py-2 ${stacked ? "" : "[grid-area:strip]"}`} data-testid="action-strip">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <h2 id="actions-heading" className="flex flex-wrap items-center gap-2 text-sm font-semibold">
           <span>{"Simulated observation actions"}</span>
@@ -29,12 +32,12 @@ export function ActionStrip({
         <p className="text-[11px] text-muted">{"Select an action to inspect it. Choosing one is a simulated decision; nothing is executed."}</p>
       </div>
       <div className="mt-1.5">{constraints}</div>
-      <ul className="mt-2 flex snap-x gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-4 lg:overflow-visible" aria-label="Simulated actions">
+      <ul className={stacked ? "mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" : "mt-2 flex snap-x gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-4 lg:overflow-visible"} aria-label="Simulated actions">
         {actions.map((a) => {
           const selected = a.id === selectedId;
           const chosen = a.id === chosenId;
           return (
-            <li key={a.id} className="w-64 shrink-0 snap-start lg:w-auto">
+            <li key={a.id} className={stacked ? "" : "w-64 shrink-0 snap-start lg:w-auto"}>
               <button
                 type="button"
                 aria-pressed={selected}

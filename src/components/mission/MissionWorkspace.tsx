@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Briefing } from "@/lib/briefing/schema";
+import { briefingView } from "@/lib/briefing/view";
 import { DEFAULT_WEIGHTS, type CriterionId, type Weights } from "@/lib/decision/criteria";
 import { defaultConstraints, type Constraints } from "@/lib/decision/engine";
 import { reviewAgainstLaterEvidence } from "@/lib/decision/retrospective";
@@ -13,6 +15,9 @@ import type { GeoBundle } from "@/lib/geo/repository";
 import { describeActions } from "@/lib/mission/actions";
 import { missionContext, selectGeoFeatures } from "@/lib/mission/mode";
 import type { MissionConfig, MissionMode } from "@/lib/mission/schema";
+import { BriefingMethods } from "@/components/briefing/BriefingMethods";
+import { BriefingPanel } from "@/components/briefing/BriefingPanel";
+import { SiteChooser } from "@/components/briefing/SiteChooser";
 import { IntegrityBar } from "@/components/flow/IntegrityBar";
 import { MarsMapLoader } from "@/components/map/MarsMapLoader";
 import { ConstraintsControls, DecisionSection } from "@/components/workspace/DecisionSection";
@@ -24,16 +29,20 @@ import { ActionStrip } from "./ActionStrip";
 import { Drawer } from "./Drawer";
 import { FeatureCard } from "./FeatureCard";
 
-type Props = { scenario: Scenario; sources: Source[]; registry: ReviewRegistry; geo: GeoBundle; mission: MissionConfig };
-type DrawerId = "evidence" | "advanced" | null;
+type Props = { scenario: Scenario; sources: Source[]; registry: ReviewRegistry; geo: GeoBundle; mission: MissionConfig; briefings: Briefing[] };
+type DrawerId = "evidence" | "advanced" | "methods" | null;
+
+const SAMPLE_LABELS = ["sample-site", "rover-last-position"] as const;
 
 /**
- * Map-first mission explorer (MF-1). Holds UI state only: mission mode,
- * weights, constraints, selections and drawers. All science lives in
- * src/lib (pure, tested). Everything stays mounted, so selections survive
- * opening and closing drawers.
+ * Science-briefing explorer (BR-2; built on the MF-1 map workspace).
+ * Default view: the map plus a panel that shows a site chooser, a location
+ * briefing, or a feature card. The MF-1 ranking workspace (simulated actions,
+ * constraints, rankings, registry, historical replay) is unchanged and lives
+ * in the advanced drawer. All science lives in src/lib (pure, tested);
+ * everything stays mounted, so state survives opening and closing drawers.
  */
-export function MissionWorkspace({ scenario, sources, registry, geo, mission }: Props) {
+export function MissionWorkspace({ scenario, sources, registry, geo, mission, briefings }: Props) {
   const [mode, setMode] = useState<MissionMode>(mission.defaultMode);
   const [replayDate, setReplayDate] = useState(scenario.defaultSnapshotDate);
   const [weights, setWeights] = useState<Weights>(DEFAULT_WEIGHTS);
@@ -63,13 +72,29 @@ export function MissionWorkspace({ scenario, sources, registry, geo, mission }: 
   const geoSelection = useMemo(() => selectGeoFeatures(geo, ctx), [geo, ctx]);
   const selectedFeature = selectedFeatureId ? geoSelection.features.find((f) => f.id === selectedFeatureId) : undefined;
   const featureDetails = useMemo(() => (selectedFeature ? describeFeature(selectedFeature, geo, sources) : null), [selectedFeature, geo, sources]);
+  const briefingFor = useMemo(() => new Map(briefings.map((b) => [b.locationId, b])), [briefings]);
+  const selectedBriefing = selectedFeature ? briefingFor.get(selectedFeature.id) : undefined;
+  const view = useMemo(() => (selectedBriefing ? briefingView(selectedBriefing, geo, sources) : null), [selectedBriefing, geo, sources]);
+  const sites = geoSelection.features
+    .filter((f) => f.kind === "sample-site")
+    .map((f) => ({ id: f.id, name: f.name, hasBriefing: briefingFor.has(f.id) }))
+    .sort((a, b) => Number(b.hasBriefing) - Number(a.hasBriefing));
+
+  // First view: the sample sites and the last traverse position, with a margin.
+  const initialExtent = useMemo(() => {
+    const pts = geoSelection.features.filter((f) => f.geometry.type === "Point" && SAMPLE_LABELS.includes(f.kind as (typeof SAMPLE_LABELS)[number]));
+    const lons = pts.map((f) => (f.geometry.type === "Point" ? f.geometry.coordinates[0] : 0));
+    const lats = pts.map((f) => (f.geometry.type === "Point" ? f.geometry.coordinates[1] : 0));
+    return lons.length ? ([Math.min(...lons) - 0.01, Math.min(...lats) - 0.01, Math.max(...lons) + 0.01, Math.max(...lats) + 0.01] as const) : undefined;
+    // Only the first render uses it; geoSelection changes later must not refit the view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const actions = useMemo(
     () => describeActions({ tasks: snapshot.tasks, resources: snapshot.resources, gaps: snapshot.gaps, constraints, provisional: recommendation, reviewed }),
     [snapshot, constraints, recommendation, reviewed],
   );
   const selectedAction = actions.find((a) => a.id === selectedActionId);
-  const chosenAction = actions.find((a) => a.id === chosenActionId);
   const reviewedStatusText =
     reviewed.status.state === "unavailable"
       ? `Reviewed ranking unavailable: ${excluded.length} feasible action(s) excluded pending expert review. No action is scientifically recommended.`
@@ -78,13 +103,12 @@ export function MissionWorkspace({ scenario, sources, registry, geo, mission }: 
         : `Reviewed ranking: ${taskTitle(reviewed.recommendation!.ranking[0].taskId)} ranks first (approved relationships only).`;
 
   const onSelectFeature = useCallback((id: string | null) => setSelectedFeatureId(id), []);
-  const openDrawer = (id: DrawerId) => setDrawer(id);
   const showEvidence = (recordId: string | null) => {
     setHighlightRecordId(recordId);
     setDrawer("evidence");
   };
 
-  // Evidence on demand: scroll to and mark the record a context card pointed at.
+  // Evidence on demand: scroll to and mark the record a card pointed at.
   const evidenceRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const root = evidenceRef.current;
@@ -97,6 +121,12 @@ export function MissionWorkspace({ scenario, sources, registry, geo, mission }: 
     el.setAttribute("data-highlight", "true");
     el.scrollIntoView({ block: "center" });
   }, [drawer, highlightRecordId]);
+
+  // Show the top of a newly opened briefing or card.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (panelRef.current) panelRef.current.scrollTop = 0;
+  }, [selectedFeatureId]);
 
   const latest = ctx.latestRecordDate;
   const onReplayDate = (value: string) => {
@@ -123,112 +153,126 @@ export function MissionWorkspace({ scenario, sources, registry, geo, mission }: 
 
   return (
     <div className="flex flex-1 flex-col lg:min-h-0">
-      {/* Objective strip */}
-      <div className="space-y-1.5 border-b border-border bg-surface px-4 py-2" data-testid="objective-strip">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-2">
-              <span className={`rounded border px-1.5 py-px font-mono text-[10px] uppercase tracking-wider ${replay ? "border-warn/70 text-warn" : "border-accent/70 text-accent"}`} data-testid="mission-mode">
-                {replay ? "Historical replay (advanced)" : `Simulated mission · ${mission.missionYear}`}
-              </span>
-              <span className="text-sm font-semibold" id="workspace-heading">
-                {mission.title}
-              </span>
-            </p>
-            <p className="mt-0.5 text-xs" data-testid="mission-objective">
-              {"Objective: with incomplete evidence and a limited simulated budget, decide what to investigate next at the Margin Unit of Jezero crater, and why."}
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-1.5 text-xs">
-            <button type="button" onClick={() => showEvidence(null)} aria-expanded={drawer === "evidence"} aria-controls="evidence-drawer" className="rounded border border-border px-2 py-1 hover:bg-surface-raised" data-testid="open-evidence">
-              {"Evidence"}
-            </button>
-            <button type="button" onClick={() => openDrawer("advanced")} aria-expanded={drawer === "advanced"} aria-controls="advanced-drawer" className="rounded border border-border px-2 py-1 hover:bg-surface-raised" data-testid="open-advanced">
-              {"Advanced workspace"}
-            </button>
-          </div>
-        </div>
-        <IntegrityBar
-          evidenceText={evidenceText}
-          hiddenLaterCount={snapshot.hiddenLaterCount}
-          reviewed={reviewed}
-          excludedCount={excluded.length}
-          onShowEvidenceMode={() => openDrawer("advanced")}
-          onShowRanking={() => openDrawer("advanced")}
-        />
-        <p className="text-[11px] text-muted" data-testid="mission-disclaimer">
-          {mission.disclaimer}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-4 py-1.5" data-testid="objective-strip">
+        <p className="min-w-0 text-[11px] text-muted" data-testid="mission-disclaimer">
+          {"Learning tool built from published NASA/PDS records. Not a NASA mission and not live telemetry; rover data shown are historical."}
         </p>
-        {chosenAction ? (
-          <p className="text-[11px]" data-testid="chosen-summary">
-            {`Your simulated choice: ${chosenAction.title}${chosenAction.feasible ? "" : " (not feasible under current constraints)"}`}
-          </p>
-        ) : null}
+        <div className="flex shrink-0 gap-1.5 text-xs">
+          {replay ? (
+            <span className="rounded border border-warn/70 px-1.5 py-px font-mono text-[10px] uppercase tracking-wider text-warn" data-testid="mission-mode">
+              {"Historical replay (advanced)"}
+            </span>
+          ) : null}
+          <button type="button" onClick={() => showEvidence(null)} aria-expanded={drawer === "evidence"} aria-controls="evidence-drawer" className="rounded border border-border px-2 py-1 hover:bg-surface-raised" data-testid="open-evidence">
+            {"All evidence"}
+          </button>
+          <button type="button" onClick={() => setDrawer("advanced")} aria-expanded={drawer === "advanced"} aria-controls="advanced-drawer" className="rounded border border-border px-2 py-1 hover:bg-surface-raised" data-testid="open-advanced">
+            {"Advanced ranking workspace"}
+          </button>
+        </div>
       </div>
 
-      {/* Grid: on phones map, feature card, actions, action details stack in that order;
-          on desktop the cards float over the map cell. */}
-      <main className="grid flex-1 grid-cols-1 [grid-template-areas:'map'_'feature'_'strip'_'action'] lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_auto] lg:[grid-template-areas:'map'_'strip']">
-          <section aria-label="Mars map" className="relative h-[50dvh] [grid-area:map] lg:h-auto lg:min-h-0">
-            <MarsMapLoader features={geoSelection.features} selectedId={selectedFeature ? selectedFeature.id : null} onSelect={onSelectFeature} />
-          </section>
-          {featureDetails ? (
-            <FeatureCard
-              details={featureDetails}
-              onClose={() => setSelectedFeatureId(null)}
-              onShowEvidence={(id) => showEvidence(id)}
-              className={`m-3 [grid-area:feature] lg:z-10 lg:ml-12 lg:w-[22rem] lg:self-start lg:justify-self-start lg:overflow-y-auto lg:[grid-area:map] ${
-                selectedAction ? "lg:max-h-[48%]" : "lg:max-h-[calc(100%-3rem)]"
-              }`}
-            />
-          ) : null}
-          {selectedAction ? (
-            <ActionDetail
-              action={selectedAction}
-              chosen={selectedAction.id === chosenActionId}
-              reviewedStatusText={reviewedStatusText}
-              caveats={ctx.caveats.slice(0, 1)}
-              actionFraming={ctx.actionFraming}
-              onChoose={() => setChosenActionId(selectedAction.id)}
-              onClearChoice={() => setChosenActionId(null)}
-              onClose={() => setSelectedActionId(null)}
-              onShowEvidence={() => showEvidence(null)}
-              onShowAdvanced={() => openDrawer("advanced")}
-              className="m-3 [grid-area:action] lg:z-10 lg:mb-9 lg:ml-12 lg:max-h-[48%] lg:w-[26rem] lg:self-end lg:justify-self-start lg:overflow-y-auto lg:[grid-area:map]"
-            />
-          ) : null}
+      <main className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
+        <section aria-label="Mars map" className="relative h-[42dvh] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+          <MarsMapLoader
+            features={geoSelection.features}
+            selectedId={selectedFeature ? selectedFeature.id : null}
+            onSelect={onSelectFeature}
+            labelKinds={SAMPLE_LABELS}
+            initialExtent={initialExtent}
+            layerPanelOpenOnDesktop={false}
+          />
+        </section>
 
-        <ActionStrip
-          actions={actions}
-          selectedId={selectedActionId}
-          chosenId={chosenActionId}
-          onSelect={setSelectedActionId}
-          constraints={
-            <ConstraintsControls
-              resources={snapshot.resources}
-              constraints={constraints}
-              onConstraintsChange={setConstraints}
-              onResetConstraints={() => setConstraints(null)}
-            />
-          }
-        />
+        <aside
+          ref={panelRef}
+          aria-label="Location panel"
+          className="border-t border-border bg-surface lg:w-[30rem] lg:flex-none lg:overflow-y-auto lg:border-t-0 lg:border-l xl:w-[34rem]"
+          data-testid="location-panel"
+        >
+          {view ? (
+            <BriefingPanel view={view} onClose={() => setSelectedFeatureId(null)} onShowMethods={() => setDrawer("methods")} onShowAdvanced={() => setDrawer("advanced")} />
+          ) : featureDetails ? (
+            <div className="p-3">
+              <FeatureCard details={featureDetails} onClose={() => setSelectedFeatureId(null)} onShowEvidence={(id) => showEvidence(id)} />
+              {selectedFeature?.kind === "sample-site" ? (
+                <p className="mt-2 text-[11px] text-muted" data-testid="no-briefing-note">
+                  {"No science briefing has been curated for this site yet. Only its verified location details are shown."}
+                </p>
+              ) : null}
+              <button type="button" onClick={() => setSelectedFeatureId(null)} className="mt-2 rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised">
+                {"Back to the site list"}
+              </button>
+            </div>
+          ) : (
+            <SiteChooser sites={sites} onSelect={setSelectedFeatureId} />
+          )}
+        </aside>
       </main>
 
-      <Drawer id="evidence-drawer" title="Evidence" subtitle={ctx.evidenceNote} open={drawer === "evidence"} onClose={() => setDrawer(null)} widthClass="sm:w-[32rem]">
+      <Drawer id="evidence-drawer" title="All evidence in this dataset" subtitle={ctx.evidenceNote} open={drawer === "evidence"} onClose={() => setDrawer(null)} widthClass="sm:w-[32rem]">
         <div ref={evidenceRef}>
           <EvidenceSection observations={snapshot.observations} interpretations={snapshot.interpretations} gaps={snapshot.gaps} sourceById={sourceById} />
         </div>
       </Drawer>
 
       <Drawer
+        id="methods-drawer"
+        title="Methods & audit"
+        subtitle="How the location briefing was built and verified, and what was left out."
+        open={drawer === "methods"}
+        onClose={() => setDrawer(null)}
+        widthClass="sm:w-[34rem]"
+      >
+        {selectedBriefing ?? briefings[0] ? <BriefingMethods briefing={selectedBriefing ?? briefings[0]} /> : null}
+      </Drawer>
+
+      <Drawer
         id="advanced-drawer"
-        title="Advanced scientific workspace"
-        subtitle="Ranking integrity, scores, assumptions, audit records and historical replay."
+        title="Advanced ranking workspace"
+        subtitle="The MF-1 scenario workspace: simulated Margin-unit actions, constraints, rankings, review registry and historical replay. These actions are not tied to any location."
         open={drawer === "advanced"}
         onClose={() => setDrawer(null)}
-        widthClass="sm:w-[40rem]"
+        widthClass="sm:w-[44rem]"
       >
-        <section className="border-b border-border px-4 py-3 text-xs" data-testid="mission-mode-controls" aria-labelledby="mode-heading">
+        <div className="space-y-1.5 border-b border-border px-4 py-3" data-testid="advanced-status">
+          <p className="text-xs font-semibold">{mission.title}</p>
+          <IntegrityBar
+            evidenceText={evidenceText}
+            hiddenLaterCount={snapshot.hiddenLaterCount}
+            reviewed={reviewed}
+            excludedCount={excluded.length}
+            onShowEvidenceMode={() => document.getElementById("mode-heading")?.scrollIntoView()}
+            onShowRanking={() => document.getElementById("reviewed-ranking-anchor")?.scrollIntoView()}
+          />
+          <p className="text-[11px] text-muted">{mission.disclaimer}</p>
+        </div>
+
+        <ActionStrip
+          stacked
+          actions={actions}
+          selectedId={selectedActionId}
+          chosenId={chosenActionId}
+          onSelect={setSelectedActionId}
+          constraints={<ConstraintsControls resources={snapshot.resources} constraints={constraints} onConstraintsChange={setConstraints} onResetConstraints={() => setConstraints(null)} />}
+        />
+        {selectedAction ? (
+          <ActionDetail
+            action={selectedAction}
+            chosen={selectedAction.id === chosenActionId}
+            reviewedStatusText={reviewedStatusText}
+            caveats={ctx.caveats.slice(0, 1)}
+            actionFraming={ctx.actionFraming}
+            onChoose={() => setChosenActionId(selectedAction.id)}
+            onClearChoice={() => setChosenActionId(null)}
+            onClose={() => setSelectedActionId(null)}
+            onShowEvidence={() => showEvidence(null)}
+            onShowAdvanced={() => document.getElementById("reviewed-ranking-anchor")?.scrollIntoView()}
+            className="mx-3 my-2"
+          />
+        ) : null}
+
+        <section className="border-y border-border px-4 py-3 text-xs" data-testid="mission-mode-controls" aria-labelledby="mode-heading">
           <h3 id="mode-heading" className="text-sm font-semibold">
             {"Mission mode"}
           </h3>
@@ -276,7 +320,9 @@ export function MissionWorkspace({ scenario, sources, registry, geo, mission }: 
           ) : null}
         </section>
 
-        <ReviewedRankingSection reviewed={reviewed} excludedCount={excluded.length} taskTitle={taskTitle} />
+        <div id="reviewed-ranking-anchor">
+          <ReviewedRankingSection reviewed={reviewed} excludedCount={excluded.length} taskTitle={taskTitle} />
+        </div>
         <ProvisionalSection provisional={provisional} describe={describe} taskTitle={taskTitle}>
           <DecisionSection part="recommendation" {...decisionProps} />
         </ProvisionalSection>
@@ -290,7 +336,6 @@ export function MissionWorkspace({ scenario, sources, registry, geo, mission }: 
           <DecisionSection part="comparison" {...decisionProps} />
         </details>
         <DecisionSection part="weights" {...decisionProps} />
-        <p className="border-b border-border px-4 py-2 text-[11px] text-muted">{"Mission constraints (budget, platforms) are set in the action strip below the map."}</p>
         <DecisionSection part="tasks" {...decisionProps} />
         {replay ? <RevealSection asOf={asOf} later={later} review={review} tasks={scenario.tasks} allGaps={scenario.gaps} sourceById={sourceById} /> : null}
         <ReviewRegistrySection registry={registry} visibleIds={visibleReviewIds} describe={describe} sourceById={sourceById} />

@@ -1447,3 +1447,130 @@ This task is tracked separately. Earlier durations are unchanged.
 
 - **Test-harness path:** the scratch probe test was outside the scratch
   vitest root. The real test file was written instead. No product impact.
+
+---
+
+## BR-2: minimal Lefroy Bay science-briefing UI
+
+- **Started:** 2026-11-05T08:22:17Z, after the BR-1 checkpoint passed (BR-1 commit
+  `b9701e1`).
+- **Completed:** 2026-11-05T08:41:00Z, at the BR-2 commit.
+- **Wall-clock elapsed:** 18 min 43 s.
+  - No subagents were used.
+  - No human intervention.
+- **Same branch** `br-lefroy-briefing`; BR-2 is a separate commit.
+- **Not merged.**
+
+### Interface changes
+
+- **Default view:** the Mars map (left) plus a location panel (right; below
+  the map on phones). The panel shows:
+  - a **site chooser** (what the app does, and the 3 real sample sites, with
+    Lefroy Bay marked "Science briefing");
+  - the **Lefroy Bay briefing**;
+  - or the existing **feature card** for other features (sites without a
+    briefing say so).
+- **Briefing (`BriefingPanel`),** in this order:
+  - why the location matters;
+  - a prominent **"Still unknown"** box (the sample-level open question, with
+    the two Margin-unit-wide questions below it);
+  - what was measured;
+  - what the team thinks (preliminary);
+  - already done here (sols 920, 935, 936–939, 942, 949, with "does not
+    suggest repeating them");
+  - what the source proposes next (conditions shown as chips: return not
+    guaranteed; not an approved NASA activity), the NASA sample-status
+    statement, and a separate "Simulated ideas (MDI): not NASA plans, not
+    reviewed" box;
+  - "Is the rover at Lefroy Bay now?" (computed from the historical
+    traverse).
+
+  Each line has a **Source** toggle (collapsed by default) with the exact
+  quotation, report section and page, and a link to the source. The footer
+  has links to the original report, **Methods & audit** and the **Advanced
+  ranking workspace**.
+- **Methods & audit drawer (`BriefingMethods`):** how the briefing was built,
+  counts per classification, section-scoped verification, the 3 statements
+  shared with Pelican Point, the quarantined sentence, and the 4 source
+  notes.
+- **Advanced ranking workspace:** the MF-1 functionality is preserved and
+  moved here:
+  - integrity bar;
+  - the four simulated actions, now stated as "not tied to any location",
+    with constraints, action details and the simulated choice;
+  - mission mode and historical replay;
+  - reviewed and provisional rankings;
+  - comparison, weights, tasks and registry.
+
+  The four actions are **no longer shown in the default view** and never as
+  location recommendations.
+- **Map:**
+  - sample-site and last-position labels are always on;
+  - the first view frames the three sites and the last position;
+  - the layer panel starts collapsed so the sites stay visible;
+  - a site selected from the panel is brought into view (no animation).
+
+  There are no new map features and no task geometry.
+- **Wording fix:** the last-position warning no longer says "The rover has
+  continued since". That claim has no source in the app; it now reads "This
+  app has no rover data after this sol." This is a `lib/geo/details.ts`
+  text change, not an engine change.
+
+### Tests (all passed)
+
+- **`npm run check`:** lint, typecheck, build, **185/185** unit tests (+6
+  briefing view-model tests).
+- **Smoke** (`next start`): **116 checks with `SMOKE_LIVE=1`**, **114
+  without**, 0 failures. Rewritten for BR-2, it covers:
+  - the site chooser; actions not in the default view;
+  - the briefing sections;
+  - the open question visible without scrolling at 1280 × 800;
+  - the answer to Q1 in the first screen;
+  - classification separation per section;
+  - already done with sols; conditional future work (Q3); the rover note
+    (Q4);
+  - Source toggles with quote, page and report link;
+  - map-click selection; a non-briefing site; Methods & audit;
+  - traverse, extent, HiRISE and last-position checks;
+  - the full advanced-workspace regression (actions, simulated choice,
+    budget feasibility, RI-1 unavailable/provisional/pivotal, NE values,
+    registry 50/28, replay, reveal, persistence across drawers);
+  - keyboard (Enter on a site, Enter on Source, map zoom, Escape focus
+    return);
+  - endorsement and live-position wording;
+  - translation regression (clean vs simulated);
+  - mobile (no overflow, order, drawer width).
+- **`npm run verify:briefing`:** 35 location checks, 0 problems.
+- **`npm run verify:geo`:** 0 problems.
+- **Engine and provisional grids:** byte-identical to MF-1. No diff in
+  `src/lib/decision`, `src/lib/evidence` or `src/data` since BR-1.
+
+### Rework
+
+1. **The layer panel open by default covered the sample sites.** It now
+   starts collapsed in this view, and the map brings a selected site into
+   view.
+2. **A per-line "MEASURED" badge on every line was visual noise.** Single-
+   classification sections now state the label in their heading; per-line
+   badges remain only in mixed sections.
+3. **Smoke:**
+   - a helper replacement accidentally made the layer-panel helper call
+     itself, and the run hung; it was stopped and fixed;
+   - one regex expected text at the start of a block with a heading;
+   - one check still looked for the removed MF-1 heading.
+4. **Unsourced wording** "The rover has continued since" was removed (see
+   above).
+
+### Known limitations
+
+- **No usability result yet.** The protocol is
+  `docs/BR2_USABILITY_TEST.md` (BR-2 vs the MF-1 baseline). No improvement
+  is claimed.
+- **Only Lefroy Bay has a briefing.** Pelican Point and Comet Geyser show
+  location cards (BR-3).
+- **The briefing rests mainly on one preliminary report** (2023-12-18). Newer
+  literature is not in the dataset.
+- **The panel is long when fully scrolled**, though the key answers sit in
+  the first screen on desktop. On phones the briefing starts below a 42%
+  map.
+- **"Source" links open the whole 190 MB PDS PDF;** there is no page anchor.

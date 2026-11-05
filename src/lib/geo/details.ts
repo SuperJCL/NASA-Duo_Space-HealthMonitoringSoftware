@@ -58,7 +58,7 @@ export function describeFeature(feature: MapFeature, bundle: GeoBundle, sources:
           { label: "Dataset", value: published },
         ],
         warning:
-          "Historical data, not live telemetry and not the rover’s current position. The rover has continued since; this app has no verified traverse after this sol.",
+          "Historical data, not live telemetry and not the rover’s current position. This app has no rover data after this sol.",
         convention,
       };
     }
