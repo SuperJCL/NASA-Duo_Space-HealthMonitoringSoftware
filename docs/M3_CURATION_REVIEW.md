@@ -75,6 +75,30 @@ for the reviewer (see the proposal, decision D2):
 |---|---|---|---|---|---|---|
 | D1 | If Earth-lab study shows detrital carbonate grains, that favors a sedimentary origin over a crystalline igneous one. | PDS Vol. 4: "the origin of the carbonate, whether detrital grains or the result of in situ alteration, is still unknown"; "Whether Comet Geyser is a carbonated ultramafic igneous rock … or a cemented and altered sedimentary rock remains undetermined" | Detrital grains imply transport and deposition. | Detrital carbonate cannot come from an igneous protolith. | It ignores the **volcanic (pyroclastic)** hypothesis, which is also fragmental. It has only one outcome; the "in-situ alteration" outcome favors nothing. It becomes visible only from 2025-05-06. | **Reject in its current form,** or revise with an expert: add the volcanic hypothesis and define outcomes for both branches. |
 
+## Registry ids (RI-1)
+
+Decisions are now recorded in the review registry,
+`src/data/scenarios/jezero-margin-unit.reviews.json`.
+
+| Item | Registry id |
+|---|---|
+| L1 | `task-gap:task-standoff-survey->gap-no-in-situ-data` |
+| L2 | `task-gap:task-standoff-survey->gap-formation-unknown` |
+| L3 | `task-gap:task-abrasion-proximity->gap-no-in-situ-data` |
+| L4 | `task-gap:task-abrasion-proximity->gap-formation-unknown` |
+| L5 | `task-gap:task-abrasion-proximity->gap-lake-connection` |
+| L6 | `task-gap:task-core-for-earth->gap-formation-unknown` |
+| L7 | `task-gap:task-core-for-earth->gap-sedimentary-or-igneous` |
+| L8 | `task-gap:task-orbital-stereo->gap-lake-connection` |
+| P1 | `priority:gap-lake-connection#statement` |
+| P2 | `priority:gap-formation-unknown#statement` |
+| D1 | `discrimination:da-core-detrital-carbonate` |
+
+RI-1 added 39 further entries: relevance classifications, gap–hypothesis
+links, observation–gap links, hypothesis support and the derived gap. They
+are also pending. RI-1 also found a fourth pivotal input:
+`relevance:gap-lake-connection`.
+
 ## How to record a decision
 
 For each item, set `review` to the following, keeping a short `notes` value:

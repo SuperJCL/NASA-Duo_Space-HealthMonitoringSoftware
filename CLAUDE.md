@@ -21,6 +21,12 @@
 - Curated judgements (task–gap links, priority statements, discrimination
   assessments) that the agent drafts must have `review.status: "pending"`.
   Only a human may set "approved". Unapproved judgements are never scored.
+- Review state lives only in the review registry
+  (`src/data/scenarios/*.reviews.json`). The agent must never set an entry
+  to approved, rejected or needs_revision unless a named human reviewer asks
+  for it, and must never invent a reviewer. The primary (reviewed) ranking
+  uses only approved relationships; the provisional ranking must stay
+  labelled as not validated.
 - Never let an LLM assign scores, gaps or rankings. The decision engine
   (`src/lib/decision/`) is deterministic and only accepts `SnapshotEvidence`
   from `selectEvidenceAsOf`, which prevents future-data leakage.

@@ -415,11 +415,7 @@
             "quote": "This distinction is critical for evaluating the astrobiological potential of the site",
             "locator": "Abstract"
           }
-        ],
-        "review": {
-          "draftedBy": "ai-agent",
-          "status": "pending"
-        }
+        ]
       },
       "curationNote": "Competing hypotheses: the lacustrine proposal (Horgan et al. 2020) and the mineral-carbonation alternative (2023); each counts only once published."
     },
@@ -449,11 +445,7 @@
             "sourceId": "nasa-blog-reading-the-rocks",
             "quote": "a special rock unit that played a pivotal role in selecting Jezero as the landing site for exploration"
           }
-        ],
-        "review": {
-          "draftedBy": "ai-agent",
-          "status": "pending"
-        }
+        ]
       }
     },
     {
@@ -581,20 +573,12 @@
         {
           "gapId": "gap-no-in-situ-data",
           "rationale": "SuperCam and Mastcam-Z are rover instruments, so a stand-off survey would give rover-based observations of margin-unit rock.",
-          "citations": [],
-          "review": {
-            "draftedBy": "ai-agent",
-            "status": "pending"
-          }
+          "citations": []
         },
         {
           "gapId": "gap-formation-unknown",
           "rationale": "Composition and texture from a survey are inputs to the question of how the margin rocks formed.",
-          "citations": [],
-          "review": {
-            "draftedBy": "ai-agent",
-            "status": "pending"
-          }
+          "citations": []
         }
       ],
       "costs": {
@@ -619,29 +603,17 @@
         {
           "gapId": "gap-no-in-situ-data",
           "rationale": "PIXL, SHERLOC and WATSON measure an abraded rock surface from the rover arm.",
-          "citations": [],
-          "review": {
-            "draftedBy": "ai-agent",
-            "status": "pending"
-          }
+          "citations": []
         },
         {
           "gapId": "gap-formation-unknown",
           "rationale": "Fine-scale chemistry, mineralogy and texture of an abraded surface bear directly on how the rock and its carbonate formed.",
-          "citations": [],
-          "review": {
-            "draftedBy": "ai-agent",
-            "status": "pending"
-          }
+          "citations": []
         },
         {
           "gapId": "gap-lake-connection",
           "rationale": "Fine-scale textures and mineral relationships bear on whether the carbonate precipitated in a lake.",
-          "citations": [],
-          "review": {
-            "draftedBy": "ai-agent",
-            "status": "pending"
-          }
+          "citations": []
         }
       ],
       "costs": {
@@ -671,10 +643,6 @@
               "quote": "the team is eager to drill into these rocks and unlock their secrets"
             }
           ],
-          "review": {
-            "draftedBy": "ai-agent",
-            "status": "pending"
-          },
           "availableFrom": "2023-09-07"
         },
         {
@@ -687,10 +655,6 @@
               "locator": "Pelican Point initial report"
             }
           ],
-          "review": {
-            "draftedBy": "ai-agent",
-            "status": "pending"
-          },
           "availableFrom": "2025-05-06"
         }
       ],
@@ -721,10 +685,6 @@
               "locator": "Abstract"
             }
           ],
-          "review": {
-            "draftedBy": "ai-agent",
-            "status": "pending"
-          },
           "availableFrom": "2019-11-11"
         }
       ],
@@ -772,12 +732,7 @@
           "locator": "Comet Geyser initial report"
         }
       ],
-      "availableFrom": "2025-05-06",
-      "review": {
-        "draftedBy": "ai-agent",
-        "status": "pending",
-        "notes": "Drafted by the AI agent from PDS text; not scored until a human reviewer approves it."
-      }
+      "availableFrom": "2025-05-06"
     }
   ]
 }

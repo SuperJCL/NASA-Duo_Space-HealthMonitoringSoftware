@@ -116,3 +116,18 @@ verified.
 | R1 | Zastrow & Glotch (2021), https://pmc.ncbi.nlm.nih.gov/articles/PMC8243932/ | `pmc.ncbi.nlm.nih.gov` is proxy-denied (not in the allowed domains) | Allow the domain, or upload the PDF |
 | R2 | Moreland et al. (2025), https://doi.org/10.1029/2024JE008797 | DOI resolves to agupubs, which returns a Cloudflare bot challenge; `api.crossref.org` is proxy-denied | Upload the PDF (or a PMC copy, if one exists) |
 | R3 | PDS sample coring-coordinate convention | Not stated in Initial Reports Vol. 4 or its label | Locate the PDS dossier documentation that defines it |
+
+## Scientific review registry (RI-1)
+
+- **Where review state lives.** All review state is in
+  `src/data/scenarios/jezero-margin-unit.reviews.json`: 50 entries, all
+  `pending`, drafted by the AI agent, with no reviewer. There are no review
+  fields in the scenario JSON.
+- **Entry contents.** Each entry has an id, type, source, target, status,
+  evidence (verbatim quotes, checked by `verify:citations`), reasoning and
+  limitations.
+- **Verification is not approval.** A verified citation is not a scientific
+  approval.
+- **How to record a decision.** Set `status`, `reviewedBy` and `reviewedOn`;
+  Zod requires both reviewer fields for any non-pending status. See
+  `docs/RANKING_INTEGRITY.md` §1.

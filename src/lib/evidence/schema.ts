@@ -16,6 +16,11 @@ import { z } from "zod";
  * Curated scientific judgements (task-gap links, discrimination assessments,
  * priority statements) carry a `review` record. Judgements drafted by an AI
  * agent are shown but do not produce scores until a human approves them.
+ *
+ * RI-1: review state lives ONLY in the scientific review registry
+ * (`*.reviews.json`, see review-registry.ts). Scenario JSON is parsed with the
+ * `*Input` schemas (no `review` fields); the loader attaches each item's
+ * `review` from the registry, producing the enriched types below.
  */
 
 export const IsoDate = z.iso.date();
@@ -57,17 +62,19 @@ export const Relevance = z.enum(["local", "regional-context"]);
 export const Stance = z.enum(["interpretation", "hypothesis"]);
 
 /** Human review state of a curated judgement. */
+export const ReviewStatus = z.enum(["pending", "approved", "rejected", "needs_revision"]);
+
 export const Review = z
   .object({
     draftedBy: z.enum(["ai-agent", "human"]),
-    status: z.enum(["pending", "approved", "rejected"]),
+    status: ReviewStatus,
     reviewedBy: z.string().min(1).optional(),
     reviewedOn: IsoDate.optional(),
     notes: z.string().min(1).optional(),
   })
   .strict()
-  .refine((r) => r.status === "pending" || (r.reviewedBy && r.reviewedOn), {
-    message: "approved/rejected judgements need reviewedBy and reviewedOn",
+  .refine((r) => (r.status === "pending" ? !r.reviewedBy && !r.reviewedOn : Boolean(r.reviewedBy && r.reviewedOn)), {
+    message: "non-pending reviews need reviewedBy and reviewedOn; pending reviews must not carry a reviewer",
   });
 
 export const Observation = z
@@ -120,16 +127,15 @@ export const GapOrigin = z.discriminatedUnion("kind", [
 ]);
 
 /** A cited statement that resolving a gap is scientifically important. */
-export const PriorityStatement = z
+export const PriorityStatementInput = z
   .object({
     statement: z.string().min(1),
     citations: z.array(Citation).min(1),
-    review: Review,
   })
   .strict();
+export const PriorityStatement = PriorityStatementInput.extend({ review: Review }).strict();
 
-export const EvidenceGap = z
-  .object({
+const evidenceGapFields = {
     id: RecordId,
     /** Short label used in explanations. */
     title: z.string().min(1).max(60),
@@ -142,11 +148,16 @@ export const EvidenceGap = z
     discriminatesInterpretationIds: z.array(RecordId).default([]),
     availableFrom: IsoDate,
     origin: GapOrigin,
-    /** Optional cited priority; its quotes must be public by `availableFrom`. */
-    priority: PriorityStatement.optional(),
     curationNote: z.string().min(1).optional(),
+};
+export const EvidenceGapInput = z
+  .object({
+    ...evidenceGapFields,
+    /** Optional cited priority; its quotes must be public by `availableFrom`. */
+    priority: PriorityStatementInput.optional(),
   })
   .strict();
+export const EvidenceGap = z.object({ ...evidenceGapFields, priority: PriorityStatement.optional() }).strict();
 
 export const Assumption = z
   .object({
@@ -172,30 +183,29 @@ export const SimulatedResource = z
   .strict();
 
 /** Curated link: why a task addresses a gap. */
-export const GapLink = z
+export const GapLinkInput = z
   .object({
     gapId: RecordId,
     rationale: z.string().min(1),
     citations: z.array(Citation).default([]),
     /** Required when citations are given: latest cited source date. */
     availableFrom: IsoDate.optional(),
-    review: Review,
   })
   .strict();
+export const GapLink = GapLinkInput.extend({ review: Review }).strict();
 
-export const CandidateTask = z
-  .object({
-    id: RecordId,
-    title: z.string().min(1),
-    description: z.string().min(1),
-    platform: TaskPlatform,
-    instruments: z.array(z.string().min(1)).min(1),
-    addresses: z.array(GapLink).min(1),
-    /** Simulated costs, keyed by SimulatedResource id. A missing cost is "unknown", never 0. */
-    costs: z.record(RecordId, z.number().nonnegative()),
-    assumptionIds: z.array(RecordId).default([]),
-  })
-  .strict();
+const candidateTaskFields = {
+  id: RecordId,
+  title: z.string().min(1),
+  description: z.string().min(1),
+  platform: TaskPlatform,
+  instruments: z.array(z.string().min(1)).min(1),
+  /** Simulated costs, keyed by SimulatedResource id. A missing cost is "unknown", never 0. */
+  costs: z.record(RecordId, z.number().nonnegative()),
+  assumptionIds: z.array(RecordId).default([]),
+};
+export const CandidateTaskInput = z.object({ ...candidateTaskFields, addresses: z.array(GapLinkInput).min(1) }).strict();
+export const CandidateTask = z.object({ ...candidateTaskFields, addresses: z.array(GapLink).min(1) }).strict();
 
 /** How a possible result of a task would bear on competing hypotheses. */
 export const DiscriminationOutcome = z
@@ -210,7 +220,7 @@ export const DiscriminationOutcome = z
  * Curated assessment of a task's power to discriminate between hypotheses.
  * Only approved assessments produce a discrimination score.
  */
-export const DiscriminationAssessment = z
+export const DiscriminationAssessmentInput = z
   .object({
     id: RecordId,
     taskId: RecordId,
@@ -220,12 +230,11 @@ export const DiscriminationAssessment = z
     citations: z.array(Citation).default([]),
     /** Latest of: cited source dates and the publication dates of the hypotheses. */
     availableFrom: IsoDate,
-    review: Review,
   })
   .strict();
+export const DiscriminationAssessment = DiscriminationAssessmentInput.extend({ review: Review }).strict();
 
-export const Scenario = z
-  .object({
+const scenarioFields = {
     id: RecordId,
     title: z.string().min(1),
     site: z
@@ -241,13 +250,27 @@ export const Scenario = z
     minSnapshotDate: IsoDate,
     observations: z.array(Observation),
     interpretations: z.array(Interpretation),
-    gaps: z.array(EvidenceGap),
     assumptions: z.array(Assumption),
     resources: z.array(SimulatedResource).min(1),
-    tasks: z.array(CandidateTask).min(1),
-    discriminationAssessments: z.array(DiscriminationAssessment).default([]),
     /** Limitations that apply to the whole scenario, shown with every recommendation. */
     limitations: z.array(z.string().min(1)),
+};
+/** Scenario JSON as stored (no review state). */
+export const ScenarioInput = z
+  .object({
+    ...scenarioFields,
+    gaps: z.array(EvidenceGapInput),
+    tasks: z.array(CandidateTaskInput).min(1),
+    discriminationAssessments: z.array(DiscriminationAssessmentInput).default([]),
+  })
+  .strict();
+/** Scenario with review state attached from the registry (used by engine and UI). */
+export const Scenario = z
+  .object({
+    ...scenarioFields,
+    gaps: z.array(EvidenceGap),
+    tasks: z.array(CandidateTask).min(1),
+    discriminationAssessments: z.array(DiscriminationAssessment).default([]),
   })
   .strict();
 
@@ -259,6 +282,8 @@ export type Platform = z.infer<typeof Platform>;
 export type TaskPlatform = z.infer<typeof TaskPlatform>;
 export type Relevance = z.infer<typeof Relevance>;
 export type Review = z.infer<typeof Review>;
+export type ReviewStatus = z.infer<typeof ReviewStatus>;
+export type ScenarioInput = z.infer<typeof ScenarioInput>;
 export type Observation = z.infer<typeof Observation>;
 export type Interpretation = z.infer<typeof Interpretation>;
 export type EvidenceGap = z.infer<typeof EvidenceGap>;

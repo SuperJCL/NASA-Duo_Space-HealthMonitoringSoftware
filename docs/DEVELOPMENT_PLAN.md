@@ -149,7 +149,7 @@ Priority (approved): **build the vertical slice first, then add breadth.**
 | M2 | Thin vertical slice, end to end | **Done 2026-11-04** (see below and `docs/EVIDENCE_CURATION.md`) | Review the seed records; confirm the snapshot date |
 | M3 | Scientific integrity & decision-engine refinement | **Done; merged to `main` together with UX-0 on 2026-11-05.** The literature item is deferred as research tasks R1–R2 | — |
 | UX-0 | Stability fix | **Done 2026-11-05.** Translation-safe dynamic text; "not applicable" ranking basis when no task is feasible; regression checks, clean and under simulated translation | — |
-| RI-1 (proposed) | Ranking integrity | Validated vs provisional ranking, using only approved relationships; see `docs/RANKING_INTEGRITY_PROPOSAL.md` | Approval of the design choices |
+| RI-1 | Ranking integrity | **Implemented 2026-11-05 on branch `ri1-ranking-integrity`; awaiting acceptance, not merged.** Review registry (50 entries); reviewed vs provisional rankings; see `docs/RANKING_INTEGRITY.md` | Owner acceptance; human review of registry entries |
 | UX-1 – UX-5 (proposed) | Guided five-step experience | See `docs/UX_REDESIGN_PROPOSAL.md` §5 | Authorisation per milestone |
 | Science review | Curation decisions | 11 items in `docs/M3_CURATION_REVIEW.md`; research tasks R1–R3 | Reviewer time; source access |
 | Later | Report, optional LLM narration, deploy | As previously planned | Approval |

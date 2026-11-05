@@ -5,6 +5,7 @@
  * exercise the schema, integrity checks, snapshot filter and decision engine.
  * Never import this from application code.
  */
+import { applyRegistry, enumerateRelationships, type ReviewEntry, type ReviewRegistry } from "@/lib/evidence/review-registry";
 import type { Review, Scenario, Source } from "@/lib/evidence/schema";
 
 export const syntheticSources: Source[] = [
@@ -254,3 +255,43 @@ export function syntheticScenario(): Scenario {
     limitations: ["fixture limitation"],
   };
 }
+
+// --- RI-1: synthetic review registry (all pending unless a test changes it) ---
+
+export function syntheticRegistry(scenario = syntheticScenario()): ReviewRegistry {
+  return {
+    scenarioId: scenario.id,
+    policy: "fixture",
+    entries: enumerateRelationships(scenario).map(
+      (r): ReviewEntry => ({
+        id: r.id,
+        type: r.type,
+        source: r.source,
+        target: r.target,
+        status: "pending",
+        draftedBy: "ai-agent",
+        evidence: [],
+        reasoning: "fixture",
+        limitations: [],
+      }),
+    ),
+  };
+}
+
+/** Set the status of the given entries (fixture-only reviewer identity). */
+export function withStatus(registry: ReviewRegistry, ids: readonly string[] | "all", status: ReviewEntry["status"]): ReviewRegistry {
+  const pick = (id: string) => ids === "all" || ids.includes(id);
+  return {
+    ...registry,
+    entries: registry.entries.map((e) =>
+      pick(e.id)
+        ? status === "pending"
+          ? { ...e, status, reviewedBy: undefined, reviewedOn: undefined }
+          : { ...e, status, reviewedBy: "Test Reviewer", reviewedOn: "2026-11-05" }
+        : e,
+    ),
+  };
+}
+
+/** Scenario whose inline review state matches the registry. */
+export const reviewed = (registry: ReviewRegistry, scenario = syntheticScenario()) => applyRegistry(scenario, registry);

@@ -1,4 +1,5 @@
 import { CRITERIA, MAX_WEIGHT, type CriterionId, type Weights } from "@/lib/decision/criteria";
+import { relationshipIds } from "@/lib/evidence/review-registry";
 import type { Constraints, CriterionOutcome, Recommendation, TaskEvaluation } from "@/lib/decision/engine";
 import type {
   Assumption,
@@ -29,6 +30,8 @@ const PLATFORMS: { id: TaskPlatform; label: string }[] = [
 ];
 
 type Props = {
+  /** "inputs": tasks, constraints, weights. "results": provisional comparison and recommendation. */
+  part: "inputs" | "results";
   recommendation: Recommendation;
   tasks: readonly CandidateTask[];
   gaps: readonly SnapshotGap[];
@@ -57,24 +60,17 @@ function OutcomeCell({ o, inBasis }: { o: CriterionOutcome | undefined; inBasis:
 }
 
 export function DecisionSection(props: Props) {
-  const { recommendation: rec, tasks, gaps, interpretations, assessments, resources, assumptions, weights, constraints, sourceById } = props;
-  const taskById = new Map(tasks.map((t) => [t.id, t]));
+  const { recommendation: rec, tasks, gaps, interpretations, assessments, resources, weights, constraints, sourceById } = props;
   const gapById = new Map(gaps.map((g) => [g.id, g]));
   const interpTitle = (id: string) => interpretations.find((i) => i.id === id)?.title ?? id;
-  const assumptionById = new Map(assumptions.map((a) => [a.id, a]));
-  const inBasis = new Set(rec.basis.filter((b) => b.inBasis).map((b) => b.criterionId));
-  const rows: (TaskEvaluation & { rank?: number; total?: number })[] = rec.status.state === "ranked" ? rec.ranking : rec.unranked;
-  const top = rec.ranking[0];
-  const topTask = top ? taskById.get(top.taskId) : undefined;
   // With no feasible task there is nothing to rank, so "ranking basis" does not apply.
   const noFeasibleTask = rec.ranking.length === 0 && rec.unranked.length === 0;
-  const stabilityText = `stays #1 in ${rec.stability.topUnchanged} of ${rec.stability.trials} runs with each basis weight changed by ±${pct(
-    rec.stability.perturbation,
-  )}%${rec.stability.margin !== null ? `; lead over #2: ${pct(rec.stability.margin)} points.` : "."}`;
 
   // Translation safety: every piece of text that can change is the sole child
   // of an element (a single template string). Browser page translators replace
   // text nodes; React can then update or remove only whole elements.
+
+  if (props.part === "results") return <ProvisionalResults {...props} />;
 
   return (
     <>
@@ -110,6 +106,7 @@ export function DecisionSection(props: Props) {
                             {g?.status.state === "addressed" ? <span className="text-ok">(addressed)</span> : null}
                             <ReviewBadge review={l.review} />
                           </span>
+                          <span className="block font-mono text-[10px] text-muted">{relationshipIds.taskGap(t.id, l.gapId)}</span>
                           <span className="block text-muted">{`Why: ${l.rationale}`}</span>
                           <Citations citations={l.citations} sourceById={sourceById} />
                         </li>
@@ -229,10 +226,10 @@ export function DecisionSection(props: Props) {
                   data-testid={`basis-${c.id}`}
                 >
                   {noFeasibleTask
-                    ? "Ranking basis: not applicable — no task is feasible under the current constraints."
+                    ? "Provisional ranking basis: not applicable — no task is feasible under the current constraints."
                     : b.inBasis
-                      ? "In ranking basis."
-                      : `Not in ranking basis: ${b.reason}`}
+                      ? "Provisional ranking: In ranking basis."
+                      : `Provisional ranking: Not in ranking basis: ${b.reason}`}
                 </span>
               </label>
             );
@@ -242,8 +239,27 @@ export function DecisionSection(props: Props) {
           </button>
         </div>
       </Section>
+    </>
+  );
+}
 
-      <Section title="Comparison">
+/** Provisional comparison table and recommendation card (rendered inside the collapsed provisional section). */
+function ProvisionalResults(props: Props) {
+  const { recommendation: rec, tasks, assumptions, weights, sourceById } = props;
+  const taskById = new Map(tasks.map((t) => [t.id, t]));
+  const assumptionById = new Map(assumptions.map((a) => [a.id, a]));
+  const inBasis = new Set(rec.basis.filter((b) => b.inBasis).map((b) => b.criterionId));
+  const rows: (TaskEvaluation & { rank?: number; total?: number })[] = rec.status.state === "ranked" ? rec.ranking : rec.unranked;
+  const top = rec.ranking[0];
+  const topTask = top ? taskById.get(top.taskId) : undefined;
+  const noFeasibleTask = rec.ranking.length === 0 && rec.unranked.length === 0;
+  const stabilityText = `stays #1 in ${rec.stability.topUnchanged} of ${rec.stability.trials} runs with each basis weight changed by ±${pct(
+    rec.stability.perturbation,
+  )}%${rec.stability.margin !== null ? `; lead over #2: ${pct(rec.stability.margin)} points.` : "."}`;
+
+  return (
+    <>
+      <Section title="Comparison (provisional)">
         {rec.status.state === "not-ranked" ? (
           <p className="mb-2 text-xs text-warn" data-testid="not-ranked">
             {`Not ranked: ${rec.status.reason}`}
@@ -290,12 +306,12 @@ export function DecisionSection(props: Props) {
         </p>
       </Section>
 
-      <Section title="Recommendation">
+      <Section title="Provisional top-ranked task">
         {top && topTask ? (
           <div data-testid="recommendation">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-muted">{`Top-ranked as of ${rec.asOf}`}</p>
+                <p className="text-[11px] uppercase tracking-wider text-warn">{`Provisional · not scientifically validated · as of ${rec.asOf}`}</p>
                 <p className="text-base font-semibold" data-testid="top-task">
                   {topTask.title}
                 </p>

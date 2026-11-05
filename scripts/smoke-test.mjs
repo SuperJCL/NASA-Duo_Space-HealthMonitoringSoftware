@@ -176,12 +176,37 @@ try {
   check(topAt30 === "Stand-off survey of margin outcrops", "re-ranking under the budget constraint is deterministic");
   await page.getByRole("button", { name: "Reset constraints" }).click();
 
+  // RI-1: reviewed vs provisional rankings and the review registry.
+  const reviewedStatus = page.getByTestId("reviewed-status");
+  check((await reviewedStatus.getAttribute("data-state")) === "unavailable", "reviewed ranking is unavailable (no relationships approved)");
+  check(/Reviewed ranking unavailable/.test((await reviewedStatus.textContent()) ?? ""), "reviewed panel states that no reviewed ranking exists");
+  const provisionalBox = page.getByTestId("provisional-ranking");
+  check((await provisionalBox.getAttribute("open")) === null, "provisional exploratory ranking is collapsed by default");
+  await provisionalBox.locator("summary").first().click();
+  const pivotalIds = await page.getByTestId("pivotal-inputs").locator("[data-review-id]").evaluateAll((els) => els.map((e) => e.getAttribute("data-review-id")));
+  check(
+    JSON.stringify(pivotalIds) ===
+      JSON.stringify([
+        "relevance:gap-lake-connection",
+        "task-gap:task-abrasion-proximity->gap-no-in-situ-data",
+        "task-gap:task-abrasion-proximity->gap-formation-unknown",
+        "task-gap:task-abrasion-proximity->gap-lake-connection",
+      ]),
+    `provisional ranking lists the 4 pivotal unreviewed inputs (got ${pivotalIds.length})`,
+  );
+  check(/Provisional · not scientifically validated/.test((await page.getByTestId("recommendation").textContent()) ?? ""), "provisional top task is labelled as not validated");
+  await provisionalBox.locator("summary").first().click();
+  const registryItems = page.getByTestId("review-registry").locator("[data-review-id]");
+  const registryStatuses = await registryItems.evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
+  check(registryStatuses.length === 28 && registryStatuses.every((x) => x === "pending"), `review registry shows 28 visible relationships, all pending (got ${registryStatuses.length})`);
+
   await page.getByRole("button", { name: "Reveal later evidence" }).click();
   check((await page.getByTestId("reveal").count()) === 1, "reveal shows later evidence on request");
 
   await page.getByRole("button", { name: "All evidence" }).click();
   const summaryAll = (await summary.textContent())?.trim() ?? "";
   check(/0 later record\(s\) withheld/.test(summaryAll), "'All evidence' snapshot withholds nothing");
+  check((await registryItems.count()) === 50, "review registry shows all 50 relationships with all evidence");
   check((await page.getByTestId("reveal").count()) === 0, "reveal re-hides when the snapshot date changes");
   await page.getByRole("button", { name: "Scenario default" }).click();
 
@@ -253,7 +278,8 @@ async function checkInfeasibleStates(browser, translated) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e).split("\n")[0]));
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector('[data-testid="recommendation"]', { timeout: 15_000 });
+  // The provisional recommendation is inside a collapsed section (RI-1); wait for the always-visible reviewed panel.
+  await page.waitForSelector('[data-testid="reviewed-ranking"]', { timeout: 15_000 });
   await page.waitForTimeout(800);
   if (translated) await simulateTranslation(page);
   const text = async (id) => ((await page.getByTestId(id).textContent().catch(() => null)) ?? "").trim();
@@ -267,6 +293,7 @@ async function checkInfeasibleStates(browser, translated) {
   check(/No task is feasible under the current constraints/.test(await text("not-ranked")), `${tag} all platforms disabled: explains that no task is feasible`);
   check(/not applicable/.test(await text("basis-gap-coverage")), `${tag} all platforms disabled: ranking basis shown as not applicable`);
   check(!/\*/.test((await page.getByTestId("comparison-table").locator("thead").textContent()) ?? ""), `${tag} all platforms disabled: no 'not in basis' markers`);
+  check(/Reviewed ranking unavailable/.test(await text("reviewed-status")), `${tag} all platforms disabled: reviewed ranking still reported as unavailable`);
 
   await page.getByRole("button", { name: "Reset constraints" }).click();
   await page.waitForTimeout(300);

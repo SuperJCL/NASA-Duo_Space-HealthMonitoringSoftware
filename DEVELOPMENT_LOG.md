@@ -669,3 +669,135 @@ D1–D5, listed in `docs/UX_REDESIGN_PROPOSAL.md` §7.
   links still drive it. They are flagged in the explanations, but the
   validated/provisional split (decision 4) waits for RI-1.
 - **All 11 curation items are pending.** D1 stays unapproved.
+
+---
+
+## RI-1: Ranking integrity (review registry; reviewed vs provisional rankings)
+
+- **Started:** 2026-11-05T03:53:15Z. Branch `ri1-ranking-integrity` was
+  created from `main` @ `09821a9`.
+- **Implementation and verification complete:** about 2026-11-05T04:10Z. The
+  exact time is the branch commit (see git log).
+- **Wall-clock elapsed:** about 17 min.
+  - No subagents were used, so there was no parallel-agent time.
+  - No human intervention during the work.
+- **Not merged.** The owner reviews acceptance first.
+
+### Implemented
+
+- **Review registry**
+  - `src/lib/evidence/review-registry.ts` holds the Zod schema
+    (entries, status `pending`/`approved`/`rejected`/`needs_revision`),
+    deterministic relationship ids, and relationship enumeration.
+  - Registry integrity checks reject missing, duplicate, unknown or
+    mismatched entries, unknown evidence sources, and evidence newer than
+    the relationship it supports.
+  - The reviewer fields are required for any non-pending status and
+    forbidden on pending entries.
+- **Data**
+  - `jezero-margin-unit.reviews.json` has **50 entries, all pending,
+    drafted by `ai-agent`, with no reviewer**.
+  - Inline `review` fields were removed from the scenario JSON. The diff
+    shows only those removals and the resulting trailing-comma changes; no
+    scientific content changed.
+- **Schema**
+  - `*Input` schemas cover the stored JSON.
+  - The enriched schemas carry `review`, which the loader attaches from the
+    registry.
+  - Added the `needs_revision` status.
+- **`src/lib/decision/review-modes.ts`**
+  - `withoutRelationships`, `taskDependencies`, `rankReviewed` (eligibility;
+    available, partial or unavailable) and `rankProvisional` (unreviewed
+    inputs; pivotal inputs found by leave-one-out).
+  - **The engine is unchanged.**
+- **UI**
+  - "Reviewed scenario ranking" is the primary panel, showing the explicit
+    unavailable state with its reason.
+  - "Provisional exploratory ranking" is collapsed and labelled *not
+    validated*. It lists the pivotal and all unreviewed inputs, and holds the
+    previous comparison and top-task card.
+  - A "Scientific review registry" section lists the relationships visible
+    on the chosen date, with status, reasoning, limitations and evidence.
+  - Each task–gap link shows its review id.
+  - The reveal labels the top task as provisional.
+- **Tooling and docs**
+  - `verify:citations` now also checks registry evidence.
+  - New: `docs/RANKING_INTEGRITY.md`.
+  - Updated: the decision model, curation, the M3 curation review (L/P/D →
+    registry ids), CLAUDE.md, the PRD and the plan.
+
+### Tests executed (all passed)
+
+- **`npx vitest run`: 107/107 across 8 files.**
+  - New `review-modes.test.ts` (16 tests). It covers:
+    - registry integrity: missing, unknown, mismatched and leaking evidence;
+    - no invented approvals;
+    - provisional mode equals the engine and drops rejected relationships;
+    - pivotal inputs;
+    - reviewed mode: unavailable, available (equal to provisional when all
+      relationships are approved), partial (hand-computed 0.9 / 0.158333),
+      `needs_revision` blocking, rejected = decided, no non-zero scientific
+      criterion → unavailable;
+    - **metamorphic checks:** changing pending relationships does not change
+      reviewed scores; future approved relationships do not change an
+      earlier reviewed result; constraints are deterministic.
+  - 5 new real-data tests:
+    - 50 entries, all pending, no reviewer;
+    - reviewed ranking unavailable at 2023-09-08 (28 relationships awaiting)
+      and 2025-05-06 (50 awaiting);
+    - provisional equals the M3 engine output;
+    - exact pivotal inputs.
+  - The existing snapshot-leakage tests pass unchanged.
+- **Engine output vs the M3 baseline (36 states):** **byte-identical**, both
+  for direct engine output and for `rankProvisional`.
+- **Static checks and build:** `tsc`, `eslint`, `npm run build` and
+  `npm run check` are clean (04:08:36Z).
+- **Smoke test:** **56/56** against `next start` with `SMOKE_LIVE=1`, and
+  56/56 against `next dev`. There are 9 new RI-1 checks:
+  - the reviewed ranking is unavailable;
+  - the provisional section is collapsed by default;
+  - the 4 pivotal ids are listed;
+  - the provisional top-task label is shown;
+  - the registry shows 28 pending entries, and 50 with all evidence;
+  - the reviewed status is still correct with all platforms off, both clean
+    and under simulated translation.
+
+  The UX-0 translation checks still pass.
+- **`npm run verify:citations`:** 85/85 quotes matched live: 37 scenario
+  quotes plus 48 registry evidence quotes.
+
+### Bugs and rework
+
+- **Real bug, found by the "future approvals" metamorphic test.**
+  - The engine's "N later records withheld" limitation was computed on the
+    review-filtered scenario. The review status of *future* records
+    therefore changed a displayed number, which showed 0 instead of 2.
+  - Fixed: both modes now take the count from the unfiltered snapshot.
+  - Scores were never affected.
+- **Test bugs:**
+  - A metamorphic test added a relationship without a registry entry, and
+    the loader correctly refused it.
+  - The smoke test waited for the provisional card to become visible, but
+    the card is now collapsed by design.
+- **Fix during data generation:** the generator first picked the wrong quote
+  as evidence for one observation–gap link (location instead of
+  composition). It was corrected before any test was run on the data.
+- **Minor:** 5 lint warnings (unused variables after the split of
+  `DecisionSection`) were fixed.
+
+### Human intervention required
+
+- Accept or reject RI-1, and decide on the merge.
+- Review the 50 registry entries. Until then the reviewed ranking stays
+  unavailable by design.
+
+### Remaining limitations
+
+- **Methodology is not in the registry.** The evidence-quality ordering
+  (`asm-evidence-hierarchy`) and the derived-gap rule text are scoring
+  methodology. They are labelled ASSUMED and are not gated by the registry.
+- **Partial reviews.** A partially reviewed scenario can produce a *partial*
+  ranking among fully reviewed tasks only. The coverage denominator then
+  counts only approved local gaps.
+- **Reviewer identity is self-declared.** The registry records the
+  reviewer's name; there is no authentication.

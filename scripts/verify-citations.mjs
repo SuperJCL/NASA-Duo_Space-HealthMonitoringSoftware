@@ -23,6 +23,9 @@ const sources = JSON.parse(readFileSync(join(root, "src/data/sources.json"), "ut
 const scenario = JSON.parse(
   readFileSync(join(root, "src/data/scenarios/jezero-margin-unit.json"), "utf8"),
 );
+const registry = JSON.parse(
+  readFileSync(join(root, "src/data/scenarios/jezero-margin-unit.reviews.json"), "utf8"),
+);
 const skip = new Set((process.env.VERIFY_SKIP ?? "").split(",").filter(Boolean));
 
 const NAMED = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", mdash: "—", ndash: "–", hellip: "…", deg: "°" };
@@ -53,6 +56,8 @@ for (const g of scenario.gaps) {
 for (const a of scenario.assumptions) add(a.id, a.citations);
 for (const t of scenario.tasks) for (const l of t.addresses) add(`${t.id} → ${l.gapId}`, l.citations);
 for (const a of scenario.discriminationAssessments ?? []) add(a.id, a.citations);
+// Review-registry evidence (RI-1): verified quotes, which are NOT scientific approvals.
+for (const e of registry.entries) add(`review ${e.id}`, e.evidence);
 
 const work = mkdtempSync(join(tmpdir(), "mdi-verify-"));
 let failures = 0;

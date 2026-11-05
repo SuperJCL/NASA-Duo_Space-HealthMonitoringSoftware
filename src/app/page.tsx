@@ -5,7 +5,7 @@ import { loadJezeroMarginScenario } from "@/lib/evidence/repository";
 
 export default function Home() {
   // Curated JSON is validated (Zod + integrity rules) here, at build time.
-  const { scenario, sources } = loadJezeroMarginScenario();
+  const { scenario, sources, registry } = loadJezeroMarginScenario();
 
   return (
     <div className="flex h-dvh flex-col">
@@ -14,7 +14,7 @@ export default function Home() {
         <section aria-label="Mars map" className="relative h-[45dvh] shrink-0 lg:h-auto lg:flex-1">
           <MarsMapLoader />
         </section>
-        <InvestigationWorkspace scenario={scenario} sources={sources} />
+        <InvestigationWorkspace scenario={scenario} sources={sources} registry={registry} />
       </main>
     </div>
   );
