@@ -24,6 +24,9 @@ export function EvaHud({
   onCompleteStep,
   onSkip,
   onEvent,
+  onReviewReplan,
+  onUndo,
+  onDismissNotice,
   onBackToPlanning,
   onEvidence,
 }: {
@@ -32,12 +35,15 @@ export function EvaHud({
   viewById: ReadonlyMap<string, TaskView>;
   consumed: number;
   map: ReactNode;
-  /** Replanning UI (MG-3), rendered as an overlay. */
+  /** Replanning dialog (MG-3), a fixed modal rendered when a proposal exists. */
   replan?: ReactNode;
   onStart: () => void;
   onCompleteStep: () => void;
   onSkip: () => void;
   onEvent: (id: string) => void;
+  onReviewReplan: () => void;
+  onUndo: () => void;
+  onDismissNotice: () => void;
   onBackToPlanning: () => void;
   onEvidence: (taskId: string) => void;
 }) {
@@ -54,10 +60,13 @@ export function EvaHud({
   const remainingNeed = items.filter((i) => i.status === "planned" || i.status === "active").reduce((sum, i) => sum + (viewById.get(i.taskId)?.cost ?? 0), 0);
   const actionNo = current ? items.indexOf(current) + 1 : items.length;
 
-  // Keep keyboard focus on the single primary action as the state advances.
+  // Keep keyboard focus on the single primary action as the state advances
+  // (and return it there after a replanning decision).
+  const replanOpen = state.replan !== null;
   useEffect(() => {
-    primaryRef.current?.focus({ preventScroll: true });
-  }, [current?.taskId, current?.status, current?.step]);
+    if (!replanOpen) primaryRef.current?.focus({ preventScroll: true });
+  }, [current?.taskId, current?.status, current?.step, replanOpen]);
+  const retainedOver = state.retained && remainingNeed > available ? remainingNeed - available : 0;
 
   if (!state.plan) {
     return (
@@ -96,6 +105,33 @@ export function EvaHud({
           {"← Planning"}
         </button>
       </div>
+
+      {/* MG-3: an infeasible plan kept by the user stays explicitly flagged. */}
+      {retainedOver ? (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--mg-caution)] bg-[rgba(241,200,120,0.1)] px-4 py-3" data-testid="mg-retained-warning">
+          <p className="min-w-0 flex-1 text-[16px] text-[var(--mg-caution)]">
+            {`You kept a plan that exceeds the available effort by ${retainedOver} pts. Later actions may not be possible.`}
+          </p>
+          <button type="button" onClick={onReviewReplan} className="min-h-11 rounded-xl border border-[var(--mg-caution)] px-4 text-[15px] text-[var(--mg-caution)]" data-testid="mg-review-replan">
+            {"Review replanning"}
+          </button>
+        </div>
+      ) : null}
+      {state.notice ? (
+        <div role="status" className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--mg-line-strong)] bg-[var(--mg-glass)] px-4 py-2" data-testid="mg-notice">
+          <p className="min-w-0 flex-1 text-[15px]" data-testid="mg-notice-text">
+            {state.notice}
+          </p>
+          {state.previous ? (
+            <button type="button" onClick={onUndo} className="min-h-10 rounded-xl border border-[var(--mg-line-strong)] px-4 text-[15px]" data-testid="mg-undo-replan">
+              {"Undo"}
+            </button>
+          ) : null}
+          <button type="button" aria-label="Dismiss message" onClick={onDismissNotice} className="size-10 rounded-xl border border-[var(--mg-line)] text-[var(--mg-dim)]" data-testid="mg-dismiss-notice">
+            {"✕"}
+          </button>
+        </div>
+      ) : null}
 
       {/* Brief mission progress: one segment per action. */}
       <ol className="flex gap-1.5" aria-label="Mission progress" data-testid="mg-plan-timeline">

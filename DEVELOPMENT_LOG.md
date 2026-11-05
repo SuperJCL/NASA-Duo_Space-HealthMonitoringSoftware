@@ -1766,3 +1766,135 @@ This task is tracked separately. Earlier durations are unchanged.
    stretches.
 2. **The old EVA smoke checks expected an always-visible map, warnings and
    events.** They were rewritten to open the optional panels first.
+
+## MG-3: Mission Glass replanning (constraint changed → impact → compare → confirm or retain)
+
+- **Started:** 2026-11-05T23:01:54Z.
+- **Completed:** 2026-11-05T23:13:44Z, at commit, on `mg-refinement`.
+- **Wall-clock elapsed:** 11 min 50 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Files changed
+
+- `src/lib/prototype/mission-glass.ts`:
+  - `ReplanProposal` and `buildProposal`;
+  - new state fields `retained`, `previous` and `notice`;
+  - rewritten `constraint-event`, `accept-replan` and `keep-plan`;
+  - new `undo-replan` and `dismiss-notice`;
+  - progress actions clear the undo snapshot.
+- `src/components/prototype/ReplanDialog.tsx` (new): the replanning alert
+  dialog.
+- `src/components/prototype/EvaHud.tsx`: the retained-infeasible warning,
+  the notice with Undo, and focus returning to the primary action after a
+  decision.
+- `src/components/prototype/MissionGlass.tsx`: `checkConstraints` (the
+  engine at the newly available effort) replaces the interim MG-2 overlay.
+- `src/lib/prototype/mission-glass.test.ts`: the replanning tests rewritten
+  and extended.
+- `scripts/smoke-mission-glass.mjs`:
+  - the replanning section rewritten;
+  - repeated translation passes;
+  - a reduced-motion check;
+  - the no-feasible sequence on a phone viewport.
+- `docs/MISSION_GLASS_PROTOTYPE.md`: updated for MG-1 to MG-3.
+- `docs/MG_USABILITY_TEST.md` (new): the manual protocol.
+
+### Interaction changes
+
+- **Constraint changed.** A scenario event opens a modal alert dialog fixed
+  in the viewport. Its decision footer is always visible, also on a phone,
+  where the body scrolls. It shows:
+  - the trigger, "Constraint changed · Available effort drops to 50 points
+    (scenario event)";
+  - a heading for the situation ("Your plan no longer fits", "No remaining
+    action fits" or "The suggested order changed").
+- **Explain impact.**
+  - Committed (spent), Available now (budget − committed) and Remaining plan
+    (estimated) are shown separately.
+  - Each action in the plan gets a verdict (Done · kept / Still fits / No
+    longer fits / Too large now) and a sentence, e.g. "Needs 55 pts, more
+    than the 50 pts now available." An in-progress action says "In
+    progress, 1 of 4 steps done; those steps are kept."
+- **Compare options.**
+  - **Suggested:** the remaining actions only, in the engine's provisional
+    order, with the total and the actions that would be marked skipped.
+    Labelled "provisional, not scientifically validated".
+  - **Keep current plan,** labelled "Infeasible: needs 95 pts, 45 more than
+    available" when it does not fit.
+- **Confirm or retain.**
+  - "Use suggested plan" (or "End remaining work" when nothing fits) and
+    "Keep current plan (anyway)".
+  - Escape does not dismiss the dialog without a decision, and Tab stays
+    inside it.
+- **After the decision:**
+  - **Accept:** completed actions and in-progress steps are kept, and dropped
+    actions are marked skipped, not deleted. A notice offers Undo until the
+    mission moves on.
+  - **Keep, when the plan is infeasible:** a persistent warning ("You kept a
+    plan that exceeds the available effort by 45 pts…") with "Review
+    replanning".
+  - **Constraint change that still fits:** a notice instead of a dialog.
+  - Focus returns to the primary action.
+
+### Tests
+
+- **Unit:** 201/201 (+5).
+  - There are 16 prototype tests.
+  - The MG-3 tests cover:
+    - the proposal contents (committed vs estimated);
+    - verdicts and plain-language explanations;
+    - preserving done actions and in-progress steps;
+    - keep → retained;
+    - accept → undo, including restoring an infeasible plan;
+    - undo cleared after progress;
+    - a later fitting check that clears the warning;
+    - "no longer fits because of the actions before it";
+    - no-feasible → end remaining work.
+- **Prototype smoke:** 79/79 against `next start` (+18 since MG-2). The new
+  checks cover:
+  - the dialog and both decisions in the viewport;
+  - focus and `alertdialog`;
+  - the trigger;
+  - committed vs estimated;
+  - named affected actions;
+  - the options;
+  - Escape and Tab containment;
+  - keep → warning, with focus back on the primary;
+  - Review replanning;
+  - accept, with steps kept;
+  - the Undo notice;
+  - undo → warning again;
+  - the "still fits" notice and its dismissal;
+  - repeated translation passes through keep, review, accept and undo;
+  - reduced motion (no `mg-rise` animation, 0 ms transitions);
+  - the phone EVA fitting the viewport;
+  - on the phone: the no-feasible state (committed 40, available 10), the
+    decision on screen without overflow, and ending the remaining work.
+- **Main app smoke (BR-2):** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Engine, evidence, geo, briefing and mission code and data:** 0 lines of
+  diff against the prototype base `323622c`.
+
+### Bugs and rework
+
+1. **On a phone, the two decision buttons wrapped unevenly.** They now stack
+   full-width, with the primary on top.
+2. **In the no-feasible state, the reason repeated the heading.** It now
+   gives the numbers ("Only 10 pts are left after 40 pts committed; the
+   remaining plan needs 55 pts.").
+3. **"Core no longer fit"** is now singular or plural, as needed.
+
+### Remaining UX risks (not tested with users)
+
+- **The dialog is information-dense.** It has five sections, and the 30 s
+  replanning target may still be missed on a first encounter.
+- **On a phone,** the "Keep current plan" details are below the first
+  screen of the dialog body.
+- **The retained warning, the notice and the timeline push the EVA card
+  down.** At 1440×900 the primary stays visible, but on short screens with
+  both banners it may not.
+- **"Skipped" is used both for user skips and for actions dropped by a
+  replan.** Users may not tell them apart.
+- **Escape does nothing in the dialog.** This is deliberate, but some
+  keyboard users may expect it to close.

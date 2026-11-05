@@ -90,26 +90,117 @@ describe("shared mission state (Planning ↔ EVA)", () => {
     expect(st.plan?.items[1].status).toBe("planned");
   });
 
-  it("prompts a replan when a constraint change makes the plan exceed the remaining effort", () => {
-    let st = plan(["task-abrasion-proximity", "task-core-for-earth"]); // 95 of 100
-    st = missionReducer(st, { type: "constraint-event", budget: 50, label: "cut", rankedTaskIds: ["task-standoff-survey", "task-abrasion-proximity"], costs });
-    expect(st.replan?.reason).toBe("The remaining plan needs 95 points, but only 50 simulated points are left.");
-    expect(st.replan?.suggested).toEqual(["task-abrasion-proximity"]);
-    const kept = missionReducer(st, { type: "keep-plan" });
-    expect(kept.replan).toBeNull();
-    expect(kept.plan?.items.map((i) => i.taskId)).toEqual(["task-abrasion-proximity", "task-core-for-earth"]);
-    const accepted = missionReducer(st, { type: "accept-replan" });
-    expect(accepted.plan?.items.map((i) => [i.taskId, i.status])).toEqual([
-      ["task-abrasion-proximity", "planned"],
-      ["task-core-for-earth", "skipped"],
-    ]);
-  });
+  const cut = (st: MissionState, budget = 50, ranked = ["task-standoff-survey", "task-abrasion-proximity"]) =>
+    missionReducer(st, { type: "constraint-event", budget, label: "Available effort drops to 50 points", rankedTaskIds: ranked, costs, stepsByTask: steps, titles: { "task-core-for-earth": "Core" } });
 
-  it("does not prompt when the plan still fits in the engine's order", () => {
-    let st = plan(["task-standoff-survey"]);
-    st = missionReducer(st, { type: "constraint-event", budget: 50, label: "cut", rankedTaskIds: ["task-standoff-survey", "task-abrasion-proximity"], costs });
+  it("does not prompt when the plan still fits in the engine's order, but says so", () => {
+    const st = cut(plan(["task-standoff-survey"]));
     expect(st.replan).toBeNull();
     expect(st.budget).toBe(50);
+    expect(st.notice).toBe("Constraint changed (100 → 50 pts). Your plan still fits: 15 of 50 pts needed.");
+  });
+});
+
+describe("MG-3 replanning: explain impact, compare, confirm or retain", () => {
+  const plan = (draft: string[]): MissionState => {
+    let st = initialMissionState(100);
+    for (const id of draft) st = missionReducer(st, { type: "toggle-draft", taskId: id });
+    return missionReducer(st, { type: "create-plan" });
+  };
+  const cut = (st: MissionState, ranked = ["task-standoff-survey", "task-abrasion-proximity"]) =>
+    missionReducer(st, { type: "constraint-event", budget: 50, label: "Available effort drops to 50 points", rankedTaskIds: ranked, costs, stepsByTask: steps, titles: { "task-core-for-earth": "Core" } });
+  const run = (st: MissionState, n: number) => {
+    for (let k = 0; k < n; k++) st = missionReducer(st, { type: "complete-step", stepsByTask: steps });
+    return st;
+  };
+
+  it("names each affected action, separating committed from estimated effort", () => {
+    const st = cut(plan(["task-abrasion-proximity", "task-core-for-earth"])); // 95 of 100
+    const p = st.replan!;
+    expect(p.trigger).toEqual({ label: "Available effort drops to 50 points", from: 100, to: 50 });
+    expect([p.committed, p.available, p.remainingNeed]).toEqual([0, 50, 95]);
+    expect(p.impact.map((i) => [i.taskId, i.verdict])).toEqual([
+      ["task-abrasion-proximity", "fits"],
+      ["task-core-for-earth", "too-large"],
+    ]);
+    expect(p.impact[1].explanation).toBe("Needs 55 pts, more than the 50 pts now available.");
+    expect(p.current).toEqual({ order: ["task-abrasion-proximity", "task-core-for-earth"], total: 95, overBy: 45 });
+    expect(p.suggested).toEqual({ order: ["task-abrasion-proximity"], total: 40, dropped: ["task-core-for-earth"] });
+    expect(p.noFeasible).toBe(false);
+    expect(p.reason).toBe("The remaining plan needs 95 pts, but only 50 pts are available (Core no longer fits).");
+  });
+
+  it("preserves completed actions and the steps of the action in progress; replans only remaining work", () => {
+    let st = plan(["task-standoff-survey", "task-abrasion-proximity"]); // 55
+    st = missionReducer(st, { type: "start-task" });
+    st = run(st, 4); // survey done (15 committed)
+    st = missionReducer(st, { type: "start-task" });
+    st = run(st, 2); // abrasion 2 of 4
+    st = cut(st, ["task-standoff-survey"]); // engine at 35 pts ranks only the (already done) survey
+    // 50 − 15 = 35 available; abrasion (40) no longer fits.
+    const p = st.replan!;
+    expect([p.committed, p.available, p.remainingNeed]).toEqual([15, 35, 40]);
+    expect(p.impact[0]).toMatchObject({ verdict: "kept-done", explanation: "Completed: 15 pts already committed. Kept as done." });
+    expect(p.impact[1].explanation).toBe("Needs 40 pts, more than the 35 pts now available. In progress, 2 of 4 steps done; those steps are kept.");
+    expect(p.noFeasible).toBe(true);
+    expect(p.reason).toBe("Only 35 pts are left after 15 pts committed; the remaining plan needs 40 pts.");
+    const ended = missionReducer(st, { type: "accept-replan" });
+    expect(ended.plan?.items).toEqual([
+      { taskId: "task-standoff-survey", status: "done", step: 4 },
+      { taskId: "task-abrasion-proximity", status: "skipped", step: 2 },
+    ]);
+    expect(ended.notice).toBe("Remaining work ended: no remaining action fits. Completed work is kept.");
+  });
+
+  it("keeps an in-progress action and its steps when it still fits", () => {
+    let st = plan(["task-abrasion-proximity", "task-core-for-earth"]);
+    st = missionReducer(st, { type: "start-task" });
+    st = run(st, 1);
+    st = cut(st);
+    const accepted = missionReducer(st, { type: "accept-replan" });
+    expect(accepted.plan?.items).toEqual([
+      { taskId: "task-abrasion-proximity", status: "active", step: 1 },
+      { taskId: "task-core-for-earth", status: "skipped", step: 0 },
+    ]);
+    expect(accepted.notice).toBe("Plan updated: 1 action(s) skipped. Completed steps are kept.");
+  });
+
+  it("never discards silently: keep → retained warning; accept → undo restores the previous plan", () => {
+    const st = cut(plan(["task-abrasion-proximity", "task-core-for-earth"]));
+    const kept = missionReducer(st, { type: "keep-plan" });
+    expect(kept.replan).toBeNull();
+    expect(kept.retained).toEqual({ overBy: 45, available: 50 });
+    expect(kept.plan?.items.map((i) => [i.taskId, i.status])).toEqual([
+      ["task-abrasion-proximity", "planned"],
+      ["task-core-for-earth", "planned"],
+    ]);
+    expect(kept.log.at(-1)).toBe("The user kept a plan that exceeds the available effort by 45 pts.");
+
+    const accepted = missionReducer(st, { type: "accept-replan" });
+    expect(accepted.previous?.items.map((i) => i.status)).toEqual(["planned", "planned"]);
+    const undone = missionReducer(accepted, { type: "undo-replan", costs });
+    expect(undone.plan?.items.map((i) => i.status)).toEqual(["planned", "planned"]);
+    // Restoring an infeasible plan is itself an explicit retained state.
+    expect(undone.retained).toEqual({ overBy: 45, available: 50 });
+    expect(undone.previous).toBeNull();
+    // Undo is not offered once the mission moves on.
+    expect(missionReducer(accepted, { type: "start-task" }).previous).toBeNull();
+  });
+
+  it("a later constraint check that fits clears the retained warning", () => {
+    let st = missionReducer(cut(plan(["task-abrasion-proximity", "task-core-for-earth"])), { type: "keep-plan" });
+    st = missionReducer(st, { type: "constraint-event", budget: 100, label: "restored", rankedTaskIds: ["task-abrasion-proximity", "task-core-for-earth"], costs, stepsByTask: steps });
+    expect(st.retained).toBeNull();
+    expect(st.replan).toBeNull();
+    expect(st.notice).toMatch(/still fits: 95 of 100/);
+  });
+
+  it("explains an action that no longer fits only because of the actions before it", () => {
+    let st = plan(["task-abrasion-proximity", "task-standoff-survey"]); // 55
+    st = missionReducer(st, { type: "constraint-event", budget: 50, label: "cut", rankedTaskIds: ["task-standoff-survey", "task-abrasion-proximity"], costs, stepsByTask: steps });
+    expect(st.replan?.impact[1]).toMatchObject({ verdict: "no-longer-fits", explanation: "Needs 15 pts, but only 10 pts would be left after the actions before it." });
+    // The engine's order at 50 puts survey first; 15 + 40 > 50, so only survey fits.
+    expect(st.replan?.suggested.order).toEqual(["task-standoff-survey"]);
   });
 });
 

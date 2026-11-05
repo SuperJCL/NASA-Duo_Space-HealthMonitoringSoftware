@@ -55,13 +55,13 @@ or decorative sci-fi elements.
 
 | Level | Where | Content |
 |---|---|---|
-| **1** | Task card | Rank (existing engine, provisional), action, one-line rationale, status chip, "In plan" |
-| **2** | Card "Details" | What, equipment, target (scenario-defined, with straight-line distance; no route), simulated resources, the conditions the priority depends on, limitations |
+| **1** | Task card | Rank (existing engine, provisional), action, one-line rationale, cost, a plain-language feasibility line (MG-1: "Fits: 40 pts, leaving 60 pts.", "Doesn't fit your plan: …", "Not possible: …"), one add/remove toggle |
+| **2** | Card "Details" | What, equipment, target (scenario-defined, with straight-line distance; no route), the conditions the priority depends on, limitations |
 | **3** | "Evidence and sources" sheet | The engine's own reasons per criterion (including Not Evaluated); open questions with source quotations and review status; verified Lefroy Bay context (PDS page); assumptions; review-registry status |
 
 ## Shared mission-state contract (`src/lib/prototype/mission-glass.ts`)
 
-The module is pure: no React and no OpenLayers. It has 9 unit tests.
+The module is pure: no React and no OpenLayers. It has 16 unit tests.
 
 - **`MissionState`:**
   - `mode` (`planning` or `eva`);
@@ -69,20 +69,42 @@ The module is pure: no React and no OpenLayers. It has 9 unit tests.
   - `selectedTaskId` (synced with the map target);
   - `draft` (ordered task ids);
   - `plan` (items of `{taskId, status: planned|active|done|skipped, step}`);
-  - `replan` (`{reason, suggested}`);
+  - `replan`: an MG-3 `ReplanProposal` (`trigger`, `committed`,
+    `available`, `remainingNeed`, per-action `impact` with a verdict and a
+    plain-language explanation, `current` and `suggested` options,
+    `noFeasible`, `reason`);
+  - `retained` (set when the user keeps a plan that exceeds the available
+    effort);
+  - `previous` (the plan before the last accepted replan, for Undo; cleared
+    when the mission moves on);
+  - `notice` (a dismissible status message);
   - `log`.
 - **`missionReducer` actions:** select, toggle-draft, move-draft,
   use-suggested, set-budget, create-plan, set-mode, start-task,
   complete-step, skip-task, constraint-event, accept-replan, keep-plan,
-  reset-plan.
+  undo-replan, dismiss-notice, reset-plan.
 - **`taskViews(...)`:** builds Level 1 and 2 views from **existing**
   `rankProvisional` / `rankReviewed` output. It computes no score.
 - **Plan logic:** sums simulated costs; `fitInOrder` follows the engine's
-  order and drops tasks that do not fit the remaining effort.
-- **Replanning:** after a scenario event, the engine is re-run at the
-  remaining effort. A prompt appears if the remaining plan no longer fits, or
-  if the engine's order changed. Accepting or keeping the plan is the user's
-  choice.
+  order and drops tasks that do not fit the remaining effort. `planFit` and
+  `addability` (MG-1) give the running total and the plain-language
+  feasibility of each card.
+- **Replanning (MG-3, `buildProposal`):** after a scenario event, the engine
+  is re-run at the available effort (new budget minus committed effort).
+  - **Committed effort** is the cost of completed actions. It is never
+    replanned. **Remaining need** is the estimated cost of planned and
+    in-progress actions.
+  - Only remaining work is replanned: the suggestion is the engine's
+    provisional order, restricted to remaining actions that fit.
+  - A decision is requested if the remaining plan no longer fits, or if the
+    engine's order changed. Otherwise a notice says the plan still fits.
+  - **Accept** keeps completed actions and the steps of an in-progress
+    action, marks dropped actions skipped (not deleted) and offers Undo.
+    **Keep** changes nothing and, if the plan is infeasible, sets a
+    persistent warning with "Review replanning".
+  - **No feasible alternative:** when no remaining action fits, the options
+    are "End remaining work" (remaining actions marked skipped) or keeping
+    the plan anyway.
 
 **Reused, unchanged:**
 - **Engine and evidence:** `lib/decision` (engine, review modes),
@@ -115,7 +137,7 @@ The module is pure: no React and no OpenLayers. It has 9 unit tests.
 
 ## Interactions: implemented vs mocked
 
-**Implemented** (working, covered by `scripts/smoke-mission-glass.mjs`, 41
+**Implemented** (working, covered by `scripts/smoke-mission-glass.mjs`, 79
 checks):
 - **Planning:**
   - ranked cards from the engine;
@@ -127,20 +149,34 @@ checks):
     card);
   - a verified-feature popover;
   - plan builder: add or remove, suggested order, reorder, budget check,
-    create plan.
-- **EVA:**
-  - current task with its priority line;
+    create plan. MG-1 flow: Compare → Add (one toggle per card) → Review
+    (summary dialog with reorder and remove) → Create.
+- **EVA (MG-2 glance order):**
+  - current action with a provisional-priority chip, the current step in
+    large type, one focused primary button, essential constraints and brief
+    progress; map, caveats, scenario controls, log and skip behind optional
+    controls;
   - start, complete step, complete task and skip, with simulated progress;
   - simulated effort consumption;
   - warnings, including dynamic over-budget;
   - a minimal map that follows the current target;
   - plan timeline and event log.
-- **Replanning:** a scenario event triggers the prompt, with reason and
-  suggestion; accept or keep; no prompt when the plan still fits.
+- **Replanning (MG-3):** a scenario event opens a fixed alert dialog:
+  - constraint changed;
+  - committed / available / estimated remaining;
+  - impact on each action;
+  - the suggested option vs keeping the current plan;
+  - an always-visible decision footer.
+
+  Escape does not dismiss it, and Tab stays inside. After the decision:
+  an Undo notice, or a retained-infeasible warning. The no-feasible state is
+  supported. If the plan still fits, a notice says so.
 - **Other:**
   - the mode switch keeps a single mission state;
   - narrow-screen layout;
-  - translation-safe text (simulated translation run).
+  - translation-safe text (simulated translation run, repeated while the
+    review and replanning dialogs are open);
+  - reduced motion (entry animations and transitions disabled).
 
 **Mocked or simulated by design:**
 - **Scenario controls** ("Simulate: available effort drops to 50 points") are
@@ -156,10 +192,12 @@ checks):
 
 ## Known gaps for the usability review
 
-- **In EVA,** the replanning prompt appears below the current-task card. It
-  takes focus, but on short screens it can sit below the fold.
+- **On a phone,** the replanning dialog body scrolls; the decision footer
+  stays visible, but the "Keep current plan" details are below the first
+  screen.
 - **At crater zoom, the target labels overlap** in the small HUD map.
 - **The orbital task is excluded** by the scenario (`excludedPlatforms`),
   which keeps the three surface actions. This is a scenario choice, not a
   scientific judgement.
-- **Not tested** with screen readers, or by real users.
+- **Not tested** with screen readers, or by real users. The manual protocol
+  is `docs/MG_USABILITY_TEST.md`.

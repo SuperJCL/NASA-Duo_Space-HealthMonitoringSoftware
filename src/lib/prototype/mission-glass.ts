@@ -174,6 +174,24 @@ export function taskViews(args: {
 
 export type PlanItemStatus = "planned" | "active" | "done" | "skipped";
 export type PlanItem = { taskId: string; status: PlanItemStatus; step: number };
+/** MG-3: what a constraint change does to each action of the plan. */
+export type ImpactVerdict = "kept-done" | "fits" | "no-longer-fits" | "too-large";
+export type ReplanProposal = {
+  trigger: { label: string; from: number; to: number };
+  /** Effort of completed actions: already spent, never replanned. */
+  committed: number;
+  /** Effort that remains for future work: new budget minus committed. */
+  available: number;
+  /** Estimated effort of the remaining (planned + in-progress) actions, current order. */
+  remainingNeed: number;
+  impact: { taskId: string; status: PlanItemStatus; cost: number; verdict: ImpactVerdict; explanation: string }[];
+  current: { order: string[]; total: number; overBy: number };
+  suggested: { order: string[]; total: number; dropped: string[] };
+  /** Remaining work exists, but no remaining action fits the available effort. */
+  noFeasible: boolean;
+  reason: string;
+};
+
 export type MissionState = {
   mode: "planning" | "eva";
   /** Simulated effort budget (the engine's res-effort constraint). */
@@ -181,7 +199,13 @@ export type MissionState = {
   selectedTaskId: string | null;
   draft: string[];
   plan: { items: PlanItem[]; createdWithBudget: number } | null;
-  replan: { reason: string; suggested: string[] } | null;
+  replan: ReplanProposal | null;
+  /** Set when the user keeps a plan that exceeds the available effort. */
+  retained: { overBy: number; available: number } | null;
+  /** The plan before the last accepted replan, for Undo (nothing is discarded silently). */
+  previous: { items: PlanItem[] } | null;
+  /** A visible, dismissible status message after a constraint change or decision. */
+  notice: string | null;
   log: string[];
 };
 
@@ -196,9 +220,20 @@ export type MissionAction =
   | { type: "start-task" }
   | { type: "complete-step"; stepsByTask: Record<string, number> }
   | { type: "skip-task" }
-  | { type: "constraint-event"; budget: number; label: string; rankedTaskIds: string[]; costs: Record<string, number> }
+  | {
+      type: "constraint-event";
+      budget: number;
+      label: string;
+      /** The existing engine's provisional order at the newly available effort. */
+      rankedTaskIds: string[];
+      costs: Record<string, number>;
+      stepsByTask: Record<string, number>;
+      titles?: Record<string, string>;
+    }
   | { type: "accept-replan" }
   | { type: "keep-plan" }
+  | { type: "undo-replan"; costs: Record<string, number> }
+  | { type: "dismiss-notice" }
   | { type: "reset-plan" };
 
 export const initialMissionState = (budget: number): MissionState => ({
@@ -208,6 +243,9 @@ export const initialMissionState = (budget: number): MissionState => ({
   draft: [],
   plan: null,
   replan: null,
+  retained: null,
+  previous: null,
+  notice: null,
   log: [],
 });
 
@@ -228,6 +266,70 @@ export function fitInOrder(order: string[], costs: Record<string, number>, avail
     }
   }
   return out;
+}
+
+const sumCost = (ids: readonly string[], costs: Record<string, number>) => ids.reduce((s, id) => s + (costs[id] ?? 0), 0);
+
+/**
+ * MG-3: impact of a constraint change on the plan. Completed actions are
+ * kept and their effort is committed; only remaining work is replanned.
+ * The suggestion follows the engine's provisional order at the newly
+ * available effort. Plain-language explanations name each affected action.
+ */
+export function buildProposal(args: {
+  items: readonly PlanItem[];
+  from: number;
+  to: number;
+  label: string;
+  rankedTaskIds: readonly string[];
+  costs: Record<string, number>;
+  stepsByTask: Record<string, number>;
+  titles?: Record<string, string>;
+}): ReplanProposal {
+  const { items, from, to, label, rankedTaskIds, costs, stepsByTask, titles = {} } = args;
+  const name = (id: string) => titles[id] ?? id;
+  const committed = items.filter((i) => i.status === "done").reduce((s, i) => s + (costs[i.taskId] ?? 0), 0);
+  const available = to - committed;
+  const live = remaining([...items]).map((i) => i.taskId);
+  const remainingNeed = sumCost(live, costs);
+  let room = available;
+  const impact = items.map((i) => {
+    const cost = costs[i.taskId] ?? 0;
+    if (i.status === "done") return { taskId: i.taskId, status: i.status, cost, verdict: "kept-done" as const, explanation: `Completed: ${cost} pts already committed. Kept as done.` };
+    if (i.status === "skipped") return { taskId: i.taskId, status: i.status, cost, verdict: "kept-done" as const, explanation: "Skipped earlier. Unchanged." };
+    const progress = i.status === "active" ? ` In progress, ${i.step} of ${stepsByTask[i.taskId] ?? "?"} steps done; those steps are kept.` : "";
+    if (cost > available) {
+      room -= cost;
+      return { taskId: i.taskId, status: i.status, cost, verdict: "too-large" as const, explanation: `Needs ${cost} pts, more than the ${available} pts now available.${progress}` };
+    }
+    if (cost > room) {
+      const before = room;
+      room -= cost;
+      return { taskId: i.taskId, status: i.status, cost, verdict: "no-longer-fits" as const, explanation: `Needs ${cost} pts, but only ${Math.max(0, before)} pts would be left after the actions before it.${progress}` };
+    }
+    room -= cost;
+    return { taskId: i.taskId, status: i.status, cost, verdict: "fits" as const, explanation: `Still fits: ${cost} pts.${progress}` };
+  });
+  const order = fitInOrder(rankedTaskIds.filter((id) => live.includes(id)), costs, available);
+  const dropped = live.filter((id) => !order.includes(id));
+  const overBy = Math.max(0, remainingNeed - available);
+  const noFeasible = live.length > 0 && order.length === 0;
+  const reason = noFeasible
+    ? `Only ${available} pts are left after ${committed} pts committed; the remaining plan needs ${remainingNeed} pts.`
+    : overBy
+      ? `The remaining plan needs ${remainingNeed} pts, but only ${available} pts are available (${dropped.map(name).join(", ")} no longer ${dropped.length === 1 ? "fits" : "fit"}).`
+      : "The engine's provisional order for the remaining actions changed.";
+  return {
+    trigger: { label, from, to },
+    committed,
+    available,
+    remainingNeed,
+    impact,
+    current: { order: live, total: remainingNeed, overBy },
+    suggested: { order, total: sumCost(order, costs), dropped },
+    noFeasible,
+    reason,
+  };
 }
 
 export function missionReducer(state: MissionState, action: MissionAction): MissionState {
@@ -262,7 +364,8 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
       if (!state.plan) return state;
       const next = state.plan.items.find((i) => i.status === "planned");
       if (!next || state.plan.items.some((i) => i.status === "active")) return state;
-      return { ...state, plan: { ...state.plan, items: state.plan.items.map((i) => (i === next ? { ...i, status: "active" } : i)) }, log: [...state.log, `Started: ${next.taskId}`] };
+      // Undo of a replan is offered only until the mission moves on.
+      return { ...state, previous: null, plan: { ...state.plan, items: state.plan.items.map((i) => (i === next ? { ...i, status: "active" } : i)) }, log: [...state.log, `Started: ${next.taskId}`] };
     }
     case "complete-step": {
       if (!state.plan) return state;
@@ -272,55 +375,93 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
         return step >= (action.stepsByTask[i.taskId] ?? 1) ? { ...i, step, status: "done" as const } : { ...i, step };
       });
       const finished = items.find((i, n) => i.status === "done" && state.plan!.items[n].status === "active");
-      return { ...state, plan: { ...state.plan, items }, log: finished ? [...state.log, `Completed (simulated): ${finished.taskId}`] : state.log };
+      return { ...state, previous: null, plan: { ...state.plan, items }, log: finished ? [...state.log, `Completed (simulated): ${finished.taskId}`] : state.log };
     }
     case "skip-task": {
       if (!state.plan) return state;
       const target = state.plan.items.find((i) => i.status === "active") ?? state.plan.items.find((i) => i.status === "planned");
       if (!target) return state;
-      return { ...state, plan: { ...state.plan, items: state.plan.items.map((i) => (i === target ? { ...i, status: "skipped" } : i)) }, log: [...state.log, `Skipped: ${target.taskId}`] };
+      return { ...state, previous: null, plan: { ...state.plan, items: state.plan.items.map((i) => (i === target ? { ...i, status: "skipped" } : i)) }, log: [...state.log, `Skipped: ${target.taskId}`] };
     }
     case "constraint-event": {
-      const next = { ...state, budget: action.budget, log: [...state.log, `Scenario event: ${action.label}`] };
+      const next: MissionState = { ...state, budget: action.budget, log: [...state.log, `Scenario event: ${action.label}`] };
       if (!state.plan) return next;
-      const done = state.plan.items.filter((i) => i.status === "done").reduce((s, i) => s + (action.costs[i.taskId] ?? 0), 0);
-      const left = action.budget - done;
-      const current = remaining(state.plan.items).map((i) => i.taskId);
-      const suggested = fitInOrder(
-        action.rankedTaskIds.filter((id) => current.includes(id)),
-        action.costs,
-        left,
-      );
-      const currentCost = current.reduce((s, id) => s + (action.costs[id] ?? 0), 0);
-      const dropped = current.filter((id) => !suggested.includes(id));
-      const orderChanged = JSON.stringify(suggested) !== JSON.stringify(current.filter((id) => suggested.includes(id)));
-      if (currentCost <= left && !dropped.length && !orderChanged) return next;
-      const reason =
-        currentCost > left
-          ? `The remaining plan needs ${currentCost} points, but only ${left} simulated points are left.`
-          : "The engine's provisional order for the remaining tasks changed.";
-      return { ...next, replan: { reason, suggested } };
+      const p = buildProposal({
+        items: state.plan.items,
+        from: state.budget,
+        to: action.budget,
+        label: action.label,
+        rankedTaskIds: action.rankedTaskIds,
+        costs: action.costs,
+        stepsByTask: action.stepsByTask,
+        titles: action.titles,
+      });
+      const orderChanged = JSON.stringify(p.suggested.order) !== JSON.stringify(p.current.order);
+      if (!p.current.overBy && !orderChanged) {
+        return {
+          ...next,
+          replan: null,
+          retained: null,
+          notice: `Constraint changed (${p.trigger.from} → ${p.trigger.to} pts). Your plan still fits: ${p.remainingNeed} of ${p.available} pts needed.`,
+        };
+      }
+      return { ...next, replan: p, notice: null };
     }
     case "accept-replan": {
       if (!state.plan || !state.replan) return state;
-      const keep = state.plan.items.filter((i) => i.status === "done" || i.status === "skipped");
+      const p = state.replan;
+      const kept = state.plan.items.filter((i) => i.status === "done" || i.status === "skipped");
       const active = state.plan.items.find((i) => i.status === "active");
       const items: PlanItem[] = [
-        ...keep,
-        ...state.replan.suggested.map((taskId) => (active && active.taskId === taskId ? active : { taskId, status: "planned" as const, step: 0 })),
+        ...kept,
+        ...p.suggested.order.map((taskId) => (active && active.taskId === taskId ? active : { taskId, status: "planned" as const, step: 0 })),
+        // Dropped work is kept in the plan as skipped (with any completed steps), not deleted.
+        ...remaining(state.plan.items)
+          .filter((i) => !p.suggested.order.includes(i.taskId))
+          .map((i) => ({ ...i, status: "skipped" as const })),
       ];
-      const dropped = remaining(state.plan.items).filter((i) => !state.replan!.suggested.includes(i.taskId));
       return {
         ...state,
-        plan: { ...state.plan, items: [...items, ...dropped.map((i) => ({ ...i, status: "skipped" as const }))] },
+        plan: { ...state.plan, items },
         replan: null,
-        log: [...state.log, `Replanned by the user: ${state.replan.suggested.join(" → ") || "no tasks fit"}`],
+        retained: null,
+        previous: { items: state.plan.items },
+        notice: p.noFeasible
+          ? "Remaining work ended: no remaining action fits. Completed work is kept."
+          : `Plan updated${p.suggested.dropped.length ? `: ${p.suggested.dropped.length} action(s) skipped` : ""}. Completed steps are kept.`,
+        log: [...state.log, p.noFeasible ? "The user ended the remaining work." : `The user accepted the suggested plan: ${p.suggested.order.join(" → ")}`],
       };
     }
-    case "keep-plan":
-      return { ...state, replan: null, log: [...state.log, "The user kept the current plan."] };
+    case "keep-plan": {
+      if (!state.replan) return state;
+      const p = state.replan;
+      return {
+        ...state,
+        replan: null,
+        retained: p.current.overBy ? { overBy: p.current.overBy, available: p.available } : null,
+        notice: null,
+        log: [...state.log, p.current.overBy ? `The user kept a plan that exceeds the available effort by ${p.current.overBy} pts.` : "The user kept the current plan."],
+      };
+    }
+    case "undo-replan": {
+      if (!state.plan || !state.previous) return state;
+      const items = state.previous.items;
+      const committed = items.filter((i) => i.status === "done").reduce((s, i) => s + (action.costs[i.taskId] ?? 0), 0);
+      const need = sumCost(remaining(items).map((i) => i.taskId), action.costs);
+      const available = state.budget - committed;
+      return {
+        ...state,
+        plan: { ...state.plan, items },
+        previous: null,
+        retained: need > available ? { overBy: need - available, available } : null,
+        notice: "Replan undone: the previous plan is restored.",
+        log: [...state.log, "The user undid the last replan."],
+      };
+    }
+    case "dismiss-notice":
+      return { ...state, notice: null };
     case "reset-plan":
-      return { ...state, plan: null, replan: null, mode: "planning", log: [...state.log, "Plan cleared."] };
+      return { ...state, plan: null, replan: null, retained: null, previous: null, notice: null, mode: "planning", log: [...state.log, "Plan cleared."] };
   }
 }
 
