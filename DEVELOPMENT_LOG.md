@@ -531,3 +531,59 @@ See `docs/DEVELOPMENT_PLAN.md` §5.
     reviews have no effect on the ranking until coverage is complete.
   - The PDS coordinate convention is unconfirmed, so there are no sample
     markers.
+
+---
+
+## Planning task: M3 acceptance review & UX redesign proposal
+
+This task is tracked separately from M2 and M3. The recorded M3 duration
+above is unchanged.
+
+- **Started:** 2026-11-05T01:29:05Z.
+- **Completed:** about 2026-11-05T01:36Z, at the commit on branch
+  `ux-proposal`.
+- **Elapsed:** about 7 min of wall-clock time.
+  - No subagents were used.
+  - The owner's local setup and manual review time are not included.
+- **Not timed:** the earlier review-support turn (workflow walkthrough and
+  first translation-crash diagnosis) recorded no timestamps, so it is not
+  timed.
+- **Scope:** analysis and documentation only. No application code changed.
+  `m3-scientific-integrity` is unchanged at `64506ea`. Nothing merged.
+
+### Work performed
+
+- **UX measured on the M3 build** at 1440×900:
+  - the right panel is 5,431 px tall in a 665 px viewport;
+  - the recommendation starts at 4,387 px;
+  - 2,079 words, 49 badges, 26 controls;
+  - jargon frequencies counted.
+- **Translation crash mapped and confirmed:**
+  - 12 interaction scenarios were run under a simulated page translation;
+    2 crash (all platforms off; budget 0).
+  - Root cause confirmed in a throwaway worktree, since removed: wrapping
+    one conditional text node fixes both.
+  - 6 similar conditional-text sites were listed.
+- **Influence analysis** (scratchpad script, not in the repo): removing any
+  one of three unreviewed task–gap links flips the current top
+  recommendation.
+- **Geometry check:**
+  - The USGS Gazetteer crater WKT polygon exists (361 vertices).
+  - The Trek "Perseverance (Mars 2020) Path" Feature product exists (catalog
+    date 2024-07-03).
+  - The PDS label states no coordinate convention.
+- **Deliverables:** `docs/UX_REDESIGN_PROPOSAL.md` and
+  `docs/M3_CURATION_REVIEW.md`.
+
+### Problems / rework
+
+- Two inconsistent counts in the first draft of the proposal were corrected
+  before committing (pending-review count; number of conditional-text
+  sites).
+- The `vitest` config for the scratch analysis first failed: it was outside
+  the project, so `vitest` could not be resolved. It was rewritten without
+  imports.
+
+### Human decisions required
+
+D1–D5, listed in `docs/UX_REDESIGN_PROPOSAL.md` §7.
