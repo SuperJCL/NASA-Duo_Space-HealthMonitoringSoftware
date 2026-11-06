@@ -49,7 +49,7 @@ participants.
 |---|---|---|---|
 | 1 | "Using the map, find the target the system currently suggests first, and say which action it belongs to." | Names Target B / "Abrade and analyse a rock" | ≤ 15 s |
 | 2 | "Set the effort to 50. Which target can no longer be done, and why?" | Names Target C (coring), with the reason it needs more effort than is available | ≤ 20 s |
-| 3 | "Create a plan with the suggested actions, start it, and show me on the map where you are working now." | Points to Target B, marked "in progress" (Map panel in the EVA HUD) | ≤ 60 s |
+| 3 | "Set the effort back to 100. Create a plan with the suggested actions, start it, and show me on the map where you are working now." | Points to Target B, marked "in progress" (Map panel in the EVA HUD) | ≤ 60 s |
 | 4 | **Keyboard only** (no mouse or touch): "Select Target A and open its evidence." | Evidence sheet open for "Survey the outcrops" | ≤ 30 s |
 | 5 | (Moderator: in the EVA HUD, finish the current action, then trigger "Available effort drops to 50 points" under Scenario controls and click "End remaining work": nothing else fits the 10 pts left.) "Go back to Planning. What happened to each target?" | Says B is done and C skipped; A not feasible with the 10 pts left | ≤ 30 s |
 
