@@ -28,7 +28,7 @@ import { PanelHeader, ReopenConfirm, StepForm, StepsPanel, type StepFormKind } f
  * Steps panel for any single step; Undo of the last step change. The step
  * list (procedure) is never edited here.
  */
-type Panel = "steps" | "map" | "caveats" | "scenario" | "log" | null;
+type Panel = "map" | "caveats" | "scenario" | "log" | null;
 
 export function EvaHud({
   state,
@@ -159,6 +159,40 @@ export function EvaHud({
       </div>
     );
   }
+
+  /** EVA-1.3: Reopen is immediate (and undoable) inside the action in progress; a completed action needs confirmation. */
+  const reopenFrom = (taskId: string, index: number) => {
+    const it = items.find((i) => i.taskId === taskId);
+    if (it?.status === "active") {
+      onReopen(taskId, index);
+      setViewAt(null);
+      primaryRef.current?.focus({ preventScroll: true });
+    } else setReopenAsk({ taskId, index });
+  };
+  const checklist =
+    stepsItem && stepsCounts ? (
+      <StepsPanel
+        actions={withSteps.map((i) => ({ taskId: i.taskId, label: `${items.indexOf(i) + 1}. ${titleOf(i.taskId)} · ${i.status === "active" ? "in progress" : "done"}` }))}
+        selectedTaskId={stepsItem.taskId}
+        onSelectAction={setStepsFor}
+        labels={stepsLabels}
+        records={stepsRecords}
+        current={stepsCounts.current}
+        viewing={stepsItem.status === "active" && viewing ? viewIndex : null}
+        paused={Boolean(stepsItem.paused)}
+        editable={stepsItem.status === "active"}
+        onView={(n) => {
+          if (stepsItem.status !== "active") return;
+          setViewAt(n === stepsItem.step ? null : { taskId: stepsItem.taskId, step: stepsItem.step, index: n });
+        }}
+        onComplete={(n) => onCompleteStep(n)}
+        onSkip={(n) => setForm({ kind: "skip-step", index: n })}
+        onNote={(n) => setForm({ kind: "note", index: n })}
+        onReopen={(n) => reopenFrom(stepsItem.taskId, n)}
+        onEditReason={(n) => setForm({ kind: "reason", index: n })}
+        outcome={stepsItem.status === "done" ? executionText(stepsItem, stepsLabels.length) : null}
+      />
+    ) : null;
 
   const primary = !current
     ? { label: "Back to planning", onClick: onBackToPlanning, testId: "mg-finish-plan" }
@@ -373,7 +407,7 @@ export function EvaHud({
                   {primary.label}
                 </button>
                 {viewing && shownState !== "todo" ? (
-                  <button type="button" onClick={() => setReopenAsk({ taskId: current.taskId, index: shownIndex })} className="min-h-12 rounded-xl border border-[var(--mg-line-strong)] px-4 text-[16px]" data-testid="mg-reopen-viewed">
+                  <button type="button" onClick={() => reopenFrom(current.taskId, shownIndex)} className="min-h-12 rounded-xl border border-[var(--mg-line-strong)] px-4 text-[16px]" data-testid="mg-reopen-viewed">
                     {`Reopen step ${shownIndex + 1}…`}
                   </button>
                 ) : null}
@@ -402,18 +436,6 @@ export function EvaHud({
                       <>
                         <button type="button" onClick={() => { setMoreOpen(false); setForm({ kind: "note", index: current.step }); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)]" data-testid="mg-add-note">
                           {`Note on step ${current.step + 1}…`}
-                        </button>
-                        <button
-                          type="button"
-                          aria-expanded={panel === "steps"}
-                          onClick={() => {
-                            setMoreOpen(false);
-                            setPanel((x) => (x === "steps" ? null : "steps"));
-                          }}
-                          className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)]"
-                          data-testid="mg-open-steps"
-                        >
-                          {panel === "steps" ? "Hide all steps" : "All steps…"}
                         </button>
                       </>
                     ) : null}
@@ -469,6 +491,7 @@ export function EvaHud({
                   }}
                 />
               ) : null}
+              {checklist}
             </>
           ) : (
             <>
@@ -476,6 +499,7 @@ export function EvaHud({
                 {"Simulated plan complete"}
               </h2>
               <p className="mt-2 text-[var(--mg-dim)]">{"Return to planning to build another plan."}</p>
+              {checklist}
               {reopenAsk && reopenFx?.ok ? (
                 <ReopenConfirm
                   key={`${reopenAsk.taskId}-${reopenAsk.index}`}
@@ -540,7 +564,6 @@ export function EvaHud({
           <div className="flex flex-wrap gap-2" role="group" aria-label="Optional panels">
             {(
               [
-                ...(stepsItem && stepsCounts ? ([["steps", `Steps (${stepsCounts.done + stepsCounts.skipped}/${stepsLabels.length})`]] as const) : []),
                 ["map", "Map"],
                 ["caveats", `Caveats (${s.warnings.length})`],
                 ["scenario", "Scenario controls"],
@@ -563,27 +586,6 @@ export function EvaHud({
             ))}
           </div>
 
-          {panel === "steps" && stepsItem && stepsCounts ? (
-            <section className="mg-glass p-4" aria-label="Steps" data-testid="mg-steps-section">
-              <PanelHeader title={`Steps · ${titleOf(stepsItem.taskId)}${stepsItem.status === "done" ? " (completed)" : ""}`} onCollapse={() => collapse("steps")} />
-              <StepsPanel
-                actions={withSteps.map((i) => ({ taskId: i.taskId, label: `${items.indexOf(i) + 1}. ${titleOf(i.taskId)} · ${i.status === "active" ? "in progress" : "done"}` }))}
-                selectedTaskId={stepsItem.taskId}
-                onSelectAction={setStepsFor}
-                labels={stepsLabels}
-                records={stepsRecords}
-                current={stepsCounts.current}
-                paused={Boolean(stepsItem.paused)}
-                editable={stepsItem.status === "active"}
-                onComplete={(n) => onCompleteStep(n)}
-                onSkip={(n) => setForm({ kind: "skip-step", index: n })}
-                onNote={(n) => setForm({ kind: "note", index: n })}
-                onReopen={(n) => setReopenAsk({ taskId: stepsItem.taskId, index: n })}
-                onEditReason={(n) => setForm({ kind: "reason", index: n })}
-                outcome={stepsItem.status === "done" ? executionText(stepsItem, stepsLabels.length) : null}
-              />
-            </section>
-          ) : null}
           {panel === "map" ? (
             <section className="mg-glass overflow-hidden" aria-label="Map" data-testid="mg-minimap">
               <div className="px-4 pt-3">

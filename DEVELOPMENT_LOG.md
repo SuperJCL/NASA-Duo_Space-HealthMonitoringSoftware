@@ -2461,3 +2461,74 @@ action". The visible controls were only Complete and Pause.
   simulated cost. This is stated as an assumption.
 - **Notes and reasons can be edited only on the action in progress.**
 - **Not tested with users or screen readers.**
+
+## EVA-1.3 (Track A): direct, discoverable past-step correction
+
+- **Context:** manual acceptance of EVA-1.2 gave Skip and partial
+  completion PARTIAL PASS, Reopen and replanning PASS. The user said: "I can
+  skip steps now, but I still cannot easily go back and edit an earlier
+  completed subtask."
+- **Branch:** `eva1.3-direct-step-correction`, created from
+  `eva1.2-step-skip-correction` (`b481fa9`). Not merged.
+- **Started:** 2026-11-06T17:12:08Z.
+- **Completed:** 2026-11-06T17:24:47Z, at commit.
+- **Wall-clock elapsed:** 12 min 39 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Why it was hard
+
+- Completed steps and their Reopen controls lived in an optional
+  right-column "Steps" panel. It started collapsed, among Map, Caveats and
+  Log, and on a phone it sat far below the action.
+- Reopening inside the current action always needed a confirmation, even
+  though it changed no effort.
+
+### Changes
+
+- **An always-visible step checklist** in the current-action card, with a
+  visible **Reopen** beside every done or skipped step. It also offers
+  Mark done, Skip…, Note… and Edit reason…, plus the action picker for
+  completed actions.
+- **Clicking a step only views it** (read-only, "Back to current step").
+  Reopen is the only control that changes completion status.
+- **Reopen inside the action in progress is immediate,** with an explanatory
+  notice and Undo. Reopening a completed action keeps the EVA-1.2
+  confirmation and feasibility re-check.
+- **The duplicate Steps panel toggle and More → "All steps…" are removed.**
+  On phones, row buttons sit on their own line.
+- **Unchanged:** the procedure, the engine, effort accounting and
+  replanning.
+
+### Tests
+
+- **Unit:** 238/238 (+2). The exact journey: complete step 2 → on step 3 →
+  reopen step 2 (note and history kept, effort unchanged) → complete it
+  again → back on step 3 → the action ends with effort committed once. Plus
+  the "later done steps stay done" notice.
+- **Prototype smoke:** 142/142 against `next start`, in two consecutive
+  runs.
+  - **New:** the browser journey, including the visible Reopen on step 3,
+    viewing that changes nothing, then reopen, continue and complete again
+    with effort unchanged and history kept.
+  - **Updated:** the EVA-1 and EVA-1.1 checks, for the always-visible
+    checklist, immediate reopen with Undo, and phone and translation.
+- **Research smoke:** 116/116.
+- **Data verifiers:**
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 location checks, 0 problems.
+- **`npm run check`:** passes.
+- **Engine and data:** 0 lines of diff against `main`.
+
+### Rework
+
+- **On phones, the row buttons squeezed the step labels** into four-line
+  wraps and overlapped "To do". They now wrap below the label.
+
+### Limitations
+
+- **The checklist lengthens the action card.** At 1440×900 the primary
+  action stays in place and the card scrolls.
+- **Undo is still one level.**
+- **Not tested with users.**

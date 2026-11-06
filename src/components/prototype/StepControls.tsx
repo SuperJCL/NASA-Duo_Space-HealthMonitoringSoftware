@@ -144,13 +144,17 @@ const STATE_TEXT: Record<"done" | "skipped" | "current" | "paused" | "todo", str
   paused: "Paused",
   todo: "To do",
 };
+const STATE_ICON: Record<keyof typeof STATE_TEXT, string> = { done: "✓", skipped: "–", current: "▶", paused: "Ⅱ", todo: "○" };
 
 /**
- * EVA-1 steps panel: every step of an action with its state, the recorded
- * skip reason and note, and per-step actions. EVA-1.1: completed actions can
- * be chosen too, and a done or skipped step can be reopened (after a
- * confirmation). The step list is the planned procedure; it cannot be edited
- * here.
+ * EVA-1.3 step checklist, always visible in the current-action card (it used
+ * to be an optional panel that started collapsed).
+ *   - Clicking a step only VIEWS it (read-only navigation).
+ *   - "Reopen" beside every done or skipped step CHANGES its status: for the
+ *     action in progress it is immediate and undoable (no effort changes);
+ *     for a completed action the caller asks for confirmation first.
+ * Completed actions can be picked too. The step list is the planned
+ * procedure; it cannot be edited here.
  */
 export function StepsPanel({
   actions,
@@ -159,8 +163,10 @@ export function StepsPanel({
   labels,
   records,
   current,
+  viewing,
   paused,
   editable,
+  onView,
   onComplete,
   onSkip,
   onNote,
@@ -168,10 +174,6 @@ export function StepsPanel({
   onEditReason,
   outcome = null,
 }: {
-  /** EVA-1.2: correct the reason of a skipped step (action in progress). */
-  onEditReason: (index: number) => void;
-  /** EVA-1.2: execution outcome of an ended action, e.g. "Ended with 1 of 4 step(s) skipped…". */
-  outcome?: string | null;
   /** Actions whose steps can be shown: the one in progress and completed ones. */
   actions: readonly { taskId: string; label: string }[];
   selectedTaskId: string;
@@ -179,18 +181,34 @@ export function StepsPanel({
   labels: readonly string[];
   records: readonly StepRecord[];
   current: number | null;
+  /** The step being viewed (read-only), if not the current one. */
+  viewing: number | null;
   paused: boolean;
   /** The shown action is the one in progress (steps can be marked, skipped and noted). */
   editable: boolean;
+  onView: (index: number) => void;
   onComplete: (index: number) => void;
   onSkip: (index: number) => void;
   onNote: (index: number) => void;
   onReopen: (index: number) => void;
+  /** EVA-1.2: correct the reason of a skipped step (action in progress). */
+  onEditReason: (index: number) => void;
+  /** EVA-1.2: execution outcome of an ended action, e.g. "Ended with 1 of 4 step(s) skipped…". */
+  outcome?: string | null;
 }) {
+  const small = "min-h-8 shrink-0 rounded-lg border border-[var(--mg-line)] px-2.5 text-[13px] disabled:opacity-40";
   return (
-    <div data-testid="mg-steps-panel">
+    <section className="mt-6 border-t border-[var(--mg-line)] pt-4" aria-labelledby="mg-steps-title" data-testid="mg-steps-panel">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 id="mg-steps-title" className="text-[13px] uppercase tracking-[0.12em] text-[var(--mg-faint)]">
+          {editable ? "Steps of this action" : "Steps of a completed action"}
+        </h3>
+        <p className="text-[12px] text-[var(--mg-faint)]" data-testid="mg-steps-hint">
+          {"Click a step to view it. Reopen makes a done or skipped step not done again."}
+        </p>
+      </div>
       {actions.length > 1 ? (
-        <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Show the steps of">
+        <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Show the steps of">
           {actions.map((a) => (
             <button
               key={a.taskId}
@@ -206,67 +224,91 @@ export function StepsPanel({
         </div>
       ) : null}
       {outcome ? (
-        <p className="mb-2 text-[13px] text-[var(--mg-dim)]" data-testid="mg-steps-outcome">
+        <p className="mt-2 text-[13px] text-[var(--mg-dim)]" data-testid="mg-steps-outcome">
           {outcome}
         </p>
       ) : null}
-      <ol className="space-y-2">
+      <ol className="mt-2 space-y-1.5">
         {labels.map((label, n) => {
           const r = records[n] ?? { status: "todo" as const };
           const state = r.status !== "todo" ? r.status : n === current ? (paused ? "paused" : "current") : "todo";
+          const isViewed = viewing === n;
           return (
-            <li key={label} data-state={state} className="rounded-xl bg-[var(--mg-surface)] px-3 py-2" data-testid={`mg-step-row-${n}`}>
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-medium">{`${n + 1}. ${label}`}</span>
-                <span
-                  className={`text-[13px] ${state === "done" ? "text-[var(--mg-ok)]" : state === "skipped" ? "text-[var(--mg-faint)]" : state === "paused" ? "text-[var(--mg-caution)]" : state === "current" ? "text-[var(--mg-coral)]" : "text-[var(--mg-dim)]"}`}
-                >
+            <li
+              key={label}
+              data-state={state}
+              className={`flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-2.5 py-1.5 ${
+                isViewed ? "bg-[var(--mg-surface)] outline outline-2 outline-[var(--mg-cyan)]" : state === "current" || state === "paused" ? "bg-[var(--mg-surface)]" : ""
+              }`}
+              data-testid={`mg-step-row-${n}`}
+            >
+              <span
+                aria-hidden
+                className={`w-4 text-center text-[14px] ${state === "done" ? "text-[var(--mg-ok)]" : state === "current" ? "text-[var(--mg-coral)]" : state === "paused" ? "text-[var(--mg-caution)]" : "text-[var(--mg-faint)]"}`}
+              >
+                {STATE_ICON[state]}
+              </span>
+              <button
+                type="button"
+                onClick={() => onView(n)}
+                disabled={!editable}
+                aria-label={`View step ${n + 1}: ${label} (${STATE_TEXT[state].toLowerCase()}). Viewing changes nothing.`}
+                className="min-w-0 flex-1 text-left disabled:cursor-default"
+                data-testid={`mg-step-view-${n}`}
+              >
+                <span className={`text-[15px] ${state === "done" || state === "skipped" ? "text-[var(--mg-dim)]" : ""}`}>{`${n + 1}. ${label}`}</span>
+                <span className={`ml-2 text-[12px] ${state === "done" ? "text-[var(--mg-ok)]" : state === "skipped" ? "text-[var(--mg-faint)]" : state === "paused" ? "text-[var(--mg-caution)]" : state === "current" ? "text-[var(--mg-coral)]" : "text-[var(--mg-dim)]"}`}>
                   {STATE_TEXT[state]}
                 </span>
-              </div>
-              {r.reason ? <p className="mt-0.5 text-[13px] text-[var(--mg-dim)]">{`Skip reason: ${r.reason}`}</p> : null}
-              {r.history?.length ? (
-                <p className="mt-0.5 text-[13px] text-[var(--mg-faint)]" data-testid={`mg-step-history-${n}`}>
-                  {`Earlier: ${r.history.map((h) => (h.status === "done" ? "done" : `skipped (${h.reason ?? "no reason"})`)).join(", then ")}; reopened.`}
-                </p>
-              ) : null}
-              {r.note ? <p className="mt-0.5 text-[13px] text-[var(--mg-dim)]" data-testid={`mg-step-note-${n}`}>{`Your note (simulated): ${r.note}`}</p> : null}
-              <div className="mt-1.5 flex flex-wrap gap-2">
+              </button>
+              {/* On phones the row's buttons sit on their own line, so the step label keeps its width. */}
+              <span className="flex basis-full flex-wrap gap-1.5 pl-6 sm:basis-auto sm:pl-0">
+                {r.status !== "todo" ? (
+                  <button type="button" onClick={() => onReopen(n)} className={`${small} border-[var(--mg-line-strong)] text-[var(--mg-text)]`} data-testid={`mg-step-reopen-${n}`}>
+                    {"Reopen"}
+                  </button>
+                ) : null}
                 {editable && r.status === "skipped" ? (
-                  <button type="button" onClick={() => onEditReason(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px]" data-testid={`mg-step-reason-${n}`}>
+                  <button type="button" onClick={() => onEditReason(n)} className={small} data-testid={`mg-step-reason-${n}`}>
                     {"Edit reason…"}
                   </button>
                 ) : null}
-                {r.status !== "todo" ? (
-                  <button type="button" onClick={() => onReopen(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px]" data-testid={`mg-step-reopen-${n}`}>
-                    {"Reopen…"}
+                {editable && r.status === "todo" && n !== current ? (
+                  <button type="button" disabled={paused} onClick={() => onComplete(n)} className={small} data-testid={`mg-step-done-${n}`}>
+                    {"Mark done"}
                   </button>
                 ) : null}
                 {editable && r.status === "todo" ? (
-                  <>
-                    <button type="button" disabled={paused} onClick={() => onComplete(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px] disabled:opacity-40" data-testid={`mg-step-done-${n}`}>
-                      {"Mark done"}
-                    </button>
-                    <button type="button" disabled={paused} onClick={() => onSkip(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px] disabled:opacity-40" data-testid={`mg-step-skip-${n}`}>
-                      {"Skip…"}
-                    </button>
-                  </>
+                  <button type="button" disabled={paused} onClick={() => onSkip(n)} className={small} data-testid={`mg-step-skip-${n}`}>
+                    {"Skip…"}
+                  </button>
                 ) : null}
                 {editable ? (
-                  <button type="button" onClick={() => onNote(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px]" data-testid={`mg-step-note-btn-${n}`}>
+                  <button type="button" onClick={() => onNote(n)} aria-label={r.note ? `Edit note on step ${n + 1}` : `Add a note on step ${n + 1}`} className={small} data-testid={`mg-step-note-btn-${n}`}>
                     {r.note ? "Edit note…" : "Note…"}
                   </button>
                 ) : null}
-              </div>
+              </span>
+              {r.reason || r.note || r.history?.length ? (
+                <div className="basis-full pl-6 text-[12px] text-[var(--mg-dim)]">
+                  {r.reason ? <p>{`Skip reason: ${r.reason}`}</p> : null}
+                  {r.note ? <p data-testid={`mg-step-note-${n}`}>{`Your note (simulated): ${r.note}`}</p> : null}
+                  {r.history?.length ? (
+                    <p className="text-[var(--mg-faint)]" data-testid={`mg-step-history-${n}`}>
+                      {`Earlier: ${r.history.map((h) => (h.status === "done" ? "done" : `skipped (${h.reason ?? "no reason"})`)).join(", then ")}; reopened.`}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </li>
           );
         })}
       </ol>
-      <p className="mt-3 text-[13px] text-[var(--mg-faint)]" data-testid="mg-procedure-lock">
-        {"These steps are the planned procedure. Changing them or adding new scientific steps needs a separate planning confirmation; the HUD cannot edit the procedure. A done or skipped step can be reopened (with a confirmation) or undone."}
+      <p className="mt-2 text-[12px] text-[var(--mg-faint)]" data-testid="mg-procedure-lock">
+        {"These steps are the planned procedure. Changing them or adding new scientific steps needs a separate planning confirmation; the HUD cannot edit the procedure."}
       </p>
       {paused && editable ? <p className="mt-1 text-[13px] text-[var(--mg-caution)]">{"Paused: resume the step to mark or skip steps."}</p> : null}
-    </div>
+    </section>
   );
 }
 

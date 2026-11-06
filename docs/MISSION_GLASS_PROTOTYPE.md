@@ -243,6 +243,30 @@ procedure system.
   - If the plan still fits, a notice says so (Undo kept).
   - If not, or if the engine's order changed, the replanning dialog opens.
 
+### EVA-1.3: direct past-step correction
+
+- **The step checklist is always visible** in the current-action card, below
+  the primary action. It used to be an optional "Steps" panel that started
+  collapsed.
+  - Each row shows the step's state (✓ done, – skipped, ▶ current, Ⅱ paused,
+    ○ to do), its reason, note and history.
+  - It also offers the row actions: **Reopen** beside every done or skipped
+    step, Mark done, Skip…, Note… and Edit reason….
+  - Completed actions can be picked when more than one action has steps.
+- **Navigation vs status change:**
+  - Clicking a step **views** it, read-only, as with ‹ ›; "Back to current
+    step" returns.
+  - **Reopen** changes its status.
+- **Confirmation only when necessary:**
+  - **Inside the action in progress,** Reopen is immediate and explained ("It
+    is the current step again. Later done steps stay done. Its earlier state
+    is kept in its history."), with Undo; no effort changes.
+  - **For a completed action,** the three-section confirmation and the
+    feasibility re-check remain, because committed effort and the plan
+    change.
+- **The optional Steps panel and More → "All steps…" are removed** (they
+  duplicated the checklist).
+
 ## Spatial decision map (MAP-1)
 
 The planning map is a decision surface, not a backdrop. Everything it shows

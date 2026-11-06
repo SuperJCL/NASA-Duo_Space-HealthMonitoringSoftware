@@ -651,12 +651,15 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
             : i,
       );
       const name = action.titles?.[item.taskId] ?? item.taskId;
+      const laterDone = steps.slice(action.index + 1).filter((x) => x.status === "done").length;
       const label = `Step ${action.index + 1} reopened${wasDone ? `; ${name} is in progress again and its effort is no longer committed` : ""}`;
+      // EVA-1.3: say exactly what changed (reopening inside the action in progress is immediate and undoable).
+      const detail = `${step === action.index ? ` It is the current step again.` : ` The current step is step ${step + 1}.`}${laterDone ? " Later done steps stay done." : ""} Its earlier state is kept in its history.`;
       return {
         ...state,
         previous: null,
         stepUndo: { items: state.plan.items, label },
-        notice: `${label}.`,
+        notice: `${label}.${detail}`,
         plan: { ...state.plan, items },
         log: [...state.log, `${label}: ${item.taskId}${other ? `; set aside: ${other.taskId}` : ""}`],
       };

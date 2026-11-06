@@ -42,7 +42,7 @@ describe("EVA-1.1 reopening completed steps", () => {
     expect(statuses(st)).toEqual(["done", "todo", "todo", "todo"]);
     expect(item(st, ABR)).toMatchObject({ status: "active", step: 1 });
     expect(stepCounts(item(st, ABR), 4)).toEqual({ done: 1, skipped: 0, todo: 3, current: 1 });
-    expect(st.notice).toBe("Step 2 reopened.");
+    expect(st.notice).toBe("Step 2 reopened. It is the current step again. Its earlier state is kept in its history.");
   });
 
   it("complete steps 2 and 3, then reopen step 2: step 3 stays done; work returns to step 2", () => {
@@ -145,4 +145,33 @@ describe("EVA-1.1 reopening completed steps", () => {
     expect(st.previous).toBeNull(); // the replan Undo is not offered any more
     expect(consumedEffort(st, costs)).toBe(0);
   });
+
+  it("EVA-1.3 journey: complete step 2 → move on to step 3 → reopen step 2 → continue it → complete it again", () => {
+    let st = run(started(), complete()); // step 1 done
+    st = run(st, complete(), { type: "set-step-note", stepsByTask, index: 1, note: "Natural surface photographed (simulated)" }); // step 2 done, with a note
+    expect(item(st, ABR).step).toBe(2); // on step 3
+    const committedBefore = consumedEffort(st, costs);
+    st = run(st, reopen(1));
+    expect(statuses(st)).toEqual(["done", "todo", "todo", "todo"]);
+    expect(item(st, ABR).step).toBe(1); // back to step 2
+    expect(st.notice).toBe("Step 2 reopened. It is the current step again. Its earlier state is kept in its history.");
+    expect(stepRecords(item(st, ABR), 4)[1]).toEqual({ status: "todo", note: "Natural surface photographed (simulated)", history: [{ status: "done" }] });
+    expect(consumedEffort(st, costs)).toBe(committedBefore); // nothing committed or released inside the action
+    st = run(st, complete()); // step 2 completed again
+    expect(statuses(st)).toEqual(["done", "done", "todo", "todo"]);
+    expect(item(st, ABR).step).toBe(2); // step 3 is current again
+    expect(stepRecords(item(st, ABR), 4)[1]).toEqual({ status: "done", note: "Natural surface photographed (simulated)", history: [{ status: "done" }] });
+    // The rest of the action ends normally, committing its effort once.
+    st = run(st, complete(), complete());
+    expect(item(st, ABR).status).toBe("done");
+    expect(consumedEffort(st, costs)).toBe(40);
+  });
+
+  it("EVA-1.3: reopening an earlier step while later ones are done keeps them done and says so", () => {
+    let st = run(started(), complete(), complete(), complete()); // 1–3 done, on step 4
+    st = run(st, reopen(1));
+    expect(statuses(st)).toEqual(["done", "todo", "done", "todo"]);
+    expect(st.notice).toBe("Step 2 reopened. It is the current step again. Later done steps stay done. Its earlier state is kept in its history.");
+  });
 });
+
