@@ -63,7 +63,11 @@
   default entry point (`/`; the research workspace is `/research`). Its
   targets, steps and events are
   scenario-defined and must stay labelled simulated; never copy them into
-  `src/data/geo/`. Ranks come only from the existing engine.
+  `src/data/geo/`. Ranks come only from the existing engine. MAP-2
+  sequence lines (`mission-sequence.ts`) follow plan order only, are always
+  labelled "Conceptual mission sequence — not a navigable route", never infer
+  a missing position, and give straight-line separations only (Mars sphere,
+  never from exaggerated 3D geometry); see `docs/MAP2_MISSION_SEQUENCE.md`.
 - `src/lib/terrain/`, `src/data/terrain/`, `public/terrain/` — MAP-3A local
   3D terrain: a bounded crop of the verified Trek CTX DTM (20 m) and the
   matching CTX orthomosaic, built only by `scripts/build-ctx-terrain.mjs`

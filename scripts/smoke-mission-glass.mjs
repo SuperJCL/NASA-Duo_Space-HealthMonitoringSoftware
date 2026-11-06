@@ -1222,6 +1222,275 @@ try {
     await ph.close();
   }
 
+  // ── MAP-2: conceptual mission sequence in 2D and 3D (fresh pages) ──
+  {
+    const A = "task-standoff-survey", B = "task-abrasion-proximity", C = "task-core-for-earth";
+    const SEQ_LABEL = "Conceptual mission sequence — not a navigable route";
+    const DRAFT_LABEL = "Draft order preview — not a navigable route";
+    const sepM = (x, y) => Math.hypot(TARGETS[y].east - TARGETS[x].east, TARGETS[y].north - TARGETS[x].north); // scenario offsets (independent of the app)
+    const seq2d = async (pg) => JSON.parse((await pg.getByTestId("mars-map").getAttribute("data-sequence")) || "null");
+    const tstate = async (pg) => JSON.parse((await pg.getByTestId("terrain-viewer").getAttribute("data-terrain-state")) || "{}");
+    const to3d = async (pg) => {
+      await pg.getByTestId("mg-view-3d").click();
+      await pg.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="terrain-viewer"]')?.getAttribute("data-terrain-state") || "{}").loaded, undefined, { timeout: 30_000 });
+      await settle(pg, 700);
+    };
+    const add = async (pg, ...ids) => {
+      for (const id of ids) await pg.getByTestId(`mg-card-${id}`).getByTestId("mg-plan-toggle").click();
+      await settle(pg, 200);
+    };
+    const open = async () => {
+      const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      const errs = [];
+      pg.on("pageerror", (e) => errs.push(String(e)));
+      await pg.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+      await pg.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+      await settle(pg, 800);
+      return [pg, errs];
+    };
+
+    // 1. Planning: nothing before a plan; draft preview; reorder; confirmed sequence; 2D/3D parity; segment selection.
+    const [sp, serr] = await open();
+    const none = (await seq2d(sp)) === null && (await sp.getByTestId("mg-seq-list").count()) === 0;
+    await add(sp, B, C);
+    let q = await seq2d(sp);
+    check(
+      none && q?.phase === "draft" && q.segments.length === 1 && q.segments[0].id === `seq:${B}>${C}` && q.segments[0].state === "draft" &&
+        JSON.stringify(q.nodes.map((n) => [n.targetId, n.order])) === JSON.stringify([["sim-target-b", 1], ["sim-target-c", 2]]) &&
+        (await text(sp.getByTestId("mg-legend-seq"))) === DRAFT_LABEL && (await sp.getByTestId("mg-seq-list").getAttribute("data-phase")) === "draft",
+      "MAP-2: no connections before anything is planned; the draft shows a labelled dashed preview in draft order",
+    );
+    await sp.getByTestId("mg-review-plan").click();
+    await sp.getByRole("button", { name: "Move Collect a core sample up" }).click();
+    await settle(sp, 300);
+    q = await seq2d(sp);
+    const reordered = q.segments[0].id === `seq:${C}>${B}` && JSON.stringify(q.nodes.map((n) => [n.targetId, n.order])) === JSON.stringify([["sim-target-c", 1], ["sim-target-b", 2]]);
+    await sp.getByTestId("mg-create-plan").click();
+    await settle(sp, 400);
+    q = await seq2d(sp);
+    const listTxt = await text(sp.getByTestId("mg-seq-list"));
+    check(
+      reordered && q.phase === "confirmed" && q.segments[0].id === `seq:${C}>${B}` && q.segments[0].state === "remaining" &&
+        (await text(sp.getByTestId("mg-legend-seq"))) === SEQ_LABEL && (await text(sp.getByTestId("mg-seq-label"))) === SEQ_LABEL &&
+        /Seq 1Target C · Collect a core sample/.test(listTxt) && /Seq 2Target B · Abrade and analyse a rock/.test(listTxt) &&
+        (await sp.getByTestId("mg-target-sim-target-c").getAttribute("data-badge")) === "2", // rank #2 stays the badge; Seq 1 is plan order
+      "MAP-2: reordering the draft reorders the preview while reviewing; the created plan is drawn as the confirmed sequence, numbered by plan order (not rank)",
+    );
+    // Select the connection by clicking the line on the 2D map.
+    const v = await viewOf(sp);
+    const [px, py] = v.px(q.segments[0].from.map((x, k) => x + (q.segments[0].to[k] - x) * 0.3));
+    await sp.mouse.click(px, py);
+    await settle(sp, 900);
+    q = await seq2d(sp);
+    const summary = await text(sp.getByTestId("mg-segment-summary"));
+    const dist = await text(sp.getByTestId("mg-segment-distance"));
+    await sp.getByTestId("mg-seg-profile-stats").waitFor({ timeout: 15_000 });
+    const segStats = await text(sp.getByTestId("mg-seg-profile-stats"));
+    const expectM = Math.round(sepM("sim-target-c", "sim-target-b"));
+    check(
+      q.segments[0].selected && JSON.stringify(q.highlighted) === JSON.stringify(["sim-target-c", "sim-target-b"]) &&
+        (await sp.getByTestId(`mg-card-${C}`).getAttribute("data-highlighted")) === "true" && (await sp.getByTestId(`mg-card-${B}`).getAttribute("data-highlighted")) === "true" &&
+        dist === `${expectM} m straight-line separation (great circle, Mars 2000 sphere). Not a travel distance.` &&
+        /Plan order only: not a navigable route, no travel time/.test(summary) && new RegExp(`^${expectM} m straight line · start −2,4\\d\\d m · end −2,4\\d\\d m`).test(segStats) &&
+        (await text(sp.getByTestId("mg-segment-profile-caveat"))) === "Straight sampling line: not a route, not a safe path, no travel time or traversability." &&
+        (await sp.getByTestId(`mg-seq-seg-1-2`).getAttribute("aria-pressed")) === "true",
+      `MAP-2: clicking a connection on the 2D map selects it: both tasks highlighted, straight-line separation (${dist}) and the real-DTM profile, labelled not a route`,
+    );
+    // 2D/3D parity, selection kept, profile tool reused; exaggeration never changes distances.
+    await to3d(sp);
+    let t = await tstate(sp);
+    const parity =
+      JSON.stringify(t.sequence.segments.map((x) => [x.id, x.state, x.infeasible])) === JSON.stringify(q.segments.map((x) => [x.id, x.state, x.infeasible])) &&
+      JSON.stringify(t.sequence.nodes.map((n) => [n.targetId, n.order, n.onLine])) === JSON.stringify(q.nodes.map((n) => [n.targetId, n.order, n.onLine])) &&
+      t.sequence.segments.every((x) => x.drawn && x.coverage === "inside") && (await text(sp.getByTestId("terrain-seq-sim-target-c"))) === "Seq 1" && (await text(sp.getByTestId("terrain-seq-sim-target-b"))) === "Seq 2";
+    const kept3d = t.sequence.segments[0].selected && t.profile?.from === "sim-target-c" && t.profile?.to === "sim-target-b" && Math.abs(t.profile.lengthM - expectM) <= 1 && /plan order 1 → 2/.test(await text(sp.getByTestId("terrain-profile-segment")));
+    await sp.getByTestId("terrain-exaggeration").selectOption("5");
+    await settle(sp, 500);
+    t = await tstate(sp);
+    const sameAt5 = t.profile.lengthM === Math.round(expectM) || Math.abs(t.profile.lengthM - expectM) <= 1;
+    const dist5 = await text(sp.getByTestId("mg-segment-distance"));
+    check(parity && kept3d && sameAt5 && dist5 === dist && (await text(sp.getByTestId("terrain-seq-label"))) === "Coral line: conceptual mission sequence — not a navigable route.", "MAP-2: 3D draws the same sequence (ids, states, plan-order chips), keeps the selected connection and shows it in the real-DTM profile; 5× changes no distance");
+    await sp.getByTestId("terrain-exaggeration").selectOption("1");
+    await settle(sp, 400);
+    await sp.getByTestId("mg-segment-close").click();
+    await settle(sp, 300);
+    const cleared = (await tstate(sp)).sequence.segments.every((x) => !x.selected) && (await sp.getByTestId("mg-segment-summary").count()) === 0;
+    // Select the connection in 3D by clicking its direction cone on the terrain.
+    const scr = (await tstate(sp)).sequence.segments[0].screen;
+    const cbox = await sp.getByTestId("terrain-canvas").boundingBox();
+    if (scr) await sp.mouse.click(cbox.x + scr[0], cbox.y + scr[1]);
+    await settle(sp, 500);
+    const clicked3d = Boolean(scr) && (await tstate(sp)).sequence.segments[0].selected && (await sp.getByTestId("mg-segment-summary").isVisible());
+    check(clicked3d, `MAP-2: clicking a connection in 3D selects it (${JSON.stringify(scr)})`);
+    await sp.getByTestId("mg-segment-close").click();
+    await settle(sp, 300);
+    // Keyboard: the sequence list selects connections and targets.
+    await sp.getByTestId("mg-seq-seg-1-2").focus();
+    await sp.keyboard.press("Enter");
+    await settle(sp, 400);
+    const kb = (await tstate(sp)).sequence.segments[0].selected && (await sp.getByTestId("mg-segment-summary").isVisible());
+    await sp.getByTestId("mg-seq-node-2").focus();
+    await sp.keyboard.press("Enter");
+    await settle(sp, 400);
+    t = await tstate(sp);
+    check(
+      cleared && kb && t.selected === "sim-target-b" && t.sequence.segments.every((x) => !x.selected) && (await sp.getByTestId("mg-segment-summary").count()) === 0 && (await sp.getByTestId("mg-target-summary").isVisible()),
+      "MAP-2: keyboard sequence list selects a connection, then a target (which clears the connection), in 3D as in 2D",
+    );
+    await sp.getByTestId("mg-view-2d").click();
+    await settle(sp, 400);
+    q = await seq2d(sp);
+    check((await sp.getByTestId("mars-map").getAttribute("data-selected-id")) === "sim-target-b" && q.segments.every((x) => !x.selected), "MAP-2: switching back to 2D keeps the selection made in 3D");
+    // Discard: confirmed connections go; only the kept draft's preview remains; an empty draft draws nothing.
+    await sp.getByTestId("mg-clear-plan").click();
+    await settle(sp, 300);
+    q = await seq2d(sp);
+    const afterDiscard = q?.phase === "draft" && q.segments.every((x) => x.state === "draft") && (await text(sp.getByTestId("mg-seq-label"))) === DRAFT_LABEL;
+    await add(sp, B, C);
+    check(afterDiscard && (await seq2d(sp)) === null && (await sp.getByTestId("mg-seq-list").count()) === 0, "MAP-2: discarding the plan removes its confirmed connections (the kept draft is shown as a preview); an empty draft draws nothing");
+    check(serr.length === 0, `MAP-2 planning: no page errors${serr.length ? ` (${serr[0]})` : ""}`);
+    await sp.close();
+
+    // 2. EVA: current and remaining; completed, completed with skipped steps, skipped by the user; reopen keeps order.
+    const [ep2, eerr] = await open();
+    await ep2.getByLabel("Simulated effort budget").fill("120");
+    await add(ep2, A, B, C);
+    await ep2.getByTestId("mg-review-plan").click();
+    await ep2.getByTestId("mg-create-plan").click();
+    await ep2.getByTestId("mg-start-eva").click();
+    await settle(ep2, 400);
+    const finish = async () => {
+      for (let k = 0; k < 6 && (await ep2.getByTestId("mg-complete-step").count()); k++) {
+        await ep2.getByTestId("mg-complete-step").click();
+        await settle(ep2, 120);
+      }
+    };
+    await ep2.getByTestId("mg-start").click();
+    await finish();
+    await ep2.getByTestId("mg-toggle-map").click();
+    await settle(ep2, 900);
+    q = await seq2d(ep2);
+    const evaStart = JSON.stringify(q.segments.map((x) => [x.id, x.state])) === JSON.stringify([[`seq:${A}>${B}`, "current"], [`seq:${B}>${C}`, "remaining"]]) && (await ep2.getByTestId("mg-eva-seq-label").isVisible());
+    // Target B: skip one step with a reason, complete the rest → completed with skipped steps.
+    await ep2.getByTestId("mg-start").click();
+    await ep2.getByTestId("mg-skip-step").click();
+    await ep2.getByTestId("mg-step-input").fill("Dust on the target (simulated)");
+    await ep2.getByTestId("mg-form-submit").click();
+    await settle(ep2, 200);
+    await finish();
+    await settle(ep2, 400);
+    q = await seq2d(ep2);
+    const partial = JSON.stringify(q.segments.map((x) => [x.id, x.state])) === JSON.stringify([[`seq:${A}>${B}`, "history"], [`seq:${B}>${C}`, "current"]]) && q.nodes.find((n) => n.targetId === "sim-target-b")?.state === "done-partial";
+    check(evaStart && partial, "MAP-2 EVA: the connection to the current action is highlighted and the rest stays remaining; completed and completed-with-skipped-steps actions stay as history");
+    // Reopen a step of the completed Target A: plan order and connections are kept, states follow.
+    await ep2.getByTestId("mg-start").click();
+    const before = (await seq2d(ep2)).segments.map((x) => x.id);
+    if (await ep2.getByTestId(`mg-steps-of-${A}`).count()) await ep2.getByTestId(`mg-steps-of-${A}`).click();
+    await ep2.getByTestId("mg-step-reopen-0").click();
+    await ep2.getByTestId("mg-reopen-yes").click();
+    await settle(ep2, 500);
+    if (await ep2.getByTestId("mg-replan").count()) await ep2.getByTestId("mg-keep-plan").click();
+    await settle(ep2, 300);
+    q = await seq2d(ep2);
+    const reopenOk =
+      JSON.stringify(q.segments.map((x) => x.id)) === JSON.stringify(before) &&
+      JSON.stringify(q.nodes.map((n) => [n.targetId, n.order, n.state])) === JSON.stringify([["sim-target-a", 1, "active"], ["sim-target-b", 2, "done-partial"], ["sim-target-c", 3, "planned"]]);
+    check(reopenOk, `MAP-2 EVA: reopening a completed action keeps plan order and connections; only states change (${JSON.stringify(q.nodes.map((n) => n.state))})`);
+    await finish();
+    // The user skips Target C: it keeps its number but leaves the line.
+    await ep2.getByTestId("mg-more").click();
+    await ep2.getByTestId("mg-skip").click();
+    await ep2.getByTestId("mg-step-input").fill("Out of time (simulated)");
+    await ep2.getByTestId("mg-form-submit").click();
+    await settle(ep2, 500);
+    q = await seq2d(ep2);
+    const skippedOk = JSON.stringify(q.segments.map((x) => [x.id, x.state])) === JSON.stringify([[`seq:${A}>${B}`, "history"]]) && JSON.stringify(q.nodes.find((n) => n.targetId === "sim-target-c")) === JSON.stringify({ targetId: "sim-target-c", order: 3, onLine: false, state: "skipped-user" });
+    await ep2.getByTestId("mg-mode-planning").click();
+    await settle(ep2, 600);
+    const evaList = await text(ep2.getByTestId("mg-seq-list"));
+    check(skippedOk && /Completed with 1 skipped step/.test(evaList) && /Skipped by you: Out of time \(simulated\) · not on the sequence line/.test(evaList), "MAP-2 EVA: an action skipped by the user keeps its plan number but leaves the line; planning shows the same history");
+    check(eerr.length === 0, `MAP-2 EVA: no page errors${eerr.length ? ` (${eerr[0]})` : ""}`);
+    await ep2.close();
+
+    // 3. Replanning: preview before deciding, accept (dropped by replan), undo, keep infeasible, no feasible alternative.
+    const replanPage = async () => {
+      const [pg, errs] = await open();
+      await pg.getByLabel("Simulated effort budget").fill("110");
+      await add(pg, A, B, C);
+      await pg.getByTestId("mg-review-plan").click();
+      await pg.getByTestId("mg-create-plan").click();
+      await pg.getByTestId("mg-start-eva").click();
+      await settle(pg, 400);
+      await pg.getByTestId("mg-start").click();
+      for (let k = 0; k < 6 && (await pg.getByTestId("mg-complete-step").count()); k++) await pg.getByTestId("mg-complete-step").click();
+      await pg.getByTestId("mg-toggle-scenario").click();
+      return [pg, errs];
+    };
+    const [rp, rerr] = await replanPage();
+    await rp.getByTestId("mg-event-effort-restored").click(); // 110 → 100: 85 pts available, B (40) + C (55) = 95
+    await settle(rp, 500);
+    const sugg = JSON.parse((await rp.getByTestId("mg-replan-seq-suggested").getAttribute("data-segments")) || "[]");
+    const curr = JSON.parse((await rp.getByTestId("mg-replan-seq-current").getAttribute("data-segments")) || "[]");
+    await rp.getByTestId("mg-accept-replan").click();
+    await settle(rp, 400);
+    await rp.getByTestId("mg-toggle-map").click();
+    await settle(rp, 900);
+    q = await seq2d(rp);
+    const accepted = JSON.stringify(q.segments.map((x) => [x.id, x.state])) === JSON.stringify(sugg.map((x) => [x.id, x.state])) && JSON.stringify(sugg.map((x) => x.id)) === JSON.stringify([`seq:${A}>${B}`]) && q.nodes.find((n) => n.targetId === "sim-target-c")?.state === "dropped-replan";
+    check(
+      accepted && JSON.stringify(curr.map((x) => [x.id, x.infeasible])) === JSON.stringify([[`seq:${A}>${B}`, false], [`seq:${B}>${C}`, true]]),
+      "MAP-2 replan: both options are previewed as sequences before deciding; accepting draws exactly the previewed sequence and the dropped action leaves the line",
+    );
+    await rp.getByTestId("mg-undo-replan").click();
+    await settle(rp, 400);
+    q = await seq2d(rp);
+    check(JSON.stringify(q.segments.map((x) => x.id)) === JSON.stringify([`seq:${A}>${B}`, `seq:${B}>${C}`]) && q.nodes.every((n) => n.onLine), "MAP-2 replan: Undo restores the previous spatial sequence");
+    check(rerr.length === 0, `MAP-2 replan: no page errors${rerr.length ? ` (${rerr[0]})` : ""}`);
+    await rp.close();
+    const [kp2, kerr] = await replanPage();
+    await kp2.getByTestId("mg-event-effort-cut").click(); // 15 committed, 35 available: neither B nor C fits
+    await settle(kp2, 500);
+    const nf = (await kp2.getByTestId("mg-no-feasible").isVisible()) && (await kp2.getByTestId("mg-replan-seq-suggested").getAttribute("data-segments")) === "[]";
+    await kp2.getByTestId("mg-keep-plan").click();
+    await settle(kp2, 400);
+    await kp2.getByTestId("mg-toggle-map").click();
+    await settle(kp2, 900);
+    q = await seq2d(kp2);
+    check(
+      nf && JSON.stringify(q.segments.map((x) => [x.id, x.infeasible])) === JSON.stringify([[`seq:${A}>${B}`, true], [`seq:${B}>${C}`, true]]) && (await kp2.getByTestId("mg-retained-warning").isVisible()),
+      "MAP-2 replan: with no feasible alternative nothing new is drawn; keeping the plan keeps its sequence, marked as not fitting",
+    );
+    check(kerr.length === 0, `MAP-2 keep: no page errors${kerr.length ? ` (${kerr[0]})` : ""}`);
+    await kp2.close();
+
+    // 4. Phone, touch and reduced motion.
+    const mp2 = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce", hasTouch: true, isMobile: true });
+    const merr2 = [];
+    mp2.on("pageerror", (e) => merr2.push(String(e)));
+    await mp2.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await mp2.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await settle(mp2, 600);
+    await mp2.getByTestId("mg-use-suggested").tap();
+    await mp2.getByTestId("mg-review-plan").tap();
+    await mp2.getByTestId("mg-create-plan").tap();
+    await settle(mp2, 400);
+    const chipOk = (await text(mp2.getByTestId("mg-seq-map-label"))) === SEQ_LABEL && (await mp2.getByTestId("mg-seq-map-label").isVisible());
+    await mp2.getByTestId("mg-seq-seg-1-2").tap();
+    await settle(mp2, 800);
+    const sumBox = await mp2.getByTestId("mg-segment-summary").boundingBox();
+    const ovp = await mp2.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    await mp2.getByTestId("mg-view-3d").tap();
+    await mp2.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="terrain-viewer"]')?.getAttribute("data-terrain-state") || "{}").loaded, undefined, { timeout: 30_000 });
+    await settle(mp2, 700);
+    const pt = JSON.parse((await mp2.getByTestId("terrain-viewer").getAttribute("data-terrain-state")) || "{}");
+    check(
+      chipOk && sumBox && sumBox.x >= 0 && sumBox.x + sumBox.width <= 390 && ovp <= 0 && pt.sequence?.segments[0]?.selected && (await mp2.getByTestId("terrain-profile-toggle").getAttribute("aria-expanded")) === "false" &&
+        (await mp2.getByTestId("terrain-viewer").getAttribute("data-motion")) === "reduced" && merr2.length === 0,
+      "MAP-2 phone: the sequence label is on the map, connections are selectable by touch from the list, the summary fits, 3D keeps the selection without covering the terrain, reduced motion, no overflow",
+    );
+    await mp2.close();
+  }
+
   // ── Translation regression (UX-0 rule) ──
   const translate = (pg) =>
     pg.evaluate(() => {
@@ -1274,6 +1543,13 @@ try {
   await tp.getByTestId("mg-review-plan").click();
   await translate(tp);
   await tp.getByTestId("mg-create-plan").click();
+  await translate(tp);
+  await tp.getByTestId("mg-seq-seg-1-2").click();
+  await settle(tp, 600);
+  await translate(tp);
+  await tp.getByTestId("mg-seq-node-2").click();
+  await tp.getByTestId("mg-seq-toggle").click();
+  await tp.getByTestId("mg-seq-toggle").click();
   await tp.getByTestId("mg-start-eva").click();
   await settle(tp, 800);
   await translate(tp);
@@ -1325,7 +1601,7 @@ try {
   await tp.getByTestId("mg-event-effort-restored").click();
   await tp.getByTestId("mg-toggle-map").click();
   await settle(tp);
-  check(terr.length === 0 && (await tp.getByTestId("mg-plan-timeline").count()) === 1, `[translated] planning, map targets and summary, 3D terrain, EVA steps (pause, note, undo, reopen, view, collapse) and replanning (keep, review, accept, undo) without page errors${terr.length ? ` (${terr[0]})` : ""}`);
+  check(terr.length === 0 && (await tp.getByTestId("mg-plan-timeline").count()) === 1, `[translated] planning, map targets and summary, mission sequence (list, connection summary), 3D terrain, EVA steps (pause, note, undo, reopen, view, collapse) and replanning (keep, review, accept, undo) without page errors${terr.length ? ` (${terr[0]})` : ""}`);
   await tp.close();
 
   // ── Reduced motion ──

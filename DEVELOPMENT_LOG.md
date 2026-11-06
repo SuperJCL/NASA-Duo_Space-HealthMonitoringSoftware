@@ -2862,3 +2862,112 @@ unchanged, and `verify:terrain` still matches a fresh build.
   accepted MAP-3A.1 branch; EVA code and data are identical to the accepted
   EVA-1.3 branch.
 - **Rework:** none.
+
+## MAP-2: conceptual mission sequence in 2D and 3D
+
+- **Branch:** `map2-spatial-mission-sequence`, created from the integrated
+  `main` (`321e4ee`). Not merged; awaiting manual usability acceptance.
+- **Started:** 2026-11-06T20:50:13Z.
+- **Completed:** 2026-11-06T21:31:47Z, at this commit.
+- **Wall-clock elapsed:** 41 min 34 s. One agent, no parallel work, no human
+  intervention.
+
+### What it does
+
+- **Sequence model** (`src/lib/prototype/mission-sequence.ts`, pure): derives
+  the sequence from the shared mission state, with no new state.
+  - Phases: none, draft preview, confirmed.
+  - Plan-order numbers, never the engine's rank.
+  - Target states: planned, active, done, done-partial, skipped by the user,
+    dropped by replan.
+  - Connection states, from where each leads: history, current, remaining,
+    infeasible.
+  - Missing positions become reported gaps, never inferred or bridged.
+  - Great-circle straight-line separations on the Mars 2000 sphere.
+  - `replanSequences` previews both replan options. It uses
+    `itemsAfterReplan`, a pure function extracted unchanged from the
+    reducer, so the preview equals the accepted result.
+- **2D (OpenLayers):**
+  - a sequence layer under the targets: solid or dashed lines, a static
+    arrowhead, and "Seq n" / "Draft n" chips;
+  - clicking a line selects it, and its ends are ringed;
+  - `data-sequence` mirrors what is drawn.
+- **3D (three.js):**
+  - the same connections as thin tubes on the DTM samples (true elevations,
+    shown at the current exaggeration), with direction cones and chips;
+  - clicking a tube selects it, and the camera orbits the selected
+    connection;
+  - the existing profile tool shows that connection;
+  - connections outside the crop are neither drawn nor profiled
+    (`segmentCoverage`).
+- **Planning panel:**
+  - "Mission sequence on the map", the keyboard-accessible list of targets
+    and connections;
+  - a connection summary with plan order, a short explanation, the
+    straight-line separation ("not a travel distance") and, in 2D, the
+    real-DTM profile (the verified heights are loaded lazily);
+  - task cards of the selected connection marked with a dashed outline;
+  - the legend and an on-map label, "Conceptual mission sequence — not a
+    navigable route".
+- **EVA:** the Map panel shows the sequence, with the connection to the
+  current action in bold.
+- **Replan dialog:** a plan-order diagram for each option.
+- **Unchanged:** the ranking formula, evidence, reviews, verified geo
+  features and terrain elevations: 0 lines of diff against `main` in the
+  engine, evidence, geo, briefing, mission and `src/data`, and in
+  `public/terrain` and the terrain build script. The review registry is 50
+  pending, 0 approved.
+
+### Verification (production build, `next start`)
+
+- `npm run check`: lint, typecheck and build pass, with 268/268 unit tests
+  (+15: 13 sequence tests, 2 terrain-coverage tests).
+- Prototype smoke: 186/186 in two consecutive runs (+19 MAP-2 checks, plus
+  translation coverage for the list and the connection summary).
+- Research smoke: 116/116 with `SMOKE_LIVE=1`.
+- Data validators:
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:terrain`: the committed assets match a fresh build.
+
+### Rework
+
+1. **Two unit-test expectations were wrong; the code was right.**
+   - One plan was over budget (110 of 100 pts).
+   - "Keep current" follows the dialog's running fit, so Survey also does not
+     fit after Coring.
+2. **The 2D connection summary overlapped the legend.** The legend now gives
+   way while a connection is open.
+3. **In 3D the selected connection was tiny at the default distance.** The
+   camera now orbits it, at most 1.1 km away.
+4. **On phones, selecting a connection opened the 3D profile over the
+   terrain.** The panel now opens automatically only at ≥ 640 px.
+5. **3D tubes looked heavy close up.** They were made thinner and the
+   selection halo lighter.
+6. **On phones, a neighbour's label hid a "Seq" chip in 2D.** Chips now sit
+   to the right of the marker.
+7. **Replan diagram labels collided with lines.** Labels now sit above the
+   nodes.
+8. **The test attribute lacked target states.** `data-sequence` nodes now
+   carry them.
+
+### Known limitations
+
+- **Untested coverage and gap states:** all three scenario targets are inside
+  the DTM crop and have positions. The "outside the crop" and "missing
+  position" states are covered by unit tests and code paths, not by a
+  browser scenario.
+- **Two numbers per target:** the rank in the diamond (MAP-1, unchanged) and
+  Seq n (plan order). The legend and list explain both; chips and labels can
+  still overlap on the small EVA minimap.
+- **"Discard plan" keeps the draft** (existing reducer behaviour), so the
+  draft preview returns after the confirmed connections are removed.
+- **Mode coverage:** 3D is in planning mode only (as in MAP-3A). The EVA HUD
+  shows the 2D sequence, and connection selection is a planning
+  interaction.
+- **Replanning preview:** the "Keep current" diagram follows the dialog's
+  running fit; after keeping, the map marks per-action engine feasibility
+  (MAP-1).
+- **Test environment:** headless Chromium with software WebGL; no user
+  testing yet.

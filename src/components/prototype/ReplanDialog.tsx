@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import type { ImpactVerdict, ReplanProposal, TaskView } from "@/lib/prototype/mission-glass";
+import type { MissionSequence } from "@/lib/prototype/mission-sequence";
+import { SequenceDiagram } from "./SequenceViews";
 
 const VERDICT: Record<ImpactVerdict, { label: string; tone: string }> = {
   "kept-done": { label: "Done · kept", tone: "text-[var(--mg-ok)]" },
@@ -19,11 +21,14 @@ const VERDICT: Record<ImpactVerdict, { label: string; tone: string }> = {
 export function ReplanDialog({
   proposal,
   viewById,
+  preview,
   onAccept,
   onKeep,
 }: {
   proposal: ReplanProposal;
   viewById: ReadonlyMap<string, TaskView>;
+  /** MAP-2: the sequence each option would leave (plan order only). */
+  preview?: { suggested: MissionSequence; current: MissionSequence };
   onAccept: () => void;
   onKeep: () => void;
 }) {
@@ -126,6 +131,7 @@ export function ReplanDialog({
                   <p className="mt-1 text-[14px] text-[var(--mg-dim)]" data-testid="mg-no-feasible">
                     {`None of the remaining actions fits the ${p.available} pts available. Ending the remaining work keeps everything completed; the unfinished actions are marked "dropped by replan", not deleted.`}
                   </p>
+                  {preview ? <SequenceDiagram sequence={preview.suggested} testId="mg-replan-seq-suggested" caption="No remaining sequence: nothing new is drawn. Completed work stays." /> : null}
                 </>
               ) : (
                 <>
@@ -142,6 +148,7 @@ export function ReplanDialog({
                     </p>
                   ) : null}
                   <p className="mt-1 text-[13px] text-[var(--mg-faint)]">{"Order from the existing engine: provisional, not scientifically validated."}</p>
+                  {preview ? <SequenceDiagram sequence={preview.suggested} testId="mg-replan-seq-suggested" caption="Proposed sequence. Numbers: plan order. Not a navigable route." /> : null}
                 </>
               )}
             </div>
@@ -155,6 +162,7 @@ export function ReplanDialog({
               <p className={`mt-1 text-[14px] ${over ? "text-[var(--mg-caution)]" : "text-[var(--mg-ok)]"}`} data-testid="mg-current-feasibility">
                 {over ? `Infeasible: needs ${p.current.total} pts, ${p.current.overBy} more than available. Later actions may not be possible.` : `Fits: ${p.current.total} of ${p.available} pts.`}
               </p>
+              {preview ? <SequenceDiagram sequence={preview.current} testId="mg-replan-seq-current" caption="Current sequence. Numbers: plan order; yellow dashed: does not fit." /> : null}
             </div>
           </div>
         </div>

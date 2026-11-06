@@ -592,6 +592,9 @@ export function EvaHud({
                 <PanelHeader title="Map" onCollapse={() => collapse("map")} />
               </div>
               <p className="px-4 text-[13px] text-[var(--mg-faint)]">{"Coral: simulated target · blue: verified NASA/PDS data"}</p>
+              <p className="px-4 text-[13px] font-medium text-[var(--mg-coral)]" data-testid="mg-eva-seq-label">
+                {"Coral line: conceptual mission sequence (plan order), not a navigable route. Bold: to the current action · green: completed."}
+              </p>
               <div className="relative mt-2 h-60">{map}</div>
             </section>
           ) : null}

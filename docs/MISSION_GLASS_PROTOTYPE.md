@@ -326,6 +326,22 @@ ranking.
 - **Test hooks:** `data-sim-markers`, `data-selected-id` and `data-motion`
   on the map element mirror what is drawn.
 
+## Conceptual mission sequence (MAP-2)
+
+The plan is drawn as lines between the scenario-defined targets, in plan
+order only, in 2D and 3D, and labelled "Conceptual mission sequence — not a
+navigable route". A draft is drawn as a dashed "Draft order preview".
+
+- **Chips:** "Seq n" next to each target gives its plan order; the rank stays
+  in the diamond.
+- **Selecting a connection** highlights its two tasks, shows the
+  straight-line separation (Mars sphere, not a travel distance) and the
+  real-DTM straight-line profile.
+- **Shared state:** EVA progress, skips, reopening and replanning (with a
+  preview of both options) all come from the shared mission state.
+
+Details, tests and manual acceptance: `docs/MAP2_MISSION_SEQUENCE.md`.
+
 ## Actual vs scenario-defined data
 
 | Data | Status |

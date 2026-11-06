@@ -282,6 +282,16 @@ export function reliefSummary(m: TerrainMeta, heights: Float32Array, reference: 
   };
 }
 
+/**
+ * MAP-2: whether a straight connection lies inside the DTM crop. The crop is
+ * a lon/lat rectangle (equirectangular), so a straight line between two
+ * inside points stays inside; anything else is "outside" and gets no 3D line
+ * and no profile (never extrapolated elevations).
+ */
+export function segmentCoverage(m: TerrainMeta, from: LonLat, to: LonLat): "inside" | "outside" {
+  return insideCrop(m, from) && insideCrop(m, to) ? "inside" : "outside";
+}
+
 /** The same finding in one short sentence, for narrow screens. */
 export function reliefHeadline(r: ReliefSummary, referenceName: string): string {
   const mid = r.local.find((x) => x.radiusM === 300)?.reliefM;

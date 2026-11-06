@@ -15,6 +15,7 @@ import {
   reliefHeadline,
   reliefStatement,
   reliefSummary,
+  segmentCoverage,
   DEFAULT_EXAGGERATION,
   LEFROY_TERRAIN as m,
   MARS_RADIUS_M,
@@ -213,3 +214,17 @@ describe("MAP-3A.1 readable relief from the unchanged DTM", () => {
   });
 });
 
+
+describe("MAP-2 terrain coverage of sequence connections", () => {
+  const targets = simulatedTargets(parseScenario(scenarioJson, loadJezeroMarginScenario().scenario, loadJezeroGeo().catalog), loadJezeroGeo().catalog);
+
+  it("every connection between the scenario targets lies inside the DTM crop", () => {
+    for (const a of targets) for (const b of targets) if (a !== b) expect(segmentCoverage(m, a.position, b.position)).toBe("inside");
+  });
+
+  it("a connection leaving the crop is outside: no 3D line and no profile values", () => {
+    const outside = [m.crop.bboxDeg[2] + 0.01, m.crop.bboxDeg[3]] as const;
+    expect(segmentCoverage(m, targets[0].position, outside)).toBe("outside");
+    expect(profileAlong(m, heights, targets[0].position, outside)).toBeNull();
+  });
+});

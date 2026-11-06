@@ -53,3 +53,16 @@ export function formatLonLat(coordinate: LonLat, fractionDigits = 4): string {
   const lonLabel = `${Math.abs(lon).toFixed(fractionDigits)}° ${lon >= 0 ? "E" : "W"}`;
   return `${latLabel}, ${lonLabel}`;
 }
+
+/**
+ * MAP-2: great-circle (haversine) distance in metres between two points on
+ * the IAU2000:49900 Mars sphere. A straight-line separation only: it says
+ * nothing about a travel distance or a path.
+ */
+export function greatCircleDistanceM(a: LonLat, b: LonLat): number {
+  const r = Math.PI / 180;
+  const dLat = (b[1] - a[1]) * r;
+  const dLon = (b[0] - a[0]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * r) * Math.cos(b[1] * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * MARS_IAU2000_SPHERE_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
+}
