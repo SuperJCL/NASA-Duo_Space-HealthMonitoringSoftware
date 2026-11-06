@@ -208,11 +208,13 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           </span>
           <button
             type="button"
-            onClick={() => setEvidenceFor(focusTask ?? planning.views[0]?.taskId ?? null)}
+            // EVA-1.1: a toggle (it used to only open the sheet, which then covered it).
+            aria-expanded={evidenceFor !== null}
+            onClick={() => setEvidenceFor((e) => (e !== null ? null : (focusTask ?? planning.views[0]?.taskId ?? null)))}
             className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm hover:border-[var(--mg-line-strong)]"
             data-testid="mg-open-evidence"
           >
-            {"Evidence"}
+            {evidenceFor !== null ? "Hide evidence" : "Evidence"}
           </button>
           <Link href="/research" className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm text-[var(--mg-dim)] hover:border-[var(--mg-line-strong)] hover:text-[var(--mg-text)]" data-testid="mg-link-research">
             {"Research"}
@@ -255,7 +257,9 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
               marker={selectedMarker}
               // Before a plan exists, the same plain-language feasibility as the card; afterwards, the plan state.
               feasibilityText={state.plan ? selectedMarker.planText : addability(viewById.get(selectedMarker.taskId)!, state.draft, costs, state.budget).text}
-              onDetails={(taskId) => setExpanded(taskId)}
+              detailsOpen={expanded === selectedMarker.taskId}
+              // EVA-1.1: the summary's Details toggles the card's Level 2 (it used to only open it).
+              onDetails={(taskId) => setExpanded((e) => (e === taskId ? null : taskId))}
               onEvidence={(taskId) => setEvidenceFor(taskId)}
               onClose={() => setSummaryFor(null)}
             />
@@ -425,6 +429,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           onResume={() => dispatch({ type: "resume-step" })}
           onNote={(index, note) => dispatch({ type: "set-step-note", stepsByTask, index, note })}
           onUndoStep={() => dispatch({ type: "undo-step" })}
+          onReopen={(taskId, index) => dispatch({ type: "reopen-step", stepsByTask, taskId, index, titles: Object.fromEntries(s.actions.map((a) => [a.taskId, a.shortTitle])) })}
           onSkip={(reason) => dispatch({ type: "skip-task", reason })}
           onEvent={(id) => {
             const ev = s.events.find((e) => e.id === id);

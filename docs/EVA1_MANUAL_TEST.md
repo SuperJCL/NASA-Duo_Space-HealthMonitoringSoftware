@@ -36,6 +36,9 @@ Create plan), opens the EVA HUD and presses "Start action".
 | 3 | "Pause the work, then continue." | Paused, then resumed | ≤ 15 s |
 | 4 | "Write a short observation on the current step." | Note visible on the step | ≤ 30 s |
 | 5 | "Oops, you marked the wrong step as done. Fix it." (Moderator first marks step 4 done in the Steps panel.) | Undo used; step 4 back to "To do" | ≤ 15 s |
+| 5b | (EVA-1.1) "You pressed Complete by mistake on step 2; the work was not done. Put it back." | Step 2 reopened (with confirmation); note kept | ≤ 30 s |
+| 5c | (EVA-1.1) "Look at step 1 again without changing anything, then return." | Viewing step 1, then Back to current step; no state change | ≤ 15 s |
+| 5d | (EVA-1.1) "Open the Steps panel, then close it again." Repeat with Caveats and the evidence sheet. | Each closes from its own control or Escape | ≤ 10 s each |
 | 6 | (Moderator triggers "Available effort drops to 50 points" and accepts the suggestion.) "What happened to the steps you already did, and to the coring action?" | Steps kept; coring "dropped by replan" (not "skipped by you") | ≤ 30 s |
 
 ## Questions

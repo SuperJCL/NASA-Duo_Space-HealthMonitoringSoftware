@@ -177,6 +177,40 @@ procedure system.
   - The **Steps** panel lists every step with its state, reason and note,
     plus Mark done, Skip… and Note… buttons.
 
+### EVA-1.1: closing details and correcting steps
+
+- **Details and panels close where they open:**
+  - the map summary's Details toggles the card's Level 2;
+  - the card's expanded details end with "Hide details ▴";
+  - each open EVA panel (Steps, Map, Caveats, Scenario controls, Log) has
+    its own Collapse, and focus returns to its toggle;
+  - More → "All steps…" toggles;
+  - the header Evidence button toggles the evidence sheet. On wide screens
+    the sheet starts below the header, so the button stays usable.
+  - Escape closes the sheet wherever focus is, and focus returns.
+
+  Closing anything changes no mission state.
+- **Viewing is not reopening.**
+  - ‹ › in the current card browse other steps read-only ("Viewing step 2 of
+    4 · done … this does not change step 2"); the primary action becomes
+    "Back to current step".
+  - Reopening is a separate, confirmed state change: "Reopen step N…" in the
+    card while viewing, or "Reopen…" in the Steps panel.
+- **`reopen-step` / `reopenEffects`:**
+  - A done or skipped step of the action in progress, or of a completed
+    action, becomes not done. The note is kept, and a skip reason is kept as
+    `previousReason`.
+  - The current step becomes the first unresolved one.
+  - Reopening a completed action returns it to in progress and releases its
+    committed effort; completing it again commits it once.
+  - An action in progress at that moment is set aside (planned again, steps
+    kept) and continues afterwards.
+  - Replan decisions are not changed.
+  - The confirmation lists these effects and flags plan or effort changes.
+  - Undo reverts a reopen.
+- **The Steps panel** can show a completed action's steps (picker), with
+  "Reopen…" only. Notes and marking apply to the action in progress.
+
 ## Spatial decision map (MAP-1)
 
 The planning map is a decision surface, not a backdrop. Everything it shows

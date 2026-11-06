@@ -61,6 +61,7 @@ export function TargetList({ markers, selectedTaskId, onPick }: { markers: reado
 export function TargetSummary({
   marker: sel,
   feasibilityText,
+  detailsOpen,
   onDetails,
   onEvidence,
   onClose,
@@ -68,6 +69,8 @@ export function TargetSummary({
   marker: TargetMarker;
   /** Plain-language feasibility of the selected task in the current planning context. */
   feasibilityText: string;
+  /** The task card's Level 2 details are open. */
+  detailsOpen: boolean;
   onDetails: (taskId: string) => void;
   onEvidence: (taskId: string) => void;
   onClose: () => void;
@@ -97,8 +100,15 @@ export function TargetSummary({
       </p>
       <p className="mt-0.5 text-[12px] text-[var(--mg-faint)]">{`${sel.distanceFromAnchorM} m straight-line from the verified Lefroy Bay site. No route or safety assessment.`}</p>
       <div className="mt-2 flex gap-3">
-        <button type="button" onClick={() => onDetails(sel.taskId)} className="min-h-9 text-[13px] text-[var(--mg-text)] underline underline-offset-2" data-testid="mg-summary-details">
-          {"Details"}
+        <button
+          type="button"
+          aria-expanded={detailsOpen}
+          aria-controls={`mg-detail-${sel.taskId}`}
+          onClick={() => onDetails(sel.taskId)}
+          className="min-h-9 text-[13px] text-[var(--mg-text)] underline underline-offset-2"
+          data-testid="mg-summary-details"
+        >
+          {detailsOpen ? "Hide details" : "Details"}
         </button>
         <button type="button" onClick={() => onEvidence(sel.taskId)} className="min-h-9 text-[13px] text-[var(--mg-cyan)] underline underline-offset-2" data-testid="mg-summary-evidence">
           {"Evidence and sources →"}

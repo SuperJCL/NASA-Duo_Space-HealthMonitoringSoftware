@@ -129,29 +129,59 @@ const STATE_TEXT: Record<"done" | "skipped" | "current" | "paused" | "todo", str
 };
 
 /**
- * EVA-1 steps panel: every step of the current action with its state, the
- * recorded skip reason and note, and per-step actions. The step list is the
- * planned procedure; it cannot be edited here.
+ * EVA-1 steps panel: every step of an action with its state, the recorded
+ * skip reason and note, and per-step actions. EVA-1.1: completed actions can
+ * be chosen too, and a done or skipped step can be reopened (after a
+ * confirmation). The step list is the planned procedure; it cannot be edited
+ * here.
  */
 export function StepsPanel({
+  actions,
+  selectedTaskId,
+  onSelectAction,
   labels,
   records,
   current,
   paused,
+  editable,
   onComplete,
   onSkip,
   onNote,
+  onReopen,
 }: {
+  /** Actions whose steps can be shown: the one in progress and completed ones. */
+  actions: readonly { taskId: string; label: string }[];
+  selectedTaskId: string;
+  onSelectAction: (taskId: string) => void;
   labels: readonly string[];
   records: readonly StepRecord[];
   current: number | null;
   paused: boolean;
+  /** The shown action is the one in progress (steps can be marked, skipped and noted). */
+  editable: boolean;
   onComplete: (index: number) => void;
   onSkip: (index: number) => void;
   onNote: (index: number) => void;
+  onReopen: (index: number) => void;
 }) {
   return (
-    <section className="mg-glass p-4" aria-label="Steps of the current action" data-testid="mg-steps-panel">
+    <div data-testid="mg-steps-panel">
+      {actions.length > 1 ? (
+        <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="Show the steps of">
+          {actions.map((a) => (
+            <button
+              key={a.taskId}
+              type="button"
+              aria-pressed={a.taskId === selectedTaskId}
+              onClick={() => onSelectAction(a.taskId)}
+              className={`min-h-9 rounded-lg border px-2.5 text-[13px] ${a.taskId === selectedTaskId ? "border-[var(--mg-text)] text-[var(--mg-text)]" : "border-[var(--mg-line)] text-[var(--mg-dim)]"}`}
+              data-testid={`mg-steps-of-${a.taskId}`}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <ol className="space-y-2">
         {labels.map((label, n) => {
           const r = records[n] ?? { status: "todo" as const };
@@ -167,9 +197,15 @@ export function StepsPanel({
                 </span>
               </div>
               {r.reason ? <p className="mt-0.5 text-[13px] text-[var(--mg-dim)]">{`Skip reason: ${r.reason}`}</p> : null}
+              {r.previousReason ? <p className="mt-0.5 text-[13px] text-[var(--mg-faint)]">{`Previously skipped: ${r.previousReason}`}</p> : null}
               {r.note ? <p className="mt-0.5 text-[13px] text-[var(--mg-dim)]" data-testid={`mg-step-note-${n}`}>{`Your note (simulated): ${r.note}`}</p> : null}
               <div className="mt-1.5 flex flex-wrap gap-2">
-                {r.status === "todo" ? (
+                {r.status !== "todo" ? (
+                  <button type="button" onClick={() => onReopen(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px]" data-testid={`mg-step-reopen-${n}`}>
+                    {"Reopen…"}
+                  </button>
+                ) : null}
+                {editable && r.status === "todo" ? (
                   <>
                     <button type="button" disabled={paused} onClick={() => onComplete(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px] disabled:opacity-40" data-testid={`mg-step-done-${n}`}>
                       {"Mark done"}
@@ -179,18 +215,90 @@ export function StepsPanel({
                     </button>
                   </>
                 ) : null}
-                <button type="button" onClick={() => onNote(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px]" data-testid={`mg-step-note-btn-${n}`}>
-                  {r.note ? "Edit note…" : "Note…"}
-                </button>
+                {editable ? (
+                  <button type="button" onClick={() => onNote(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px]" data-testid={`mg-step-note-btn-${n}`}>
+                    {r.note ? "Edit note…" : "Note…"}
+                  </button>
+                ) : null}
               </div>
             </li>
           );
         })}
       </ol>
       <p className="mt-3 text-[13px] text-[var(--mg-faint)]" data-testid="mg-procedure-lock">
-        {"These steps are the planned procedure. Changing them or adding new scientific steps needs a separate planning confirmation; the HUD cannot edit the procedure. A done or skipped step changes only through Undo."}
+        {"These steps are the planned procedure. Changing them or adding new scientific steps needs a separate planning confirmation; the HUD cannot edit the procedure. A done or skipped step can be reopened (with a confirmation) or undone."}
       </p>
-      {paused ? <p className="mt-1 text-[13px] text-[var(--mg-caution)]">{"Paused: resume the step to mark or skip steps."}</p> : null}
+      {paused && editable ? <p className="mt-1 text-[13px] text-[var(--mg-caution)]">{"Paused: resume the step to mark or skip steps."}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * EVA-1.1: explicit confirmation before a step is reopened. The lines come
+ * from `reopenEffects` and say what changes (current step, committed effort,
+ * an action set aside). Escape cancels.
+ */
+export function ReopenConfirm({
+  title,
+  stepNumber,
+  lines,
+  affectsPlan,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  stepNumber: number;
+  lines: readonly string[];
+  affectsPlan: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+  return (
+    <section
+      role="group"
+      aria-labelledby="mg-reopen-title"
+      className={`mt-4 rounded-2xl border p-4 ${affectsPlan ? "border-[var(--mg-caution)] bg-[rgba(241,200,120,0.08)]" : "border-[var(--mg-line-strong)] bg-[var(--mg-surface)]"}`}
+      data-testid="mg-reopen-confirm"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+    >
+      <h3 id="mg-reopen-title" ref={headingRef} tabIndex={-1} className="text-[17px] font-semibold focus:outline-none">
+        {`Reopen step ${stepNumber} of ${title}?`}
+      </h3>
+      {affectsPlan ? <p className="mt-1 text-[14px] font-medium text-[var(--mg-caution)]">{"This changes your confirmed plan and committed effort."}</p> : null}
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] text-[var(--mg-dim)]" data-testid="mg-reopen-effects">
+        {lines.map((l) => (
+          <li key={l}>{l}</li>
+        ))}
+      </ul>
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <button type="button" onClick={onCancel} className="min-h-11 rounded-xl border border-[var(--mg-line)] px-4" data-testid="mg-reopen-cancel">
+          {"Cancel"}
+        </button>
+        <button type="button" onClick={onConfirm} className="min-h-11 rounded-xl border border-[var(--mg-coral)] px-4 font-medium text-[var(--mg-coral)]" data-testid="mg-reopen-yes">
+          {`Reopen step ${stepNumber}`}
+        </button>
+      </div>
     </section>
+  );
+}
+
+/** EVA-1.1: header of an expanded optional panel, with its own Collapse control. */
+export function PanelHeader({ title, onCollapse }: { title: string; onCollapse: () => void }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <h3 className="text-[13px] uppercase tracking-[0.12em] text-[var(--mg-faint)]">{title}</h3>
+      <button type="button" onClick={onCollapse} className="min-h-9 shrink-0 whitespace-nowrap rounded-lg border border-[var(--mg-line)] px-3 text-[13px] text-[var(--mg-dim)] hover:text-[var(--mg-text)]" data-testid="mg-panel-collapse">
+        {"Collapse ▴"}
+      </button>
+    </div>
   );
 }

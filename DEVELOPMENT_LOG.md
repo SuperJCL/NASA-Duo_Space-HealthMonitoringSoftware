@@ -2238,3 +2238,126 @@ to `main`'s squashed M2 commit `05cafae`, so no content is missing.
   are reset on reload.
 - **Not tested with users or screen readers.** See
   `docs/EVA1_MANUAL_TEST.md`.
+
+## EVA-1.1: two P0 interaction fixes (details collapse, step correction)
+
+- **Branch:** `eva1.1-p0-fixes`, created from `eva1-step-management`
+  (`3d88a87`). Not merged.
+- **Started:** 2026-11-06T04:50:32Z.
+- **Completed:** 2026-11-06T05:09:12Z, at commit.
+- **Wall-clock elapsed:** 18 min 40 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Bug 1: details could not be collapsed. Root causes, found by reproduction
+
+The card's own Details/Hide details toggle and the EVA panel chips toggled
+correctly in every reproduction:
+- 1440, 1366, 1280, 1024 and 390 px;
+- mouse and keyboard;
+- simulated browser translation.
+
+The defects were in the other paths:
+1. **Open-only handlers.** Each set "open" instead of toggling, so the
+   control the user had just used could not close what it opened. Its label
+   and `aria-expanded` never changed.
+   - The map summary's Details (`setExpanded(taskId)`).
+   - EVA More → "All steps…" (`setPanel("steps")`).
+   - The header Evidence button and More → "Why this action?"
+     (`setEvidenceFor(id)`).
+2. **The evidence sheet covered its own opener.** It was fixed at
+   `top: 12px` over the header. Playwright confirmed that clicks on the
+   Evidence button were intercepted by the sheet.
+3. **The sheet's Escape handler was on the sheet element.** After any click
+   outside, Escape did nothing; this was reproduced at 1366 and 1024 px.
+4. **Expanded content had no collapse control of its own.** The only close
+   was the toggle above it, which scrolls away in the right column.
+
+**Fixes:**
+- All open-only handlers now toggle, with `aria-expanded` and a changing
+  label.
+- The sheet starts below the header on wide screens; Escape is handled on
+  `window` while it is open; focus returns to the opener.
+- Every expanded EVA panel has Collapse, which returns focus to its toggle;
+  the card's details end with "Hide details ▴".
+- Closing changes no mission state; a smoke check compares the step,
+  counts, effort and timeline before and after.
+
+### Bug 2: completed steps could not be corrected
+
+- **Cause:** there was no state transition from done back to not done. Only
+  the one-level Undo could revert the latest change, and steps of a
+  completed action were not reachable in the HUD.
+- **New `reopen-step` action:**
+  - It covers a done or skipped step of the action in progress or of a
+    completed action.
+  - The note is kept, and a skip reason becomes `previousReason`.
+  - The current step becomes the first unresolved one.
+  - A completed action returns to in progress and its committed effort is
+    released, because committed effort is derived from done actions. This
+    rules out double-charging or a wrong refund: completing again commits
+    it once.
+  - An action in progress at that moment is set aside (planned again, steps
+    kept).
+  - Replan decisions are unchanged, and Undo reverts a reopen.
+- **`reopenEffects`** explains all of this for a confirmation, and flags
+  plan or effort changes.
+- **Navigation vs reopening:**
+  - ‹ › browse steps read-only, clearly labelled, with "Back to current step"
+    as the primary action.
+  - Reopening is a separate, confirmed action: from the viewed step, or
+    "Reopen…" in the Steps panel. The panel can show a completed action's
+    steps.
+
+### Tests
+
+- **Unit:** 228/228 (+8 in `eva-reopen.test.ts`):
+  - reopen step 2;
+  - reopen step 2 after steps 2 and 3;
+  - reopen the final step of a completed action (effort 40 → 0 → 40, no
+    double charge);
+  - notes and skip reasons kept;
+  - the effects text;
+  - the set-aside action continuing where it was;
+  - no-ops (todo step, planned or skipped action);
+  - Undo and replanning interplay.
+- **Prototype smoke:** 128/128 against `next start`, in two consecutive
+  runs (+13). The checks cover:
+  - card Details ×3 cycles, the bottom collapse and the keyboard;
+  - the summary's Details toggle;
+  - every EVA panel collapsing ×3 from inside, with focus back on its
+    toggle;
+  - More → All steps toggling;
+  - the evidence header toggle, and Escape with focus outside, with focus
+    returning;
+  - state unchanged after closing;
+  - tests 2–7 as listed in the task (reopen step 2; steps 2+3 then reopen 2
+    by keyboard via read-only navigation; reopening the final step after
+    completion; progress, remaining work, committed vs estimated; Undo and
+    replanning).
+  - phone: confirmation fits, reopen works, panel collapse;
+  - translation: reopen, view, collapse and the evidence toggle under
+    simulated translation.
+- **Research smoke:** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Engine, evidence, scenario task definitions, geo and review registry:**
+  0 lines of diff against `main`.
+
+### Rework
+
+- **The Steps panel's action picker shows only when more than one action
+  has steps.** The smoke test now clicks it only when present.
+- **The Collapse button wrapped next to long panel titles.** It no longer
+  wraps.
+
+### Limitations
+
+- **I could not reproduce a toggle that fails by itself.** The fixes target
+  the open-only paths, the covered opener, Escape scope and the missing
+  in-panel control. If the user's case differs, exact steps (screen size,
+  browser, translation on or off) are needed.
+- **Reopening a completed action does not re-check feasibility or trigger a
+  replan.** Committed effort is released and shown, and replan decisions
+  stand.
+- **Notes can be edited only on the action in progress.**
+- **Not tested with users or screen readers.**
