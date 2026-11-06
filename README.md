@@ -65,6 +65,7 @@ machine running the browser needs internet access to that host.
 | `npm run smoke:mission-glass` | Browser smoke test of Mission Glass (`/`), including routing, against a running server (`BASE_URL`) |
 | `npm run verify:citations` | Re-fetch every source and check that each quote in the data is verbatim. Needs `curl` and `pdftotext` |
 | `npm run verify:geo` / `npm run verify:briefing` | Live checks of the geographic records and of the briefing quotes |
+| `npm run build:terrain` / `npm run verify:terrain` | Build the local 3D terrain crop from the Mars Trek CTX DTM and orthomosaic, or rebuild it and compare with the committed assets. See [`docs/TERRAIN_3D.md`](docs/TERRAIN_3D.md) |
 
 The smoke test options:
 

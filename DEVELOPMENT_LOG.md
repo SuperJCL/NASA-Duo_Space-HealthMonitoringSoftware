@@ -2087,3 +2087,131 @@ to `main`'s squashed M2 commit `05cafae`, so no content is missing.
   the summary are the accessible path.
 - **Not tested with users or screen readers.** See
   `docs/MAP1_USABILITY_TEST.md`.
+
+## MAP-3A (Track B): real CTX local 3D terrain
+
+- **Branch:** `map3a-ctx-3d-terrain`, created from `main` at `d163d4a`
+  (includes MAP-1). Not merged.
+- **Started:** 2026-11-06T06:10:06Z.
+- **Completed:** 2026-11-06T06:36:42Z, at commit.
+- **Wall-clock elapsed:** 26 min 36 s.
+  - No subagents were used.
+  - No human intervention.
+- **Dependency:** `three` 0.186.1, pinned exactly (published 2026-09-24),
+  with `@types/three` 0.186.0.
+
+### Implemented
+
+- **Data pipeline** `scripts/build-ctx-terrain.mjs` (`build:terrain`,
+  `verify:terrain`):
+  - the Trek CTX DTM is downloaded and checked against its recorded
+    SHA-256, and its GeoTIFF tags are checked;
+  - the corners must reproduce the catalog bbox (error 4 × 10⁻⁸°);
+  - a 160 × 160-post crop (≈ 3.0 × 3.2 km) around the Margin sample sites
+    and targets, copied unchanged with no no-data;
+  - PDS agreement at three sites: −1.7, −3.2 and −2.6 m;
+  - the CTX orthomosaic, from 12 Trek z13 tiles, cut to the exact bounds;
+  - a shading-based alignment check, with checksums and full metadata.
+
+  `verify:terrain` reproduced the committed assets byte for byte from the
+  live sources.
+- **`src/lib/terrain`** (pure, Zod): the metadata schema; lon/lat ↔ grid ↔
+  local tangent-plane metres; bilinear sampling at post centres; imagery
+  UV; 1× default.
+- **`src/components/terrain/TerrainViewer`** (three.js, client-only; see
+  `docs/TERRAIN_3D.md`):
+  - **terrain:** a DTM mesh draped with the ortho;
+  - **markers:** cyan verified sites and traverse, coral simulated targets
+    with rank and tone; HTML marker labels that select;
+  - **camera:** orbit, tilt and zoom, plus buttons and reset;
+  - **displays:** source and resolution, the exaggeration (1×, 2×, 3×
+    labelled), the elevation under the pointer, and the selected marker's
+    DTM elevation with an honest difference from Lefroy Bay;
+  - **quality and motion:** a Standard/Low setting (Low by default on narrow
+    or low-memory devices); collapsible phone controls; reduced-motion
+    handling;
+  - **fallback** to 2D, with a reason, when WebGL, the download or the
+    checksum fails, or the context is lost; an imagery failure leaves slope
+    shading.
+- **Mission Glass:** a "2D map | 3D terrain" switch in the map toolbar.
+  - The selection is shared both ways.
+  - The 2D map stays mounted, so its view is kept.
+  - The 3D view fills only the visible map area.
+  - The legend shows in 2D only. EVA keeps its 2D minimap.
+
+### Tests
+
+- **Unit:** 217/217 (+10 in `terrain.test.ts`):
+  - asset checksums and PNG header;
+  - registered sources, resolution, datum and caveats;
+  - no no-data, and the min/max;
+  - PDS agreement within 5 m, recomputed;
+  - catalog georeferencing, and alignment within 2 posts;
+  - every site and target inside the crop;
+  - grid round trips and crop corners;
+  - local distances against great-circle distances (within 0.2 %), and the
+    scenario's target distances;
+  - UV against the grid (< 1 cm);
+  - the 1× default.
+- **Prototype smoke:** 113/113 against `next start`, in two consecutive
+  runs (+12). The checks cover:
+  - WebGL rendering (a canvas pixel-spread check), ready in about 1.9 s;
+  - source, resolution and 1×, and the "not a route or traversability
+    model" text;
+  - distinct verified and simulated markers, with DTM elevations equal to the
+    metadata;
+  - the 2D selection kept in 3D;
+  - a 3D label selecting the task (card and summary);
+  - rotate (keyboard), tilt and zoom;
+  - exaggeration labelling;
+  - the pointer elevation within the DTM range;
+  - back to 2D with the 2D view unchanged and the 3D selection shown;
+  - no page errors;
+  - fallback with a reason when the data is missing or altered (checksum);
+  - phone: Low quality, reduced motion, collapsed controls that work, no
+    overflow;
+  - translation with 3D label selection and an exaggeration change.
+
+  The MAP-1 narrow-screen check now measures the visible toolbar row.
+- **Research smoke:** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Data verifiers:**
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 location checks, 0 problems.
+- **Engine, evidence, geo, briefing, mission, scenario and review registry:**
+  0 lines of diff against `main`.
+
+### Rework
+
+1. **The first alignment test** (slope magnitude against image-gradient
+   magnitude) peaked weakly at 3 posts. It was replaced by a
+   physically-based shading correlation, which peaks within 1 post. Its
+   limits are stated in the metadata and docs.
+2. **Marker labels of nearby targets overlapped.** Labels are now stacked,
+   and the camera comes closer, bounded at 1.4 km, on selection.
+3. **"2 m above the Lefroy Bay site"** was shown for a difference smaller
+   than the DTM's agreement with PDS. Differences under 5 m are now called
+   not meaningful.
+4. **Phone:**
+   - labels caused a 103 px horizontal overflow; the viewer now clips;
+   - the controls and caveats covered the terrain; the controls are now
+     collapsible and the notes behind "About this 3D view";
+   - the option labels were shortened.
+5. **The network-failure reason showed the browser's "Failed to fetch".** It
+   now reads in plain language.
+6. **A UV test tolerance was tighter than the 1 × 10⁻⁷° rounding of the
+   stored bbox** (≈ 6 mm). The tolerance is now 1 cm on the ground.
+
+### Known limitations
+
+- **Resolution:** 20 m posts, roughly 60–100 m effective. No rocks and no
+  traversability.
+- **Area:** one 3 km crop; HiRISE is not used.
+- **Registration:** the shading check does not demonstrate sub-post
+  (< 20 m) registration.
+- **Lighting:** the light is a depth cue, not the imaging illumination.
+- **Test environment:** tested in headless Chromium with software WebGL
+  (SwiftShader), not on real mobile GPUs.
+- **No user testing yet.**
+- **Not yet integrated with EVA-1.x.** A trial merge is reported separately.

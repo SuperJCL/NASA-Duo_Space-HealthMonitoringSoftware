@@ -1,0 +1,109 @@
+{
+  "id": "ctx-lefroy-bay",
+  "title": "Lefroy Bay area, CTX DTM 20 m (bounded crop)",
+  "builtBy": "scripts/build-ctx-terrain.mjs",
+  "retrievedOn": "2026-11-06",
+  "dtm": {
+    "sourceId": "trek-jezero-ctx-dtm",
+    "productLabel": "JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0",
+    "downloadUrl": "https://trek.nasa.gov/mars/TrekWS/rest/cat/data/stream?label=JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0",
+    "metadataUrl": "https://trek.nasa.gov/mars/TrekWS/rest/cat/metadata/stream?label=JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0",
+    "sha256": "46fb2e1e9f9c1fdd02939c2a96f3e173a8731bd146fbeb969b2060e0a3c8e97e",
+    "bytes": 9675294,
+    "format": "GeoTIFF, float32, uncompressed, 1 band",
+    "crs": "Equirectangular (standard parallel 0°, central meridian 0°), Mars 2000 sphere R = 3,396,190 m; planetocentric latitude, east-positive longitude",
+    "verticalDatum": "Heights in metres relative to the Mars areoid (product label: MOLAtopography_DeltaGeoid)",
+    "postSpacingM": 20,
+    "scene": {
+      "cols": 1596,
+      "rows": 1512,
+      "tiePointM": [
+        4573663.250853,
+        1109693.140188
+      ],
+      "bboxDeg": [
+        77.1604655,
+        18.2110274,
+        77.6989752,
+        18.7211945
+      ]
+    },
+    "noDataValue": -3.4028226550889045e+38
+  },
+  "crop": {
+    "col0": 449,
+    "row0": 612,
+    "cols": 160,
+    "rows": 160,
+    "bboxDeg": [
+      77.3119635,
+      18.4607123,
+      77.3659494,
+      18.5146983
+    ],
+    "sizeM": {
+      "eastWest": 3034.9,
+      "northSouth": 3200
+    },
+    "rationale": "Square 3.2 km crop centred on the verified Margin sample sites (Pelican Point, Lefroy Bay, Comet Geyser) and the scenario-defined targets A–C, which all lie inside it."
+  },
+  "heights": {
+    "file": "/terrain/ctx-lefroy-bay/heights.f32",
+    "encoding": "float32 little-endian, row-major from north to south, west to east; each value is the DTM post at its post centre; copied unchanged",
+    "minM": -2466.799,
+    "maxM": -2222.891,
+    "sha256": "9297c41f6126c91e66d9506ceed716c571129bcd89db2107d1bf897e1887083e"
+  },
+  "imagery": {
+    "sourceId": "trek-jezero-ctx-ortho",
+    "layer": "JEZ_ctx_B_soc_008_orthoMosaic_6m_Eqc_latTs0_lon0",
+    "tileUrlTemplate": "https://trek.nasa.gov/tiles/Mars/EQ/JEZ_ctx_B_soc_008_orthoMosaic_6m_Eqc_latTs0_lon0/1.0.0/default/default028mm/{z}/{y}/{x}.png",
+    "zoom": 13,
+    "degPerPx": 0.0000858306884765625,
+    "tiles": 12,
+    "file": "/terrain/ctx-lefroy-bay/ortho.png",
+    "width": 629,
+    "height": 629,
+    "resampling": "bilinear from the z13 tile mosaic onto the crop's exact bounds; greyscale",
+    "sha256": "1119a8e85312091b52f8339adf502926c56b624aa546924bb7aa41ebe888a9eb"
+  },
+  "validation": {
+    "catalogBboxMaxErrorDeg": 4.077632809185161e-8,
+    "pdsSampleSites": [
+      {
+        "id": "sample-pelican-point",
+        "pdsElevationM": -2423.102833,
+        "dtmElevationM": -2424.84,
+        "differenceM": -1.73
+      },
+      {
+        "id": "sample-lefroy-bay",
+        "pdsElevationM": -2407.641882,
+        "dtmElevationM": -2410.79,
+        "differenceM": -3.15
+      },
+      {
+        "id": "sample-comet-geyser",
+        "pdsElevationM": -2382.434036,
+        "dtmElevationM": -2384.99,
+        "differenceM": -2.56
+      }
+    ],
+    "alignment": {
+      "method": "Topographic shading: normalised cross-correlation between the high-passed orthoimage brightness and the DTM slope along a fitted illumination azimuth, on the 20 m grid, for shifts of ±4 posts. The build fails if the peak is more than 2 posts from zero.",
+      "fittedAzimuthDeg": 110,
+      "bestShiftPosts": [
+        1,
+        0
+      ],
+      "nccAtBest": 0.225,
+      "nccAtZero": 0.2044,
+      "interpretation": "Rules out a gross offset (2 posts, 40 m, or more) between imagery and elevations. The correlation is modest because albedo also varies, so sub-post (< 20 m) registration is not demonstrated."
+    }
+  },
+  "caveats": [
+    "CTX DTM posts are 20 m apart; the effective resolution is coarser (a few posts). Features smaller than about 60–100 m are not resolved, and nothing here shows rocks or traversability.",
+    "Elevations are relative to the areoid, not to the surface of a reference ellipsoid.",
+    "The scenario-defined targets are simulated positions; their elevations are read from the DTM only to place them on the surface."
+  ]
+}
