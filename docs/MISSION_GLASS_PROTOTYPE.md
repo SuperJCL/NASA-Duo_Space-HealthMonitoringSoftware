@@ -63,7 +63,7 @@ or decorative sci-fi elements.
 
 ## Shared mission-state contract (`src/lib/prototype/mission-glass.ts`)
 
-The module is pure: no React and no OpenLayers. It has 16 unit tests.
+The module is pure: no React and no OpenLayers. It has 17 unit tests.
 
 - **`MissionState`:**
   - `mode` (`planning` or `eva`);
@@ -124,6 +124,65 @@ The module is pure: no React and no OpenLayers. It has 16 unit tests.
   No engine, evidence, geo or briefing file changed. The engine grids are
   byte-identical to MF-1 and BR-2.
 
+## Spatial decision map (MAP-1)
+
+The planning map is a decision surface, not a backdrop. Everything it shows
+comes from the engine and the shared mission state; there is no separate map
+ranking.
+
+- **Marker state (`src/lib/prototype/target-markers.ts`, pure, 5 unit
+  tests).** `targetMarkers` combines each target with:
+  - its task view (the engine's provisional rank and budget feasibility);
+  - the mission state (draft and plan items).
+
+  Each marker carries:
+  - **badge:** the rank, "✓" when done, or "–" when not ranked;
+  - **tone:** candidate, added, planned, active, done, skipped or
+    infeasible;
+  - **status:** a short state word;
+  - **text:** plain-language priority and plan text.
+- **One decision context.** Before a plan exists, the cards and the map use
+  the engine at the whole budget. Once a plan exists, they use the engine at
+  the effort still available (budget − committed), as the EVA HUD and
+  replanning do. Cards become read-only once a plan exists, and show its
+  state.
+- **Markers (`MarsMap`).**
+  - **Shape:** coral diamonds labelled "SIM ·", with the badge inside.
+  - **Tone:**
+    - dashed: candidate;
+    - solid: added or planned;
+    - filled: active;
+    - green with ✓: done;
+    - grey dashed: skipped;
+    - yellow dashed: not feasible.
+  - **Selection:** the selected target gets a white outline that grows in
+    over 180 ms. Other targets stay visible, slightly dimmed.
+  - **Verified data** stays blue and never carries a rank.
+  - **The small EVA map** labels only the current target, so labels do not
+    overlap.
+- **Selection and focus.**
+  - **A card or target button** selects the task and centres its target in
+    the visible part of the map (clear of the panel and summary), with a
+    280 ms transition. The zoom is clamped to the level that shows all
+    targets, −0.5 to +1.
+  - **A marker click** selects the task without moving the map.
+  - **Reduced motion:** no transitions.
+- **Map context.**
+  - **Target buttons over the map** in provisional-rank order (rank, name,
+    state; descriptive accessible names). They are the keyboard and touch
+    alternative to the canvas.
+  - **A closable target summary:**
+    - scenario-defined position;
+    - provisional priority and "not validated";
+    - cost and feasibility;
+    - straight-line distance, with no route;
+    - Details (Level 2) and Evidence (Level 3).
+
+    On wide screens it floats right of the zoom buttons; on phones it sits
+    below the map.
+- **Test hooks:** `data-sim-markers`, `data-selected-id` and `data-motion`
+  on the map element mirror what is drawn.
+
 ## Actual vs scenario-defined data
 
 | Data | Status |
@@ -139,7 +198,7 @@ The module is pure: no React and no OpenLayers. It has 16 unit tests.
 
 ## Interactions: implemented vs mocked
 
-**Implemented** (working, covered by `scripts/smoke-mission-glass.mjs`, 79
+**Implemented** (working, covered by `scripts/smoke-mission-glass.mjs`, 101
 checks):
 - **Planning:**
   - ranked cards from the engine;
@@ -197,7 +256,14 @@ checks):
 - **On a phone,** the replanning dialog body scrolls; the decision footer
   stays visible, but the "Keep current plan" details are below the first
   screen.
-- **At crater zoom, the target labels overlap** in the small HUD map.
+- **MAP-1 limitations:**
+  - **Map labels sit close together:** the three targets are about 100–250 m
+    apart, so at the default zoom the labels of B and C can sit close
+    together.
+  - **No route, travel time, terrain or safety information** (out of scope).
+    The straight-line distance is scenario geometry only.
+  - **The selection transition is drawn on the canvas:** screen readers rely
+    on the target buttons and the summary.
 - **The orbital task is excluded** by the scenario (`excludedPlatforms`),
   which keeps the three surface actions. This is a scenario choice, not a
   scientific judgement.

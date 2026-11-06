@@ -1964,3 +1964,126 @@ to `main`'s squashed M2 commit `05cafae`, so no content is missing.
    This was verified on a clean worktree of `88b9f75`. `typecheck` now
    runs `next typegen` first; the clean worktree then passes.
 3. **Old links to `/mission-glass` still work** through the redirect.
+
+## MAP-1: interactive spatial decision map
+
+- **Branch:** `map1-spatial-decision-map`, created from `main` at
+  `f4724c7`. Not merged.
+- **Started:** 2026-11-05T23:41:53Z.
+- **Completed:** 2026-11-06T00:05:53Z, at commit.
+- **Wall-clock elapsed:** 24 min 0 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Files changed
+
+- `src/lib/prototype/target-markers.ts` (new, pure): `targetMarkers`, the
+  per-target rank, feasibility, plan tone, badge, status and plain-language
+  text. It is derived only from the engine's task views and the shared
+  mission state.
+- `src/lib/prototype/target-markers.test.ts` (new, 5 tests).
+- `src/lib/prototype/mission-glass.ts`:
+  - the draft is frozen once a plan exists (`toggle-draft`, `move-draft`
+    and `use-suggested` become no-ops);
+  - `addability` no longer says "only -45 pts left".
+- `src/components/map/MarsMap.tsx`:
+  - `SimTarget` decision props (badge, status, tone) drawn on the
+    simulated layer;
+  - a selection outline with a 180 ms grow-in;
+  - `focusRequest` and `focusPadding` (a 280 ms centring transition with
+    the zoom clamped);
+  - `simLabels`, `ariaLabel`;
+  - reduced-motion handling;
+  - `data-sim-markers`, `data-selected-id` and `data-motion` test hooks.
+- `src/components/prototype/TargetMapOverlay.tsx` (new): `TargetList`
+  (target buttons over the map) and `TargetSummary`.
+- `src/components/prototype/MissionGlass.tsx`:
+  - markers;
+  - focus on card or button selection;
+  - the summary and the verified popover placement;
+  - one decision context once a plan exists;
+  - read-only cards once a plan exists;
+  - legend lines.
+- `src/components/prototype/TaskCard.tsx`:
+  - a `locked` state;
+  - auto-scroll only inside a list that scrolls on its own.
+- `scripts/smoke-mission-glass.mjs`: the MAP-1 section, reduced-motion and
+  narrow-screen map checks, and translation through the target buttons and
+  summary.
+- `docs/MISSION_GLASS_PROTOTYPE.md`: a "Spatial decision map" section.
+- `docs/MAP1_USABILITY_TEST.md` (new).
+
+### Tests
+
+- **Unit:** 207/207 (+6).
+  - The 5 marker tests cover:
+    - rank and feasibility equal the engine's at budgets 100, 50, 30 and 0;
+    - order and provisional wording;
+    - the budget change;
+    - added, planned, active and done states;
+    - done kept and dropped work skipped after replanning.
+  - The other new test checks that the draft is frozen once a plan exists.
+  - The negative-left wording is now asserted in an existing test.
+- **Prototype smoke:** 101/101 against `next start`, in two consecutive
+  runs; +19 checks. They cover:
+  - markers matching the card ranks;
+  - ranks only on simulated targets, labelled provisional;
+  - accessible names;
+  - card → select and focus, centred in the visible area within 30 px;
+  - the summary contents;
+  - single selection;
+  - zoom clamp after zooming out and in;
+  - Enter, Space and Tab on the target buttons;
+  - map click → task;
+  - summary → Level 2 and Level 3, and closing the summary;
+  - budget 50 updating markers consistently;
+  - added → planned, with cards read-only;
+  - the EVA map showing active, then done;
+  - after replanning: done kept, skipped and not feasible, with cards agreeing;
+  - no page errors;
+  - reduced-motion focus without a transition;
+  - phone: target buttons on the map, summary below it, no page scroll.
+
+  The translation run now also exercises the target buttons and the summary.
+- **Main app smoke (`/research`):** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Engine, evidence, geo, briefing and mission code and data:** 0 lines of
+  diff against `main`.
+
+### Bugs and rework
+
+1. **Planning cards showed stale draft arithmetic once a plan existed.**
+   After a replan they read "only -45 pts left" and "now 45 pts over budget"
+   for actions that were done or skipped. This dates from MG-1/MG-3 and was
+   found with the new map. Once a plan exists, the cards and the map now use
+   one decision context (budget − committed) and show plan state.
+2. **The target summary covered the OpenLayers zoom-out button.** It moved
+   right of the zoom controls, and the focus padding follows.
+3. **On phones, selecting a target scrolled the page away from the map.**
+   This came from the MG-1 card auto-scroll. The summary now sits below the
+   map, and the card scrolls only inside its own list.
+4. **Labels overlapped in the small EVA map,** a known gap that the status
+   lines made worse. Only the current target is labelled there.
+5. **The selected target button's ring was hidden** by the glass
+   `box-shadow`. It is now an outline.
+6. **Smoke timing:**
+   - the map's extent attribute changes only at the end of a move, so the
+     wait helper now outlasts the focus transition;
+   - an older Lefroy Bay click check now waits for the map to settle after a
+     card selection;
+   - the zoom-clamp check was corrected after the view hit the map's own
+     maximum zoom.
+7. **An `npx prettier` call reformatted `TaskCard.tsx`.** The project does
+   not use Prettier, so the file was restored and only the intended edits
+   were reapplied.
+
+### Limitations
+
+- **No routes, travel times, terrain or 3D** (out of scope). The distance
+  shown is straight-line scenario geometry.
+- **Map labels sit close together:** the three targets are 100–250 m apart,
+  so labels can sit close together at the default zoom.
+- **Canvas markers are not themselves accessible.** The target buttons and
+  the summary are the accessible path.
+- **Not tested with users or screen readers.** See
+  `docs/MAP1_USABILITY_TEST.md`.

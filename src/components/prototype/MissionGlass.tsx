@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useReducer, useState } from "react";
+import { useMemo, useReducer, useState, useSyncExternalStore } from "react";
 import type { BriefingView } from "@/lib/briefing/view";
 import { DEFAULT_WEIGHTS } from "@/lib/decision/criteria";
 import { defaultConstraints } from "@/lib/decision/engine";
@@ -21,11 +21,13 @@ import {
   type MgScenario,
   type SimulatedTarget,
 } from "@/lib/prototype/mission-glass";
+import { targetMarkers } from "@/lib/prototype/target-markers";
 import { MarsMapLoader } from "@/components/map/MarsMapLoader";
 import { EvaHud } from "./EvaHud";
 import { EvidenceSheet } from "./EvidenceSheet";
 import { PlanReview } from "./PlanReview";
 import { ReplanDialog } from "./ReplanDialog";
+import { TargetList, TargetSummary } from "./TargetMapOverlay";
 import { TaskCard } from "./TaskCard";
 
 type Props = {
@@ -40,6 +42,16 @@ type Props = {
 };
 
 const LABEL_KINDS = ["sample-site"] as const;
+const MAP_LABEL =
+  "Map of the Lefroy Bay area, Jezero crater. Coral diamonds are simulated targets with their provisional priority; blue features are verified NASA/PDS data. Use the target buttons above the map to select a target with the keyboard.";
+
+// Wide layout: the planning panel covers the right of the map.
+const wideQuery = "(min-width: 1024px)";
+const subscribeWide = (cb: () => void) => {
+  const mq = window.matchMedia(wideQuery);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+};
 
 /**
  * MDI 2.0 "Mission Glass" prototype: Planning and EVA HUD share one mission
@@ -54,6 +66,10 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const [evidenceFor, setEvidenceFor] = useState<string | null>(null);
   const [verifiedPick, setVerifiedPick] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // MAP-1: a focus request moves the map to a target; the summary closes independently.
+  const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
+  const [summaryFor, setSummaryFor] = useState<string | null>(null);
+  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(wideQuery).matches, () => false);
   const sourceById = useMemo(() => new Map(sources.map((x) => [x.id, x])), [sources]);
   const costs = useMemo(() => Object.fromEntries(snapshot.tasks.map((t) => [t.id, t.costs["res-effort"] ?? Infinity])), [snapshot]);
   const stepsByTask = useMemo(() => Object.fromEntries(s.actions.map((a) => [a.taskId, a.steps.length])), [s]);
@@ -71,11 +87,28 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const consumed = consumedEffort(state, costs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const eva = useMemo(() => engineAt(Math.max(0, state.budget - consumed)), [state.budget, consumed, snapshot, scenario, registry, asOf, s]);
-  const views = state.mode === "eva" ? eva.views : planning.views;
+  // One decision context for cards, map and HUD: before a plan exists, the
+  // whole budget; once a plan exists, the effort still available (budget −
+  // committed), which is also what replanning uses.
+  const views = state.plan ? eva.views : planning.views;
   const viewById = useMemo(() => new Map(views.map((v) => [v.taskId, v])), [views]);
   const planViewById = useMemo(() => new Map(planning.views.map((v) => [v.taskId, v])), [planning]);
 
   const targetByTask = new Map(targets.map((t) => [t.taskId, t]));
+  // MAP-1: decision state per target, from the engine views of the current mode and the shared mission state.
+  const markers = useMemo(() => targetMarkers({ targets, viewById, state, stepsByTask }), [targets, viewById, state, stepsByTask]);
+  const markerById = new Map(markers.map((m) => [m.id, m]));
+  const mapTargets = useMemo(() => targets.map((t) => ({ ...t, badge: markerById.get(t.id)?.badge, status: markerById.get(t.id)?.status, tone: markerById.get(t.id)?.tone })), [targets, markers]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectedMarker = markers.find((m) => m.taskId === state.selectedTaskId);
+  const summaryOpen = Boolean(selectedMarker) && !verifiedPick && summaryFor === state.selectedTaskId && state.mode === "planning";
+  /** Select a task from a card or the target list, and focus its target on the map. */
+  const pickTask = (taskId: string) => {
+    setVerifiedPick(null);
+    dispatch({ type: "select", taskId });
+    setSummaryFor(taskId);
+    const id = targetByTask.get(taskId)?.id;
+    if (id) setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }));
+  };
   const evaCurrent = state.plan?.items.find((i) => i.status === "active") ?? state.plan?.items.find((i) => i.status === "planned");
   const focusTask = state.mode === "eva" ? (evaCurrent?.taskId ?? null) : state.selectedTaskId;
   const mapSelected = verifiedPick ?? (focusTask ? (targetByTask.get(focusTask)?.id ?? null) : null);
@@ -84,7 +117,11 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
     if (t) {
       setVerifiedPick(null);
       dispatch({ type: "select", taskId: t.taskId });
-    } else setVerifiedPick(id);
+      setSummaryFor(t.taskId);
+    } else {
+      setVerifiedPick(id);
+      setSummaryFor(null);
+    }
   };
   const picked = verifiedPick ? features.find((f) => f.id === verifiedPick) : undefined;
 
@@ -121,7 +158,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
     const lats = targets.map((t) => t.position[1]);
     return [Math.min(...lons) - 0.004, Math.min(...lats) - 0.003, Math.max(...lons) + 0.004, Math.max(...lats) + 0.003] as const;
   }, [targets]);
-  const map = (chrome: "full" | "minimal") => (
+  const map = (chrome: "full" | "minimal", simLabels: "all" | "selected" = "all") => (
     <MarsMapLoader
       features={features}
       selectedId={mapSelected}
@@ -129,8 +166,13 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
       labelKinds={LABEL_KINDS}
       initialExtent={ranges}
       layerPanelOpenOnDesktop={false}
-      simulatedTargets={targets}
+      simulatedTargets={mapTargets}
       chrome={chrome}
+      ariaLabel={MAP_LABEL}
+      simLabels={simLabels}
+      focusRequest={chrome === "minimal" && state.mode === "planning" ? focus : null}
+      // Keep the focused target clear of the planning panel, the target list and (on wide screens) the summary.
+      focusPadding={wide ? [64, 472, 16, summaryOpen ? 440 : 16] : [56, 0, 0, 0]}
       initialOverlays={["jezeroCtx", "jezeroHirise"]}
     />
   );
@@ -192,19 +234,32 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                   <span aria-hidden className="inline-block size-3 rotate-45 border-2 border-dashed border-[var(--mg-coral)]" />
                   {"Simulated target (scenario-defined position)"}
                 </span>
+                <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Number: provisional priority (existing engine, not validated)"}</span>
+                <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · yellow: not feasible"}</span>
               </div>
             </div>
-            {picked ? (
-              <div className="mg-glass mg-rise absolute left-16 top-4 max-w-xs p-3 text-sm" data-testid="mg-verified-pick">
-                <p className="text-[13px] uppercase tracking-[0.12em] text-[var(--mg-cyan)]">{"Verified feature"}</p>
-                <p className="mt-0.5 font-medium">{picked.name}</p>
-                <p className="text-[var(--mg-dim)]">{picked.label}</p>
-                <button type="button" onClick={() => setVerifiedPick(null)} className="mt-2 text-[var(--mg-dim)] underline underline-offset-2">
-                  {"Close"}
-                </button>
-              </div>
-            ) : null}
+            <TargetList markers={markers} selectedTaskId={state.selectedTaskId} onPick={pickTask} />
           </section>
+
+          {picked ? (
+            <div className="mg-glass mg-rise relative z-[5] mx-3 mt-3 p-3 text-sm lg:absolute lg:left-14 lg:top-16 lg:m-0 lg:max-w-xs" data-testid="mg-verified-pick">
+              <p className="text-[13px] uppercase tracking-[0.12em] text-[var(--mg-cyan)]">{"Verified feature"}</p>
+              <p className="mt-0.5 font-medium">{picked.name}</p>
+              <p className="text-[var(--mg-dim)]">{picked.label}</p>
+              <button type="button" onClick={() => setVerifiedPick(null)} className="mt-2 text-[var(--mg-dim)] underline underline-offset-2">
+                {"Close"}
+              </button>
+            </div>
+          ) : summaryOpen && selectedMarker ? (
+            <TargetSummary
+              marker={selectedMarker}
+              // Before a plan exists, the same plain-language feasibility as the card; afterwards, the plan state.
+              feasibilityText={state.plan ? selectedMarker.planText : addability(viewById.get(selectedMarker.taskId)!, state.draft, costs, state.budget).text}
+              onDetails={(taskId) => setExpanded(taskId)}
+              onEvidence={(taskId) => setEvidenceFor(taskId)}
+              onClose={() => setSummaryFor(null)}
+            />
+          ) : null}
 
           <aside
             aria-labelledby="mg-plan-title"
@@ -251,19 +306,24 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" data-testid="mg-cards">
-              {planning.views.map((v) => (
+              {views.map((v) => (
                 <TaskCard
                   key={v.taskId}
                   view={v}
                   target={targetByTask.get(v.taskId)}
                   selected={state.selectedTaskId === v.taskId}
-                  addable={addability(v, state.draft, costs, state.budget)}
+                  addable={
+                    state.plan
+                      ? {
+                          state: state.plan.items.some((i) => i.taskId === v.taskId) ? "in-plan" : v.status === "fits" ? "fits" : "infeasible",
+                          text: markers.find((m) => m.taskId === v.taskId)?.planText ?? "",
+                        }
+                      : addability(v, state.draft, costs, state.budget)
+                  }
+                  locked={Boolean(state.plan)}
                   expanded={expanded === v.taskId}
                   limitations={limitationsFor(v.taskId)}
-                  onSelect={() => {
-                    setVerifiedPick(null);
-                    dispatch({ type: "select", taskId: v.taskId });
-                  }}
+                  onSelect={() => pickTask(v.taskId)}
                   onTogglePlan={() => dispatch({ type: "toggle-draft", taskId: v.taskId })}
                   onToggleExpand={() => setExpanded((e) => (e === v.taskId ? null : v.taskId))}
                   onEvidence={() => setEvidenceFor(v.taskId)}
@@ -357,7 +417,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           s={s}
           viewById={viewById}
           consumed={consumed}
-          map={map("minimal")}
+          map={map("minimal", "selected")}
           onStart={() => dispatch({ type: "start-task" })}
           onCompleteStep={() => dispatch({ type: "complete-step", stepsByTask })}
           onSkip={() => dispatch({ type: "skip-task" })}
