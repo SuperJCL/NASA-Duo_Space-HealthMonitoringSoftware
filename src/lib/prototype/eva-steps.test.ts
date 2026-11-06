@@ -92,7 +92,8 @@ describe("EVA-1 step state transitions", () => {
     expect(stepCounts(item(st, ABR), 4)).toMatchObject({ done: 3, skipped: 1 });
     expect(consumedEffort(st, costs)).toBe(40);
     expect(remaining(st.plan!.items).map((i) => i.taskId)).toEqual([CORE]);
-    expect(st.notice).toBe("Step 4 marked done; action completed (simulated).");
+    // EVA-1.2: ending with a skipped step is not reported as a complete set of measurements.
+    expect(st.notice).toBe("Step 4 marked done; action ended with 1 skipped step(s): those measurements were not made.");
   });
 
   it("skipping every step skips the action (by you), without committing effort", () => {

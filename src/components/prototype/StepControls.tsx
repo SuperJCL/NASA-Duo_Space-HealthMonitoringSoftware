@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NOTE_MAX, REASON_MAX, type StepRecord } from "@/lib/prototype/mission-glass";
 
-export type StepFormKind = "skip-step" | "note" | "skip-action";
+export type StepFormKind = "skip-step" | "note" | "skip-action" | "reason";
 
 const QUICK_REASONS = ["Not needed for this target", "Equipment issue (simulated)", "Time constraint (simulated)"] as const;
 
@@ -16,34 +16,43 @@ export function StepForm({
   kind,
   stepNumber,
   initialNote = "",
+  caution = null,
   onSubmit,
   onCancel,
 }: {
   kind: StepFormKind;
   stepNumber: number;
+  /** Prefill: the note (note) or the current skip reason (reason). */
   initialNote?: string;
+  /** EVA-1.2: neutral caution shown before a step is skipped. */
+  caution?: string | null;
   onSubmit: (text: string) => void;
   onCancel: () => void;
 }) {
-  const [text, setText] = useState(kind === "note" ? initialNote : "");
+  const [text, setText] = useState(kind === "note" || kind === "reason" ? initialNote : "");
   const inputRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
-    inputRef.current?.focus();
+    formRef.current?.scrollIntoView({ block: "nearest" });
+    inputRef.current?.focus({ preventScroll: true });
   }, []);
   const max = kind === "note" ? NOTE_MAX : REASON_MAX;
-  const required = kind === "skip-step";
+  const required = kind === "skip-step" || kind === "reason";
   const label =
     kind === "skip-step"
       ? `Reason for skipping step ${stepNumber} (required)`
-      : kind === "skip-action"
-        ? "Reason for skipping this whole action (optional)"
-        : `Observation note for step ${stepNumber} (optional)`;
+      : kind === "reason"
+        ? `Correct the skip reason of step ${stepNumber} (required)`
+        : kind === "skip-action"
+          ? "Reason for skipping this whole action (optional)"
+          : `Observation note for step ${stepNumber} (optional)`;
   const submit = () => {
     if (required && !text.trim()) return;
     onSubmit(text);
   };
   return (
     <form
+      ref={formRef}
       className="mt-4 rounded-2xl border border-[var(--mg-line-strong)] bg-[var(--mg-surface)] p-4"
       data-testid={`mg-form-${kind}`}
       onSubmit={(e) => {
@@ -83,6 +92,14 @@ export function StepForm({
       ) : (
         <>
           {kind === "skip-step" ? (
+            <p className="mt-1 text-[13px] text-[var(--mg-dim)]">{"The step is recorded as skipped, not done: its measurement is not made. You can reopen it later."}</p>
+          ) : null}
+          {caution ? (
+            <p className="mt-1 rounded-lg bg-[rgba(241,200,120,0.1)] px-2 py-1 text-[13px] text-[var(--mg-caution)]" data-testid="mg-skip-caution-form">
+              {caution}
+            </p>
+          ) : null}
+          {kind === "skip-step" || kind === "reason" ? (
             <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Common reasons">
               {QUICK_REASONS.map((r) => (
                 <button key={r} type="button" onClick={() => setText(r)} className="min-h-10 rounded-xl border border-[var(--mg-line)] px-3 text-[14px] text-[var(--mg-dim)] hover:text-[var(--mg-text)]">
@@ -113,7 +130,7 @@ export function StepForm({
           className="min-h-11 rounded-xl border border-[var(--mg-coral)] px-4 font-medium text-[var(--mg-coral)] disabled:opacity-40"
           data-testid="mg-form-submit"
         >
-          {kind === "note" ? "Save note" : kind === "skip-step" ? `Skip step ${stepNumber}` : "Skip action"}
+          {kind === "note" ? "Save note" : kind === "skip-step" ? `Skip step ${stepNumber}` : kind === "reason" ? "Save reason" : "Skip action"}
         </button>
       </div>
     </form>
@@ -148,7 +165,13 @@ export function StepsPanel({
   onSkip,
   onNote,
   onReopen,
+  onEditReason,
+  outcome = null,
 }: {
+  /** EVA-1.2: correct the reason of a skipped step (action in progress). */
+  onEditReason: (index: number) => void;
+  /** EVA-1.2: execution outcome of an ended action, e.g. "Ended with 1 of 4 step(s) skipped…". */
+  outcome?: string | null;
   /** Actions whose steps can be shown: the one in progress and completed ones. */
   actions: readonly { taskId: string; label: string }[];
   selectedTaskId: string;
@@ -182,6 +205,11 @@ export function StepsPanel({
           ))}
         </div>
       ) : null}
+      {outcome ? (
+        <p className="mb-2 text-[13px] text-[var(--mg-dim)]" data-testid="mg-steps-outcome">
+          {outcome}
+        </p>
+      ) : null}
       <ol className="space-y-2">
         {labels.map((label, n) => {
           const r = records[n] ?? { status: "todo" as const };
@@ -197,9 +225,18 @@ export function StepsPanel({
                 </span>
               </div>
               {r.reason ? <p className="mt-0.5 text-[13px] text-[var(--mg-dim)]">{`Skip reason: ${r.reason}`}</p> : null}
-              {r.previousReason ? <p className="mt-0.5 text-[13px] text-[var(--mg-faint)]">{`Previously skipped: ${r.previousReason}`}</p> : null}
+              {r.history?.length ? (
+                <p className="mt-0.5 text-[13px] text-[var(--mg-faint)]" data-testid={`mg-step-history-${n}`}>
+                  {`Earlier: ${r.history.map((h) => (h.status === "done" ? "done" : `skipped (${h.reason ?? "no reason"})`)).join(", then ")}; reopened.`}
+                </p>
+              ) : null}
               {r.note ? <p className="mt-0.5 text-[13px] text-[var(--mg-dim)]" data-testid={`mg-step-note-${n}`}>{`Your note (simulated): ${r.note}`}</p> : null}
               <div className="mt-1.5 flex flex-wrap gap-2">
+                {editable && r.status === "skipped" ? (
+                  <button type="button" onClick={() => onEditReason(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px]" data-testid={`mg-step-reason-${n}`}>
+                    {"Edit reason…"}
+                  </button>
+                ) : null}
                 {r.status !== "todo" ? (
                   <button type="button" onClick={() => onReopen(n)} className="min-h-9 rounded-lg border border-[var(--mg-line)] px-3 text-[14px]" data-testid={`mg-step-reopen-${n}`}>
                     {"Reopen…"}
@@ -241,24 +278,35 @@ export function StepsPanel({
 export function ReopenConfirm({
   title,
   stepNumber,
-  lines,
+  execution,
+  accounting,
+  feasibility,
   affectsPlan,
   onConfirm,
   onCancel,
 }: {
   title: string;
   stepNumber: number;
-  lines: readonly string[];
+  /** EVA-1.2: what happens to the step and the action. */
+  execution: readonly string[];
+  /** EVA-1.2: what happens to the simulated effort accounting (kept separate from execution). */
+  accounting: readonly string[];
+  /** EVA-1.2: feasibility of the remaining plan after reopening (completed actions only). */
+  feasibility: string | null;
   affectsPlan: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const boxRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    headingRef.current?.focus();
+    // Bring the whole confirmation, including its buttons, into view; then focus its heading.
+    boxRef.current?.scrollIntoView({ block: "nearest" });
+    headingRef.current?.focus({ preventScroll: true });
   }, []);
   return (
     <section
+      ref={boxRef}
       role="group"
       aria-labelledby="mg-reopen-title"
       className={`mt-4 rounded-2xl border p-4 ${affectsPlan ? "border-[var(--mg-caution)] bg-[rgba(241,200,120,0.08)]" : "border-[var(--mg-line-strong)] bg-[var(--mg-surface)]"}`}
@@ -274,11 +322,28 @@ export function ReopenConfirm({
         {`Reopen step ${stepNumber} of ${title}?`}
       </h3>
       {affectsPlan ? <p className="mt-1 text-[14px] font-medium text-[var(--mg-caution)]">{"This changes your confirmed plan and committed effort."}</p> : null}
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] text-[var(--mg-dim)]" data-testid="mg-reopen-effects">
-        {lines.map((l) => (
-          <li key={l}>{l}</li>
-        ))}
-      </ul>
+      <div data-testid="mg-reopen-effects">
+        <h4 className="mt-2 text-[12px] uppercase tracking-[0.1em] text-[var(--mg-faint)]">{"Execution"}</h4>
+        <ul className="mt-1 list-disc space-y-1 pl-5 text-[14px] text-[var(--mg-dim)]" data-testid="mg-reopen-execution">
+          {execution.map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
+        <h4 className="mt-2 text-[12px] uppercase tracking-[0.1em] text-[var(--mg-faint)]">{"Simulated effort accounting"}</h4>
+        <ul className="mt-1 list-disc space-y-1 pl-5 text-[14px] text-[var(--mg-dim)]" data-testid="mg-reopen-accounting">
+          {accounting.map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
+        {feasibility ? (
+          <>
+            <h4 className="mt-2 text-[12px] uppercase tracking-[0.1em] text-[var(--mg-faint)]">{"Feasibility after reopening"}</h4>
+            <p className="mt-1 text-[14px] text-[var(--mg-dim)]" data-testid="mg-reopen-feasibility">
+              {feasibility}
+            </p>
+          </>
+        ) : null}
+      </div>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <button type="button" onClick={onCancel} className="min-h-11 rounded-xl border border-[var(--mg-line)] px-4" data-testid="mg-reopen-cancel">
           {"Cancel"}

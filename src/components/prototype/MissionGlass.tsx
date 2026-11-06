@@ -237,7 +237,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                   {"Simulated target (scenario-defined position)"}
                 </span>
                 <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Number: provisional priority (existing engine, not validated)"}</span>
-                <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · yellow: not feasible"}</span>
+                <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · ½ ended with skipped steps · yellow: not feasible"}</span>
               </div>
             </div>
             <TargetList markers={markers} selectedTaskId={state.selectedTaskId} onPick={pickTask} />
@@ -429,7 +429,18 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           onResume={() => dispatch({ type: "resume-step" })}
           onNote={(index, note) => dispatch({ type: "set-step-note", stepsByTask, index, note })}
           onUndoStep={() => dispatch({ type: "undo-step" })}
-          onReopen={(taskId, index) => dispatch({ type: "reopen-step", stepsByTask, taskId, index, titles: Object.fromEntries(s.actions.map((a) => [a.taskId, a.shortTitle])) })}
+          onReopen={(taskId, index) => {
+            const titles = Object.fromEntries(s.actions.map((a) => [a.taskId, a.shortTitle]));
+            const wasDone = state.plan?.items.find((i) => i.taskId === taskId)?.status === "done";
+            dispatch({ type: "reopen-step", stepsByTask, taskId, index, titles });
+            // EVA-1.2: reopening a completed action changes the remaining work, so feasibility is re-checked
+            // with the existing engine at the effort available after the release.
+            if (wasDone) {
+              const at = engineAt(Math.max(0, state.budget - (consumed - (costs[taskId] ?? 0))));
+              dispatch({ type: "recheck", label: `Reopened: ${titles[taskId] ?? taskId}`, rankedTaskIds: at.views.filter((v) => v.rank !== null).map((v) => v.taskId), costs, stepsByTask, titles });
+            }
+          }}
+          onSetSkipReason={(index, reason) => dispatch({ type: "set-skip-reason", stepsByTask, index, reason })}
           onSkip={(reason) => dispatch({ type: "skip-task", reason })}
           onEvent={(id) => {
             const ev = s.events.find((e) => e.id === id);

@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { reopenEffects, stepCounts, stepRecords, type MgScenario, type MissionState, type TaskView } from "@/lib/prototype/mission-glass";
+import {
+  ACCOUNTING_ASSUMPTION,
+  executionOutcome,
+  executionText,
+  reopenEffects,
+  skipCaution,
+  stepCounts,
+  stepRecords,
+  type MgScenario,
+  type MissionState,
+  type TaskView,
+} from "@/lib/prototype/mission-glass";
 import { PanelHeader, ReopenConfirm, StepForm, StepsPanel, type StepFormKind } from "./StepControls";
 
 /**
@@ -34,6 +45,7 @@ export function EvaHud({
   onNote,
   onUndoStep,
   onReopen,
+  onSetSkipReason,
   onSkip,
   onEvent,
   onReviewReplan,
@@ -58,6 +70,8 @@ export function EvaHud({
   onUndoStep: () => void;
   /** EVA-1.1: reopen a done or skipped step (after the user confirmed its effects). */
   onReopen: (taskId: string, index: number) => void;
+  /** EVA-1.2: correct a skip reason (action in progress). */
+  onSetSkipReason: (index: number, reason: string) => void;
   onSkip: (reason?: string) => void;
   onEvent: (id: string) => void;
   onReviewReplan: () => void;
@@ -212,7 +226,7 @@ export function EvaHud({
       {/* Brief mission progress: one segment per action. */}
       <ol className="flex gap-1.5" aria-label="Mission progress" data-testid="mg-plan-timeline">
         {items.map((i, n) => (
-          <li key={i.taskId} data-status={i.status} data-drop={i.dropped?.by ?? ""} className="min-w-0 flex-1">
+          <li key={i.taskId} data-status={i.status} data-drop={i.dropped?.by ?? ""} data-outcome={executionOutcome(i, stepsOf(i.taskId).length) ?? ""} className="min-w-0 flex-1">
             <span
               aria-hidden
               className={`block h-1.5 rounded-full ${
@@ -221,7 +235,17 @@ export function EvaHud({
             />
             <span className={`mt-1 block truncate text-[13px] ${i.status === "active" ? "text-[var(--mg-text)]" : "text-[var(--mg-faint)]"} ${i.status === "skipped" ? "line-through" : ""}`}>
               {`${n + 1}. ${viewById.get(i.taskId)?.shortTitle ?? i.taskId} · ${
-                i.status === "active" ? (i.paused ? "paused" : "in progress") : i.status === "skipped" ? (i.dropped?.by === "replan" ? "dropped by replan" : "skipped by you") : i.status
+                i.status === "active"
+                  ? i.paused
+                    ? "paused"
+                    : "in progress"
+                  : i.status === "skipped"
+                    ? i.dropped?.by === "replan"
+                      ? "dropped by replan"
+                      : "skipped by you"
+                    : i.status === "done" && executionOutcome(i, stepsOf(i.taskId).length) === "partial"
+                      ? `done · ${stepCounts(i, stepsOf(i.taskId).length).skipped} step(s) skipped`
+                      : i.status
               }`}
             </span>
           </li>
@@ -230,7 +254,8 @@ export function EvaHud({
 
       <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_21rem]">
         {/* 1–3: current action, current step, single primary action. */}
-        <section className="mg-glass mg-rise flex min-h-0 flex-col self-start p-6 lg:p-8" aria-labelledby="mg-current-title" data-testid="mg-current">
+        {/* EVA-1.2: the card scrolls on wide screens (the page itself does not), so long forms and confirmations stay reachable. */}
+        <section className="mg-glass mg-rise flex min-h-0 flex-col self-start p-6 lg:max-h-full lg:overflow-y-auto lg:p-8" aria-labelledby="mg-current-title" data-testid="mg-current">
           {current && view ? (
             <>
               <div className="flex flex-wrap items-center gap-2">
@@ -322,6 +347,15 @@ export function EvaHud({
                     {`Then: ${steps[nextTodo]}`}
                   </p>
                 ) : null}
+                {current.status === "active" && !viewing && records.slice(0, stepIndex).some((r) => r.status === "skipped") ? (
+                  <p className="mt-2 rounded-lg bg-[rgba(241,200,120,0.1)] px-2 py-1 text-[14px] text-[var(--mg-caution)]" data-testid="mg-skip-caution">
+                    {`Earlier step ${records
+                      .slice(0, stepIndex)
+                      .map((r, n) => (r.status === "skipped" ? n + 1 : 0))
+                      .filter(Boolean)
+                      .join(", ")} was skipped. This step may rely on it; the scenario has no step-dependency data, so check before continuing.`}
+                  </p>
+                ) : null}
                 {current.status === "active" && records[shownIndex]?.note ? (
                   <p className="mt-1 text-[14px] text-[var(--mg-dim)]" data-testid="mg-current-note">
                     {`Your note (simulated): ${records[shownIndex].note}`}
@@ -344,6 +378,17 @@ export function EvaHud({
                   </button>
                 ) : null}
                 {current.status === "active" && !paused && !viewing ? (
+                  // EVA-1.2: skipping the current step is a visible step control (it was hidden under More).
+                  <button
+                    type="button"
+                    onClick={() => setForm({ kind: "skip-step", index: current.step })}
+                    className="min-h-12 rounded-xl border border-[var(--mg-line-strong)] px-4 text-[16px]"
+                    data-testid="mg-skip-step"
+                  >
+                    {`Skip step ${current.step + 1}…`}
+                  </button>
+                ) : null}
+                {current.status === "active" && !paused && !viewing ? (
                   <button type="button" onClick={onPause} className="min-h-12 rounded-xl border border-[var(--mg-line-strong)] px-4 text-[16px]" data-testid="mg-pause">
                     {"Pause"}
                   </button>
@@ -355,9 +400,6 @@ export function EvaHud({
                   <div id="mg-more" hidden={!moreOpen} className="mg-glass absolute bottom-14 left-0 z-10 w-64 bg-[var(--mg-glass-strong)] p-2">
                     {current.status === "active" ? (
                       <>
-                        <button type="button" disabled={paused} onClick={() => { setMoreOpen(false); setForm({ kind: "skip-step", index: current.step }); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)] disabled:opacity-40" data-testid="mg-skip-step">
-                          {`Skip step ${current.step + 1}…`}
-                        </button>
                         <button type="button" onClick={() => { setMoreOpen(false); setForm({ kind: "note", index: current.step }); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)]" data-testid="mg-add-note">
                           {`Note on step ${current.step + 1}…`}
                         </button>
@@ -398,7 +440,9 @@ export function EvaHud({
                   key={`${reopenAsk.taskId}-${reopenAsk.index}`}
                   title={titleOf(reopenAsk.taskId)}
                   stepNumber={reopenAsk.index + 1}
-                  lines={reopenFx.lines}
+                  execution={reopenFx.execution}
+                  accounting={reopenFx.accounting}
+                  feasibility={reopenFx.feasibility}
                   affectsPlan={reopenFx.affectsPlan}
                   onCancel={closeReopen}
                   onConfirm={() => {
@@ -413,10 +457,12 @@ export function EvaHud({
                   key={`${form.kind}-${form.index}`}
                   kind={form.kind}
                   stepNumber={form.index + 1}
-                  initialNote={records[form.index]?.note ?? ""}
+                  initialNote={form.kind === "reason" ? (records[form.index]?.reason ?? "") : (records[form.index]?.note ?? "")}
+                  caution={form.kind === "skip-step" && current.status === "active" ? skipCaution(current, steps.length, form.index) : null}
                   onCancel={closeForm}
                   onSubmit={(text) => {
                     if (form.kind === "skip-step") onSkipStep(text, form.index);
+                    else if (form.kind === "reason") onSetSkipReason(form.index, text);
                     else if (form.kind === "note") onNote(form.index, text);
                     else onSkip(text);
                     closeForm();
@@ -435,7 +481,9 @@ export function EvaHud({
                   key={`${reopenAsk.taskId}-${reopenAsk.index}`}
                   title={titleOf(reopenAsk.taskId)}
                   stepNumber={reopenAsk.index + 1}
-                  lines={reopenFx.lines}
+                  execution={reopenFx.execution}
+                  accounting={reopenFx.accounting}
+                  feasibility={reopenFx.feasibility}
                   affectsPlan={reopenFx.affectsPlan}
                   onCancel={closeReopen}
                   onConfirm={() => {
@@ -477,6 +525,11 @@ export function EvaHud({
             <p className="mt-2 text-center text-[13px] text-[var(--mg-dim)]" data-testid="mg-effort-note">
               {`Simulated effort points. Committed so far: ${consumed} of ${state.budget}. Costs ahead are estimates.`}
             </p>
+            {items.some((i) => executionOutcome(i, stepsOf(i.taskId).length) === "partial") ? (
+              <p className="mt-2 text-center text-[12px] text-[var(--mg-faint)]" data-testid="mg-accounting-note">
+                {`Includes an action that ended with skipped steps. ${ACCOUNTING_ASSUMPTION}`}
+              </p>
+            ) : null}
             {remainingNeed > available ? (
               <p className="mt-2 rounded-lg bg-[rgba(241,200,120,0.12)] px-2 py-1 text-center text-[13px] text-[var(--mg-caution)]" data-testid="mg-warning-budget">
                 {`The remaining plan needs ${remainingNeed} pts but only ${available} are available.`}
@@ -526,6 +579,8 @@ export function EvaHud({
                 onSkip={(n) => setForm({ kind: "skip-step", index: n })}
                 onNote={(n) => setForm({ kind: "note", index: n })}
                 onReopen={(n) => setReopenAsk({ taskId: stepsItem.taskId, index: n })}
+                onEditReason={(n) => setForm({ kind: "reason", index: n })}
+                outcome={stepsItem.status === "done" ? executionText(stepsItem, stepsLabels.length) : null}
               />
             </section>
           ) : null}

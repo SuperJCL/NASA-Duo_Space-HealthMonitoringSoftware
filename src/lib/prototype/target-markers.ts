@@ -63,7 +63,9 @@ export function targetMarkers(args: {
     const item = state.plan?.items.find((i) => i.taskId === t.taskId);
     const feasible = v.status === "fits";
     const tone: MarkerTone = item ? item.status : state.draft.includes(t.taskId) ? "added" : feasible ? "candidate" : "infeasible";
-    const badge = tone === "done" ? "✓" : v.rank ? String(v.rank) : "–";
+    // EVA-1.2: an action that ended with skipped steps is not shown as a plain "done" (½ = partial).
+    const partialSteps = tone === "done" && item ? stepCounts(item, stepsByTask[t.taskId] ?? 0).skipped : 0;
+    const badge = tone === "done" ? (partialSteps ? "½" : "✓") : v.rank ? String(v.rank) : "–";
     const priority = v.rank ? `provisional priority #${v.rank}` : "not ranked under the current budget";
     const n = stepsByTask[t.taskId] ?? 0;
     const c = item ? stepCounts(item, n) : null;
@@ -71,7 +73,9 @@ export function targetMarkers(args: {
     const stepsSoFar = c && c.done + c.skipped ? ` (${c.done} of ${n} steps done${c.skipped ? `, ${c.skipped} skipped` : ""})` : "";
     const planText =
       tone === "done"
-        ? `Done (simulated)${c?.skipped ? `, ${c.skipped} step(s) skipped` : ""}. Its effort is committed.`
+        ? c?.skipped
+          ? `Ended with ${c.skipped} of ${n} step(s) skipped: those measurements were not made. Its whole simulated cost is committed.`
+          : "Done (simulated). Its effort is committed."
         : tone === "skipped"
           ? item?.dropped?.by === "replan"
             ? `Dropped by replanning${stepsSoFar}.`
@@ -98,7 +102,9 @@ export function targetMarkers(args: {
       badge,
       // A planned or in-progress action that the current budget no longer covers says so on the map.
       status:
-        tone === "skipped" && item?.dropped?.by === "replan"
+        partialSteps
+          ? "done · partial"
+          : tone === "skipped" && item?.dropped?.by === "replan"
           ? "dropped by replan"
           : tone === "active" && item?.paused
             ? `paused${feasible ? "" : " · not feasible"}`

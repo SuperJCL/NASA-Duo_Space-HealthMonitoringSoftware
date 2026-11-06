@@ -211,6 +211,38 @@ procedure system.
 - **The Steps panel** can show a completed action's steps (picker), with
   "Reopen…" only. Notes and marking apply to the action in progress.
 
+### EVA-1.2: explicit step skipping; execution vs effort accounting
+
+- **Skip step N…** is a visible control next to the primary action (it was
+  under More).
+  - The form says the step is recorded as skipped, not done ("its
+    measurement is not made").
+  - It requires a reason and offers quick reasons.
+  - If later steps are unfinished, it shows a neutral caution: "Later steps
+    … may rely on step N. This scenario has no step-dependency data: check
+    before continuing." The caution stays visible on the next step. No
+    dependency rule is invented.
+- **Skip reasons can be corrected** (Steps panel → "Edit reason…") or the
+  step reopened. Reopened steps keep a `history` of their earlier states
+  and reasons.
+- **Execution outcome** (`executionOutcome` and `executionText`):
+  - An action whose steps are all resolved is "complete" if every step was
+    done, and "partial" if some were skipped ("those measurements were not
+    made").
+  - Partial actions are labelled in the timeline ("done · 1 step(s)
+    skipped"), on the map (badge ½, status "done · partial"), in the cards
+    and in the Steps panel.
+- **Effort accounting is stated separately as an assumption**
+  (`ACCOUNTING_ASSUMPTION`): an action's whole estimated cost is committed
+  when it ends, also with skipped steps, because per-step costs are not
+  modelled. The HUD shows this whenever a partial action exists.
+- **Reopening an ended action:** the confirmation has three sections
+  (Execution, Simulated effort accounting, Feasibility after reopening).
+  After confirmation, a `recheck` runs the existing engine at the effort
+  available after the release.
+  - If the plan still fits, a notice says so (Undo kept).
+  - If not, or if the engine's order changed, the replanning dialog opens.
+
 ## Spatial decision map (MAP-1)
 
 The planning map is a decision surface, not a backdrop. Everything it shows

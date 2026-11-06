@@ -75,8 +75,8 @@ describe("EVA-1.1 reopening completed steps", () => {
     let st = run(started(), complete(), { type: "set-step-note", stepsByTask, index: 0, note: "Fine laminations" });
     st = run(st, { type: "skip-step", stepsByTask, reason: "Dusty (simulated)" }, reopen(0), reopen(1));
     expect(stepRecords(item(st, ABR), 4).slice(0, 2)).toEqual([
-      { status: "todo", note: "Fine laminations" },
-      { status: "todo", previousReason: "Dusty (simulated)" },
+      { status: "todo", note: "Fine laminations", history: [{ status: "done" }] },
+      { status: "todo", history: [{ status: "skipped", reason: "Dusty (simulated)" }] },
     ]);
   });
 
@@ -85,14 +85,27 @@ describe("EVA-1.1 reopening completed steps", () => {
     const fx = reopenEffects({ state: st, taskId: ABR, index: 3, costs, stepsByTask, titles });
     expect(fx.ok).toBe(true);
     expect(fx.affectsPlan).toBe(true);
-    expect(fx.lines).toEqual([
-      "Step 4 becomes not done again.",
-      "Abrade and analyse a rock is completed; reopening returns it to in progress at step 4. Its 40 pts are released: committed effort goes from 40 to 0 pts, and the remaining plan's estimate from 55 to 95 pts. They are committed again, once, when the action is completed again.",
+    // EVA-1.2: execution and effort accounting are explained separately, then feasibility.
+    expect(fx.execution).toEqual([
+      "Step 4 becomes not done again. Its earlier state (done) is kept in the step's history.",
+      "Abrade and analyse a rock has ended (Completed: all 4 steps done); reopening returns it to in progress at step 4.",
       "Collect a core sample (in progress) is set aside: it goes back into the plan with its steps kept and continues after Abrade and analyse a rock.",
     ]);
-    // Reopening within the action in progress does not affect the plan.
+    expect(fx.accounting).toEqual([
+      "Its 40 pts are released: committed effort goes from 40 to 0 pts, and the remaining plan's estimate from 55 to 95 pts.",
+      "They are committed again, once, when the action ends again. Nothing is counted twice and no per-step amount is refunded.",
+      "Simulated effort accounting: an action's whole estimated cost is committed when it ends, also if some steps were skipped. Per-step costs are not modelled.",
+    ]);
+    expect(fx.feasibility).toBe("After reopening, the remaining plan needs 95 of 100 pts available: it fits. The engine's order is re-checked when you confirm.");
+    // Reopening within the action in progress does not affect the plan or the effort.
     const inProgress = reopenEffects({ state: run(started(), complete(), complete()), taskId: ABR, index: 0, costs, stepsByTask, titles });
-    expect(inProgress).toEqual({ ok: true, lines: ["Step 1 becomes not done again.", "The current step becomes step 1."], affectsPlan: false });
+    expect(inProgress).toMatchObject({
+      ok: true,
+      execution: ["Step 1 becomes not done again. Its earlier state (done) is kept in the step's history.", "The current step becomes step 1."],
+      accounting: ["No change: this action is still in progress, so nothing was committed for it yet."],
+      feasibility: null,
+      affectsPlan: false,
+    });
     expect(reopenEffects({ state: started(), taskId: ABR, index: 0, costs, stepsByTask }).ok).toBe(false);
   });
 
@@ -125,7 +138,7 @@ describe("EVA-1.1 reopening completed steps", () => {
     expect(item(st, CORE).dropped).toEqual({ by: "replan" });
     expect(st.previous).not.toBeNull();
     const fx = reopenEffects({ state: st, taskId: ABR, index: 3, costs, stepsByTask, titles });
-    expect(fx.lines.at(-1)).toBe("Earlier replanning decisions are not changed: dropped actions stay dropped.");
+    expect(fx.execution.at(-1)).toBe("Earlier replanning decisions are not changed: dropped actions stay dropped.");
     st = run(st, reopen(3));
     expect(item(st, ABR).status).toBe("active");
     expect(item(st, CORE)).toMatchObject({ status: "skipped", dropped: { by: "replan" } });

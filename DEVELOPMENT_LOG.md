@@ -2361,3 +2361,103 @@ The defects were in the other paths:
   stand.
 - **Notes can be edited only on the action in progress.**
 - **Not tested with users or screen readers.**
+
+## EVA-1.2 (Track A): explicit step skipping, completed-action correction
+
+- **Context:** manual acceptance of EVA-1.1 gave Details open/close PASS,
+  Step correction PASS, and Completed action correction PARTIAL PASS. The
+  user asked why a specific step cannot be skipped.
+- **Branch:** `eva1.2-step-skip-correction`, created from `eva1.1-p0-fixes`
+  (`31c83ef`). Not merged; EVA-1.1 is not merged either.
+- **Started:** 2026-11-06T05:53:06Z.
+- **Completed:** 2026-11-06T06:09:53Z, at commit.
+- **Wall-clock elapsed:** 16 min 47 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Why the user could not find "skip a step"
+
+EVA-1 put "Skip step N…" under the **More ▾** menu, next to "Skip this
+action". The visible controls were only Complete and Pause.
+
+### Implemented
+
+- **Skip step:**
+  - a visible "Skip step N…" beside the primary action, reached by keyboard
+    with one Tab;
+  - the form states "recorded as skipped, not done: its measurement is not
+    made" and requires a reason;
+  - a neutral caution when later steps are unfinished ("may rely on…; this
+    scenario has no step-dependency data"), kept on the following step;
+  - the reason can be corrected ("Edit reason…") or the step reopened.
+- **Execution vs accounting:**
+  - An ended action is **complete** or **partial** (skipped steps, so those
+    measurements were not made). This is shown in the notice, timeline, map
+    (½, "done · partial"), cards and Steps panel.
+  - The accounting assumption (whole simulated cost committed when the
+    action ends; no per-step costs) is stated separately in the HUD.
+- **Completed-action correction:**
+  - The reopen confirmation separates Execution, Simulated effort
+    accounting and Feasibility after reopening.
+  - Steps keep a `history` of earlier states and reasons; notes are kept.
+  - After confirmation, a new `recheck` runs the existing engine at the
+    available effort. If the plan still fits, a notice says so and Undo is
+    kept. If not, or if the order changed, the replanning dialog opens.
+  - Committed effort stays derived from ended actions: no double counting,
+    no per-step refunds.
+
+### Tests
+
+- **Unit:** 236/236 (+8 in `eva-skip-correction.test.ts`):
+  - skip and continue, with the caution text;
+  - the caution only when later steps are unfinished;
+  - partial vs complete outcome, effort committed once, and the map badge
+    and status;
+  - correcting a reason (non-empty), with Undo;
+  - reopening a skipped step (history keeps the reason);
+  - separate execution and accounting explanations for a partial action;
+  - recheck that still fits (notice, Undo kept);
+  - recheck that no longer fits (replan proposal).
+
+  Updated for the new wording and structure: `eva-steps` (partial notice)
+  and `eva-reopen` (sections, history).
+- **Prototype smoke:** 139/139 against `next start` (+11). The checks
+  cover:
+  - visible Skip, reachable by keyboard, with the "skipped ≠ done" text and
+    the caution;
+  - continuing to the next step, with the caution kept;
+  - correcting a reason;
+  - a partial ending with the accounting note (60 left);
+  - the three-section reopen confirmation, on screen and not covered;
+  - re-check notice, history and released effort;
+  - complete after re-completion, with effort counted once;
+  - a reopen that makes the plan infeasible opening the replanning dialog;
+  - accept → dropped, then Undo restores;
+  - no page errors.
+
+  Translation now also covers the visible skip, correcting a reason and
+  reopening; the phone check uses the visible Skip button. Earlier
+  keyboard and phone checks were updated to the new path.
+- **Research smoke:** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Scoring engine, evidence, scenario tasks, geo and review registry:** 0
+  lines of diff against `main`.
+
+### Rework
+
+1. **The long reopen confirmation ran below the fold at 1440×900.** The wide
+   layout does not scroll the page, so its button was unreachable by mouse
+   (the smoke had passed only because Playwright scrolls programmatically).
+   The current-action card now scrolls on wide screens, forms and
+   confirmations scroll themselves into view, and a new check verifies the
+   button is on screen and not covered.
+2. **The partial badge "◐" rendered as an unreadable glyph** on the map and
+   the target button. It is now "½", which is also in the legend.
+
+### Known limitations
+
+- **No step-dependency data exists,** so the caution is generic.
+- **Per-step effort is not modelled:** a partial action commits its whole
+  simulated cost. This is stated as an assumption.
+- **Notes and reasons can be edited only on the action in progress.**
+- **Not tested with users or screen readers.**
