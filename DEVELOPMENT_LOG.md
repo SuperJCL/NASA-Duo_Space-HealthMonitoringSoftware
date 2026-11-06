@@ -2215,3 +2215,24 @@ to `main`'s squashed M2 commit `05cafae`, so no content is missing.
   (SwiftShader), not on real mobile GPUs.
 - **No user testing yet.**
 - **Not yet integrated with EVA-1.x.** A trial merge is reported separately.
+
+### MAP-3A × EVA-1.2 trial integration (local only, not pushed or merged)
+
+- **Started:** 2026-11-06T06:36:53Z.
+- **Completed:** 2026-11-06T06:41:34Z.
+- **Elapsed:** 4 min 41 s.
+- **Method:** `eva1.2-step-skip-correction` (which contains EVA-1 and
+  EVA-1.1) was merged into a detached copy of `map3a-ctx-3d-terrain`, as a
+  local commit only.
+- **Conflicts:** only append-only regions.
+  - `DEVELOPMENT_LOG.md`: both sides kept.
+  - `scripts/smoke-mission-glass.mjs`: both new sections kept, and one
+    translated-check label combined.
+- **Merged automatically:** `MissionGlass.tsx` and `TargetMapOverlay.tsx`.
+- **Results on the merged tree:**
+  - `npm run check` passes, 246/246 unit tests;
+  - prototype smoke 151/151 against `next start`, in two consecutive runs;
+  - research smoke 116/116 with `SMOKE_LIVE=1`.
+- **Conclusion:** the two branches can be integrated without code changes,
+  once each is accepted. The final integration still needs its own
+  approval.
