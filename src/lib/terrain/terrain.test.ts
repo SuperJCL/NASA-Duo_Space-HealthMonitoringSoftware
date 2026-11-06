@@ -7,6 +7,14 @@ import { loadJezeroMarginScenario } from "@/lib/evidence/repository";
 import { loadJezeroGeo } from "@/lib/geo/repository";
 import { parseScenario, simulatedTargets } from "@/lib/prototype/mission-glass";
 import {
+  CAMERA_PRESETS,
+  CONTOUR_INTERVAL_M,
+  EXAGGERATIONS,
+  localRange,
+  profileAlong,
+  reliefHeadline,
+  reliefStatement,
+  reliefSummary,
   DEFAULT_EXAGGERATION,
   LEFROY_TERRAIN as m,
   MARS_RADIUS_M,
@@ -138,3 +146,70 @@ describe("MAP-3A coordinate transformations", () => {
     expect(DEFAULT_EXAGGERATION).toBe(1);
   });
 });
+
+describe("MAP-3A.1 readable relief from the unchanged DTM", () => {
+  const pos = (id: string) => {
+    const r = sites.find((x) => x.id === id)!;
+    return r.kind === "sample-site" ? r.position : ([0, 0] as const);
+  };
+  const comet = pos("sample-comet-geyser");
+  const pelican = pos("sample-pelican-point");
+  const lefroy = pos("sample-lefroy-bay");
+
+  it("offers 1× (default), 3× and 5×, and 10 m contours", () => {
+    expect([...EXAGGERATIONS]).toEqual([1, 3, 5]);
+    expect(DEFAULT_EXAGGERATION).toBe(1);
+    expect(CONTOUR_INTERVAL_M).toBe(10);
+  });
+
+  it("has low-angle camera presets", () => {
+    expect(CAMERA_PRESETS.lowEast.polarDeg).toBeGreaterThanOrEqual(75);
+    expect(CAMERA_PRESETS.lowSouth.polarDeg).toBeGreaterThanOrEqual(75);
+    expect(CAMERA_PRESETS.overview.polarDeg).toBeLessThan(45);
+  });
+
+  it("samples a straight line every 10 m from the DTM, end to end", () => {
+    const p = profileAlong(m, heights, comet, pelican)!;
+    const R = MARS_RADIUS_M;
+    const r = Math.PI / 180;
+    const a = Math.sin(((pelican[1] - comet[1]) * r) / 2) ** 2 + Math.cos(comet[1] * r) * Math.cos(pelican[1] * r) * Math.sin(((pelican[0] - comet[0]) * r) / 2) ** 2;
+    expect(Math.abs(p.lengthM - 2 * R * Math.asin(Math.sqrt(a)))).toBeLessThan(2);
+    expect(p.samples.length).toBe(Math.ceil(p.lengthM / 10) + 1);
+    expect(p.samples[1].distanceM).toBeCloseTo(p.lengthM / (p.samples.length - 1), 6);
+    expect(p.startM).toBeCloseTo(sampleHeight(m, heights, comet)!, 6);
+    expect(p.endM).toBeCloseTo(sampleHeight(m, heights, pelican)!, 6);
+    expect(Math.round(p.netChangeM)).toBe(-40); // Comet Geyser is ~40 m above Pelican Point (DTM)
+    expect(p.minM).toBeLessThanOrEqual(Math.min(p.startM, p.endM));
+    expect(p.maxM).toBeGreaterThanOrEqual(Math.max(p.startM, p.endM));
+    expect(profileAlong(m, heights, comet, [0, 0])).toBeNull(); // outside the crop: no invented values
+  });
+
+  it("states the real relief from the posts: modest overall, nearly flat around the targets", () => {
+    const r = reliefSummary(m, heights, lefroy);
+    expect(r.cropMinM).toBeCloseTo(m.heights.minM, 2);
+    expect(r.cropMaxM).toBeCloseTo(m.heights.maxM, 2);
+    expect(Math.round(r.cropReliefM)).toBe(244);
+    expect(r.westMeanM).toBeGreaterThan(r.eastMeanM); // the ground falls to the east
+    expect(r.slopeMedianDeg).toBeGreaterThan(2);
+    expect(r.slopeMedianDeg).toBeLessThan(6);
+    const local = Object.fromEntries(r.local.map((x) => [x.radiusM, Math.round(x.reliefM)]));
+    expect(local).toEqual({ 150: 10, 300: 22, 1000: 74 });
+    expect(reliefStatement(r, "Lefroy Bay")).toBe(
+      "Relief is real but modest: 244 m across this 3 km crop (falling about 72 m from west to east; median slope 3.5°, 90 % below 6.5°). Around Lefroy Bay and the targets it varies by only about 10 m within 150 m and 22 m within 300 m, so at 1× (true scale) it looks nearly flat.",
+    );
+    expect(reliefHeadline(r, "Lefroy Bay")).toBe("Relief is real but modest: 244 m across the crop, about 22 m within 300 m of Lefroy Bay; nearly flat at 1× near the targets.");
+  });
+
+  it("reports the local elevation range from the posts around a point", () => {
+    const l = localRange(m, heights, lefroy, 300);
+    expect(Math.round(l.reliefM)).toBe(22);
+    expect(l.minM).toBeLessThanOrEqual(sampleHeight(m, heights, lefroy)!);
+    expect(l.maxM).toBeGreaterThanOrEqual(sampleHeight(m, heights, lefroy)!);
+    // A larger radius can only widen the range; the whole crop gives the crop's own extremes.
+    expect(localRange(m, heights, lefroy, 1000).reliefM).toBeGreaterThan(l.reliefM);
+    const all = localRange(m, heights, lefroy, 10_000);
+    expect(all.minM).toBeCloseTo(m.heights.minM, 2); // metadata stores the range rounded to 1 mm
+    expect(all.maxM).toBeCloseTo(m.heights.maxM, 2);
+  });
+});
+

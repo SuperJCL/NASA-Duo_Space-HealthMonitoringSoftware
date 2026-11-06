@@ -83,7 +83,8 @@ The unit tests (`terrain.test.ts`) check:
 - **Rendering:** plain `three` 0.186.1, loaded client-side only, like the 2D
   map. The mesh has one vertex per 20 m post ("Low" quality uses every
   second post) and is shown at **1× vertical exaggeration** by default.
-  2× and 3× are labelled "heights stretched; not true scale".
+  3× and 5× (MAP-3A.1) are labelled "heights stretched N times; not true
+  scale", in the caution colour.
 - **Markers:**
   - verified sample sites are cyan spheres;
   - simulated targets are coral diamonds, with the same tones and provisional
@@ -119,7 +120,77 @@ The unit tests (`terrain.test.ts`) check:
 - **Resolution:** at 20 m posts the effective resolution is about 60–100 m.
   No rocks or metre-scale relief, and nothing about traversability.
 - **Area:** only this 3 km crop. The HiRISE 1 m DTM (1.84 GB) is not used.
-- **Lighting:** a fixed directional light adds depth cues. It is not the
-  illumination at the time of imaging.
+- **Lighting:** the relief shading uses a fixed low sun (north-west, 25°)
+  and is contrast-enhanced. It is a depth cue, not the illumination at the
+  time of imaging.
 - **No routes:** routes, travel times and route optimisation are out of
   scope (MAP-2 will add only labelled conceptual connections).
+
+## MAP-3A.1: making the real relief readable
+
+### What the DTM actually contains here
+
+Measured from the 160 × 160 posts of the crop (`reliefSummary`, unit-tested):
+
+- **Relief is real but modest.** 244 m between the highest and lowest posts
+  (−2,466.8 to −2,222.9 m), with the extremes at opposite corners. The ground
+  falls about 72 m from the western to the eastern third.
+- **Slopes are gentle.** Over a 100 m baseline the median is 3.5° and 90 %
+  are below 6.5°.
+- **Around Lefroy Bay and the targets it is nearly flat:** about 10 m within
+  150 m, 22 m within 300 m and 74 m within 1 km.
+- **Profiles:**
+  - Comet Geyser → Pelican Point: 1,409 m long, from −2,385 m to −2,425 m
+    (net −40 m);
+  - across the crop centre: 96 m of range west–east and 43 m north–south.
+
+So at 1× the area near the targets **does** look almost flat: that is what
+the DTM says, not a rendering fault. The viewer states this in plain words
+(`terrain-relief-note`; a shorter `terrain-relief-short` on phones). No
+relief was added, smoothed or invented: the mesh is still the unchanged
+posts, and every number shown is read from them.
+
+### Tools for reading it
+
+- **Camera presets** (instant, so reduced motion is respected): Overview,
+  Oblique, Low angle from the east and Low angle from the south (polar 80°).
+  The presets orbit the selected target, or the crop centre if nothing is
+  selected. Any drag, pinch or button move switches back to a custom view.
+- **Vertical scale:** 1× true scale (default), 3× and 5×. The view only
+  stretches heights; the elevation numbers, profile and relief statement do
+  not change.
+- **Surface** (colours only; the geometry never changes):
+  - *Relief shading* (default): the orthoimage modulated by a fixed low sun,
+    contrast-enhanced so gentle slopes are visible;
+  - *Elevation colours*: a ramp from the crop minimum to maximum, with a
+    legend;
+  - *Imagery*: the orthoimage with mild shading.
+- **10 m contours** (on by default) are drawn from the true elevation
+  attribute in the shader, so they stay at true 10 m intervals at 3× and 5×.
+- **Local elevation range:** the lowest and highest posts within 300 m of the
+  selected marker (or Lefroy Bay), e.g. "−2,424 m to −2,401 m (22 m)".
+- **Elevation profile** (`profileAlong`):
+  - between any two markers (verified sample sites or simulated targets), or
+    two points picked on the terrain ("Pick two points on the terrain"; Esc
+    cancels);
+  - default: Comet Geyser → Pelican Point;
+  - bilinear samples of the DTM every 10 m along a straight line; a line
+    that leaves the crop returns nothing instead of invented values;
+  - drawn in 3D as an amber line; the chart read-out (pointer, or ←/→,
+    Home and End) is marked on the terrain with a white dot;
+  - the chart states how much it stretches heights (about 11× for the
+    default line) and that the numbers are true DTM metres. Its height is at
+    least 10 m, so differences below the DTM's ~5 m agreement with PDS never
+    fill the chart; a net change or range under 5 m is flagged "not
+    meaningful";
+  - **always labelled "Straight sampling line: not a route, not a safe path,
+    no travel time or traversability."**
+- **Phones:** the profile starts collapsed. When opened, it takes the info
+  panel's place, repeats the 3D vertical scale and stays below the view
+  controls. The panel scrolls if needed.
+
+### Still out of scope
+
+No routes, path optimisation, travel times, safety or traversability. The
+straight profile line is a sampling line only. MAP-2 (simulated
+mission-sequence lines) is separate and has not started.

@@ -69,8 +69,11 @@
   matching CTX orthomosaic, built only by `scripts/build-ctx-terrain.mjs`
   (`npm run build:terrain`; check with `npm run verify:terrain`). Never edit
   the assets by hand, never invent or smooth elevations, keep 1× as the
-  default exaggeration, and never present the view as a route or
-  traversability model (`docs/TERRAIN_3D.md`). Terrain never affects scores.
+  default exaggeration (3× and 5× must stay labelled as not true scale),
+  and never present the view as a route or traversability model. Elevation
+  profiles are straight sampling lines and must say so; state the real relief
+  rather than implying more (`docs/TERRAIN_3D.md`). Terrain never affects
+  scores.
 - `src/data/` — curated JSON evidence records (validated at build time);
   `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 

@@ -142,7 +142,8 @@ export function lonLatToUv(m: TerrainMeta, [lon, lat]: LonLat): [u: number, v: n
   return [(lon - w) / (e - w), (n - lat) / (n - s)];
 }
 
-export const EXAGGERATIONS = [1, 2, 3] as const;
+/** MAP-3A.1: 1× (true scale), and 3× / 5× for low-relief terrain (always labelled). */
+export const EXAGGERATIONS = [1, 3, 5] as const;
 export type Exaggeration = (typeof EXAGGERATIONS)[number];
 /** Requirement: 1× by default; any other value is labelled on screen. */
 export const DEFAULT_EXAGGERATION: Exaggeration = 1;
@@ -150,4 +151,173 @@ export const DEFAULT_EXAGGERATION: Exaggeration = 1;
 /** Human-readable resolution and source line, shown with the 3D view. */
 export function sourceLine(m: TerrainMeta): string {
   return `CTX DTM ${m.dtm.postSpacingM} m posts (${m.dtm.productLabel}), crop ${(m.crop.sizeM.eastWest / 1000).toFixed(1)} × ${(m.crop.sizeM.northSouth / 1000).toFixed(1)} km; imagery CTX orthomosaic 6 m (Mars Trek z${m.imagery.zoom})`;
+}
+
+// ── MAP-3A.1: readable relief from the real DTM (nothing here alters elevations) ──
+
+/** Contour interval drawn on the terrain (metres of true elevation). */
+export const CONTOUR_INTERVAL_M = 10;
+
+/**
+ * Camera presets, as spherical angles around the orbit target in the viewer's
+ * frame (x east, y up, z south): azimuth 0° = camera to the south looking
+ * north, 90° = camera to the east looking west. Polar 0° = straight down.
+ */
+export const CAMERA_PRESETS = {
+  overview: { label: "Overview", azimuthDeg: -20, polarDeg: 30, distanceM: 3600 },
+  oblique: { label: "Oblique", azimuthDeg: -30, polarDeg: 55, distanceM: 3000 },
+  lowEast: { label: "Low angle from the east", azimuthDeg: 95, polarDeg: 80, distanceM: 2300 },
+  lowSouth: { label: "Low angle from the south", azimuthDeg: 5, polarDeg: 80, distanceM: 2300 },
+} as const;
+export type CameraPreset = keyof typeof CAMERA_PRESETS;
+
+export type ProfileSample = { distanceM: number; lon: number; lat: number; elevationM: number };
+export type Profile = {
+  from: LonLat;
+  to: LonLat;
+  /** Straight-line (tangent-plane) length of the sampling line. */
+  lengthM: number;
+  samples: ProfileSample[];
+  startM: number;
+  endM: number;
+  minM: number;
+  maxM: number;
+  netChangeM: number;
+};
+
+/**
+ * MAP-3A.1: real-DTM elevation profile along a STRAIGHT sampling line
+ * between two points inside the crop (not a route). Sampled every `stepM`
+ * metres by bilinear interpolation between 20 m posts.
+ */
+export function profileAlong(m: TerrainMeta, heights: Float32Array, from: LonLat, to: LonLat, stepM = 10): Profile | null {
+  if (!insideCrop(m, from) || !insideCrop(m, to)) return null;
+  const [e0, n0] = lonLatToLocal(m, from);
+  const [e1, n1] = lonLatToLocal(m, to);
+  const lengthM = Math.hypot(e1 - e0, n1 - n0);
+  const k = Math.max(1, Math.ceil(lengthM / stepM));
+  const samples: ProfileSample[] = [];
+  for (let i = 0; i <= k; i++) {
+    const t = i / k;
+    const lon = from[0] + t * (to[0] - from[0]);
+    const lat = from[1] + t * (to[1] - from[1]);
+    const h = sampleHeight(m, heights, [lon, lat]);
+    if (h === null) return null;
+    samples.push({ distanceM: t * lengthM, lon, lat, elevationM: h });
+  }
+  const els = samples.map((x) => x.elevationM);
+  return {
+    from,
+    to,
+    lengthM,
+    samples,
+    startM: els[0],
+    endM: els[els.length - 1],
+    minM: Math.min(...els),
+    maxM: Math.max(...els),
+    netChangeM: els[els.length - 1] - els[0],
+  };
+}
+
+export type ReliefSummary = {
+  cropMinM: number;
+  cropMaxM: number;
+  cropReliefM: number;
+  /** Mean elevation of the western and eastern thirds of the crop. */
+  westMeanM: number;
+  eastMeanM: number;
+  /** Slope over a 100 m baseline (the DTM's effective resolution is a few posts): median and 90th percentile, degrees. */
+  slopeMedianDeg: number;
+  slopeP90Deg: number;
+  /** Elevation variation (max − min) within these radii of the reference point. */
+  local: { radiusM: number; reliefM: number }[];
+};
+
+/** MAP-3A.1: how much relief the DTM really has here, computed from the posts (for an honest statement). */
+export function reliefSummary(m: TerrainMeta, heights: Float32Array, reference: LonLat, radii: readonly number[] = [150, 300, 1000]): ReliefSummary {
+  const N = m.crop.cols;
+  const rows = m.crop.rows;
+  const [, s, , n] = m.crop.bboxDeg;
+  const ew = m.dtm.postSpacingM * Math.cos(((s + n) / 2) / DEG);
+  const ns = m.dtm.postSpacingM;
+  const at = (c: number, r: number) => heights[r * N + c];
+  let min = Infinity;
+  let max = -Infinity;
+  let west = 0;
+  let wk = 0;
+  let east = 0;
+  let ek = 0;
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < N; c++) {
+      const v = at(c, r);
+      min = Math.min(min, v);
+      max = Math.max(max, v);
+      if (c < N / 3) {
+        west += v;
+        wk++;
+      } else if (c >= (2 * N) / 3) {
+        east += v;
+        ek++;
+      }
+    }
+  const B = 5; // 5 posts each side → 100 m baseline in N–S
+  const slopes: number[] = [];
+  for (let r = B; r < rows - B; r++)
+    for (let c = B; c < N - B; c++) {
+      const gx = (at(c + B, r) - at(c - B, r)) / (2 * B * ew);
+      const gy = (at(c, r - B) - at(c, r + B)) / (2 * B * ns);
+      slopes.push(Math.atan(Math.hypot(gx, gy)) * DEG);
+    }
+  slopes.sort((a, b) => a - b);
+  const local = radii.map((radiusM) => ({ radiusM, reliefM: localRange(m, heights, reference, radiusM).reliefM }));
+  return {
+    cropMinM: min,
+    cropMaxM: max,
+    cropReliefM: max - min,
+    westMeanM: west / wk,
+    eastMeanM: east / ek,
+    slopeMedianDeg: slopes[Math.floor(0.5 * (slopes.length - 1))],
+    slopeP90Deg: slopes[Math.floor(0.9 * (slopes.length - 1))],
+    local,
+  };
+}
+
+/** The same finding in one short sentence, for narrow screens. */
+export function reliefHeadline(r: ReliefSummary, referenceName: string): string {
+  const mid = r.local.find((x) => x.radiusM === 300)?.reliefM;
+  return `Relief is real but modest: ${Math.round(r.cropReliefM)} m across the crop${mid !== undefined ? `, about ${Math.round(mid)} m within 300 m of ${referenceName}` : ""}; nearly flat at 1× near the targets.`;
+}
+
+/** Lowest and highest DTM posts within `radiusM` of a point (posts outside the crop are not available). */
+export function localRange(m: TerrainMeta, heights: Float32Array, centre: LonLat, radiusM: number): { minM: number; maxM: number; reliefM: number } {
+  const N = m.crop.cols;
+  const [, s, , n] = m.crop.bboxDeg;
+  const ew = m.dtm.postSpacingM * Math.cos(((s + n) / 2) / DEG);
+  const ns = m.dtm.postSpacingM;
+  const g = lonLatToGrid(m, centre);
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let r = 0; r < m.crop.rows; r++)
+    for (let c = 0; c < N; c++)
+      if (Math.hypot((c + 0.5 - g.col) * ew, (r + 0.5 - g.row) * ns) <= radiusM) {
+        lo = Math.min(lo, heights[r * N + c]);
+        hi = Math.max(hi, heights[r * N + c]);
+      }
+  return { minM: lo, maxM: hi, reliefM: hi - lo };
+}
+
+/** One plain statement of the relief, for the viewer (numbers from reliefSummary). */
+export function reliefStatement(r: ReliefSummary, referenceName: string): string {
+  const fall = r.westMeanM - r.eastMeanM;
+  const l = (rad: number) => r.local.find((x) => x.radiusM === rad)?.reliefM;
+  const near = l(150);
+  const mid = l(300);
+  return [
+    `Relief is real but modest: ${Math.round(r.cropReliefM)} m across this 3 km crop (${fall >= 0 ? "falling" : "rising"} about ${Math.abs(Math.round(fall))} m from west to east; median slope ${r.slopeMedianDeg.toFixed(1)}°, 90 % below ${r.slopeP90Deg.toFixed(1)}°).`,
+    near !== undefined && mid !== undefined
+      ? `Around ${referenceName} and the targets it varies by only about ${Math.round(near)} m within 150 m and ${Math.round(mid)} m within 300 m, so at 1× (true scale) it looks nearly flat.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
