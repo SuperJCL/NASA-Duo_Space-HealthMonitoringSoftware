@@ -2807,3 +2807,58 @@ unchanged, and `verify:terrain` still matches a fresh build.
 - **Same constraints as MAP-3A:** 20 m posts (about 60–100 m effective), one
   3 km crop, software WebGL in tests, and no user testing yet.
 - **Not integrated with EVA-1.3**; each branch awaits acceptance.
+
+## Phase A: EVA-1.3 and MAP-3A.1 integration into main
+
+- **Context:** manual acceptance:
+  - EVA-1.3 historical step correction: PASS;
+  - MAP-3A.1 terrain understanding, elevation profile and 3D usability: PASS.
+- **Started:** 2026-11-06T20:41:44Z.
+- **Completed:** 2026-11-06T20:50:06Z, at this log commit (pushed right after).
+- **Wall-clock elapsed:** 8 min 22 s. One agent, no parallel work, no human
+  intervention.
+
+### History
+
+- `main`, `eva1.3-direct-step-correction` and `map3a1-terrain-readability`
+  each matched `origin`.
+- Both branches fork from `main` at `d163d4a`.
+  - The EVA line adds `a7c2c4e` (log), then EVA-1, EVA-1.1, EVA-1.2 and
+    EVA-1.3.
+  - The terrain line adds MAP-3A, its trial-integration log, and MAP-3A.1.
+- **Merges** (`--no-ff`):
+  1. `dbab366`: EVA-1 to EVA-1.3 into `main`, with no conflicts.
+  2. `551bab1`: MAP-3A and MAP-3A.1 into the result.
+
+### Conflicts
+
+- **`DEVELOPMENT_LOG.md`:** both sides only appended after the common base,
+  so all entries of both were kept: five EVA entries, then two MAP-3A
+  entries.
+- **`scripts/smoke-mission-glass.mjs`:**
+  - the EVA-1, 1.1, 1.2 and 1.3 sections and the MAP-3A and MAP-3A.1
+    sections were all kept;
+  - the translated-run check label was combined.
+- **Merged automatically:** `MissionGlass.tsx` and `TargetMapOverlay.tsx`
+  (as in the earlier trial integration).
+
+### Verification of the merged tree (production build, `next start`)
+
+- `npm run check`: lint, typecheck and build pass, with 253/253 unit tests
+  (EVA 238, plus 15 terrain tests).
+- Prototype smoke: 167/167 in two consecutive runs. That is the base's 101
+  checks, plus 41 from EVA-1.x and 25 from MAP-3A/3A.1, so no coverage was
+  lost.
+- Research smoke: 116/116 with `SMOKE_LIVE=1`.
+- Data validators:
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:terrain`: the committed assets match a fresh build from the
+    live sources.
+- **Integrity:** 0 lines of diff against `d163d4a` in the engine, evidence,
+  geo, briefing and mission code and data. The review registry is 50
+  pending, 0 approved. Terrain code and assets are identical to the
+  accepted MAP-3A.1 branch; EVA code and data are identical to the accepted
+  EVA-1.3 branch.
+- **Rework:** none.
