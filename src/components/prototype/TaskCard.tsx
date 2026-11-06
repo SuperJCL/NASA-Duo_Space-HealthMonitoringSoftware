@@ -18,6 +18,7 @@ export function TaskCard({
   addable,
   expanded,
   limitations,
+  locked = false,
   onSelect,
   onTogglePlan,
   onToggleExpand,
@@ -29,15 +30,21 @@ export function TaskCard({
   addable: Addability;
   expanded: boolean;
   limitations: string[];
+  /** A plan exists: the card shows plan state and cannot change the draft (MAP-1 consistency fix). */
+  locked?: boolean;
   onSelect: () => void;
   onTogglePlan: () => void;
   onToggleExpand: () => void;
   onEvidence: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
-  // Map → card: bring the selected card into view.
+  // Map → card: bring the selected card into view, but only inside a list
+  // that scrolls on its own (wide layout). On phones the page itself scrolls,
+  // and jumping away from the map would hide the target the user just chose.
   useEffect(() => {
-    if (selected) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const list = ref.current?.closest<HTMLElement>('[data-testid="mg-cards"]');
+    if (selected && list && list.scrollHeight > list.clientHeight && getComputedStyle(list).overflowY !== "visible")
+      ref.current?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [selected]);
 
   const inPlan = addable.state === "in-plan";
@@ -103,18 +110,24 @@ export function TaskCard({
         >
           {expanded ? "Hide details" : "Details"}
         </button>
-        <button
-          type="button"
-          onClick={onTogglePlan}
-          disabled={blocked && !inPlan}
-          aria-pressed={inPlan}
-          data-testid="mg-plan-toggle"
-          className={`min-h-10 rounded-xl border px-4 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
-            inPlan ? "border-[var(--mg-coral)] bg-[var(--mg-coral-soft)] text-[var(--mg-coral)]" : "border-[var(--mg-line-strong)] text-[var(--mg-text)] hover:border-[var(--mg-coral)]"
-          }`}
-        >
-          {inPlan ? "✓ Added · remove" : "Add to plan"}
-        </button>
+        {locked ? (
+          <span className={`text-sm ${inPlan ? "text-[var(--mg-coral)]" : "text-[var(--mg-faint)]"}`} data-testid="mg-plan-locked">
+            {inPlan ? "In the plan" : "Not in the plan"}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onTogglePlan}
+            disabled={blocked && !inPlan}
+            aria-pressed={inPlan}
+            data-testid="mg-plan-toggle"
+            className={`min-h-10 rounded-xl border px-4 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
+              inPlan ? "border-[var(--mg-coral)] bg-[var(--mg-coral-soft)] text-[var(--mg-coral)]" : "border-[var(--mg-line-strong)] text-[var(--mg-text)] hover:border-[var(--mg-coral)]"
+            }`}
+          >
+            {inPlan ? "✓ Added · remove" : "Add to plan"}
+          </button>
+        )}
       </div>
 
       {/* Level 2: animated height via grid rows; content stays mounted for state. */}

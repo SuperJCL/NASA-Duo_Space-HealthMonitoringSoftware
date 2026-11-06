@@ -72,6 +72,13 @@ describe("shared mission state (Planning ↔ EVA)", () => {
     return missionReducer(st, { type: "create-plan" });
   };
 
+  it("freezes the draft once a plan exists", () => {
+    const st = plan(["task-abrasion-proximity"]);
+    expect(missionReducer(st, { type: "toggle-draft", taskId: "task-standoff-survey" })).toBe(st);
+    expect(missionReducer(st, { type: "use-suggested", order: ["task-standoff-survey"] })).toBe(st);
+    expect(missionReducer(st, { type: "move-draft", taskId: "task-abrasion-proximity", by: 1 })).toBe(st);
+  });
+
   it("builds, reorders and creates a plan", () => {
     let st = missionReducer(initialMissionState(100), { type: "toggle-draft", taskId: "a" });
     st = missionReducer(st, { type: "toggle-draft", taskId: "b" });
@@ -220,6 +227,10 @@ describe("MG-1 plan fit and plain-language feasibility", () => {
       text: "Doesn't fit your plan: needs 15 pts, only 5 pts left. Remove an action or raise the budget.",
     });
     expect(addability(v100.get("task-core-for-earth")!, ["task-core-for-earth"], costs, 100).state).toBe("in-plan");
+    // Budget lowered below an existing draft: no negative "pts left".
+    expect(addability(v100.get("task-standoff-survey")!, ["task-abrasion-proximity", "task-core-for-earth"], costs, 50).text).toBe(
+      "Doesn't fit your plan: needs 15 pts, and your plan is already 45 pts over budget. Remove an action or raise the budget.",
+    );
     const v50 = new Map(views(50).map((v) => [v.taskId, v]));
     expect(addability(v50.get("task-core-for-earth")!, [], costs, 50)).toEqual({ state: "infeasible", text: "Not possible: needs 55 pts, but the whole budget is 50 pts." });
   });

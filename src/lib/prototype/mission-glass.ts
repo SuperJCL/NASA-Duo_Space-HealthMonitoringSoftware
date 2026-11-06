@@ -337,8 +337,11 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
     case "select":
       return { ...state, selectedTaskId: action.taskId };
     case "toggle-draft":
+      // Once a plan exists the draft is frozen; discard the plan to change it.
+      if (state.plan) return state;
       return { ...state, draft: state.draft.includes(action.taskId) ? state.draft.filter((t) => t !== action.taskId) : [...state.draft, action.taskId] };
     case "move-draft": {
+      if (state.plan) return state;
       const i = state.draft.indexOf(action.taskId);
       const j = i + action.by;
       if (i < 0 || j < 0 || j >= state.draft.length) return state;
@@ -347,6 +350,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
       return { ...state, draft };
     }
     case "use-suggested":
+      if (state.plan) return state;
       return { ...state, draft: action.order };
     case "set-budget":
       return { ...state, budget: action.budget };
@@ -504,6 +508,13 @@ export function addability(view: TaskView, draft: readonly string[], costs: Reco
   if (view.status === "unavailable") return { state: "infeasible", text: "Not possible: its platform is unavailable in this scenario." };
   if (view.status === "over-budget") return { state: "infeasible", text: `Not possible: needs ${view.cost} pts, but the whole budget is ${budget} pts.` };
   const left = budget - planFit(draft, costs, budget).total;
-  if (view.cost > left) return { state: "no-room", text: `Doesn't fit your plan: needs ${view.cost} pts, only ${left} pts left. Remove an action or raise the budget.` };
+  if (view.cost > left)
+    return {
+      state: "no-room",
+      text:
+        left < 0
+          ? `Doesn't fit your plan: needs ${view.cost} pts, and your plan is already ${-left} pts over budget. Remove an action or raise the budget.`
+          : `Doesn't fit your plan: needs ${view.cost} pts, only ${left} pts left. Remove an action or raise the budget.`,
+    };
   return { state: "fits", text: `Fits: ${view.cost} pts, leaving ${left - view.cost} pts.` };
 }

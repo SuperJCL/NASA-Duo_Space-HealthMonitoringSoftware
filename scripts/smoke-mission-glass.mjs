@@ -35,6 +35,30 @@ async function clickLonLat(page, [lon, lat]) {
   await settle(page, 700); // OpenLayers waits ~250 ms to rule out a double click
 }
 
+// MAP-1 helpers: map view geometry from the exposed extent (Mars degrees, linear).
+const TARGETS = { "sim-target-a": { east: -110, north: 120 }, "sim-target-b": { east: 70, north: 95 }, "sim-target-c": { east: 130, north: -45 } };
+const M_LON = MPD * Math.cos((LEFROY[1] * Math.PI) / 180); // metres per degree of longitude at Lefroy Bay
+const TASK_OF = { "sim-target-a": "task-standoff-survey", "sim-target-b": "task-abrasion-proximity", "sim-target-c": "task-core-for-earth" };
+async function viewOf(page) {
+  const map = page.getByTestId("mars-map");
+  const [w, s, e, n] = ((await map.getAttribute("data-view-extent")) ?? "").split(",").map(Number);
+  const box = await map.boundingBox();
+  return { width: e - w, px: ([lon, lat]) => [box.x + ((lon - w) / (e - w)) * box.width, box.y + ((n - lat) / (n - s)) * box.height], box };
+}
+async function waitStill(page) {
+  // The extent attribute only changes at the end of a move, so first outlast the 280 ms focus transition.
+  await page.waitForTimeout(450);
+  let prev = "";
+  for (let i = 0; i < 25; i++) {
+    await page.waitForTimeout(120);
+    const cur = (await page.getByTestId("mars-map").getAttribute("data-view-extent")) ?? "";
+    if (cur && cur === prev) return;
+    prev = cur;
+  }
+}
+const markersOf = async (page) => JSON.parse((await page.getByTestId("mars-map").getAttribute("data-sim-markers")) || "[]");
+const markerMap = async (page) => Object.fromEntries((await markersOf(page)).map((m) => [m.id, m]));
+
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -74,6 +98,7 @@ try {
   await first.getByTestId("mg-select").click();
   await settle(page);
   check((await first.getAttribute("data-selected")) === "true" && (await page.getByTestId("mg-card-task-standoff-survey").getAttribute("data-selected")) === "false", "selecting a card moves the selection (map highlights its target)");
+  await waitStill(page); // MAP-1: selecting a card now moves the map to its target
   await clickLonLat(page, LEFROY);
   check(/Lefroy Bay/.test(await text(page.getByTestId("mg-verified-pick"))) && /Verified feature/.test(await text(page.getByTestId("mg-verified-pick"))), "clicking the verified Lefroy Bay site shows it as a verified feature, not a target");
 
@@ -232,6 +257,130 @@ try {
   check(!/\bsafe route\b|real astronaut telemetry|validated ranking/i.test(body) && !/\b(live|real) telemetry\b/i.test(body.replace(/not real telemetry/g, "")), "no safe-route, real-telemetry or validated-ranking claims");
   check(errors.length === 0, `no page errors${errors.length ? ` (${errors[0]})` : ""}`);
 
+  // ── MAP-1: interactive spatial decision map (fresh page) ──
+  {
+    const mp = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const merr = [];
+    mp.on("pageerror", (e) => merr.push(String(e)));
+    await mp.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await mp.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await mp.waitForFunction(() => (document.querySelector('[data-testid="mars-map"]')?.getAttribute("data-sim-markers") ?? "[]") !== "[]", undefined, { timeout: 15_000 });
+    await waitStill(mp);
+    const map = mp.getByTestId("mars-map");
+    const cardRank = async () => Object.fromEntries(await mp.locator("[data-testid^='mg-card-']").evaluateAll((els) => els.map((e) => [e.getAttribute("data-testid").replace("mg-card-", ""), e.getAttribute("data-rank")])));
+    const consistent = async () => {
+      const m = await markersOf(mp);
+      const ranks = await cardRank();
+      const chips = Object.fromEntries(await mp.getByTestId("mg-target-list").locator("button").evaluateAll((els) => els.map((e) => [e.getAttribute("data-testid").replace("mg-target-", ""), [e.getAttribute("data-badge"), e.getAttribute("data-tone")]])));
+      return m.length === 3 && m.every((x) => chips[x.id]?.[0] === x.badge && chips[x.id]?.[1] === x.tone && (x.badge === "✓" || (ranks[TASK_OF[x.id]] || "–") === x.badge));
+    };
+
+    let mk = await markerMap(mp);
+    check(JSON.stringify(Object.values(mk).map((x) => [x.id, x.badge, x.tone])) === JSON.stringify([["sim-target-a", "3", "candidate"], ["sim-target-b", "1", "candidate"], ["sim-target-c", "2", "candidate"]]) && (await consistent()), "MAP-1: each target shows its provisional rank, matching the engine's card ranks");
+    check((await markersOf(mp)).every((x) => x.id.startsWith("sim-")) && /Number: provisional priority \(existing engine, not validated\)/.test(await text(mp.getByTestId("mg-legend"))) && /provisional priority/.test((await map.getAttribute("aria-label")) ?? ""), "MAP-1: ranks only on simulated targets, labelled provisional (legend and map name)");
+    check((await mp.getByTestId("mg-target-sim-target-b").getAttribute("aria-label")) === "Target B: Abrade and analyse a rock. Provisional priority #1. Not in the plan.", "MAP-1: keyboard target buttons have descriptive accessible names");
+
+    // Card → target: select, focus (centred in the visible map area), summary.
+    await mp.getByTestId("mg-card-task-core-for-earth").getByTestId("mg-select").click();
+    await waitStill(mp);
+    let v = await viewOf(mp);
+    let [x, y] = v.px(targetLonLat(TARGETS["sim-target-c"]));
+    const vis = { x: (440 + (1440 - 472)) / 2, y: v.box.y + (64 + (v.box.height - 16)) / 2 };
+    check((await map.getAttribute("data-selected-id")) === "sim-target-c" && (await mp.getByTestId("mg-target-sim-target-c").getAttribute("aria-pressed")) === "true" && Math.abs(x - vis.x) < 30 && Math.abs(y - vis.y) < 30, `MAP-1: clicking a card selects and focuses its target in the visible map area (target at ${Math.round(x)},${Math.round(y)}; expected ≈ ${Math.round(vis.x)},${Math.round(vis.y)})`);
+    check(/Collect a core sample/.test(await text(mp.getByTestId("mg-summary-title"))) && (await text(mp.getByTestId("mg-summary-priority"))) === "Provisional priority #2 · not validated · 55 pts" && (await text(mp.getByTestId("mg-summary-state"))) === "Fits: 55 pts, leaving 45 pts." && /SIM · Target C · scenario-defined position/.test(await text(mp.getByTestId("mg-target-summary"))), "MAP-1: concise target summary (scenario-defined, provisional, feasibility)");
+    mk = await markerMap(mp);
+    check(mk["sim-target-c"].selected && !mk["sim-target-a"].selected && !mk["sim-target-b"].selected, "MAP-1: only the selected target is drawn selected");
+    const w0 = v.width;
+
+    // Useful scale: focusing undoes excessive zoom-out or zoom-in.
+    for (let n = 0; n < 3; n++) await mp.locator(".ol-zoom-out").click();
+    await waitStill(mp);
+    const wOut = (await viewOf(mp)).width;
+    await mp.getByTestId("mg-target-sim-target-a").click();
+    await waitStill(mp);
+    const wA = (await viewOf(mp)).width;
+    for (let n = 0; n < 4; n++) await mp.locator(".ol-zoom-in").click();
+    await waitStill(mp);
+    const wIn = (await viewOf(mp)).width;
+    await mp.getByTestId("mg-target-sim-target-b").click();
+    await waitStill(mp);
+    const wB = (await viewOf(mp)).width;
+    // The focus zoom is clamped to [overview − 0.5, overview + 1] zoom levels: widths within a factor 2^1.5 ≈ 2.83.
+    check(wA < wOut / 2 && wB > wIn * 1.2 && wA / wB <= 2.9 && wA / w0 < 2 && w0 / wB < 2.1, `MAP-1: focusing keeps a useful scale (view width ${Math.round(w0 * M_LON)} m; after zoom-out ${Math.round(wOut * M_LON)} → ${Math.round(wA * M_LON)} m; after zoom-in ${Math.round(wIn * M_LON)} → ${Math.round(wB * M_LON)} m)`);
+
+    // Keyboard alternative.
+    await mp.getByTestId("mg-target-sim-target-a").focus();
+    await mp.keyboard.press("Enter");
+    await settle(mp);
+    const okA = (await map.getAttribute("data-selected-id")) === "sim-target-a" && (await mp.getByTestId("mg-card-task-standoff-survey").getAttribute("data-selected")) === "true";
+    await mp.keyboard.press("Shift+Tab");
+    await mp.keyboard.press(" ");
+    await settle(mp);
+    const focusedId = await mp.evaluate(() => document.activeElement?.getAttribute("data-testid"));
+    check(okA && /Survey the outcrops|Abrade|Collect/.test(await text(mp.getByTestId("mg-summary-title"))) && (await map.getAttribute("data-selected-id")) === focusedId?.replace("mg-target-", ""), `MAP-1: target buttons work with Enter, Space and Tab (now ${focusedId})`);
+
+    // Map → task.
+    await waitStill(mp);
+    await clickLonLat(mp, targetLonLat(TARGETS["sim-target-c"]));
+    check((await mp.getByTestId("mg-card-task-core-for-earth").getAttribute("data-selected")) === "true" && (await mp.getByTestId("mg-target-sim-target-c").getAttribute("aria-pressed")) === "true" && /Collect a core sample/.test(await text(mp.getByTestId("mg-summary-title"))), "MAP-1: clicking a target on the map selects its task, button and summary");
+
+    // Optional Level 2 / Level 3 from the summary; the summary closes.
+    await mp.getByTestId("mg-summary-details").click();
+    await settle(mp);
+    check((await mp.getByTestId("mg-card-task-core-for-earth").getByTestId("mg-expand").getAttribute("aria-expanded")) === "true", "MAP-1: summary → Details opens the card's Level 2");
+    await mp.getByTestId("mg-summary-evidence").click();
+    await settle(mp);
+    const sheetOpen = await mp.getByTestId("mg-evidence-sheet").isVisible();
+    await mp.keyboard.press("Escape");
+    await mp.getByTestId("mg-summary-close").click();
+    check(sheetOpen && (await mp.getByTestId("mg-target-summary").count()) === 0 && (await map.getAttribute("data-selected-id")) === "sim-target-c", "MAP-1: summary → Evidence opens Level 3; the summary closes and the selection stays");
+
+    // Resource change updates markers consistently.
+    await mp.getByLabel("Simulated effort budget").fill("50");
+    await settle(mp);
+    mk = await markerMap(mp);
+    check(mk["sim-target-c"].tone === "infeasible" && mk["sim-target-c"].badge === "–" && mk["sim-target-c"].status === "not feasible" && mk["sim-target-a"].badge === "1" && mk["sim-target-b"].badge === "2" && (await consistent()), "MAP-1: budget 50: coring's target turns not feasible and ranks update, matching the cards");
+    await mp.getByLabel("Simulated effort budget").fill("100");
+    await settle(mp);
+
+    // Plan states on the map.
+    await mp.getByTestId("mg-use-suggested").click();
+    await settle(mp);
+    mk = await markerMap(mp);
+    const added = mk["sim-target-b"].tone === "added" && mk["sim-target-c"].tone === "added" && mk["sim-target-a"].tone === "candidate";
+    await mp.getByTestId("mg-review-plan").click();
+    await mp.getByTestId("mg-create-plan").click();
+    await settle(mp);
+    mk = await markerMap(mp);
+    check(added && mk["sim-target-b"].tone === "planned" && mk["sim-target-c"].tone === "planned" && (await mp.getByTestId("mg-plan-locked").count()) === 3, "MAP-1: markers show added, then planned; cards are read-only once the plan exists");
+    await mp.getByTestId("mg-start-eva").click();
+    await settle(mp, 800);
+    await mp.getByTestId("mg-start").click();
+    await mp.getByTestId("mg-toggle-map").click();
+    await mp.waitForFunction(() => (document.querySelector('[data-testid="mars-map"]')?.getAttribute("data-sim-markers") ?? "[]") !== "[]", undefined, { timeout: 15_000 });
+    mk = await markerMap(mp);
+    const activeOk = mk["sim-target-b"].tone === "active" && mk["sim-target-b"].status === "in progress" && mk["sim-target-b"].selected;
+    for (let n = 0; n < 4; n++) await mp.getByTestId("mg-complete-step").click();
+    await settle(mp);
+    mk = await markerMap(mp);
+    const doneOk = mk["sim-target-b"].tone === "done" && mk["sim-target-b"].badge === "✓";
+    check(activeOk && doneOk, "MAP-1: the EVA map shows the active target, then done (shared mission state)");
+    await mp.getByTestId("mg-toggle-scenario").click();
+    await mp.getByTestId("mg-event-effort-cut").click();
+    await settle(mp);
+    await mp.getByTestId("mg-accept-replan").click();
+    await mp.getByTestId("mg-mode-planning").click();
+    await mp.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await mp.waitForFunction(() => (document.querySelector('[data-testid="mars-map"]')?.getAttribute("data-sim-markers") ?? "[]") !== "[]", undefined, { timeout: 15_000 });
+    await settle(mp, 600);
+    mk = await markerMap(mp);
+    const panel = await text(mp.getByTestId("mg-cards"));
+    check(mk["sim-target-b"].tone === "done" && mk["sim-target-c"].tone === "skipped" && mk["sim-target-a"].tone === "infeasible" && (await consistent()), "MAP-1: after replanning, the completed target stays done and dropped work shows skipped");
+    check(/Done \(simulated\)\. Its effort is committed\./.test(panel) && /Skipped\./.test(panel) && /Not feasible: needs 15 pts, 10 pts available\./.test(panel) && !/-\d+ pts/.test(panel) && !/over budget/.test(panel), "MAP-1: planning cards agree with the map after replanning (no stale draft arithmetic)");
+    check(merr.length === 0, `MAP-1: no page errors${merr.length ? ` (${merr[0]})` : ""}`);
+    await mp.close();
+  }
+
   // ── Translation regression (UX-0 rule) ──
   const translate = (pg) =>
     pg.evaluate(() => {
@@ -253,6 +402,11 @@ try {
   await tp.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
   await settle(tp, 800);
   await translate(tp);
+  await tp.getByTestId("mg-target-sim-target-c").click();
+  await settle(tp, 400);
+  await translate(tp);
+  await tp.getByTestId("mg-summary-details").click();
+  await tp.getByTestId("mg-summary-close").click();
   await tp.getByLabel("Simulated effort budget").fill("50");
   await tp.getByTestId("mg-card-task-abrasion-proximity").getByTestId("mg-expand").click();
   await tp.getByLabel("Simulated effort budget").fill("100");
@@ -280,7 +434,7 @@ try {
   await tp.getByTestId("mg-event-effort-restored").click();
   await tp.getByTestId("mg-toggle-map").click();
   await settle(tp);
-  check(terr.length === 0 && (await tp.getByTestId("mg-plan-timeline").count()) === 1, `[translated] planning, EVA and replanning (keep, review, accept, undo) without page errors${terr.length ? ` (${terr[0]})` : ""}`);
+  check(terr.length === 0 && (await tp.getByTestId("mg-plan-timeline").count()) === 1, `[translated] planning, map targets and summary, EVA and replanning (keep, review, accept, undo) without page errors${terr.length ? ` (${terr[0]})` : ""}`);
   await tp.close();
 
   // ── Reduced motion ──
@@ -295,6 +449,14 @@ try {
     transitions: [...document.querySelectorAll('.mission-glass [data-testid^="mg-card-"], .mission-glass [data-testid="mg-detail"]')].map((e) => getComputedStyle(e).transitionDuration),
   }));
   check(motion.rise.length > 0 && motion.rise.every((n) => n === "none") && motion.transitions.length > 0 && motion.transitions.every((d) => d.split(",").every((x) => parseFloat(x) === 0)), `reduced motion: no entry animations (${motion.rise.length}) and no transitions (${motion.transitions.length})`);
+  await rm.getByTestId("mg-review-back").click();
+  await waitStill(rm);
+  const before = await rm.getByTestId("mars-map").getAttribute("data-view-extent");
+  await rm.getByTestId("mg-target-sim-target-a").click();
+  await rm.waitForTimeout(150); // well under the 280 ms focus transition
+  const rv = await viewOf(rm);
+  const [rx] = rv.px(targetLonLat(TARGETS["sim-target-a"]));
+  check((await rm.getByTestId("mars-map").getAttribute("data-motion")) === "reduced" && (await rm.getByTestId("mars-map").getAttribute("data-view-extent")) !== before && Math.abs(rx - (440 + 968) / 2) < 30, `MAP-1 reduced motion: the map focuses a target without a transition (target x ${Math.round(rx)})`);
   await rm.close();
 
   // ── Narrow screen, and the MG-3 no-feasible-alternative state ──
@@ -309,6 +471,17 @@ try {
   const mapY = (await phone.getByTestId("mars-map").boundingBox())?.y ?? 9999;
   const panelY = (await phone.getByTestId("mg-planning").boundingBox())?.y ?? -1;
   check(overflow <= 0 && mapY < panelY, `narrow screen: no horizontal overflow (${overflow}px), map above the planning panel`);
+  {
+    const mapBox = await phone.getByTestId("mars-map").boundingBox();
+    const list = await phone.getByTestId("mg-target-list").boundingBox();
+    const y0 = await phone.evaluate(() => window.scrollY);
+    await phone.getByTestId("mg-target-sim-target-b").tap().catch(() => phone.getByTestId("mg-target-sim-target-b").click());
+    await settle(phone, 700);
+    const sum = await phone.getByTestId("mg-target-summary").boundingBox();
+    const y1 = await phone.evaluate(() => window.scrollY);
+    check(list && list.y >= mapBox.y && list.x + list.width <= 390 && sum && sum.y >= mapBox.y + mapBox.height - 1 && y1 === y0 && (await hOverflow()) <= 0 && (await phone.getByTestId("mars-map").getAttribute("data-selected-id")) === "sim-target-b", `MAP-1 narrow screen: target buttons sit on the map; the summary opens below it without covering it or scrolling the page (scroll ${y0} → ${y1})`);
+    await phone.getByTestId("mg-summary-close").click();
+  }
   await phone.getByTestId("mg-use-suggested").click(); // abrasion + coring, 95 of 100
   await phone.getByTestId("mg-review-plan").click();
   await phone.getByTestId("mg-create-plan").click();

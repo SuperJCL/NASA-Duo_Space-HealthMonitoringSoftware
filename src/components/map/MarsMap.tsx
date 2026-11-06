@@ -15,7 +15,8 @@ import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style, Text } from "
 import MousePosition from "ol/control/MousePosition";
 import ScaleLine from "ol/control/ScaleLine";
 import { defaults as defaultControls } from "ol/control/defaults";
-import { boundingExtent, type Extent } from "ol/extent";
+import { boundingExtent, buffer, type Extent } from "ol/extent";
+import { easeOut } from "ol/easing";
 import type { Coordinate } from "ol/coordinate";
 import type { FeatureLike } from "ol/Feature";
 
@@ -38,6 +39,19 @@ import { DEFAULT_VIEW, INITIAL_VIEWS } from "@/lib/map/initial-views";
 
 type TileStats = { loaded: number; failed: number };
 
+/** Decision state drawn on a simulated target (MAP-1). Computed by the caller; the map only renders it. */
+export type SimTargetTone = "candidate" | "added" | "planned" | "active" | "done" | "skipped" | "infeasible";
+export type SimTarget = {
+  id: string;
+  name: string;
+  position: readonly [number, number];
+  /** Short text inside the marker (e.g. a provisional rank, "✓", "–"). */
+  badge?: string;
+  /** Short state word under the name (e.g. "planned", "not feasible"). */
+  status?: string;
+  tone?: SimTargetTone;
+};
+
 export type MarsMapProps = {
   /** Verified geographic features to draw (already filtered for the mission mode). */
   features: readonly MapFeature[];
@@ -54,7 +68,18 @@ export type MarsMapProps = {
    * own layer and style, apart from verified features; selection ids are
    * shared through `selectedId` / `onSelect`.
    */
-  simulatedTargets?: readonly { id: string; name: string; position: readonly [number, number] }[];
+  simulatedTargets?: readonly SimTarget[];
+  /**
+   * Centre the map on a simulated target (a card or list selection). Bump
+   * `n` to repeat. The zoom stays near the level that shows all targets.
+   */
+  focusRequest?: { id: string; n: number } | null;
+  /** Pixels covered by other UI, [top, right, bottom, left]: focusing centres in the visible part. */
+  focusPadding?: readonly [number, number, number, number];
+  /** Accessible name of the map region (describes the keyboard alternative). */
+  ariaLabel?: string;
+  /** "selected": only the selected target gets a text label (small maps, where labels would overlap). Read at mount. */
+  simLabels?: "all" | "selected";
   /** "minimal": only zoom buttons (EVA HUD); "full": layer panel, view buttons, tile status. */
   chrome?: "full" | "minimal";
   /** Imagery overlays shown at start (default: the CTX mosaic). */
@@ -62,6 +87,20 @@ export type MarsMapProps = {
 };
 
 const SIM = "#ff8a6b";
+const SELECT_MS = 180;
+const FOCUS_MS = 280;
+// Simulated-target tones. Coral family only, so they never resemble the
+// blue verified data; feasibility and progress change line and fill.
+const TONE: Record<SimTargetTone, { stroke: string; fill: string; dash?: number[]; text: string; badge: string }> = {
+  candidate: { stroke: SIM, fill: "rgba(14, 21, 32, 0.78)", dash: [4, 3], text: SIM, badge: "#ffe3da" },
+  added: { stroke: SIM, fill: "rgba(255, 138, 107, 0.32)", text: SIM, badge: "#ffffff" },
+  planned: { stroke: SIM, fill: "rgba(255, 138, 107, 0.32)", text: SIM, badge: "#ffffff" },
+  active: { stroke: "#ffffff", fill: SIM, text: "#ffffff", badge: "#1a0f0c" },
+  done: { stroke: "#84d8a6", fill: "rgba(132, 216, 166, 0.28)", text: "#84d8a6", badge: "#ffffff" },
+  skipped: { stroke: "#8b97a8", fill: "rgba(14, 21, 32, 0.7)", dash: [2, 3], text: "#a3b3c8", badge: "#a3b3c8" },
+  infeasible: { stroke: "#f1c878", fill: "rgba(14, 21, 32, 0.78)", dash: [4, 3], text: "#f1c878", badge: "#f1c878" },
+};
+const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const VIEW_MAX_ZOOM = 18;
 const FIT_PADDING = [24, 24, 24, 24];
@@ -159,6 +198,10 @@ export function MarsMap({
   simulatedTargets = [],
   chrome = "full",
   initialOverlays = DEFAULT_OVERLAYS,
+  focusRequest = null,
+  focusPadding = [0, 0, 0, 0],
+  simLabels = "all",
+  ariaLabel = "Mars map of Jezero crater. Arrow keys pan, plus and minus zoom. Use the feature list in the layer panel to select features with the keyboard.",
 }: MarsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const coordinateRef = useRef<HTMLDivElement>(null);
@@ -168,6 +211,11 @@ export function MarsMap({
   const simLayerRef = useRef<VectorLayer | null>(null);
   const [viewExtent, setViewExtent] = useState<string>("");
   const selectedRef = useRef<string | null>(selectedId);
+  /** Start time of the selection-ring transition (0 = settled). */
+  const selectAnimRef = useRef(0);
+  const [markerAttr, setMarkerAttr] = useState("[]");
+  const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
+  const simLabelsRef = useRef(simLabels);
   const onSelectRef = useRef(onSelect);
   const alwaysLabelRef = useRef<ReadonlySet<FeatureKind>>(new Set(labelKinds));
   const initialExtentRef = useRef(initialExtent);
@@ -231,29 +279,66 @@ export function MarsMap({
       });
     }
 
-    // Simulated targets: coral hollow diamond with a "SIM" label. Never styled like verified data.
+    // Simulated targets: coral diamonds with a "SIM" label, never styled like
+    // verified data. MAP-1: the badge (provisional rank, ✓, –) sits inside;
+    // tone shows plan state and feasibility; the selected target gets a white
+    // outline that grows in briefly (no pulsing, none with reduced motion).
     const simLayer = new VectorLayer({
       source: new VectorSource(),
       style: (f) => {
         const selected = f.getId() === selectedRef.current;
-        return [
+        const dimmed = Boolean(selectedRef.current) && !selected;
+        const tone = TONE[(f.get("tone") as SimTargetTone | undefined) ?? "candidate"];
+        const badge = String(f.get("badge") ?? "");
+        const status = String(f.get("status") ?? "");
+        const r = selected ? 15 : 12;
+        const t = selected && selectAnimRef.current ? Math.min(1, (performance.now() - selectAnimRef.current) / SELECT_MS) : 1;
+        const styles = [
           new Style({
+            zIndex: selected ? 3 : 1,
             image: new RegularShape({
               points: 4,
-              radius: selected ? 13 : 10,
+              radius: r,
               angle: 0,
-              fill: new Fill({ color: selected ? "rgba(255, 138, 107, 0.35)" : "rgba(14, 21, 32, 0.55)" }),
-              stroke: new Stroke({ color: selected ? "#ffffff" : SIM, width: selected ? 3 : 2, lineDash: [4, 3] }),
+              fill: new Fill({ color: tone.fill }),
+              stroke: new Stroke({ color: tone.stroke, width: selected ? 3 : 2, lineDash: tone.dash }),
             }),
+            text: badge
+              ? new Text({
+                  text: badge,
+                  font: `700 ${selected ? 14 : 12}px ui-sans-serif, system-ui, sans-serif`,
+                  fill: new Fill({ color: tone.badge }),
+                  stroke: tone.fill === SIM ? undefined : new Stroke({ color: "rgba(14, 21, 32, 0.9)", width: 2 }),
+                })
+              : undefined,
+          }),
+          new Style({
+            zIndex: selected ? 3 : 1,
             text: new Text({
-              text: `SIM · ${String(f.get("name") ?? "")}`,
-              offsetY: selected ? -24 : -20,
-              font: "600 12px ui-sans-serif, system-ui, sans-serif",
-              fill: new Fill({ color: selected ? "#ffffff" : SIM }),
+              text: `SIM · ${String(f.get("name") ?? "")}${status ? `\n${status}` : ""}`,
+              offsetY: -(r + 8),
+              textBaseline: "bottom",
+              font: `${selected ? 700 : 600} 12px ui-sans-serif, system-ui, sans-serif`,
+              fill: new Fill({ color: selected ? "#ffffff" : dimmed ? `${tone.text}cc` : tone.text }),
               stroke: new Stroke({ color: "rgba(14, 21, 32, 0.9)", width: 3 }),
             }),
           }),
         ];
+        // On small maps only the selected target keeps its text label.
+        if (simLabelsRef.current === "selected" && !selected) styles.pop();
+        if (selected)
+          styles.push(
+            new Style({
+              zIndex: 2,
+              image: new RegularShape({
+                points: 4,
+                radius: r + 1 + 5 * t,
+                angle: 0,
+                stroke: new Stroke({ color: `rgba(255, 255, 255, ${0.35 + 0.6 * t})`, width: 2.5 }),
+              }),
+            }),
+          );
+        return styles;
       },
       properties: { simulated: true },
     });
@@ -338,25 +423,95 @@ export function MarsMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simKey]);
 
+  // MAP-1: decision state on the targets. Updated in place whenever the
+  // budget, constraints or plan change; the attribute mirrors what is drawn.
+  const markerKey = simulatedTargets.map((t) => `${t.id}:${t.badge ?? ""}:${t.tone ?? ""}:${t.status ?? ""}`).join("|");
+  useEffect(() => {
+    const layer = simLayerRef.current;
+    const source = layer?.getSource();
+    if (!layer || !source) return;
+    for (const t of simulatedTargets) {
+      const f = source.getFeatureById(t.id);
+      f?.setProperties({ badge: t.badge ?? "", status: t.status ?? "", tone: t.tone ?? "candidate" });
+    }
+    layer.changed();
+    setMarkerAttr(
+      JSON.stringify(
+        source
+          .getFeatures()
+          .map((f) => ({ id: String(f.getId()), badge: f.get("badge") ?? "", tone: f.get("tone") ?? "candidate", status: f.get("status") ?? "", selected: f.getId() === selectedId }))
+          .sort((a, b) => a.id.localeCompare(b.id)),
+      ),
+    );
+    // markerKey and simKey capture the content of simulatedTargets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markerKey, simKey, selectedId]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReducedMotion(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   // Restyle when the selection changes, and bring a selected point into view
   // (no animation, and no zoom change) if it is outside the visible area.
   useEffect(() => {
     selectedRef.current = selectedId;
     for (const layer of Object.values(geoLayersRef.current)) layer?.changed();
-    simLayerRef.current?.changed();
+    const simLayer = simLayerRef.current;
     const map = mapRef.current;
-    const f = selectedId ? featureById.get(selectedId) : undefined;
     const sim = selectedId ? simulatedTargets.find((t) => t.id === selectedId) : undefined;
+    // Brief selection transition for a simulated target (skipped with reduced motion).
+    selectAnimRef.current = sim && !prefersReducedMotion() ? performance.now() : 0;
+    simLayer?.changed();
+    let frame = 0;
+    if (selectAnimRef.current && simLayer) {
+      const tick = () => {
+        simLayer.changed();
+        if (performance.now() - selectAnimRef.current < SELECT_MS) frame = requestAnimationFrame(tick);
+        else selectAnimRef.current = 0;
+      };
+      frame = requestAnimationFrame(tick);
+    }
+    const f = selectedId ? featureById.get(selectedId) : undefined;
     const point = sim ? sim.position : f?.geometry.type === "Point" ? f.geometry.coordinates : null;
-    if (!map || !point) return;
+    // A focus request for this target moves the map itself (see below).
+    if (!map || !point || (sim && focusRequest?.id === sim.id)) return () => cancelAnimationFrame(frame);
     const [lon, lat] = point;
     const [w, s, e, n] = map.getView().calculateExtent(map.getSize());
     const mx = (e - w) * 0.1;
     const my = (n - s) * 0.1;
     if (lon < w + mx || lon > e - mx || lat < s + my || lat > n - my) map.getView().setCenter([lon, lat]);
+    return () => cancelAnimationFrame(frame);
     // simulatedTargets is read for its positions only; simKey tracks changes.
+    // focusRequest is read only to leave the move to the focus effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, featureById, simKey]);
+
+  // MAP-1 focus: centre the requested target in the visible part of the map
+  // with a short transition. The zoom is clamped near the level that shows
+  // all simulated targets, so focusing never zooms in excessively or loses
+  // the surrounding context.
+  useEffect(() => {
+    const map = mapRef.current;
+    const size = map?.getSize();
+    const t = focusRequest ? simulatedTargets.find((x) => x.id === focusRequest.id) : undefined;
+    if (!map || !size || !t) return;
+    const view = map.getView();
+    const [pt, pr, pb, pl] = focusPadding;
+    const inner = [Math.max(1, size[0] - pl - pr), Math.max(1, size[1] - pt - pb)];
+    const all = boundingExtent(simulatedTargets.map((x) => [x.position[0], x.position[1]]));
+    const overview = view.getZoomForResolution(view.getResolutionForExtent(buffer(all, 0.0015), inner)) ?? view.getZoom() ?? 15;
+    const current = view.getZoom() ?? overview;
+    const zoom = Math.min(Math.max(current, overview - 0.5), overview + 1, VIEW_MAX_ZOOM);
+    const res = view.getResolutionForZoom(zoom);
+    const center = [t.position[0] + ((pr - pl) / 2) * res, t.position[1] + ((pt - pb) / 2) * res];
+    view.cancelAnimations();
+    view.animate({ center, zoom, duration: prefersReducedMotion() ? 0 : FOCUS_MS, easing: easeOut });
+    // Runs once per request; positions are read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.n]);
 
   useEffect(() => {
     for (const key of BASEMAP_KEYS) layersRef.current[key]?.setVisible(key === basemap);
@@ -408,9 +563,12 @@ export function MarsMap({
         className="absolute inset-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-foreground"
         data-testid="mars-map"
         data-view-extent={viewExtent}
+        data-sim-markers={markerAttr}
+        data-selected-id={selectedId ?? ""}
+        data-motion={reducedMotion ? "reduced" : "full"}
         tabIndex={0}
         role="application"
-        aria-label="Mars map of Jezero crater. Arrow keys pan, plus and minus zoom. Use the feature list in the layer panel to select features with the keyboard."
+        aria-label={ariaLabel}
       />
 
       <div hidden={chrome === "minimal"} className="absolute right-3 top-3 flex max-h-[calc(100%-8rem)] max-w-[calc(100%-4.5rem)] flex-col items-end gap-2 text-xs">
