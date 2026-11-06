@@ -189,7 +189,12 @@ try {
   check((await inView(page.getByTestId("mg-current-step"))) && (await inView(page.getByTestId("mg-complete-step"))) && (await inView(page.getByTestId("mg-constraints"))), "MG-2: step, primary action and constraints are visible without scrolling at 1440×900");
   check((await page.getByTestId("mg-plan-timeline").locator('[data-status="active"]').count()) === 1 && (await page.getByTestId("mg-back-planning").isVisible()), "MG-2: brief progress and a clear route back to Planning");
   await page.getByTestId("mg-toggle-map").click();
-  check(await page.getByTestId("mg-minimap").locator("canvas").first().isVisible(), "MG-2: map opens on demand");
+  {
+    // The HUD map is loaded lazily (client-only OpenLayers), so wait for its canvas instead of checking at once.
+    const t0 = Date.now();
+    const shown = await page.getByTestId("mg-minimap").locator("canvas").first().waitFor({ state: "visible", timeout: 10_000 }).then(() => true, () => false);
+    check(shown, `MG-2: map opens on demand (canvas after ${Date.now() - t0} ms)`);
+  }
   await page.getByTestId("mg-toggle-caveats").click();
   check((await page.getByTestId("mg-warnings").locator("li").count()) === 3 && (await page.getByTestId("mg-minimap").count()) === 0, "MG-2: caveats open on demand (one optional panel at a time)");
   await page.getByTestId("mg-more").click();
