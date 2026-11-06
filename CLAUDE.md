@@ -64,6 +64,16 @@
   targets, steps and events are
   scenario-defined and must stay labelled simulated; never copy them into
   `src/data/geo/`. Ranks come only from the existing engine.
+- `src/lib/terrain/`, `src/data/terrain/`, `public/terrain/` — MAP-3A local
+  3D terrain: a bounded crop of the verified Trek CTX DTM (20 m) and the
+  matching CTX orthomosaic, built only by `scripts/build-ctx-terrain.mjs`
+  (`npm run build:terrain`; check with `npm run verify:terrain`). Never edit
+  the assets by hand, never invent or smooth elevations, keep 1× as the
+  default exaggeration (3× and 5× must stay labelled as not true scale),
+  and never present the view as a route or traversability model. Elevation
+  profiles are straight sampling lines and must say so; state the real relief
+  rather than implying more (`docs/TERRAIN_3D.md`). Terrain never affects
+  scores.
 - `src/data/` — curated JSON evidence records (validated at build time);
   `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 

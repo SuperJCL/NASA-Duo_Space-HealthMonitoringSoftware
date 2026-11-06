@@ -2532,3 +2532,278 @@ action". The visible controls were only Complete and Pause.
   action stays in place and the card scrolls.
 - **Undo is still one level.**
 - **Not tested with users.**
+
+## MAP-3A (Track B): real CTX local 3D terrain
+
+- **Branch:** `map3a-ctx-3d-terrain`, created from `main` at `d163d4a`
+  (includes MAP-1). Not merged.
+- **Started:** 2026-11-06T06:10:06Z.
+- **Completed:** 2026-11-06T06:36:42Z, at commit.
+- **Wall-clock elapsed:** 26 min 36 s.
+  - No subagents were used.
+  - No human intervention.
+- **Dependency:** `three` 0.186.1, pinned exactly (published 2026-09-24),
+  with `@types/three` 0.186.0.
+
+### Implemented
+
+- **Data pipeline** `scripts/build-ctx-terrain.mjs` (`build:terrain`,
+  `verify:terrain`):
+  - the Trek CTX DTM is downloaded and checked against its recorded
+    SHA-256, and its GeoTIFF tags are checked;
+  - the corners must reproduce the catalog bbox (error 4 × 10⁻⁸°);
+  - a 160 × 160-post crop (≈ 3.0 × 3.2 km) around the Margin sample sites
+    and targets, copied unchanged with no no-data;
+  - PDS agreement at three sites: −1.7, −3.2 and −2.6 m;
+  - the CTX orthomosaic, from 12 Trek z13 tiles, cut to the exact bounds;
+  - a shading-based alignment check, with checksums and full metadata.
+
+  `verify:terrain` reproduced the committed assets byte for byte from the
+  live sources.
+- **`src/lib/terrain`** (pure, Zod): the metadata schema; lon/lat ↔ grid ↔
+  local tangent-plane metres; bilinear sampling at post centres; imagery
+  UV; 1× default.
+- **`src/components/terrain/TerrainViewer`** (three.js, client-only; see
+  `docs/TERRAIN_3D.md`):
+  - **terrain:** a DTM mesh draped with the ortho;
+  - **markers:** cyan verified sites and traverse, coral simulated targets
+    with rank and tone; HTML marker labels that select;
+  - **camera:** orbit, tilt and zoom, plus buttons and reset;
+  - **displays:** source and resolution, the exaggeration (1×, 2×, 3×
+    labelled), the elevation under the pointer, and the selected marker's
+    DTM elevation with an honest difference from Lefroy Bay;
+  - **quality and motion:** a Standard/Low setting (Low by default on narrow
+    or low-memory devices); collapsible phone controls; reduced-motion
+    handling;
+  - **fallback** to 2D, with a reason, when WebGL, the download or the
+    checksum fails, or the context is lost; an imagery failure leaves slope
+    shading.
+- **Mission Glass:** a "2D map | 3D terrain" switch in the map toolbar.
+  - The selection is shared both ways.
+  - The 2D map stays mounted, so its view is kept.
+  - The 3D view fills only the visible map area.
+  - The legend shows in 2D only. EVA keeps its 2D minimap.
+
+### Tests
+
+- **Unit:** 217/217 (+10 in `terrain.test.ts`):
+  - asset checksums and PNG header;
+  - registered sources, resolution, datum and caveats;
+  - no no-data, and the min/max;
+  - PDS agreement within 5 m, recomputed;
+  - catalog georeferencing, and alignment within 2 posts;
+  - every site and target inside the crop;
+  - grid round trips and crop corners;
+  - local distances against great-circle distances (within 0.2 %), and the
+    scenario's target distances;
+  - UV against the grid (< 1 cm);
+  - the 1× default.
+- **Prototype smoke:** 113/113 against `next start`, in two consecutive
+  runs (+12). The checks cover:
+  - WebGL rendering (a canvas pixel-spread check), ready in about 1.9 s;
+  - source, resolution and 1×, and the "not a route or traversability
+    model" text;
+  - distinct verified and simulated markers, with DTM elevations equal to the
+    metadata;
+  - the 2D selection kept in 3D;
+  - a 3D label selecting the task (card and summary);
+  - rotate (keyboard), tilt and zoom;
+  - exaggeration labelling;
+  - the pointer elevation within the DTM range;
+  - back to 2D with the 2D view unchanged and the 3D selection shown;
+  - no page errors;
+  - fallback with a reason when the data is missing or altered (checksum);
+  - phone: Low quality, reduced motion, collapsed controls that work, no
+    overflow;
+  - translation with 3D label selection and an exaggeration change.
+
+  The MAP-1 narrow-screen check now measures the visible toolbar row.
+- **Research smoke:** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Data verifiers:**
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 location checks, 0 problems.
+- **Engine, evidence, geo, briefing, mission, scenario and review registry:**
+  0 lines of diff against `main`.
+
+### Rework
+
+1. **The first alignment test** (slope magnitude against image-gradient
+   magnitude) peaked weakly at 3 posts. It was replaced by a
+   physically-based shading correlation, which peaks within 1 post. Its
+   limits are stated in the metadata and docs.
+2. **Marker labels of nearby targets overlapped.** Labels are now stacked,
+   and the camera comes closer, bounded at 1.4 km, on selection.
+3. **"2 m above the Lefroy Bay site"** was shown for a difference smaller
+   than the DTM's agreement with PDS. Differences under 5 m are now called
+   not meaningful.
+4. **Phone:**
+   - labels caused a 103 px horizontal overflow; the viewer now clips;
+   - the controls and caveats covered the terrain; the controls are now
+     collapsible and the notes behind "About this 3D view";
+   - the option labels were shortened.
+5. **The network-failure reason showed the browser's "Failed to fetch".** It
+   now reads in plain language.
+6. **A UV test tolerance was tighter than the 1 × 10⁻⁷° rounding of the
+   stored bbox** (≈ 6 mm). The tolerance is now 1 cm on the ground.
+
+### Known limitations
+
+- **Resolution:** 20 m posts, roughly 60–100 m effective. No rocks and no
+  traversability.
+- **Area:** one 3 km crop; HiRISE is not used.
+- **Registration:** the shading check does not demonstrate sub-post
+  (< 20 m) registration.
+- **Lighting:** the light is a depth cue, not the imaging illumination.
+- **Test environment:** tested in headless Chromium with software WebGL
+  (SwiftShader), not on real mobile GPUs.
+- **No user testing yet.**
+- **Not yet integrated with EVA-1.x.** A trial merge is reported separately.
+
+### MAP-3A × EVA-1.2 trial integration (local only, not pushed or merged)
+
+- **Started:** 2026-11-06T06:36:53Z.
+- **Completed:** 2026-11-06T06:41:34Z.
+- **Elapsed:** 4 min 41 s.
+- **Method:** `eva1.2-step-skip-correction` (which contains EVA-1 and
+  EVA-1.1) was merged into a detached copy of `map3a-ctx-3d-terrain`, as a
+  local commit only.
+- **Conflicts:** only append-only regions.
+  - `DEVELOPMENT_LOG.md`: both sides kept.
+  - `scripts/smoke-mission-glass.mjs`: both new sections kept, and one
+    translated-check label combined.
+- **Merged automatically:** `MissionGlass.tsx` and `TargetMapOverlay.tsx`.
+- **Results on the merged tree:**
+  - `npm run check` passes, 246/246 unit tests;
+  - prototype smoke 151/151 against `next start`, in two consecutive runs;
+  - research smoke 116/116 with `SMOKE_LIVE=1`.
+- **Conclusion:** the two branches can be integrated without code changes,
+  once each is accepted. The final integration still needs its own
+  approval.
+
+## MAP-3A.1 (Track B): readable relief from the unchanged CTX DTM
+
+- **Branch:** `map3a1-terrain-readability`, from `map3a-ctx-3d-terrain`
+  (`499ac59`). Not merged.
+- **Started:** 2026-11-06T17:25:14Z.
+- **Completed:** 2026-11-06T17:59:24Z.
+- **Elapsed:** 34 min 10 s of wall-clock time, one agent, no parallel work.
+
+### Finding: the relief is real but modest
+
+Measured from the 160 × 160 posts (`reliefSummary`, unit-tested):
+
+- 244 m between the highest and lowest posts, at opposite corners;
+- the ground falls about 72 m from the western to the eastern third;
+- the median slope is 3.5° over 100 m, with 90 % below 6.5°;
+- around Lefroy Bay it varies by about 10 m within 150 m, 22 m within 300 m
+  and 74 m within 1 km;
+- Comet Geyser → Pelican Point: 1,409 m long, net −40 m.
+
+So the area near the targets is nearly flat at 1×. The viewer now says so
+in plain words, instead of adding relief. No elevations were changed,
+smoothed or invented: the terrain assets and the build script are
+unchanged, and `verify:terrain` still matches a fresh build.
+
+### What changed
+
+- **`src/lib/terrain/terrain.ts`** (pure, unit-tested):
+  - `EXAGGERATIONS` is now 1 (default), 3 and 5;
+  - `CAMERA_PRESETS`, including two low-angle views (polar 80°);
+  - `profileAlong`: bilinear samples every 10 m along a straight line, and
+    `null` outside the crop;
+  - `reliefSummary`, `localRange`, `reliefStatement` and `reliefHeadline`;
+  - `CONTOUR_INTERVAL_M = 10`.
+- **`TerrainViewer`:**
+  - **Camera presets:** Overview, Oblique, Low from E and Low from S. They
+    apply instantly, and any manual move leaves the preset.
+  - **Vertical scale:** 1× true scale, 3× and 5×. Both stretched scales are
+    labelled "not true scale" in the caution colour.
+  - **Shader material**, colours only: relief shading (fixed low sun,
+    contrast-enhanced, labelled), elevation colours with a legend, and
+    10 m contours drawn from the true elevation attribute.
+  - **Local elevation range** within 300 m of the selected marker or Lefroy
+    Bay, and the relief statement.
+  - **Elevation profile panel:**
+    - From/To over all markers, picking two points on the terrain (Esc
+      cancels), and swap ends;
+    - an amber 3D line, and an SVG chart whose read-out (pointer or keys)
+      is marked on the terrain;
+    - stats, and the chart's own stretch factor;
+    - a chart height of at least 10 m, with sub-5 m changes flagged as not
+      meaningful;
+    - the label "Straight sampling line: not a route, not a safe path, no
+      travel time or traversability."
+  - **Phones:**
+    - the profile starts collapsed;
+    - when open, it replaces the info panel and repeats the 3D scale;
+    - the source line is shortened and a short relief headline is shown;
+      the full text is under "About this 3D view".
+- **Tests:**
+  - 5 new terrain unit tests (222 in total);
+  - 13 new browser checks for MAP-3A.1, and the MAP-3A exaggeration check
+    moved from 2× to 3×;
+  - the translation run now covers presets, surface, profile ends, the
+    chart keys and the notes.
+- **Docs:** `docs/TERRAIN_3D.md` has a new MAP-3A.1 section. `CLAUDE.md`
+  terrain rule: 3× and 5× must stay labelled; profiles must say they are
+  straight sampling lines.
+
+### Verification (production build, `next start`)
+
+- `npm run check`: lint, typecheck and build pass, with 222/222 unit tests.
+- Prototype smoke: 126/126 in two consecutive runs.
+- Research smoke: 116/116 with `SMOKE_LIVE=1`.
+- Data validators:
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:terrain`: the committed assets match a fresh build.
+- 0 lines of diff against `map3a-ctx-3d-terrain` in:
+  - the engine, evidence, geo, briefing and mission code;
+  - `src/data` (including the review registry);
+  - `public/terrain` and the build script.
+
+### Rework
+
+1. **Relief statement test:** I had expected a fall of 73 m between the
+   thirds; the library computes 72 m. The test now uses the computed value.
+2. **`localRange` test:** it compared against the 1 mm-rounded metadata
+   range; it now uses a tolerance.
+3. **React lint:**
+   - refs were declared after the effect that read them;
+   - the default profile was set in an effect; it is now derived state;
+   - uniforms were assigned inside an effect; this moved to a helper.
+4. **First desktop layout:** the controls overlapped the profile and the
+   panels covered most of the terrain. There is now one compact controls
+   card, a narrower info panel, and notes collapsed by default.
+5. **Phone:** the panels covered the map, and the open profile extended
+   above the map. Fixed with the phone layout above, bounded below the
+   view-controls button.
+6. **Read-out dot:** the dot was drawn, but the 48 × 48 downsampled check
+   could not see it. The check now counts full-resolution pixels, and the
+   dot is drawn on top.
+7. **Short profiles:** Target A → Lefroy Bay (163 m, about 3 m of
+   variation) filled the auto-scaled chart and looked like a hill. The
+   chart now has a minimum 10 m span, and sub-5 m ranges are flagged.
+8. **Smoke ordering:** short-profile stats were read after the same-point
+   guard had removed the chart.
+9. **Stale server:** an older `next-server` from the first production run
+   still held port 3000 after the rebuild. It was stopped, and both smoke
+   runs were repeated on the final build.
+
+### Known limitations
+
+- **Contrast-enhanced shading:** relief shading makes gentle slopes look
+  stronger than plain lighting would. It is labelled, and changes colours
+  only.
+- **Nearly flat near the targets:** at 1× the terrain around the targets
+  still looks nearly flat, correctly. 3D is most informative at 3× or 5×,
+  with low angles, contours and the profile.
+- **Profile picking** needs a pointer. Keyboard users choose ends from the
+  markers.
+- **Phone:** when the profile is open, it covers much of the terrain.
+- **Same constraints as MAP-3A:** 20 m posts (about 60–100 m effective), one
+  3 km crop, software WebGL in tests, and no user testing yet.
+- **Not integrated with EVA-1.3**; each branch awaits acceptance.

@@ -7,6 +7,7 @@
  * Each PASS/FAIL line is one check. The main app's smoke test is separate
  * (scripts/smoke-test.mjs).
  */
+import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 
 const ORIGIN = process.env.BASE_URL ?? "http://localhost:3000";
@@ -56,6 +57,7 @@ async function waitStill(page) {
     prev = cur;
   }
 }
+const meta3Bbox = () => JSON.parse(readFileSync(new URL("../src/data/terrain/ctx-lefroy-bay.json", import.meta.url), "utf8")).crop.bboxDeg;
 const markersOf = async (page) => JSON.parse((await page.getByTestId("mars-map").getAttribute("data-sim-markers")) || "[]");
 const markerMap = async (page) => Object.fromEntries((await markersOf(page)).map((m) => [m.id, m]));
 
@@ -846,6 +848,380 @@ try {
     await jp.close();
   }
 
+  // ── MAP-3A: real CTX local 3D terrain (fresh pages) ──
+  {
+    const meta3 = JSON.parse(readFileSync(new URL("../src/data/terrain/ctx-lefroy-bay.json", import.meta.url), "utf8"));
+    const tp3 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const terr3 = [];
+    tp3.on("pageerror", (e) => terr3.push(String(e)));
+    await tp3.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await tp3.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await tp3.waitForFunction(() => document.querySelector('[data-testid="mars-map"]')?.getAttribute("data-view-extent"), undefined, { timeout: 15_000 });
+    await settle(tp3, 800);
+    const st3 = async () => JSON.parse((await tp3.getByTestId("terrain-viewer").getAttribute("data-terrain-state")) || "{}");
+    // Select target C in 2D, remember the 2D view, switch to 3D.
+    await tp3.getByTestId("mg-target-sim-target-c").click();
+    await waitStill(tp3);
+    const extent2d = await tp3.getByTestId("mars-map").getAttribute("data-view-extent");
+    const t0 = Date.now();
+    await tp3.getByTestId("mg-view-3d").click();
+    await tp3.waitForSelector('[data-testid="terrain-canvas"]', { timeout: 30_000 });
+    await tp3.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="terrain-viewer"]')?.getAttribute("data-terrain-state") || "{}").imagery === "ortho", undefined, { timeout: 30_000 });
+    await settle(tp3, 800);
+    const loadMs = Date.now() - t0;
+    let s3 = await st3();
+    const pix = await tp3.getByTestId("terrain-canvas").evaluate((c) => {
+      const t = document.createElement("canvas");
+      t.width = 64;
+      t.height = 64;
+      const g = t.getContext("2d");
+      g.drawImage(c, 0, 0, 64, 64);
+      const d = g.getImageData(0, 0, 64, 64).data;
+      let m = 0, v = 0;
+      for (let i = 0; i < d.length; i += 4) m += d[i];
+      m /= d.length / 4;
+      for (let i = 0; i < d.length; i += 4) v += (d[i] - m) ** 2;
+      return Math.sqrt(v / (d.length / 4));
+    });
+    check(s3.loaded && s3.imagery === "ortho" && pix > 10 && (await tp3.getByTestId("mg-view-3d").getAttribute("aria-pressed")) === "true", `MAP-3A: 3D terrain renders (WebGL canvas, pixel spread ${pix.toFixed(1)}; ready in ${loadMs} ms)`);
+    check(
+      s3.exaggeration === 1 && (await text(tp3.getByTestId("terrain-exaggeration-label"))) === "Vertical exaggeration: 1× (true scale)" &&
+        /CTX DTM 20 m posts \(JEZ_ctx_B_soc_008_DTM_MOLAtopography_DeltaGeoid_20m_Eqc_latTs0_lon0\), crop 3\.0 × 3\.2 km; imagery CTX orthomosaic 6 m/.test(await text(tp3.getByTestId("terrain-source"))) &&
+        /Not a route or traversability model/.test(await text(tp3.getByTestId("terrain-info"))),
+      "MAP-3A: source, resolution and 1× vertical exaggeration are shown; not a route or traversability model",
+    );
+    const verified = s3.markers.filter((m) => m.kind === "verified");
+    const simulated = s3.markers.filter((m) => m.kind === "simulated");
+    const pdsOk = meta3.validation.pdsSampleSites.every((p) => Math.abs((verified.find((v) => v.id === p.id)?.elevationM ?? 0) - p.dtmElevationM) <= 0.6);
+    check(
+      verified.length === 3 && simulated.length === 3 && pdsOk &&
+        (await tp3.getByTestId("terrain-label-sample-lefroy-bay").getAttribute("data-kind")) === "verified" &&
+        /^SIM · Target B #1$/.test(await text(tp3.getByTestId("terrain-label-sim-target-b"))) &&
+        /verified NASA\/PDS sample site/.test(await tp3.getByTestId("terrain-label-sample-lefroy-bay").getAttribute("aria-label")) &&
+        /simulated target \(scenario-defined position\)/.test(await tp3.getByTestId("terrain-label-sim-target-b").getAttribute("aria-label")),
+      "MAP-3A: verified sample sites and simulated targets have distinct markers; site elevations come from the DTM",
+    );
+    check(s3.selected === "sim-target-c" && (await tp3.getByTestId("terrain-label-sim-target-c").getAttribute("aria-pressed")) === "true", "MAP-3A: the selection made in 2D is kept in 3D");
+    // Select in 3D via a marker label; switch back: 2D keeps its view and shows the new selection.
+    await tp3.getByTestId("terrain-label-sim-target-a").click();
+    await settle(tp3, 400);
+    s3 = await st3();
+    const sel3 = s3.selected === "sim-target-a" && (await tp3.getByTestId("mg-card-task-standoff-survey").getAttribute("data-selected")) === "true" && /Survey the outcrops/.test(await text(tp3.getByTestId("mg-summary-title")));
+    check(sel3 && /Target A: −2,412 m \(DTM\)/.test(await text(tp3.getByTestId("terrain-elevation"))), "MAP-3A: selecting a marker in 3D selects its task (card, summary) and shows its DTM elevation");
+    // Camera controls (buttons; keyboard).
+    const cam0 = s3.camera;
+    await tp3.getByTestId("terrain-rotate-right").focus();
+    await tp3.keyboard.press("Enter");
+    await settle(tp3, 200);
+    const cam1 = (await st3()).camera;
+    await tp3.getByTestId("terrain-tilt-up").click();
+    await settle(tp3, 200);
+    const cam2 = (await st3()).camera;
+    await tp3.getByTestId("terrain-zoom-in").click();
+    await settle(tp3, 200);
+    const cam3 = (await st3()).camera;
+    check(Math.abs(Math.abs(cam1.azDeg - cam0.azDeg) - 15) <= 1 && cam2.polarDeg === cam1.polarDeg - 10 && Math.abs(cam3.distM - cam2.distM * 0.8) <= 2, `MAP-3A: rotate (keyboard), tilt and zoom work (${JSON.stringify([cam0, cam1, cam2, cam3])})`);
+    // Exaggeration is explicit and labelled; the default is 1×.
+    await tp3.getByTestId("terrain-exaggeration").selectOption("3");
+    await settle(tp3, 300);
+    const ex2 = (await st3()).exaggeration === 3 && /3× \(heights stretched 3 times; not true scale\)/.test(await text(tp3.getByTestId("terrain-exaggeration-label")));
+    await tp3.getByTestId("terrain-exaggeration").selectOption("1");
+    check(ex2, "MAP-3A: other exaggerations are labelled as not true scale");
+    // Elevation under the pointer, read from the DTM.
+    const box = await tp3.getByTestId("terrain-canvas").boundingBox();
+    await tp3.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.6);
+    await settle(tp3, 300);
+    const ptr = await text(tp3.getByTestId("terrain-elevation"));
+    const ptrM = Number(ptr.replace(/[^\d−.-]/g, "").replace("−", "-").match(/-?\d+/)?.[0]);
+    check(/^Pointer: −2,\d{3} m \(DTM, areoid\)$/.test(ptr) && -ptrM >= -meta3.heights.maxM && -ptrM <= -meta3.heights.minM, `MAP-3A: elevation under the pointer is read from the DTM (${ptr})`);
+    // Back to 2D: the 2D map kept its view; the selection made in 3D is shown there.
+    await tp3.getByTestId("mg-view-2d").click();
+    await settle(tp3, 600);
+    check((await tp3.getByTestId("mg-terrain").count()) === 0 && (await tp3.getByTestId("mars-map").getAttribute("data-selected-id")) === "sim-target-a" && (await tp3.getByTestId("mars-map").getAttribute("data-view-extent")) === extent2d, "MAP-3A: switching back to 2D keeps the 2D view and shows the selection made in 3D");
+    check(terr3.length === 0, `MAP-3A: no page errors${terr3.length ? ` (${terr3[0]})` : ""}`);
+    await tp3.close();
+
+    // Failure fallback to 2D: data missing, and data altered (checksum).
+    const fb = async (route, expect) => {
+      const fp3 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      await fp3.route("**/terrain/ctx-lefroy-bay/heights.f32", route);
+      await fp3.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+      await fp3.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+      await settle(fp3, 500);
+      await fp3.getByTestId("mg-view-3d").click();
+      const shown = await fp3.getByTestId("mg-terrain-fallback").waitFor({ timeout: 15_000 }).then(() => true, () => false);
+      const msg = shown ? await text(fp3.getByTestId("mg-terrain-fallback")) : "";
+      const back = (await fp3.getByTestId("mg-view-2d").getAttribute("aria-pressed")) === "true" && (await fp3.getByTestId("mg-terrain").count()) === 0 && (await fp3.getByTestId("mars-map").isVisible());
+      await fp3.close();
+      return shown && back && expect.test(msg) ? msg : `FAILED: ${msg}`;
+    };
+    const f1 = await fb((r) => r.abort(), /3D terrain unavailable: .*Showing the 2D map\./);
+    const f2 = await fb((r) => r.fulfill({ status: 200, body: Buffer.alloc(160 * 160 * 4, 7), contentType: "application/octet-stream" }), /does not match its recorded checksum/);
+    check(!f1.startsWith("FAILED") && !f2.startsWith("FAILED") && /could not be downloaded/.test(f1), `MAP-3A: falls back to 2D with a reason when data is missing or altered (${f1} | ${f2})`);
+
+    // Reduced motion and phone.
+    const rm3 = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce", hasTouch: true, isMobile: true });
+    const rerr = [];
+    rm3.on("pageerror", (e) => rerr.push(String(e)));
+    await rm3.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await rm3.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await settle(rm3, 600);
+    await rm3.getByTestId("mg-view-3d").tap();
+    await rm3.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="terrain-viewer"]')?.getAttribute("data-terrain-state") || "{}").loaded, undefined, { timeout: 30_000 });
+    await settle(rm3, 600);
+    const ps = JSON.parse((await rm3.getByTestId("terrain-viewer").getAttribute("data-terrain-state")) || "{}");
+    const ov = await rm3.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    const collapsed = (await rm3.getByTestId("terrain-controls-toggle").getAttribute("aria-expanded")) === "false";
+    await rm3.getByTestId("terrain-controls-toggle").tap();
+    await settle(rm3, 200);
+    const cb = await rm3.getByTestId("terrain-controls").boundingBox();
+    await rm3.getByTestId("terrain-zoom-in").tap();
+    await settle(rm3, 300);
+    const zoomed = JSON.parse((await rm3.getByTestId("terrain-viewer").getAttribute("data-terrain-state")) || "{}").camera.distM < ps.camera.distM;
+    check(
+      ps.quality === "low" && (await rm3.getByTestId("terrain-viewer").getAttribute("data-motion")) === "reduced" && ov <= 0 && collapsed && cb && cb.x >= 0 && cb.x + cb.width <= 390 && zoomed && rerr.length === 0,
+      "MAP-3A phone: low-quality mesh by default, reduced motion respected, view controls collapsed until opened (then on screen and working), no horizontal overflow",
+    );
+    await rm3.close();
+  }
+
+  // ── MAP-3A.1: readable relief from the unchanged CTX DTM (fresh pages) ──
+  {
+    const geoRecs = JSON.parse(readFileSync(new URL("../src/data/geo/jezero-geo.json", import.meta.url), "utf8")).records;
+    const posOf = (id) => geoRecs.find((r) => r.id === id).position;
+    const hav = ([lo1, la1], [lo2, la2]) => {
+      const r = Math.PI / 180;
+      const a = Math.sin(((la2 - la1) * r) / 2) ** 2 + Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(((lo2 - lo1) * r) / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    };
+    const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const perr = [];
+    pg.on("pageerror", (e) => perr.push(String(e)));
+    await pg.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await pg.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await settle(pg, 600);
+    await pg.getByTestId("mg-view-3d").click();
+    await pg.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="terrain-viewer"]')?.getAttribute("data-terrain-state") || "{}").imagery === "ortho", undefined, { timeout: 30_000 });
+    await settle(pg, 800);
+    const st = async () => JSON.parse((await pg.getByTestId("terrain-viewer").getAttribute("data-terrain-state")) || "{}");
+    // A small fingerprint of the WebGL canvas, to tell whether the picture changed.
+    const shot = () =>
+      pg.getByTestId("terrain-canvas").evaluate((c) => {
+        const t = document.createElement("canvas");
+        t.width = 48;
+        t.height = 48;
+        const g = t.getContext("2d");
+        g.drawImage(c, 0, 0, 48, 48);
+        return Array.from(g.getImageData(0, 0, 48, 48).data);
+      });
+    const diff = (a, b) => a.reduce((acc, v, i) => acc + Math.abs(v - b[i]), 0) / a.length;
+    // Full-resolution red channel, for small changes such as the read-out dot.
+    const shotFull = () =>
+      pg.getByTestId("terrain-canvas").evaluate((c) => {
+        const t = document.createElement("canvas");
+        t.width = c.width;
+        t.height = c.height;
+        const g = t.getContext("2d");
+        g.drawImage(c, 0, 0);
+        return Array.from(g.getImageData(0, 0, c.width, c.height).data.filter((_, i) => i % 4 === 0));
+      });
+    const changedPx = (a, b) => a.reduce((n, v, i) => n + (Math.abs(v - b[i]) > 20 ? 1 : 0), 0);
+    const labelBox = async (id) => pg.getByTestId(`terrain-label-${id}`).boundingBox();
+
+    // Exaggeration choices: exactly 1× (default, true scale), 3× and 5×, all labelled.
+    const opts = await pg.getByTestId("terrain-exaggeration").locator("option").evaluateAll((os) => os.map((o) => [o.value, o.textContent.trim()]));
+    let s = await st();
+    check(
+      JSON.stringify(opts) === JSON.stringify([["1", "1× true scale"], ["3", "3× exaggerated"], ["5", "5× exaggerated"]]) && s.exaggeration === 1 && s.surface === "relief" && s.contours === true,
+      `MAP-3A.1: vertical scale offers 1× true scale (default), 3× and 5×, labelled (${JSON.stringify(opts)})`,
+    );
+
+    // The real relief is stated explicitly, with the local elevation range.
+    const reliefTxt = await text(pg.getByTestId("terrain-relief-note"));
+    const localTxt = await text(pg.getByTestId("terrain-local-range"));
+    check(
+      reliefTxt ===
+        "Relief is real but modest: 244 m across this 3 km crop (falling about 72 m from west to east; median slope 3.5°, 90 % below 6.5°). Around Lefroy Bay and the targets it varies by only about 10 m within 150 m and 22 m within 300 m, so at 1× (true scale) it looks nearly flat." &&
+        localTxt === "Local range within 300 m of Lefroy Bay: −2,424 m to −2,401 m (22 m).",
+      `MAP-3A.1: the viewer states the real, modest relief and the local elevation range (${localTxt})`,
+    );
+
+    // Default profile: Comet Geyser → Pelican Point, sampled from the DTM, labelled as a straight line.
+    const pr = s.profile;
+    const lenRef = hav(posOf("sample-comet-geyser"), posOf("sample-pelican-point"));
+    const mk = Object.fromEntries(s.markers.map((m) => [m.id, m.elevationM]));
+    const statsTxt = await text(pg.getByTestId("terrain-profile-stats"));
+    const caveatTxt = await text(pg.getByTestId("terrain-profile-caveat"));
+    check(
+      pr && pr.from === "sample-comet-geyser" && pr.to === "sample-pelican-point" && Math.abs(pr.lengthM - lenRef) <= 2 && pr.startM === mk["sample-comet-geyser"] && pr.endM === mk["sample-pelican-point"] && pr.netM === -40 && pr.minM <= pr.endM && pr.maxM >= pr.startM &&
+        /^1,409 m straight line · start −2,385 m · end −2,425 m · net −40 m · range −2,425 m to −2,38\d m \(\d+ m\)$/.test(statsTxt),
+      `MAP-3A.1: default elevation profile Comet Geyser → Pelican Point comes from the DTM (${statsTxt}; independent length ${lenRef.toFixed(0)} m)`,
+    );
+    check(
+      caveatTxt === "Straight sampling line: not a route, not a safe path, no travel time or traversability." && (await pg.getByTestId("terrain-profile-caveat").isVisible()),
+      "MAP-3A.1: the profile is labelled as a straight sampling line, not a route or safe path",
+    );
+    const scaleTxt = await text(pg.getByTestId("terrain-profile-scale"));
+    check(/^Chart heights drawn about \d+× taller than distance: slopes look steeper than they are\. Numbers are true DTM metres\.$/.test(scaleTxt), `MAP-3A.1: the chart says how much it stretches heights (${scaleTxt})`);
+
+    // Chart read-out by keyboard; the read-out point is shown on the terrain too.
+    const before = await shotFull();
+    await pg.getByTestId("terrain-profile-svg").focus();
+    await pg.keyboard.press("Home");
+    await settle(pg, 250);
+    const r0 = await text(pg.getByTestId("terrain-profile-readout"));
+    const dotPx = changedPx(before, await shotFull());
+    await pg.keyboard.press("End");
+    await settle(pg, 250);
+    const r1 = await text(pg.getByTestId("terrain-profile-readout"));
+    check(r0 === "At 0 m along the line: −2,385 m (DTM)" && r1 === "At 1,409 m along the line: −2,425 m (DTM)" && dotPx >= 20, `MAP-3A.1: chart read-out by keyboard, marked on the terrain (${r0} | ${r1}; ${dotPx} pixels changed)`);
+    await pg.keyboard.press("Tab");
+    await settle(pg, 200);
+
+    // Camera presets, including low-angle views; instant (no animation), and any manual move leaves the preset.
+    const presetIds = await pg.locator('[data-testid^="terrain-preset-"]').evaluateAll((bs) => bs.map((b) => [b.dataset.testid.replace("terrain-preset-", ""), b.getAttribute("aria-label")]));
+    await pg.getByTestId("terrain-preset-lowEast").click();
+    await settle(pg, 60);
+    const ce = (await st()).camera;
+    const pe = (await st()).preset;
+    const pressed = await pg.getByTestId("terrain-preset-lowEast").getAttribute("aria-pressed");
+    await pg.getByTestId("terrain-preset-lowSouth").click();
+    await settle(pg, 60);
+    const cs = (await st()).camera;
+    await pg.getByTestId("terrain-preset-overview").click();
+    await settle(pg, 60);
+    const co = (await st()).camera;
+    await pg.getByTestId("terrain-rotate-left").click();
+    await settle(pg, 100);
+    const afterMove = (await st()).preset;
+    check(
+      presetIds.length === 4 && presetIds.some(([, l]) => l === "Low angle from the east") && pe === "lowEast" && pressed === "true" && ce.polarDeg === 80 && Math.abs(ce.azDeg - 95) <= 1 && Math.abs(ce.distM - 2300) <= 2 && cs.polarDeg === 80 && Math.abs(cs.azDeg - 5) <= 1 && co.polarDeg === 30 && afterMove === "custom",
+      `MAP-3A.1: camera presets (overview, oblique, two low-angle views) apply at once; a manual move leaves the preset (${JSON.stringify([ce, cs, co])})`,
+    );
+
+    // 5×: labelled not true scale; the picture changes; elevations, profile and relief text do not.
+    await pg.getByTestId("terrain-preset-lowSouth").click();
+    await settle(pg, 300);
+    const at1 = await shot();
+    await pg.getByTestId("terrain-exaggeration").selectOption("5");
+    await settle(pg, 500);
+    const at5 = await shot();
+    s = await st();
+    const lab5 = await text(pg.getByTestId("terrain-exaggeration-label"));
+    const col5 = await pg.getByTestId("terrain-exaggeration-label").evaluate((e) => getComputedStyle(e).fontWeight);
+    check(
+      s.exaggeration === 5 && lab5 === "Vertical exaggeration: 5× (heights stretched 5 times; not true scale)" && Number(col5) >= 600 && diff(at1, at5) > 1 &&
+        JSON.stringify(s.profile) === JSON.stringify(pr) && s.markers.every((m) => m.elevationM === mk[m.id]) &&
+        (await text(pg.getByTestId("terrain-relief-note"))) === reliefTxt,
+      `MAP-3A.1: 5× is labelled as not true scale and stretches the view only; elevations, profile and relief text stay true (picture change ${diff(at1, at5).toFixed(1)})`,
+    );
+    await pg.getByTestId("terrain-exaggeration").selectOption("1");
+    await settle(pg, 400);
+
+    // Surface modes and contours change colours only: marker positions on screen stay put.
+    const b0 = await labelBox("sample-lefroy-bay");
+    const p0 = await shot();
+    await pg.getByTestId("terrain-surface").selectOption("elevation");
+    await settle(pg, 300);
+    const p1 = await shot();
+    const legend = await text(pg.getByTestId("terrain-legend"));
+    await pg.getByTestId("terrain-contours").uncheck();
+    await settle(pg, 300);
+    const p2 = await shot();
+    await pg.getByTestId("terrain-surface").selectOption("imagery");
+    await settle(pg, 300);
+    const p3 = await shot();
+    s = await st();
+    const b1 = await labelBox("sample-lefroy-bay");
+    check(
+      diff(p0, p1) > 1 && diff(p1, p2) > 0.05 && diff(p2, p3) > 1 && s.surface === "imagery" && s.contours === false && legend === "−2,467 m−2,223 m" && b0 && b1 && Math.abs(b0.x - b1.x) < 0.5 && Math.abs(b0.y - b1.y) < 0.5,
+      `MAP-3A.1: relief shading, elevation colours (with legend) and 10 m contours change colours only (${[diff(p0, p1), diff(p1, p2), diff(p2, p3)].map((d) => d.toFixed(1)).join(", ")})`,
+    );
+    await pg.getByTestId("terrain-surface").selectOption("relief");
+    await pg.getByTestId("terrain-contours").check();
+    await settle(pg, 200);
+
+    // Change the profile's ends (verified site ↔ simulated target), swap, and same-point guard.
+    await pg.getByTestId("terrain-profile-from").selectOption("sim-target-a");
+    await pg.getByTestId("terrain-profile-to").selectOption("sample-lefroy-bay");
+    await settle(pg, 300);
+    const pa = (await st()).profile;
+    const shortStats = await text(pg.getByTestId("terrain-profile-stats"));
+    const shortScale = Number((await text(pg.getByTestId("terrain-profile-scale"))).match(/about (\d+)×/)?.[1]);
+    const lenA = Math.hypot(TARGETS["sim-target-a"].east, TARGETS["sim-target-a"].north);
+    await pg.getByTestId("terrain-profile-swap").click();
+    await settle(pg, 300);
+    const pb = (await st()).profile;
+    await pg.getByTestId("terrain-profile-to").selectOption("sample-lefroy-bay");
+    await settle(pg, 200);
+    const same = await text(pg.getByTestId("terrain-profile-empty"));
+    check(
+      pa.from === "sim-target-a" && pa.to === "sample-lefroy-bay" && Math.abs(pa.lengthM - lenA) <= 2 && pa.startM === mk["sim-target-a"] && pa.endM === mk["sample-lefroy-bay"] && pb.from === "sample-lefroy-bay" && pb.to === "sim-target-a" && pb.netM === -pa.netM && same === "Choose two different points." &&
+        /net [+−]?\d m \(under 5 m: not meaningful\).*; under 5 m: not meaningful\)$/.test(shortStats) && shortScale <= 6,
+      `MAP-3A.1: profile ends can be any verified site or simulated target; swap and same-point guard; sub-5 m differences flagged and not blown up (${pa.lengthM} m vs ${lenA.toFixed(0)} m; ${shortStats}; chart ${shortScale}×)`,
+    );
+
+    // Pick two points on the terrain: Escape cancels; two clicks make a profile between those coordinates.
+    await pg.getByTestId("terrain-profile-pick").click();
+    await settle(pg, 150);
+    const pickHint = await text(pg.getByTestId("terrain-picking"));
+    await pg.keyboard.press("Escape");
+    await settle(pg, 150);
+    const cancelled = (await st()).picking === null && (await pg.getByTestId("terrain-picking").count()) === 0;
+    await pg.getByTestId("terrain-preset-overview").click();
+    await settle(pg, 300);
+    await pg.getByTestId("terrain-profile-pick").click();
+    const cb = await pg.getByTestId("terrain-canvas").boundingBox();
+    await pg.mouse.click(cb.x + cb.width * 0.3, cb.y + cb.height * 0.42);
+    await settle(pg, 200);
+    const mid = (await st()).picking;
+    await pg.mouse.click(cb.x + cb.width * 0.62, cb.y + cb.height * 0.36);
+    await settle(pg, 300);
+    s = await st();
+    const ptsTxt = await text(pg.getByTestId("terrain-profile-points"));
+    const coords = [...ptsTxt.matchAll(/(\d+\.\d{4})° E, (\d+\.\d{4})° N/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    const bb = meta3Bbox();
+    const inCrop = coords.length === 2 && coords.every(([lo, la]) => lo >= bb[0] && lo <= bb[2] && la >= bb[1] && la <= bb[3]);
+    check(
+      pickHint === "Click point 1 of 2 on the terrain for the profile. Esc cancels." && cancelled && mid === 1 && s.picking === null && s.profile?.from === "Point 1" && s.profile?.to === "Point 2" && inCrop &&
+        Math.abs(s.profile.lengthM - hav(coords[0], coords[1])) <= 6 && s.profile.startM >= -2467 && s.profile.startM <= -2222 && s.selected === null,
+      `MAP-3A.1: two points picked on the terrain give a profile between those coordinates; Esc cancels picking (${ptsTxt}; ${s.profile?.lengthM} m)`,
+    );
+    check(perr.length === 0, `MAP-3A.1: no page errors${perr.length ? ` (${perr[0]})` : ""}`);
+    await pg.close();
+
+    // 2D/3D selection stays consistent with the profile panel open; phone layout; reduced motion.
+    const ph = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce", hasTouch: true, isMobile: true });
+    const pherr = [];
+    ph.on("pageerror", (e) => pherr.push(String(e)));
+    await ph.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await ph.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await settle(ph, 600);
+    await ph.getByTestId("mg-view-3d").tap();
+    await ph.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="terrain-viewer"]')?.getAttribute("data-terrain-state") || "{}").loaded, undefined, { timeout: 30_000 });
+    await settle(ph, 600);
+    const collapsedP = (await ph.getByTestId("terrain-profile-toggle").getAttribute("aria-expanded")) === "false";
+    const shortTxt = await text(ph.getByTestId("terrain-relief-short"));
+    const infoVis = await ph.getByTestId("terrain-info").isVisible();
+    await ph.getByTestId("terrain-profile-toggle").tap();
+    await settle(ph, 300);
+    const viewer = await ph.getByTestId("terrain-viewer").boundingBox();
+    const prof = await ph.getByTestId("terrain-profile").boundingBox();
+    const toggle = await ph.getByTestId("terrain-controls-toggle").boundingBox();
+    const infoHidden = !(await ph.getByTestId("terrain-info").isVisible());
+    const ov = await ph.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    await ph.getByTestId("terrain-controls-toggle").tap();
+    await ph.getByTestId("terrain-preset-lowEast").tap();
+    await settle(ph, 60);
+    const phs = JSON.parse((await ph.getByTestId("terrain-viewer").getAttribute("data-terrain-state")) || "{}");
+    check(
+      collapsedP && infoVis && shortTxt === "Relief is real but modest: 244 m across the crop, about 22 m within 300 m of Lefroy Bay; nearly flat at 1× near the targets." && infoHidden && prof && viewer && prof.y >= toggle.y + toggle.height && prof.y + prof.height <= viewer.y + viewer.height + 1 && prof.x >= 0 && prof.x + prof.width <= 390 && ov <= 0 &&
+        phs.preset === "lowEast" && phs.camera.polarDeg === 80 && (await ph.getByTestId("terrain-viewer").getAttribute("data-motion")) === "reduced" && pherr.length === 0,
+      "MAP-3A.1 phone: profile collapsed by default with a short relief statement; opened, it replaces the info panel and stays below the controls; presets work instantly with reduced motion; no overflow",
+    );
+    await ph.close();
+  }
+
   // ── Translation regression (UX-0 rule) ──
   const translate = (pg) =>
     pg.evaluate(() => {
@@ -872,6 +1248,25 @@ try {
   await translate(tp);
   await tp.getByTestId("mg-summary-details").click();
   await tp.getByTestId("mg-summary-close").click();
+  // MAP-3A under translation: switch to 3D, select via a marker label, change exaggeration, back to 2D.
+  await tp.getByTestId("mg-view-3d").click();
+  await tp.waitForFunction(() => JSON.parse(document.querySelector('[data-testid="terrain-viewer"]')?.getAttribute("data-terrain-state") || "{}").loaded, undefined, { timeout: 30_000 });
+  await settle(tp, 500);
+  await translate(tp);
+  await tp.getByTestId("terrain-label-sim-target-b").click();
+  await tp.getByTestId("terrain-exaggeration").selectOption("3");
+  await translate(tp);
+  await tp.getByTestId("terrain-preset-lowEast").click();
+  await tp.getByTestId("terrain-surface").selectOption("elevation");
+  await tp.getByTestId("terrain-profile-from").selectOption("sim-target-b");
+  await tp.getByTestId("terrain-profile-svg").focus();
+  await tp.keyboard.press("End");
+  await translate(tp);
+  await tp.getByTestId("terrain-profile-toggle").click();
+  await tp.getByTestId("terrain-profile-toggle").click();
+  await tp.getByTestId("terrain-about").click();
+  await translate(tp);
+  await tp.getByTestId("mg-view-2d").click();
   await tp.getByLabel("Simulated effort budget").fill("50");
   await tp.getByTestId("mg-card-task-abrasion-proximity").getByTestId("mg-expand").click();
   await tp.getByLabel("Simulated effort budget").fill("100");
@@ -930,7 +1325,7 @@ try {
   await tp.getByTestId("mg-event-effort-restored").click();
   await tp.getByTestId("mg-toggle-map").click();
   await settle(tp);
-  check(terr.length === 0 && (await tp.getByTestId("mg-plan-timeline").count()) === 1, `[translated] planning, map targets and summary, EVA steps (pause, note, undo, reopen, view, collapse) and replanning (keep, review, accept, undo) without page errors${terr.length ? ` (${terr[0]})` : ""}`);
+  check(terr.length === 0 && (await tp.getByTestId("mg-plan-timeline").count()) === 1, `[translated] planning, map targets and summary, 3D terrain, EVA steps (pause, note, undo, reopen, view, collapse) and replanning (keep, review, accept, undo) without page errors${terr.length ? ` (${terr[0]})` : ""}`);
   await tp.close();
 
   // ── Reduced motion ──
@@ -969,7 +1364,8 @@ try {
   check(overflow <= 0 && mapY < panelY, `narrow screen: no horizontal overflow (${overflow}px), map above the planning panel`);
   {
     const mapBox = await phone.getByTestId("mars-map").boundingBox();
-    const list = await phone.getByTestId("mg-target-list").boundingBox();
+    // The visible toolbar row (2D/3D switch + target buttons) scrolls horizontally inside the map.
+    const list = await phone.getByTestId("mg-map-toolbar").boundingBox();
     const y0 = await phone.evaluate(() => window.scrollY);
     await phone.getByTestId("mg-target-sim-target-b").tap().catch(() => phone.getByTestId("mg-target-sim-target-b").click());
     await settle(phone, 700);

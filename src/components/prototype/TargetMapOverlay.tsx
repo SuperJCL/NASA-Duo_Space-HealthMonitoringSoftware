@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { TargetMarker } from "@/lib/prototype/target-markers";
 
 const TONE_CLASS: Record<TargetMarker["tone"], string> = {
@@ -19,14 +20,25 @@ const TONE_CLASS: Record<TargetMarker["tone"], string> = {
  * TargetList: a row of target buttons over the map, in provisional-rank
  * order: the keyboard and touch alternative to clicking a marker.
  */
-export function TargetList({ markers, selectedTaskId, onPick }: { markers: readonly TargetMarker[]; selectedTaskId: string | null; onPick: (taskId: string) => void }) {
+export function TargetList({
+  markers,
+  selectedTaskId,
+  onPick,
+  leading,
+  rightInset = "right-3 lg:right-[29.5rem]",
+}: {
+  markers: readonly TargetMarker[];
+  selectedTaskId: string | null;
+  onPick: (taskId: string) => void;
+  /** MAP-3A: a control shown before the target buttons (the 2D / 3D switch). */
+  leading?: ReactNode;
+  /** Right edge, so the row stays clear of controls on the map's right. */
+  rightInset?: string;
+}) {
   return (
-    <div
-      role="group"
-      aria-label="Simulated targets, in provisional priority order"
-      className="absolute left-14 right-3 top-3 flex gap-1.5 overflow-x-auto pb-1 lg:right-[29.5rem]"
-      data-testid="mg-target-list"
-    >
+    <div className={`absolute left-14 top-3 z-[3] flex gap-1.5 overflow-x-auto pb-1 ${rightInset}`} data-testid="mg-map-toolbar">
+      {leading}
+      <div role="group" aria-label="Simulated targets, in provisional priority order" className="flex gap-1.5" data-testid="mg-target-list">
       {markers.map((m) => (
         <button
           key={m.id}
@@ -47,6 +59,7 @@ export function TargetList({ markers, selectedTaskId, onPick }: { markers: reado
           <span className="whitespace-nowrap">{m.status ? `${m.name} · ${m.status}` : m.name}</span>
         </button>
       ))}
+      </div>
     </div>
   );
 }

@@ -23,6 +23,9 @@ import {
 } from "@/lib/prototype/mission-glass";
 import { targetMarkers } from "@/lib/prototype/target-markers";
 import { MarsMapLoader } from "@/components/map/MarsMapLoader";
+import { TerrainLoader } from "@/components/terrain/TerrainLoader";
+import type { TerrainMarker } from "@/components/terrain/TerrainViewer";
+import { LEFROY_TERRAIN } from "@/lib/terrain/terrain";
 import { EvaHud } from "./EvaHud";
 import { EvidenceSheet } from "./EvidenceSheet";
 import { PlanReview } from "./PlanReview";
@@ -69,6 +72,9 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   // MAP-1: a focus request moves the map to a target; the summary closes independently.
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [summaryFor, setSummaryFor] = useState<string | null>(null);
+  // MAP-3A: 2D map or local 3D terrain (planning only). The 2D map stays mounted, so its view is kept.
+  const [mapView, setMapView] = useState<"2d" | "3d">("2d");
+  const [terrainNotice, setTerrainNotice] = useState<string | null>(null);
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(wideQuery).matches, () => false);
   const sourceById = useMemo(() => new Map(sources.map((x) => [x.id, x])), [sources]);
   const costs = useMemo(() => Object.fromEntries(snapshot.tasks.map((t) => [t.id, t.costs["res-effort"] ?? Infinity])), [snapshot]);
@@ -98,9 +104,21 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   // MAP-1: decision state per target, from the engine views of the current mode and the shared mission state.
   const markers = useMemo(() => targetMarkers({ targets, viewById, state, stepsByTask }), [targets, viewById, state, stepsByTask]);
   const markerById = new Map(markers.map((m) => [m.id, m]));
+  // MAP-3A: verified sample sites and the verified traverse for the 3D view, kept apart from simulated targets.
+  const traverseLines = useMemo(
+    () => features.flatMap((f) => (f.kind === "traverse-segment" && f.geometry.type === "MultiLineString" ? f.geometry.coordinates.map((l) => l.map((p) => [p[0], p[1]] as const)) : [])),
+    [features],
+  );
   const mapTargets = useMemo(() => targets.map((t) => ({ ...t, badge: markerById.get(t.id)?.badge, status: markerById.get(t.id)?.status, tone: markerById.get(t.id)?.tone })), [targets, markers]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedMarker = markers.find((m) => m.taskId === state.selectedTaskId);
   const summaryOpen = Boolean(selectedMarker) && !verifiedPick && summaryFor === state.selectedTaskId && state.mode === "planning";
+  const terrainMarkers = useMemo<TerrainMarker[]>(
+    () => [
+      ...features.flatMap((f): TerrainMarker[] => (f.kind === "sample-site" && f.geometry.type === "Point" ? [{ id: f.id, kind: "verified", name: f.name, position: [f.geometry.coordinates[0], f.geometry.coordinates[1]] }] : [])),
+      ...mapTargets.map((t): TerrainMarker => ({ id: t.id, kind: "simulated", name: t.name, position: t.position, badge: t.badge, status: t.status, tone: t.tone })),
+    ],
+    [features, mapTargets],
+  );
   /** Select a task from a card or the target list, and focus its target on the map. */
   const pickTask = (taskId: string) => {
     setVerifiedPick(null);
@@ -224,9 +242,32 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
 
       {state.mode === "planning" ? (
         <main className="relative flex flex-1 flex-col lg:min-h-0 lg:block">
-          <section aria-label="Investigation map" className="relative h-[42dvh] shrink-0 lg:absolute lg:inset-0 lg:h-auto">
+          <section aria-label="Investigation map" className={`relative shrink-0 lg:absolute lg:inset-0 lg:h-auto ${mapView === "3d" ? "h-[66dvh]" : "h-[42dvh]"}`}>
             {map("minimal")}
-            <div className="pointer-events-none absolute bottom-12 left-4 hidden lg:block">
+            {mapView === "3d" ? (
+              <div className="absolute inset-0 z-[2] lg:right-[30rem]" data-testid="mg-terrain">
+                <TerrainLoader
+                  meta={LEFROY_TERRAIN}
+                  markers={terrainMarkers}
+                  traverse={traverseLines}
+                  selectedId={mapSelected}
+                  onSelect={onMapSelect}
+                  onFallback={(reason) => {
+                    setMapView("2d");
+                    setTerrainNotice(reason);
+                  }}
+                />
+              </div>
+            ) : null}
+            {terrainNotice ? (
+              <div role="alert" className="mg-glass absolute bottom-3 left-3 z-[4] flex max-w-md items-start gap-2 p-3 text-[13px]" data-testid="mg-terrain-fallback">
+                <p className="text-[var(--mg-caution)]">{`3D terrain unavailable: ${terrainNotice}. Showing the 2D map.`}</p>
+                <button type="button" aria-label="Dismiss" onClick={() => setTerrainNotice(null)} className="shrink-0 rounded border border-[var(--mg-line)] px-2">
+                  {"✕"}
+                </button>
+              </div>
+            ) : null}
+            <div className={`pointer-events-none absolute bottom-12 left-4 hidden ${mapView === "2d" ? "lg:block" : ""}`}>
               <div className="mg-glass pointer-events-auto flex flex-col gap-1.5 px-3 py-2 text-[13px]" data-testid="mg-legend">
                 <span className="flex items-center gap-2">
                   <span aria-hidden className="inline-block size-3 rounded-full bg-[#8ecae6]" />
@@ -240,7 +281,31 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                 <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · ½ ended with skipped steps · yellow: not feasible"}</span>
               </div>
             </div>
-            <TargetList markers={markers} selectedTaskId={state.selectedTaskId} onPick={pickTask} />
+            <TargetList
+              markers={markers}
+              selectedTaskId={state.selectedTaskId}
+              onPick={pickTask}
+              rightInset={mapView === "3d" ? "right-3 sm:right-56 lg:right-[42rem]" : undefined}
+              leading={
+                <div role="group" aria-label="Map view" className="mg-glass flex shrink-0 items-center rounded-xl p-0.5 text-[13px]" data-testid="mg-view-toggle">
+                  {(["2d", "3d"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      aria-pressed={mapView === v}
+                      onClick={() => {
+                        setMapView(v);
+                        setTerrainNotice(null);
+                      }}
+                      className={`min-h-9 whitespace-nowrap rounded-lg px-2.5 ${mapView === v ? "bg-[var(--mg-surface)] font-medium text-[var(--mg-text)]" : "text-[var(--mg-dim)]"}`}
+                      data-testid={`mg-view-${v}`}
+                    >
+                      {v === "2d" ? "2D map" : "3D terrain"}
+                    </button>
+                  ))}
+                </div>
+              }
+            />
           </section>
 
           {picked ? (
