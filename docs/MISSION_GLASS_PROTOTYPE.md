@@ -63,7 +63,8 @@ or decorative sci-fi elements.
 
 ## Shared mission-state contract (`src/lib/prototype/mission-glass.ts`)
 
-The module is pure: no React and no OpenLayers. It has 17 unit tests.
+The module is pure: no React and no OpenLayers. It has 17 unit tests, plus
+12 EVA-1 step tests (`eva-steps.test.ts`).
 
 - **`MissionState`:**
   - `mode` (`planning` or `eva`);
@@ -123,6 +124,58 @@ The module is pure: no React and no OpenLayers. It has 17 unit tests.
 
   No engine, evidence, geo or briefing file changed. The engine grids are
   byte-identical to MF-1 and BR-2.
+
+## EVA step management (EVA-1)
+
+The HUD manages the **state** of each step. It never edits the
+**procedure**: the step list comes from the scenario, and changing it or
+adding scientific steps would need a separate planning confirmation, which
+is not built. It is a simulated training workflow, not a certified EVA
+procedure system.
+
+- **State (`PlanItem`):**
+  - `steps` holds per-step records (`todo`, `done`, `skipped` with a reason,
+    an optional note);
+  - `step` is the first unresolved step;
+  - `paused` marks a paused current step;
+  - `dropped` records who skipped a skipped action: `{by: "user", reason?}`
+    or `{by: "replan"}`.
+- **Actions:**
+  - `complete-step` (current step, or any single step by index);
+  - `skip-step` (a non-empty reason is required, up to 160 characters);
+  - `pause-step` and `resume-step` (a paused step cannot be completed or
+    skipped);
+  - `set-step-note` (the user's own text, up to 280 characters, empty
+    clears it; never an engine input);
+  - `undo-step`;
+  - `skip-task` (optional reason).
+- **Completion:** when every step is resolved, the action is done if at
+  least one step was done, and its simulated effort is committed. If every
+  step was skipped, the action counts as skipped by the user and nothing is
+  committed. Per-step effort is not modelled.
+- **Undo:** one level, covering the last step change (done, skip, pause,
+  resume, note). It also undoes a completion, which un-commits the effort.
+  It is cleared when the next action starts, the action is skipped, or a
+  constraint change or replan happens. A step change clears the replan
+  Undo, so the two never mix.
+- **Replanning:** an in-progress action keeps its step records, paused
+  state and notes, and the impact text says "1 of 4 steps done, 1 skipped;
+  those steps are kept". Dropped actions are labelled "dropped by replan"
+  everywhere: timeline, plan summary, map markers, target buttons, cards,
+  later replan impacts. A manual skip reads "skipped by you" with its
+  reason.
+- **HUD:**
+  - The primary action reads "Complete step N" or "Finish action"; it
+    becomes "Resume step N" while paused.
+  - Pause sits beside it.
+  - "More" holds Skip step…, Note on step…, All steps…, evidence, and Skip
+    this action….
+  - An inline form handles the reason or note (Enter submits, Escape
+    cancels; focus returns to the primary action).
+  - The step label shows "1 done · 1 skipped · 2 to do"; the step bar
+    colours done green, skipped grey, current coral, and paused yellow.
+  - The **Steps** panel lists every step with its state, reason and note,
+    plus Mark done, Skip… and Note… buttons.
 
 ## Spatial decision map (MAP-1)
 

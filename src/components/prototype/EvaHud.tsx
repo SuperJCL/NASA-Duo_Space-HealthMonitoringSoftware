@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { MgScenario, MissionState, TaskView } from "@/lib/prototype/mission-glass";
+import { stepCounts, stepRecords, type MgScenario, type MissionState, type TaskView } from "@/lib/prototype/mission-glass";
+import { StepForm, StepsPanel, type StepFormKind } from "./StepControls";
 
 /**
  * MG-2 EVA glance HUD. The primary view answers, in this order:
@@ -10,8 +11,13 @@ import type { MgScenario, MissionState, TaskView } from "@/lib/prototype/mission
  * Secondary information (map, caveats, scenario controls, log, skip,
  * evidence) sits behind optional controls. A training prototype: not
  * flight software, not real telemetry, no astronaut position.
+ *
+ * EVA-1 adds step management: pause/resume beside the primary action; skip
+ * a step (with a reason), add a note and skip the action under "More"; a
+ * Steps panel for any single step; Undo of the last step change. The step
+ * list (procedure) is never edited here.
  */
-type Panel = "map" | "caveats" | "scenario" | "log" | null;
+type Panel = "steps" | "map" | "caveats" | "scenario" | "log" | null;
 
 export function EvaHud({
   state,
@@ -22,6 +28,11 @@ export function EvaHud({
   replan,
   onStart,
   onCompleteStep,
+  onSkipStep,
+  onPause,
+  onResume,
+  onNote,
+  onUndoStep,
   onSkip,
   onEvent,
   onReviewReplan,
@@ -38,8 +49,13 @@ export function EvaHud({
   /** Replanning dialog (MG-3), a fixed modal rendered when a proposal exists. */
   replan?: ReactNode;
   onStart: () => void;
-  onCompleteStep: () => void;
-  onSkip: () => void;
+  onCompleteStep: (index?: number) => void;
+  onSkipStep: (reason: string, index?: number) => void;
+  onPause: () => void;
+  onResume: () => void;
+  onNote: (index: number, note: string) => void;
+  onUndoStep: () => void;
+  onSkip: (reason?: string) => void;
   onEvent: (id: string) => void;
   onReviewReplan: () => void;
   onUndo: () => void;
@@ -49,6 +65,7 @@ export function EvaHud({
 }) {
   const [panel, setPanel] = useState<Panel>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [form, setForm] = useState<{ kind: StepFormKind; index: number } | null>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
 
   const items = state.plan?.items ?? [];
@@ -56,6 +73,11 @@ export function EvaHud({
   const view = current ? viewById.get(current.taskId) : undefined;
   const steps = current ? (s.actions.find((a) => a.taskId === current.taskId)?.steps ?? []) : [];
   const stepIndex = current ? Math.min(current.step, steps.length - 1) : 0;
+  const records = current ? stepRecords(current, steps.length) : [];
+  const counts = current ? stepCounts(current, steps.length) : { done: 0, skipped: 0, todo: 0, current: null };
+  const paused = Boolean(current?.status === "active" && current.paused);
+  // The step after the current one that is still to do (steps may be resolved out of order).
+  const nextTodo = records.findIndex((r, n) => n > stepIndex && r.status === "todo");
   const available = state.budget - consumed;
   const remainingNeed = items.filter((i) => i.status === "planned" || i.status === "active").reduce((sum, i) => sum + (viewById.get(i.taskId)?.cost ?? 0), 0);
   const actionNo = current ? items.indexOf(current) + 1 : items.length;
@@ -65,7 +87,11 @@ export function EvaHud({
   const replanOpen = state.replan !== null;
   useEffect(() => {
     if (!replanOpen) primaryRef.current?.focus({ preventScroll: true });
-  }, [current?.taskId, current?.status, current?.step, replanOpen]);
+  }, [current?.taskId, current?.status, current?.step, current?.paused, replanOpen]);
+  const closeForm = () => {
+    setForm(null);
+    primaryRef.current?.focus({ preventScroll: true });
+  };
   const retainedOver = state.retained && remainingNeed > available ? remainingNeed - available : 0;
 
   if (!state.plan) {
@@ -86,7 +112,9 @@ export function EvaHud({
     ? { label: "Back to planning", onClick: onBackToPlanning, testId: "mg-finish-plan" }
     : current.status === "planned"
       ? { label: "Start action", onClick: onStart, testId: "mg-start" }
-      : { label: current.step + 1 >= steps.length ? "Finish action" : `Complete step ${current.step + 1}`, onClick: onCompleteStep, testId: "mg-complete-step" };
+      : paused
+        ? { label: `Resume step ${current.step + 1}`, onClick: onResume, testId: "mg-resume" }
+        : { label: counts.todo <= 1 ? "Finish action" : `Complete step ${current.step + 1}`, onClick: () => onCompleteStep(), testId: "mg-complete-step" };
   const toggle = (p: Panel) => setPanel((x) => (x === p ? null : p));
 
   return (
@@ -99,7 +127,11 @@ export function EvaHud({
         <span className="text-[15px] text-[var(--mg-dim)]" data-testid="mg-eva-progress">
           {current
             ? `Action ${actionNo} of ${items.length} · ${current.status === "active" ? `Step ${stepIndex + 1} of ${steps.length}` : "not started"}`
-            : `Plan complete: ${items.filter((i) => i.status === "done").length} done, ${items.filter((i) => i.status === "skipped").length} skipped`}
+            : `Plan complete: ${[
+                `${items.filter((i) => i.status === "done").length} done`,
+                ...(items.some((i) => i.status === "skipped" && i.dropped?.by !== "replan") ? [`${items.filter((i) => i.status === "skipped" && i.dropped?.by !== "replan").length} skipped`] : []),
+                ...(items.some((i) => i.dropped?.by === "replan") ? [`${items.filter((i) => i.status === "skipped" && i.dropped?.by === "replan").length} dropped by replan`] : []),
+              ].join(", ")}`}
         </span>
         <button type="button" onClick={onBackToPlanning} className="ml-auto min-h-10 rounded-xl border border-[var(--mg-line)] px-4 text-[15px]" data-testid="mg-back-planning">
           {"← Planning"}
@@ -122,7 +154,11 @@ export function EvaHud({
           <p className="min-w-0 flex-1 text-[15px]" data-testid="mg-notice-text">
             {state.notice}
           </p>
-          {state.previous ? (
+          {state.stepUndo ? (
+            <button type="button" onClick={onUndoStep} className="min-h-10 rounded-xl border border-[var(--mg-line-strong)] px-4 text-[15px]" data-testid="mg-undo-step">
+              {"Undo"}
+            </button>
+          ) : state.previous ? (
             <button type="button" onClick={onUndo} className="min-h-10 rounded-xl border border-[var(--mg-line-strong)] px-4 text-[15px]" data-testid="mg-undo-replan">
               {"Undo"}
             </button>
@@ -136,7 +172,7 @@ export function EvaHud({
       {/* Brief mission progress: one segment per action. */}
       <ol className="flex gap-1.5" aria-label="Mission progress" data-testid="mg-plan-timeline">
         {items.map((i, n) => (
-          <li key={i.taskId} data-status={i.status} className="min-w-0 flex-1">
+          <li key={i.taskId} data-status={i.status} data-drop={i.dropped?.by ?? ""} className="min-w-0 flex-1">
             <span
               aria-hidden
               className={`block h-1.5 rounded-full ${
@@ -144,7 +180,9 @@ export function EvaHud({
               }`}
             />
             <span className={`mt-1 block truncate text-[13px] ${i.status === "active" ? "text-[var(--mg-text)]" : "text-[var(--mg-faint)]"} ${i.status === "skipped" ? "line-through" : ""}`}>
-              {`${n + 1}. ${viewById.get(i.taskId)?.shortTitle ?? i.taskId} · ${i.status === "active" ? "in progress" : i.status}`}
+              {`${n + 1}. ${viewById.get(i.taskId)?.shortTitle ?? i.taskId} · ${
+                i.status === "active" ? (i.paused ? "paused" : "in progress") : i.status === "skipped" ? (i.dropped?.by === "replan" ? "dropped by replan" : "skipped by you") : i.status
+              }`}
             </span>
           </li>
         ))}
@@ -165,25 +203,55 @@ export function EvaHud({
                 {view.shortTitle}
               </h2>
               <div className="mt-6 border-t border-[var(--mg-line)] pt-5">
-                <p className="text-[13px] uppercase tracking-[0.12em] text-[var(--mg-coral)]">{current.status === "active" ? `Step ${stepIndex + 1} of ${steps.length}` : "First step"}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={`text-[13px] uppercase tracking-[0.12em] ${paused ? "text-[var(--mg-caution)]" : "text-[var(--mg-coral)]"}`} data-testid="mg-step-label">
+                    {current.status === "active" ? `Step ${stepIndex + 1} of ${steps.length}${paused ? " · paused" : ""}` : "First step"}
+                  </p>
+                  {current.status === "active" && counts.done + counts.skipped ? (
+                    <span className="text-[13px] text-[var(--mg-dim)]" data-testid="mg-step-counts">
+                      {`${counts.done} done${counts.skipped ? ` · ${counts.skipped} skipped` : ""} · ${counts.todo} to do`}
+                    </span>
+                  ) : null}
+                </div>
                 <p className="mt-1 text-[34px] font-semibold leading-tight" data-testid="mg-current-step">
                   {steps[current.status === "active" ? stepIndex : 0]}
                 </p>
                 <div className="mt-3 flex gap-1.5" aria-hidden>
                   {steps.map((st, n) => (
-                    <span key={st} className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${current.status === "active" && n < current.step ? "bg-[var(--mg-ok)]" : current.status === "active" && n === current.step ? "bg-[var(--mg-coral)]" : "bg-[var(--mg-line)]"}`} />
+                    <span
+                      key={st}
+                      className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${
+                        records[n]?.status === "done"
+                          ? "bg-[var(--mg-ok)]"
+                          : records[n]?.status === "skipped"
+                            ? "bg-[var(--mg-faint)] opacity-60"
+                            : current.status === "active" && n === current.step
+                              ? paused
+                                ? "bg-[var(--mg-caution)]"
+                                : "bg-[var(--mg-coral)]"
+                              : "bg-[var(--mg-line)]"
+                      }`}
+                    />
                   ))}
                 </div>
                 <ol className="sr-only" data-testid="mg-steps">
                   {steps.map((label, n) => (
-                    <li key={label} data-state={current.status === "active" && n < current.step ? "done" : current.status === "active" && n === current.step ? "current" : "todo"}>
+                    <li
+                      key={label}
+                      data-state={records[n]?.status !== "todo" ? records[n]?.status : current.status === "active" && n === current.step ? (paused ? "paused" : "current") : "todo"}
+                    >
                       {label}
                     </li>
                   ))}
                 </ol>
-                {current.status === "active" && stepIndex + 1 < steps.length ? (
+                {current.status === "active" && nextTodo !== -1 ? (
                   <p className="mt-2 text-[16px] text-[var(--mg-dim)]" data-testid="mg-next-step">
-                    {`Then: ${steps[stepIndex + 1]}`}
+                    {`Then: ${steps[nextTodo]}`}
+                  </p>
+                ) : null}
+                {current.status === "active" && records[stepIndex]?.note ? (
+                  <p className="mt-1 text-[14px] text-[var(--mg-dim)]" data-testid="mg-current-note">
+                    {`Your note (simulated): ${records[stepIndex].note}`}
                   </p>
                 ) : null}
               </div>
@@ -197,20 +265,53 @@ export function EvaHud({
                 >
                   {primary.label}
                 </button>
+                {current.status === "active" && !paused ? (
+                  <button type="button" onClick={onPause} className="min-h-12 rounded-xl border border-[var(--mg-line-strong)] px-4 text-[16px]" data-testid="mg-pause">
+                    {"Pause"}
+                  </button>
+                ) : null}
                 <div className="relative">
                   <button type="button" aria-expanded={moreOpen} aria-controls="mg-more" onClick={() => setMoreOpen((o) => !o)} className="min-h-12 rounded-xl border border-[var(--mg-line)] px-4 text-[16px] text-[var(--mg-dim)]" data-testid="mg-more">
                     {"More ▾"}
                   </button>
-                  <div id="mg-more" hidden={!moreOpen} className="mg-glass absolute bottom-14 left-0 z-10 w-60 bg-[var(--mg-glass-strong)] p-2">
+                  <div id="mg-more" hidden={!moreOpen} className="mg-glass absolute bottom-14 left-0 z-10 w-64 bg-[var(--mg-glass-strong)] p-2">
+                    {current.status === "active" ? (
+                      <>
+                        <button type="button" disabled={paused} onClick={() => { setMoreOpen(false); setForm({ kind: "skip-step", index: current.step }); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)] disabled:opacity-40" data-testid="mg-skip-step">
+                          {`Skip step ${current.step + 1}…`}
+                        </button>
+                        <button type="button" onClick={() => { setMoreOpen(false); setForm({ kind: "note", index: current.step }); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)]" data-testid="mg-add-note">
+                          {`Note on step ${current.step + 1}…`}
+                        </button>
+                        <button type="button" onClick={() => { setMoreOpen(false); setPanel("steps"); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)]" data-testid="mg-open-steps">
+                          {"All steps…"}
+                        </button>
+                      </>
+                    ) : null}
                     <button type="button" onClick={() => { setMoreOpen(false); onEvidence(current.taskId); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)]">
                       {"Why this action? (evidence)"}
                     </button>
-                    <button type="button" onClick={() => { setMoreOpen(false); onSkip(); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)]" data-testid="mg-skip">
-                      {"Skip this action"}
+                    <button type="button" onClick={() => { setMoreOpen(false); setForm({ kind: "skip-action", index: current.step }); }} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--mg-surface)]" data-testid="mg-skip">
+                      {"Skip this action…"}
                     </button>
                   </div>
                 </div>
               </div>
+              {form ? (
+                <StepForm
+                  key={`${form.kind}-${form.index}`}
+                  kind={form.kind}
+                  stepNumber={form.index + 1}
+                  initialNote={records[form.index]?.note ?? ""}
+                  onCancel={closeForm}
+                  onSubmit={(text) => {
+                    if (form.kind === "skip-step") onSkipStep(text, form.index);
+                    else if (form.kind === "note") onNote(form.index, text);
+                    else onSkip(text);
+                    closeForm();
+                  }}
+                />
+              ) : null}
             </>
           ) : (
             <>
@@ -261,6 +362,7 @@ export function EvaHud({
           <div className="flex flex-wrap gap-2" role="group" aria-label="Optional panels">
             {(
               [
+                ...(current?.status === "active" ? ([["steps", `Steps (${counts.done + counts.skipped}/${steps.length})`]] as const) : []),
                 ["map", "Map"],
                 ["caveats", `Caveats (${s.warnings.length})`],
                 ["scenario", "Scenario controls"],
@@ -280,6 +382,17 @@ export function EvaHud({
             ))}
           </div>
 
+          {panel === "steps" && current?.status === "active" ? (
+            <StepsPanel
+              labels={steps}
+              records={records}
+              current={counts.current}
+              paused={paused}
+              onComplete={(n) => onCompleteStep(n)}
+              onSkip={(n) => setForm({ kind: "skip-step", index: n })}
+              onNote={(n) => setForm({ kind: "note", index: n })}
+            />
+          ) : null}
           {panel === "map" ? (
             <section className="mg-glass overflow-hidden" aria-label="Map" data-testid="mg-minimap">
               <p className="px-4 pt-3 text-[13px] text-[var(--mg-faint)]">{"Coral: simulated target · blue: verified NASA/PDS data"}</p>

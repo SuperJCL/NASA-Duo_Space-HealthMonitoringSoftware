@@ -69,7 +69,7 @@ describe("MAP-1 target markers come from the engine and the shared mission state
     expect(byTask(markers(100, st))["task-core-for-earth"]).toMatchObject({ tone: "planned", status: "planned" });
     st = missionReducer(st, { type: "start-task" });
     st = missionReducer(st, { type: "complete-step", stepsByTask });
-    expect(byTask(markers(100, st))["task-abrasion-proximity"]).toMatchObject({ tone: "active", status: "in progress", stateText: "Provisional priority #1. In progress: step 2 of 4." });
+    expect(byTask(markers(100, st))["task-abrasion-proximity"]).toMatchObject({ tone: "active", status: "in progress", stateText: "Provisional priority #1. In progress: step 2 of 4 (1 of 4 steps done)." });
     for (let n = 0; n < 3; n++) st = missionReducer(st, { type: "complete-step", stepsByTask });
     expect(byTask(markers(60, st))["task-abrasion-proximity"]).toMatchObject({ tone: "done", badge: "✓" });
     expect(byTask(markers(60, st))["task-standoff-survey"].tone).toBe("candidate");
@@ -87,6 +87,23 @@ describe("MAP-1 target markers come from the engine and the shared mission state
     st = missionReducer(st, { type: "accept-replan" });
     const m = byTask(markers(10, st));
     expect(m["task-abrasion-proximity"]).toMatchObject({ tone: "done", badge: "✓" });
-    expect(m["task-core-for-earth"]).toMatchObject({ tone: "skipped", status: "skipped", badge: "–" });
+    // EVA-1: a replan-dropped action is told apart from a manual skip.
+    expect(m["task-core-for-earth"]).toMatchObject({ tone: "skipped", status: "dropped by replan", badge: "–", planText: "Dropped by replanning." });
+  });
+
+  it("EVA-1: shows a manual skip with its reason, and a paused step", () => {
+    let st = initialMissionState(100);
+    for (const id of ["task-abrasion-proximity", "task-standoff-survey"]) st = missionReducer(st, { type: "toggle-draft", taskId: id });
+    st = missionReducer(st, { type: "create-plan" });
+    st = missionReducer(st, { type: "start-task" });
+    st = missionReducer(st, { type: "complete-step", stepsByTask });
+    st = missionReducer(st, { type: "pause-step" });
+    expect(byTask(markers(100, st))["task-abrasion-proximity"]).toMatchObject({ tone: "active", status: "paused", planText: "Paused at step 2 of 4 (1 of 4 steps done)." });
+    st = missionReducer(st, { type: "skip-task", reason: "Dust on the target (simulated)" });
+    expect(byTask(markers(100, st))["task-abrasion-proximity"]).toMatchObject({
+      tone: "skipped",
+      status: "skipped",
+      planText: "Skipped by you: Dust on the target (simulated) (1 of 4 steps done).",
+    });
   });
 });

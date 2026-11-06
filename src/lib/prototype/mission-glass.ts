@@ -173,7 +173,53 @@ export function taskViews(args: {
 // ── Shared mission state (Planning ↔ EVA) ──
 
 export type PlanItemStatus = "planned" | "active" | "done" | "skipped";
-export type PlanItem = { taskId: string; status: PlanItemStatus; step: number };
+/** EVA-1: the state of one step. The step list itself (the procedure) comes from the scenario and is never edited in the HUD. */
+export type StepStatus = "todo" | "done" | "skipped";
+export type StepRecord = { status: StepStatus; reason?: string; note?: string };
+export type PlanItem = {
+  taskId: string;
+  status: PlanItemStatus;
+  /** Index of the current step: the first step not yet done or skipped (the step count once all are resolved). */
+  step: number;
+  /** EVA-1: per-step records, by index; a missing entry is "todo". */
+  steps?: StepRecord[];
+  /** EVA-1: the current step of the active action is paused. */
+  paused?: boolean;
+  /** EVA-1: who skipped a skipped action: the user (with a reason), or a replan that dropped it. */
+  dropped?: { by: "user" | "replan"; reason?: string };
+};
+
+export const NOTE_MAX = 280;
+export const REASON_MAX = 160;
+
+/** Full step records for an item (missing entries are "todo"). */
+export function stepRecords(item: PlanItem, count: number): StepRecord[] {
+  return Array.from({ length: count }, (_, n) => item.steps?.[n] ?? { status: "todo" as const });
+}
+
+export function stepCounts(item: PlanItem, count: number): { done: number; skipped: number; todo: number; current: number | null } {
+  const r = stepRecords(item, count);
+  const first = r.findIndex((x) => x.status === "todo");
+  return {
+    done: r.filter((x) => x.status === "done").length,
+    skipped: r.filter((x) => x.status === "skipped").length,
+    todo: r.filter((x) => x.status === "todo").length,
+    current: first === -1 ? null : first,
+  };
+}
+
+/** Replace one step record and normalise the item: current step, and completion once every step is resolved. */
+function withStep(item: PlanItem, count: number, index: number, record: StepRecord): PlanItem {
+  const steps = stepRecords(item, count).map((x, n) => (n === index ? record : x));
+  const first = steps.findIndex((x) => x.status === "todo");
+  if (first !== -1) return { ...item, steps, step: first };
+  // All steps resolved: done if any step was completed (its simulated effort is then committed);
+  // skipped by the user if every step was skipped (nothing is committed).
+  const anyDone = steps.some((x) => x.status === "done");
+  return anyDone
+    ? { ...item, steps, step: count, status: "done", paused: false }
+    : { ...item, steps, step: count, status: "skipped", paused: false, dropped: { by: "user", reason: "Every step was skipped" } };
+}
 /** MG-3: what a constraint change does to each action of the plan. */
 export type ImpactVerdict = "kept-done" | "fits" | "no-longer-fits" | "too-large";
 export type ReplanProposal = {
@@ -206,6 +252,8 @@ export type MissionState = {
   previous: { items: PlanItem[] } | null;
   /** A visible, dismissible status message after a constraint change or decision. */
   notice: string | null;
+  /** EVA-1: the plan before the last step-state change, for Undo. Cleared when the mission moves to another action or a replan. */
+  stepUndo: { items: PlanItem[]; label: string } | null;
   log: string[];
 };
 
@@ -218,8 +266,16 @@ export type MissionAction =
   | { type: "create-plan" }
   | { type: "set-mode"; mode: MissionState["mode"] }
   | { type: "start-task" }
-  | { type: "complete-step"; stepsByTask: Record<string, number> }
-  | { type: "skip-task" }
+  /** Complete the current step, or a given step of the active action (EVA-1). */
+  | { type: "complete-step"; stepsByTask: Record<string, number>; index?: number }
+  /** EVA-1: skip one step of the active action; a non-empty reason is required. */
+  | { type: "skip-step"; stepsByTask: Record<string, number>; index?: number; reason: string }
+  | { type: "pause-step" }
+  | { type: "resume-step" }
+  /** EVA-1: the user's own simulated observation note on a step (empty clears it). */
+  | { type: "set-step-note"; stepsByTask: Record<string, number>; index: number; note: string }
+  | { type: "undo-step" }
+  | { type: "skip-task"; reason?: string }
   | {
       type: "constraint-event";
       budget: number;
@@ -246,6 +302,7 @@ export const initialMissionState = (budget: number): MissionState => ({
   retained: null,
   previous: null,
   notice: null,
+  stepUndo: null,
   log: [],
 });
 
@@ -296,8 +353,20 @@ export function buildProposal(args: {
   const impact = items.map((i) => {
     const cost = costs[i.taskId] ?? 0;
     if (i.status === "done") return { taskId: i.taskId, status: i.status, cost, verdict: "kept-done" as const, explanation: `Completed: ${cost} pts already committed. Kept as done.` };
-    if (i.status === "skipped") return { taskId: i.taskId, status: i.status, cost, verdict: "kept-done" as const, explanation: "Skipped earlier. Unchanged." };
-    const progress = i.status === "active" ? ` In progress, ${i.step} of ${stepsByTask[i.taskId] ?? "?"} steps done; those steps are kept.` : "";
+    if (i.status === "skipped")
+      return {
+        taskId: i.taskId,
+        status: i.status,
+        cost,
+        verdict: "kept-done" as const,
+        explanation: i.dropped?.by === "replan" ? "Dropped by an earlier replan. Unchanged." : "Skipped earlier by you. Unchanged.",
+      };
+    const n = stepsByTask[i.taskId] ?? 0;
+    const c = stepCounts(i, n);
+    const progress =
+      i.status === "active"
+        ? ` In progress${i.paused ? " (paused)" : ""}, ${c.done} of ${n || "?"} steps done${c.skipped ? `, ${c.skipped} skipped` : ""}; those steps are kept.`
+        : "";
     if (cost > available) {
       room -= cost;
       return { taskId: i.taskId, status: i.status, cost, verdict: "too-large" as const, explanation: `Needs ${cost} pts, more than the ${available} pts now available.${progress}` };
@@ -368,27 +437,97 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
       if (!state.plan) return state;
       const next = state.plan.items.find((i) => i.status === "planned");
       if (!next || state.plan.items.some((i) => i.status === "active")) return state;
-      // Undo of a replan is offered only until the mission moves on.
-      return { ...state, previous: null, plan: { ...state.plan, items: state.plan.items.map((i) => (i === next ? { ...i, status: "active" } : i)) }, log: [...state.log, `Started: ${next.taskId}`] };
+      // Undo of a replan (or of a step change) is offered only until the mission moves on.
+      return {
+        ...state,
+        previous: null,
+        stepUndo: null,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === next ? { ...i, status: "active" } : i)) },
+        log: [...state.log, `Started: ${next.taskId}`],
+      };
     }
-    case "complete-step": {
+    case "complete-step":
+    case "skip-step":
+    case "set-step-note": {
       if (!state.plan) return state;
-      const items = state.plan.items.map((i) => {
-        if (i.status !== "active") return i;
-        const step = i.step + 1;
-        return step >= (action.stepsByTask[i.taskId] ?? 1) ? { ...i, step, status: "done" as const } : { ...i, step };
-      });
-      const finished = items.find((i, n) => i.status === "done" && state.plan!.items[n].status === "active");
-      return { ...state, previous: null, plan: { ...state.plan, items }, log: finished ? [...state.log, `Completed (simulated): ${finished.taskId}`] : state.log };
+      const active = state.plan.items.find((i) => i.status === "active");
+      if (!active) return state;
+      const count = action.stepsByTask[active.taskId] ?? 0;
+      const index = action.type === "set-step-note" ? action.index : (action.index ?? active.step);
+      if (!Number.isInteger(index) || index < 0 || index >= count) return state;
+      const rec = stepRecords(active, count)[index];
+      let next: StepRecord;
+      let label: string;
+      if (action.type === "set-step-note") {
+        const note = action.note.trim().slice(0, NOTE_MAX);
+        if ((rec.note ?? "") === note) return state;
+        next = note ? { ...rec, note } : { status: rec.status, ...(rec.reason ? { reason: rec.reason } : {}) };
+        label = note ? `Note saved on step ${index + 1}` : `Note removed from step ${index + 1}`;
+      } else {
+        // A paused step must be resumed first; a resolved step is not changed again (use Undo).
+        if (active.paused || rec.status !== "todo") return state;
+        if (action.type === "skip-step") {
+          const reason = action.reason.trim().slice(0, REASON_MAX);
+          if (!reason) return state;
+          next = { ...rec, status: "skipped", reason };
+          label = `Step ${index + 1} skipped (${reason})`;
+        } else {
+          next = { ...rec, status: "done" };
+          label = `Step ${index + 1} marked done`;
+        }
+      }
+      const updated = withStep(active, count, index, next);
+      const finished = updated.status !== "active" ? (updated.status === "done" ? "; action completed (simulated)" : "; action skipped: every step was skipped") : "";
+      return {
+        ...state,
+        previous: null,
+        stepUndo: { items: state.plan.items, label },
+        notice: `${label}${finished}.`,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === active ? updated : i)) },
+        log: [...state.log, `${label}: ${active.taskId}${finished}`],
+      };
+    }
+    case "pause-step":
+    case "resume-step": {
+      if (!state.plan) return state;
+      const active = state.plan.items.find((i) => i.status === "active");
+      const pause = action.type === "pause-step";
+      if (!active || Boolean(active.paused) === pause) return state;
+      const label = `${pause ? "Paused" : "Resumed"} at step ${active.step + 1}`;
+      return {
+        ...state,
+        previous: null,
+        stepUndo: { items: state.plan.items, label },
+        notice: `${label}.`,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === active ? { ...i, paused: pause } : i)) },
+        log: [...state.log, `${label}: ${active.taskId}`],
+      };
+    }
+    case "undo-step": {
+      if (!state.plan || !state.stepUndo) return state;
+      return {
+        ...state,
+        plan: { ...state.plan, items: state.stepUndo.items },
+        stepUndo: null,
+        notice: `Undone: ${state.stepUndo.label}.`,
+        log: [...state.log, `Undid: ${state.stepUndo.label}`],
+      };
     }
     case "skip-task": {
       if (!state.plan) return state;
       const target = state.plan.items.find((i) => i.status === "active") ?? state.plan.items.find((i) => i.status === "planned");
       if (!target) return state;
-      return { ...state, previous: null, plan: { ...state.plan, items: state.plan.items.map((i) => (i === target ? { ...i, status: "skipped" } : i)) }, log: [...state.log, `Skipped: ${target.taskId}`] };
+      const reason = action.reason?.trim().slice(0, REASON_MAX) || undefined;
+      return {
+        ...state,
+        previous: null,
+        stepUndo: null,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === target ? { ...i, status: "skipped", paused: false, dropped: { by: "user", ...(reason ? { reason } : {}) } } : i)) },
+        log: [...state.log, `Skipped by the user: ${target.taskId}${reason ? ` (${reason})` : ""}`],
+      };
     }
     case "constraint-event": {
-      const next: MissionState = { ...state, budget: action.budget, log: [...state.log, `Scenario event: ${action.label}`] };
+      const next: MissionState = { ...state, budget: action.budget, stepUndo: null, log: [...state.log, `Scenario event: ${action.label}`] };
       if (!state.plan) return next;
       const p = buildProposal({
         items: state.plan.items,
@@ -422,17 +561,18 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
         // Dropped work is kept in the plan as skipped (with any completed steps), not deleted.
         ...remaining(state.plan.items)
           .filter((i) => !p.suggested.order.includes(i.taskId))
-          .map((i) => ({ ...i, status: "skipped" as const })),
+          .map((i) => ({ ...i, status: "skipped" as const, paused: false, dropped: { by: "replan" as const } })),
       ];
       return {
         ...state,
         plan: { ...state.plan, items },
         replan: null,
         retained: null,
+        stepUndo: null,
         previous: { items: state.plan.items },
         notice: p.noFeasible
           ? "Remaining work ended: no remaining action fits. Completed work is kept."
-          : `Plan updated${p.suggested.dropped.length ? `: ${p.suggested.dropped.length} action(s) skipped` : ""}. Completed steps are kept.`,
+          : `Plan updated${p.suggested.dropped.length ? `: ${p.suggested.dropped.length} action(s) dropped by replan` : ""}. Completed steps are kept.`,
         log: [...state.log, p.noFeasible ? "The user ended the remaining work." : `The user accepted the suggested plan: ${p.suggested.order.join(" → ")}`],
       };
     }
@@ -442,6 +582,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
       return {
         ...state,
         replan: null,
+        stepUndo: null,
         retained: p.current.overBy ? { overBy: p.current.overBy, available: p.available } : null,
         notice: null,
         log: [...state.log, p.current.overBy ? `The user kept a plan that exceeds the available effort by ${p.current.overBy} pts.` : "The user kept the current plan."],
@@ -457,6 +598,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
         ...state,
         plan: { ...state.plan, items },
         previous: null,
+        stepUndo: null,
         retained: need > available ? { overBy: need - available, available } : null,
         notice: "Replan undone: the previous plan is restored.",
         log: [...state.log, "The user undid the last replan."],
@@ -465,7 +607,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
     case "dismiss-notice":
       return { ...state, notice: null };
     case "reset-plan":
-      return { ...state, plan: null, replan: null, retained: null, previous: null, notice: null, mode: "planning", log: [...state.log, "Plan cleared."] };
+      return { ...state, plan: null, replan: null, retained: null, previous: null, stepUndo: null, notice: null, mode: "planning", log: [...state.log, "Plan cleared."] };
   }
 }
 

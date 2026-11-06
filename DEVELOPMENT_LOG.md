@@ -2123,3 +2123,118 @@ to `main`'s squashed M2 commit `05cafae`, so no content is missing.
   is loaded client-side only and mounts 12–28 ms later. The check now waits
   for the canvas, up to 10 s, and reports the time. The change is test-only:
   commit `f87759d`, on the MAP-1 branch before the merge.
+
+## EVA-1: individual step management
+
+- **Branch:** `eva1-step-management`, created from `main` at `d163d4a`.
+  Not merged.
+- **Started:** 2026-11-06T04:27:13Z.
+- **Completed:** 2026-11-06T04:39:51Z, at commit.
+- **Wall-clock elapsed:** 12 min 38 s.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:** a simulated training workflow, not a certified EVA procedure
+  system. The HUD changes step **states** only; it never edits the
+  procedure.
+
+### Files changed
+
+- `src/lib/prototype/mission-glass.ts`:
+  - `StepRecord`; `PlanItem.steps`, `paused` and `dropped`;
+  - `stepRecords` and `stepCounts`;
+  - the `complete-step` (with index), `skip-step`, `pause-step`,
+    `resume-step`, `set-step-note` and `undo-step` actions;
+  - `skip-task` with a reason;
+  - one-level `stepUndo`;
+  - replan-dropped actions marked `{by: "replan"}`;
+  - impact texts with step counts, paused state, and skipped-by-you vs
+    dropped-by-replan.
+- `src/lib/prototype/target-markers.ts`: "skipped" vs "dropped by replan",
+  "paused", and step counts in marker text.
+- `src/components/prototype/StepControls.tsx` (new): `StepForm` (reason or
+  note; Enter submits, Escape cancels) and `StepsPanel`.
+- `src/components/prototype/EvaHud.tsx`:
+  - Pause, and Resume as the primary while paused;
+  - More (skip step, note, all steps, skip action);
+  - the inline form and the Steps panel;
+  - step counts, and a step bar with done, skipped, current and paused;
+  - a step Undo in the notice;
+  - timeline and plan-summary labels for skipped vs dropped.
+- `src/components/prototype/MissionGlass.tsx`: wiring.
+- `src/components/prototype/ReplanDialog.tsx` and the accept notice:
+  "dropped by this replan" wording.
+- **Tests:**
+  - `src/lib/prototype/eva-steps.test.ts` (new, 12 tests);
+  - `mission-glass.test.ts` and `target-markers.test.ts` updated and
+    extended;
+  - `scripts/smoke-mission-glass.mjs`.
+- **Docs:** `docs/MISSION_GLASS_PROTOTYPE.md` and the new
+  `docs/EVA1_MANUAL_TEST.md`.
+
+### Tests
+
+- **Unit:** 220/220 (+13). The 12 EVA-1 state-transition tests cover:
+  - completing the current step and any single step out of order;
+  - a skip reason being required, trimmed and capped;
+  - no change to a resolved, paused or out-of-range step;
+  - pause and resume;
+  - notes (trimmed, capped, cleared, no effect on state or effort);
+  - completion with skipped steps committing effort;
+  - every step skipped meaning the action was skipped by the user, with no
+    effort;
+  - Undo, including an un-committed completion, and Undo being one level
+    only;
+  - Undo cleared by the next action or a constraint change;
+  - the procedure never extended.
+
+  Replan regressions:
+  - step records, pause and notes kept through accept and undo;
+  - manual skip vs replan drop in later impacts;
+  - step and replan Undo never mixing.
+
+  There is also one new marker test (manual skip with a reason, and
+  paused).
+- **Prototype smoke:** 115/115 against `next start`, in two consecutive
+  runs (+14). The checks cover:
+  - Enter completing the focused primary;
+  - keyboard-only skip (More → Skip step → reason), with an empty reason
+    refused;
+  - recorded reason, focus back on the primary, and the procedure-lock
+    text;
+  - pause blocking step changes, and keyboard Resume;
+  - notes;
+  - an out-of-order step and Undo;
+  - the replan impact and kept steps and notes;
+  - the dropped-by-replan label, with step Undo giving way to replan Undo;
+  - committed vs estimated effort before, after and on Undo of a
+    completion (50/40 → 10/0 → 50/40);
+  - a manual skip vs a replan drop in the HUD and on the map;
+  - no page errors;
+  - on a phone, primary and Pause on screen and the form and panel without
+    overflow.
+
+  Translation now covers pause, note and undo. Three earlier checks were
+  updated for the new "dropped by replan" wording.
+- **Research smoke:** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Engine, evidence, geo, briefing, mission, data and review registry:** 0
+  lines of diff against `main`.
+
+### Bugs and rework
+
+1. **After the new distinction, the replan notice and dialog still said
+   "skipped" for dropped actions.** They now say "dropped by replan" /
+   "Dropped by this replan", and the unit and smoke expectations were
+   updated.
+
+### Limitations
+
+- **Procedure changes are not implemented:** the HUD states that they need
+  a separate planning confirmation.
+- **Per-step effort is not modelled** (no source for it). An action's whole
+  simulated cost is committed when it completes, even with skipped steps.
+- **Undo is one level, and only for the latest step change.**
+- **Notes live in memory only,** like the rest of the mission state, and
+  are reset on reload.
+- **Not tested with users or screen readers.** See
+  `docs/EVA1_MANUAL_TEST.md`.

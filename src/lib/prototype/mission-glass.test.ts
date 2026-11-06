@@ -19,6 +19,8 @@ const views = (budget: number) => {
 };
 const costs = Object.fromEntries(scenario.tasks.map((t) => [t.id, t.costs["res-effort"]]));
 const steps = Object.fromEntries(s.actions.map((a) => [a.taskId, a.steps.length]));
+const DONE = { status: "done" } as const;
+const TODO = { status: "todo" } as const;
 
 describe("scenario and simulated targets", () => {
   it("uses exactly the three surface tasks of the existing scenario", () => {
@@ -153,8 +155,9 @@ describe("MG-3 replanning: explain impact, compare, confirm or retain", () => {
     expect(p.reason).toBe("Only 35 pts are left after 15 pts committed; the remaining plan needs 40 pts.");
     const ended = missionReducer(st, { type: "accept-replan" });
     expect(ended.plan?.items).toEqual([
-      { taskId: "task-standoff-survey", status: "done", step: 4 },
-      { taskId: "task-abrasion-proximity", status: "skipped", step: 2 },
+      { taskId: "task-standoff-survey", status: "done", step: 4, steps: [DONE, DONE, DONE, DONE], paused: false },
+      // EVA-1: the replan-dropped action keeps its completed steps and records who dropped it.
+      { taskId: "task-abrasion-proximity", status: "skipped", step: 2, steps: [DONE, DONE, TODO, TODO], paused: false, dropped: { by: "replan" } },
     ]);
     expect(ended.notice).toBe("Remaining work ended: no remaining action fits. Completed work is kept.");
   });
@@ -166,10 +169,10 @@ describe("MG-3 replanning: explain impact, compare, confirm or retain", () => {
     st = cut(st);
     const accepted = missionReducer(st, { type: "accept-replan" });
     expect(accepted.plan?.items).toEqual([
-      { taskId: "task-abrasion-proximity", status: "active", step: 1 },
-      { taskId: "task-core-for-earth", status: "skipped", step: 0 },
+      { taskId: "task-abrasion-proximity", status: "active", step: 1, steps: [DONE, TODO, TODO, TODO] },
+      { taskId: "task-core-for-earth", status: "skipped", step: 0, paused: false, dropped: { by: "replan" } },
     ]);
-    expect(accepted.notice).toBe("Plan updated: 1 action(s) skipped. Completed steps are kept.");
+    expect(accepted.notice).toBe("Plan updated: 1 action(s) dropped by replan. Completed steps are kept.");
   });
 
   it("never discards silently: keep → retained warning; accept → undo restores the previous plan", () => {

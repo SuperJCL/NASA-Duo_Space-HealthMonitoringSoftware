@@ -124,7 +124,7 @@ export function ReplanDialog({
                 <>
                   <p className="font-semibold">{"No feasible alternative"}</p>
                   <p className="mt-1 text-[14px] text-[var(--mg-dim)]" data-testid="mg-no-feasible">
-                    {`None of the remaining actions fits the ${p.available} pts available. Ending the remaining work keeps everything completed; the unfinished actions are marked skipped, not deleted.`}
+                    {`None of the remaining actions fits the ${p.available} pts available. Ending the remaining work keeps everything completed; the unfinished actions are marked "dropped by replan", not deleted.`}
                   </p>
                 </>
               ) : (
@@ -138,7 +138,7 @@ export function ReplanDialog({
                   <p className="mt-1 text-[14px] text-[var(--mg-ok)]">{`Fits: ${p.suggested.total} of ${p.available} pts.`}</p>
                   {p.suggested.dropped.length ? (
                     <p className="mt-1 text-[14px] text-[var(--mg-dim)]" data-testid="mg-replan-dropped">
-                      {`Marked skipped (kept in the plan, can be undone): ${p.suggested.dropped.map(name).join(", ")}.`}
+                      {`Dropped by this replan (kept in the plan, can be undone): ${p.suggested.dropped.map(name).join(", ")}.`}
                     </p>
                   ) : null}
                   <p className="mt-1 text-[13px] text-[var(--mg-faint)]">{"Order from the existing engine: provisional, not scientifically validated."}</p>

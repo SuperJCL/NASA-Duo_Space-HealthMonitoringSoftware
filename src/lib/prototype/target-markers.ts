@@ -9,7 +9,7 @@
  * No score, rank or feasibility is computed here. Targets stay
  * scenario-defined positions; they are never verified observations.
  */
-import type { MissionState, PlanItemStatus, SimulatedTarget, TaskView } from "./mission-glass";
+import { stepCounts, type MissionState, type PlanItemStatus, type SimulatedTarget, type TaskView } from "./mission-glass";
 
 export type MarkerTone = "candidate" | "added" | PlanItemStatus | "infeasible";
 
@@ -65,13 +65,19 @@ export function targetMarkers(args: {
     const tone: MarkerTone = item ? item.status : state.draft.includes(t.taskId) ? "added" : feasible ? "candidate" : "infeasible";
     const badge = tone === "done" ? "✓" : v.rank ? String(v.rank) : "–";
     const priority = v.rank ? `provisional priority #${v.rank}` : "not ranked under the current budget";
+    const n = stepsByTask[t.taskId] ?? 0;
+    const c = item ? stepCounts(item, n) : null;
+    // EVA-1: steps done or skipped so far, e.g. " (2 of 4 steps done, 1 skipped)".
+    const stepsSoFar = c && c.done + c.skipped ? ` (${c.done} of ${n} steps done${c.skipped ? `, ${c.skipped} skipped` : ""})` : "";
     const planText =
       tone === "done"
-        ? "Done (simulated). Its effort is committed."
+        ? `Done (simulated)${c?.skipped ? `, ${c.skipped} step(s) skipped` : ""}. Its effort is committed.`
         : tone === "skipped"
-          ? `Skipped${item && item.step ? ` after ${item.step} of ${stepsByTask[t.taskId] ?? "?"} steps` : ""}.`
+          ? item?.dropped?.by === "replan"
+            ? `Dropped by replanning${stepsSoFar}.`
+            : `Skipped by you${item?.dropped?.reason ? `: ${item.dropped.reason}` : ""}${stepsSoFar}.`
           : tone === "active"
-            ? `In progress: step ${(item?.step ?? 0) + 1} of ${stepsByTask[t.taskId] ?? "?"}.${feasible ? "" : " Not feasible under the current budget."}`
+            ? `${item?.paused ? "Paused at" : "In progress:"} step ${(item?.step ?? 0) + 1} of ${n || "?"}${stepsSoFar}.${feasible ? "" : " Not feasible under the current budget."}`
             : tone === "planned"
               ? `In the plan.${feasible ? "" : " Not feasible under the current budget."}`
               : tone === "added"
@@ -91,7 +97,14 @@ export function targetMarkers(args: {
       tone,
       badge,
       // A planned or in-progress action that the current budget no longer covers says so on the map.
-      status: (tone === "planned" || tone === "active") && !feasible ? `${STATUS[tone]} · not feasible` : STATUS[tone],
+      status:
+        tone === "skipped" && item?.dropped?.by === "replan"
+          ? "dropped by replan"
+          : tone === "active" && item?.paused
+            ? `paused${feasible ? "" : " · not feasible"}`
+            : (tone === "planned" || tone === "active") && !feasible
+              ? `${STATUS[tone]} · not feasible`
+              : STATUS[tone],
       priorityText: `${priority[0].toUpperCase()}${priority.slice(1)}.`,
       planText,
       stateText: `${priority[0].toUpperCase()}${priority.slice(1)}. ${planText}`,

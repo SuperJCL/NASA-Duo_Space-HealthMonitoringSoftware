@@ -419,8 +419,13 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           consumed={consumed}
           map={map("minimal", "selected")}
           onStart={() => dispatch({ type: "start-task" })}
-          onCompleteStep={() => dispatch({ type: "complete-step", stepsByTask })}
-          onSkip={() => dispatch({ type: "skip-task" })}
+          onCompleteStep={(index) => dispatch({ type: "complete-step", stepsByTask, index })}
+          onSkipStep={(reason, index) => dispatch({ type: "skip-step", stepsByTask, index, reason })}
+          onPause={() => dispatch({ type: "pause-step" })}
+          onResume={() => dispatch({ type: "resume-step" })}
+          onNote={(index, note) => dispatch({ type: "set-step-note", stepsByTask, index, note })}
+          onUndoStep={() => dispatch({ type: "undo-step" })}
+          onSkip={(reason) => dispatch({ type: "skip-task", reason })}
           onEvent={(id) => {
             const ev = s.events.find((e) => e.id === id);
             if (ev) checkConstraints(ev.budget, ev.label);
