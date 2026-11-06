@@ -2087,3 +2087,39 @@ to `main`'s squashed M2 commit `05cafae`, so no content is missing.
   the summary are the accessible path.
 - **Not tested with users or screen readers.** See
   `docs/MAP1_USABILITY_TEST.md`.
+
+## Phase A: MAP-1 integration into main
+
+- **Context:** the user approved MAP-1 for integration. Manual acceptance:
+  - Task location: PARTIAL PASS.
+  - Dynamic priorities, Execution states and Map decision value: PASS.
+- **Started:** 2026-11-06T04:18:51Z.
+- **Merged:** 2026-11-06T04:25:44Z (merge commit `d163d4a`, `--no-ff`, pushed).
+- **Wall-clock elapsed:** 6 min 53 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Verification
+
+- **History:** `map1-spatial-decision-map` was `main` (`f4724c7`) plus two
+  commits, and the local branch equalled `origin`.
+- **Unchanged against `main`** (0 lines of diff):
+  - engine, evidence, geo, briefing and mission code and data;
+  - the review registry: 50 pending, 0 approved.
+- **`npm run check`:** passes, 207/207 unit tests, production build.
+- **Data verifiers:**
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 location checks, 0 problems.
+- **Research smoke** (`next start`, `SMOKE_LIVE=1`): 116/116.
+- **Prototype smoke:** 101/101 in three consecutive runs, after the fix
+  below.
+- **The merged tree** is identical to the verified branch tree.
+
+### Issue found and fixed before merging
+
+- **"MG-2: map opens on demand" was flaky,** failing 2 of 3 runs. It read
+  the HUD map's canvas immediately after opening the Map panel, but the map
+  is loaded client-side only and mounts 12–28 ms later. The check now waits
+  for the canvas, up to 10 s, and reports the time. The change is test-only:
+  commit `f87759d`, on the MAP-1 branch before the merge.
