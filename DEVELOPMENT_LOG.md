@@ -2087,3 +2087,448 @@ to `main`'s squashed M2 commit `05cafae`, so no content is missing.
   the summary are the accessible path.
 - **Not tested with users or screen readers.** See
   `docs/MAP1_USABILITY_TEST.md`.
+
+## Phase A: MAP-1 integration into main
+
+- **Context:** the user approved MAP-1 for integration. Manual acceptance:
+  - Task location: PARTIAL PASS.
+  - Dynamic priorities, Execution states and Map decision value: PASS.
+- **Started:** 2026-11-06T04:18:51Z.
+- **Merged:** 2026-11-06T04:25:44Z (merge commit `d163d4a`, `--no-ff`, pushed).
+- **Wall-clock elapsed:** 6 min 53 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Verification
+
+- **History:** `map1-spatial-decision-map` was `main` (`f4724c7`) plus two
+  commits, and the local branch equalled `origin`.
+- **Unchanged against `main`** (0 lines of diff):
+  - engine, evidence, geo, briefing and mission code and data;
+  - the review registry: 50 pending, 0 approved.
+- **`npm run check`:** passes, 207/207 unit tests, production build.
+- **Data verifiers:**
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 location checks, 0 problems.
+- **Research smoke** (`next start`, `SMOKE_LIVE=1`): 116/116.
+- **Prototype smoke:** 101/101 in three consecutive runs, after the fix
+  below.
+- **The merged tree** is identical to the verified branch tree.
+
+### Issue found and fixed before merging
+
+- **"MG-2: map opens on demand" was flaky,** failing 2 of 3 runs. It read
+  the HUD map's canvas immediately after opening the Map panel, but the map
+  is loaded client-side only and mounts 12–28 ms later. The check now waits
+  for the canvas, up to 10 s, and reports the time. The change is test-only:
+  commit `f87759d`, on the MAP-1 branch before the merge.
+
+## EVA-1: individual step management
+
+- **Branch:** `eva1-step-management`, created from `main` at `d163d4a`.
+  Not merged.
+- **Started:** 2026-11-06T04:27:13Z.
+- **Completed:** 2026-11-06T04:39:51Z, at commit.
+- **Wall-clock elapsed:** 12 min 38 s.
+  - No subagents were used.
+  - No human intervention.
+- **Scope:** a simulated training workflow, not a certified EVA procedure
+  system. The HUD changes step **states** only; it never edits the
+  procedure.
+
+### Files changed
+
+- `src/lib/prototype/mission-glass.ts`:
+  - `StepRecord`; `PlanItem.steps`, `paused` and `dropped`;
+  - `stepRecords` and `stepCounts`;
+  - the `complete-step` (with index), `skip-step`, `pause-step`,
+    `resume-step`, `set-step-note` and `undo-step` actions;
+  - `skip-task` with a reason;
+  - one-level `stepUndo`;
+  - replan-dropped actions marked `{by: "replan"}`;
+  - impact texts with step counts, paused state, and skipped-by-you vs
+    dropped-by-replan.
+- `src/lib/prototype/target-markers.ts`: "skipped" vs "dropped by replan",
+  "paused", and step counts in marker text.
+- `src/components/prototype/StepControls.tsx` (new): `StepForm` (reason or
+  note; Enter submits, Escape cancels) and `StepsPanel`.
+- `src/components/prototype/EvaHud.tsx`:
+  - Pause, and Resume as the primary while paused;
+  - More (skip step, note, all steps, skip action);
+  - the inline form and the Steps panel;
+  - step counts, and a step bar with done, skipped, current and paused;
+  - a step Undo in the notice;
+  - timeline and plan-summary labels for skipped vs dropped.
+- `src/components/prototype/MissionGlass.tsx`: wiring.
+- `src/components/prototype/ReplanDialog.tsx` and the accept notice:
+  "dropped by this replan" wording.
+- **Tests:**
+  - `src/lib/prototype/eva-steps.test.ts` (new, 12 tests);
+  - `mission-glass.test.ts` and `target-markers.test.ts` updated and
+    extended;
+  - `scripts/smoke-mission-glass.mjs`.
+- **Docs:** `docs/MISSION_GLASS_PROTOTYPE.md` and the new
+  `docs/EVA1_MANUAL_TEST.md`.
+
+### Tests
+
+- **Unit:** 220/220 (+13). The 12 EVA-1 state-transition tests cover:
+  - completing the current step and any single step out of order;
+  - a skip reason being required, trimmed and capped;
+  - no change to a resolved, paused or out-of-range step;
+  - pause and resume;
+  - notes (trimmed, capped, cleared, no effect on state or effort);
+  - completion with skipped steps committing effort;
+  - every step skipped meaning the action was skipped by the user, with no
+    effort;
+  - Undo, including an un-committed completion, and Undo being one level
+    only;
+  - Undo cleared by the next action or a constraint change;
+  - the procedure never extended.
+
+  Replan regressions:
+  - step records, pause and notes kept through accept and undo;
+  - manual skip vs replan drop in later impacts;
+  - step and replan Undo never mixing.
+
+  There is also one new marker test (manual skip with a reason, and
+  paused).
+- **Prototype smoke:** 115/115 against `next start`, in two consecutive
+  runs (+14). The checks cover:
+  - Enter completing the focused primary;
+  - keyboard-only skip (More → Skip step → reason), with an empty reason
+    refused;
+  - recorded reason, focus back on the primary, and the procedure-lock
+    text;
+  - pause blocking step changes, and keyboard Resume;
+  - notes;
+  - an out-of-order step and Undo;
+  - the replan impact and kept steps and notes;
+  - the dropped-by-replan label, with step Undo giving way to replan Undo;
+  - committed vs estimated effort before, after and on Undo of a
+    completion (50/40 → 10/0 → 50/40);
+  - a manual skip vs a replan drop in the HUD and on the map;
+  - no page errors;
+  - on a phone, primary and Pause on screen and the form and panel without
+    overflow.
+
+  Translation now covers pause, note and undo. Three earlier checks were
+  updated for the new "dropped by replan" wording.
+- **Research smoke:** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Engine, evidence, geo, briefing, mission, data and review registry:** 0
+  lines of diff against `main`.
+
+### Bugs and rework
+
+1. **After the new distinction, the replan notice and dialog still said
+   "skipped" for dropped actions.** They now say "dropped by replan" /
+   "Dropped by this replan", and the unit and smoke expectations were
+   updated.
+
+### Limitations
+
+- **Procedure changes are not implemented:** the HUD states that they need
+  a separate planning confirmation.
+- **Per-step effort is not modelled** (no source for it). An action's whole
+  simulated cost is committed when it completes, even with skipped steps.
+- **Undo is one level, and only for the latest step change.**
+- **Notes live in memory only,** like the rest of the mission state, and
+  are reset on reload.
+- **Not tested with users or screen readers.** See
+  `docs/EVA1_MANUAL_TEST.md`.
+
+## EVA-1.1: two P0 interaction fixes (details collapse, step correction)
+
+- **Branch:** `eva1.1-p0-fixes`, created from `eva1-step-management`
+  (`3d88a87`). Not merged.
+- **Started:** 2026-11-06T04:50:32Z.
+- **Completed:** 2026-11-06T05:09:12Z, at commit.
+- **Wall-clock elapsed:** 18 min 40 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Bug 1: details could not be collapsed. Root causes, found by reproduction
+
+The card's own Details/Hide details toggle and the EVA panel chips toggled
+correctly in every reproduction:
+- 1440, 1366, 1280, 1024 and 390 px;
+- mouse and keyboard;
+- simulated browser translation.
+
+The defects were in the other paths:
+1. **Open-only handlers.** Each set "open" instead of toggling, so the
+   control the user had just used could not close what it opened. Its label
+   and `aria-expanded` never changed.
+   - The map summary's Details (`setExpanded(taskId)`).
+   - EVA More → "All steps…" (`setPanel("steps")`).
+   - The header Evidence button and More → "Why this action?"
+     (`setEvidenceFor(id)`).
+2. **The evidence sheet covered its own opener.** It was fixed at
+   `top: 12px` over the header. Playwright confirmed that clicks on the
+   Evidence button were intercepted by the sheet.
+3. **The sheet's Escape handler was on the sheet element.** After any click
+   outside, Escape did nothing; this was reproduced at 1366 and 1024 px.
+4. **Expanded content had no collapse control of its own.** The only close
+   was the toggle above it, which scrolls away in the right column.
+
+**Fixes:**
+- All open-only handlers now toggle, with `aria-expanded` and a changing
+  label.
+- The sheet starts below the header on wide screens; Escape is handled on
+  `window` while it is open; focus returns to the opener.
+- Every expanded EVA panel has Collapse, which returns focus to its toggle;
+  the card's details end with "Hide details ▴".
+- Closing changes no mission state; a smoke check compares the step,
+  counts, effort and timeline before and after.
+
+### Bug 2: completed steps could not be corrected
+
+- **Cause:** there was no state transition from done back to not done. Only
+  the one-level Undo could revert the latest change, and steps of a
+  completed action were not reachable in the HUD.
+- **New `reopen-step` action:**
+  - It covers a done or skipped step of the action in progress or of a
+    completed action.
+  - The note is kept, and a skip reason becomes `previousReason`.
+  - The current step becomes the first unresolved one.
+  - A completed action returns to in progress and its committed effort is
+    released, because committed effort is derived from done actions. This
+    rules out double-charging or a wrong refund: completing again commits
+    it once.
+  - An action in progress at that moment is set aside (planned again, steps
+    kept).
+  - Replan decisions are unchanged, and Undo reverts a reopen.
+- **`reopenEffects`** explains all of this for a confirmation, and flags
+  plan or effort changes.
+- **Navigation vs reopening:**
+  - ‹ › browse steps read-only, clearly labelled, with "Back to current step"
+    as the primary action.
+  - Reopening is a separate, confirmed action: from the viewed step, or
+    "Reopen…" in the Steps panel. The panel can show a completed action's
+    steps.
+
+### Tests
+
+- **Unit:** 228/228 (+8 in `eva-reopen.test.ts`):
+  - reopen step 2;
+  - reopen step 2 after steps 2 and 3;
+  - reopen the final step of a completed action (effort 40 → 0 → 40, no
+    double charge);
+  - notes and skip reasons kept;
+  - the effects text;
+  - the set-aside action continuing where it was;
+  - no-ops (todo step, planned or skipped action);
+  - Undo and replanning interplay.
+- **Prototype smoke:** 128/128 against `next start`, in two consecutive
+  runs (+13). The checks cover:
+  - card Details ×3 cycles, the bottom collapse and the keyboard;
+  - the summary's Details toggle;
+  - every EVA panel collapsing ×3 from inside, with focus back on its
+    toggle;
+  - More → All steps toggling;
+  - the evidence header toggle, and Escape with focus outside, with focus
+    returning;
+  - state unchanged after closing;
+  - tests 2–7 as listed in the task (reopen step 2; steps 2+3 then reopen 2
+    by keyboard via read-only navigation; reopening the final step after
+    completion; progress, remaining work, committed vs estimated; Undo and
+    replanning).
+  - phone: confirmation fits, reopen works, panel collapse;
+  - translation: reopen, view, collapse and the evidence toggle under
+    simulated translation.
+- **Research smoke:** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Engine, evidence, scenario task definitions, geo and review registry:**
+  0 lines of diff against `main`.
+
+### Rework
+
+- **The Steps panel's action picker shows only when more than one action
+  has steps.** The smoke test now clicks it only when present.
+- **The Collapse button wrapped next to long panel titles.** It no longer
+  wraps.
+
+### Limitations
+
+- **I could not reproduce a toggle that fails by itself.** The fixes target
+  the open-only paths, the covered opener, Escape scope and the missing
+  in-panel control. If the user's case differs, exact steps (screen size,
+  browser, translation on or off) are needed.
+- **Reopening a completed action does not re-check feasibility or trigger a
+  replan.** Committed effort is released and shown, and replan decisions
+  stand.
+- **Notes can be edited only on the action in progress.**
+- **Not tested with users or screen readers.**
+
+## EVA-1.2 (Track A): explicit step skipping, completed-action correction
+
+- **Context:** manual acceptance of EVA-1.1 gave Details open/close PASS,
+  Step correction PASS, and Completed action correction PARTIAL PASS. The
+  user asked why a specific step cannot be skipped.
+- **Branch:** `eva1.2-step-skip-correction`, created from `eva1.1-p0-fixes`
+  (`31c83ef`). Not merged; EVA-1.1 is not merged either.
+- **Started:** 2026-11-06T05:53:06Z.
+- **Completed:** 2026-11-06T06:09:53Z, at commit.
+- **Wall-clock elapsed:** 16 min 47 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Why the user could not find "skip a step"
+
+EVA-1 put "Skip step N…" under the **More ▾** menu, next to "Skip this
+action". The visible controls were only Complete and Pause.
+
+### Implemented
+
+- **Skip step:**
+  - a visible "Skip step N…" beside the primary action, reached by keyboard
+    with one Tab;
+  - the form states "recorded as skipped, not done: its measurement is not
+    made" and requires a reason;
+  - a neutral caution when later steps are unfinished ("may rely on…; this
+    scenario has no step-dependency data"), kept on the following step;
+  - the reason can be corrected ("Edit reason…") or the step reopened.
+- **Execution vs accounting:**
+  - An ended action is **complete** or **partial** (skipped steps, so those
+    measurements were not made). This is shown in the notice, timeline, map
+    (½, "done · partial"), cards and Steps panel.
+  - The accounting assumption (whole simulated cost committed when the
+    action ends; no per-step costs) is stated separately in the HUD.
+- **Completed-action correction:**
+  - The reopen confirmation separates Execution, Simulated effort
+    accounting and Feasibility after reopening.
+  - Steps keep a `history` of earlier states and reasons; notes are kept.
+  - After confirmation, a new `recheck` runs the existing engine at the
+    available effort. If the plan still fits, a notice says so and Undo is
+    kept. If not, or if the order changed, the replanning dialog opens.
+  - Committed effort stays derived from ended actions: no double counting,
+    no per-step refunds.
+
+### Tests
+
+- **Unit:** 236/236 (+8 in `eva-skip-correction.test.ts`):
+  - skip and continue, with the caution text;
+  - the caution only when later steps are unfinished;
+  - partial vs complete outcome, effort committed once, and the map badge
+    and status;
+  - correcting a reason (non-empty), with Undo;
+  - reopening a skipped step (history keeps the reason);
+  - separate execution and accounting explanations for a partial action;
+  - recheck that still fits (notice, Undo kept);
+  - recheck that no longer fits (replan proposal).
+
+  Updated for the new wording and structure: `eva-steps` (partial notice)
+  and `eva-reopen` (sections, history).
+- **Prototype smoke:** 139/139 against `next start` (+11). The checks
+  cover:
+  - visible Skip, reachable by keyboard, with the "skipped ≠ done" text and
+    the caution;
+  - continuing to the next step, with the caution kept;
+  - correcting a reason;
+  - a partial ending with the accounting note (60 left);
+  - the three-section reopen confirmation, on screen and not covered;
+  - re-check notice, history and released effort;
+  - complete after re-completion, with effort counted once;
+  - a reopen that makes the plan infeasible opening the replanning dialog;
+  - accept → dropped, then Undo restores;
+  - no page errors.
+
+  Translation now also covers the visible skip, correcting a reason and
+  reopening; the phone check uses the visible Skip button. Earlier
+  keyboard and phone checks were updated to the new path.
+- **Research smoke:** 116/116 with `SMOKE_LIVE=1`.
+- **`npm run check`:** passes.
+- **Scoring engine, evidence, scenario tasks, geo and review registry:** 0
+  lines of diff against `main`.
+
+### Rework
+
+1. **The long reopen confirmation ran below the fold at 1440×900.** The wide
+   layout does not scroll the page, so its button was unreachable by mouse
+   (the smoke had passed only because Playwright scrolls programmatically).
+   The current-action card now scrolls on wide screens, forms and
+   confirmations scroll themselves into view, and a new check verifies the
+   button is on screen and not covered.
+2. **The partial badge "◐" rendered as an unreadable glyph** on the map and
+   the target button. It is now "½", which is also in the legend.
+
+### Known limitations
+
+- **No step-dependency data exists,** so the caution is generic.
+- **Per-step effort is not modelled:** a partial action commits its whole
+  simulated cost. This is stated as an assumption.
+- **Notes and reasons can be edited only on the action in progress.**
+- **Not tested with users or screen readers.**
+
+## EVA-1.3 (Track A): direct, discoverable past-step correction
+
+- **Context:** manual acceptance of EVA-1.2 gave Skip and partial
+  completion PARTIAL PASS, Reopen and replanning PASS. The user said: "I can
+  skip steps now, but I still cannot easily go back and edit an earlier
+  completed subtask."
+- **Branch:** `eva1.3-direct-step-correction`, created from
+  `eva1.2-step-skip-correction` (`b481fa9`). Not merged.
+- **Started:** 2026-11-06T17:12:08Z.
+- **Completed:** 2026-11-06T17:24:47Z, at commit.
+- **Wall-clock elapsed:** 12 min 39 s.
+  - No subagents were used.
+  - No human intervention.
+
+### Why it was hard
+
+- Completed steps and their Reopen controls lived in an optional
+  right-column "Steps" panel. It started collapsed, among Map, Caveats and
+  Log, and on a phone it sat far below the action.
+- Reopening inside the current action always needed a confirmation, even
+  though it changed no effort.
+
+### Changes
+
+- **An always-visible step checklist** in the current-action card, with a
+  visible **Reopen** beside every done or skipped step. It also offers
+  Mark done, Skip…, Note… and Edit reason…, plus the action picker for
+  completed actions.
+- **Clicking a step only views it** (read-only, "Back to current step").
+  Reopen is the only control that changes completion status.
+- **Reopen inside the action in progress is immediate,** with an explanatory
+  notice and Undo. Reopening a completed action keeps the EVA-1.2
+  confirmation and feasibility re-check.
+- **The duplicate Steps panel toggle and More → "All steps…" are removed.**
+  On phones, row buttons sit on their own line.
+- **Unchanged:** the procedure, the engine, effort accounting and
+  replanning.
+
+### Tests
+
+- **Unit:** 238/238 (+2). The exact journey: complete step 2 → on step 3 →
+  reopen step 2 (note and history kept, effort unchanged) → complete it
+  again → back on step 3 → the action ends with effort committed once. Plus
+  the "later done steps stay done" notice.
+- **Prototype smoke:** 142/142 against `next start`, in two consecutive
+  runs.
+  - **New:** the browser journey, including the visible Reopen on step 3,
+    viewing that changes nothing, then reopen, continue and complete again
+    with effort unchanged and history kept.
+  - **Updated:** the EVA-1 and EVA-1.1 checks, for the always-visible
+    checklist, immediate reopen with Undo, and phone and translation.
+- **Research smoke:** 116/116.
+- **Data verifiers:**
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 location checks, 0 problems.
+- **`npm run check`:** passes.
+- **Engine and data:** 0 lines of diff against `main`.
+
+### Rework
+
+- **On phones, the row buttons squeezed the step labels** into four-line
+  wraps and overlapped "To do". They now wrap below the label.
+
+### Limitations
+
+- **The checklist lengthens the action card.** At 1440×900 the primary
+  action stays in place and the card scrolls.
+- **Undo is still one level.**
+- **Not tested with users.**

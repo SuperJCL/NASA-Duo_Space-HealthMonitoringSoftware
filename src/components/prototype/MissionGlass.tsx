@@ -208,11 +208,13 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           </span>
           <button
             type="button"
-            onClick={() => setEvidenceFor(focusTask ?? planning.views[0]?.taskId ?? null)}
+            // EVA-1.1: a toggle (it used to only open the sheet, which then covered it).
+            aria-expanded={evidenceFor !== null}
+            onClick={() => setEvidenceFor((e) => (e !== null ? null : (focusTask ?? planning.views[0]?.taskId ?? null)))}
             className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm hover:border-[var(--mg-line-strong)]"
             data-testid="mg-open-evidence"
           >
-            {"Evidence"}
+            {evidenceFor !== null ? "Hide evidence" : "Evidence"}
           </button>
           <Link href="/research" className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm text-[var(--mg-dim)] hover:border-[var(--mg-line-strong)] hover:text-[var(--mg-text)]" data-testid="mg-link-research">
             {"Research"}
@@ -235,7 +237,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                   {"Simulated target (scenario-defined position)"}
                 </span>
                 <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Number: provisional priority (existing engine, not validated)"}</span>
-                <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · yellow: not feasible"}</span>
+                <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · ½ ended with skipped steps · yellow: not feasible"}</span>
               </div>
             </div>
             <TargetList markers={markers} selectedTaskId={state.selectedTaskId} onPick={pickTask} />
@@ -255,7 +257,9 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
               marker={selectedMarker}
               // Before a plan exists, the same plain-language feasibility as the card; afterwards, the plan state.
               feasibilityText={state.plan ? selectedMarker.planText : addability(viewById.get(selectedMarker.taskId)!, state.draft, costs, state.budget).text}
-              onDetails={(taskId) => setExpanded(taskId)}
+              detailsOpen={expanded === selectedMarker.taskId}
+              // EVA-1.1: the summary's Details toggles the card's Level 2 (it used to only open it).
+              onDetails={(taskId) => setExpanded((e) => (e === taskId ? null : taskId))}
               onEvidence={(taskId) => setEvidenceFor(taskId)}
               onClose={() => setSummaryFor(null)}
             />
@@ -419,8 +423,25 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           consumed={consumed}
           map={map("minimal", "selected")}
           onStart={() => dispatch({ type: "start-task" })}
-          onCompleteStep={() => dispatch({ type: "complete-step", stepsByTask })}
-          onSkip={() => dispatch({ type: "skip-task" })}
+          onCompleteStep={(index) => dispatch({ type: "complete-step", stepsByTask, index })}
+          onSkipStep={(reason, index) => dispatch({ type: "skip-step", stepsByTask, index, reason })}
+          onPause={() => dispatch({ type: "pause-step" })}
+          onResume={() => dispatch({ type: "resume-step" })}
+          onNote={(index, note) => dispatch({ type: "set-step-note", stepsByTask, index, note })}
+          onUndoStep={() => dispatch({ type: "undo-step" })}
+          onReopen={(taskId, index) => {
+            const titles = Object.fromEntries(s.actions.map((a) => [a.taskId, a.shortTitle]));
+            const wasDone = state.plan?.items.find((i) => i.taskId === taskId)?.status === "done";
+            dispatch({ type: "reopen-step", stepsByTask, taskId, index, titles });
+            // EVA-1.2: reopening a completed action changes the remaining work, so feasibility is re-checked
+            // with the existing engine at the effort available after the release.
+            if (wasDone) {
+              const at = engineAt(Math.max(0, state.budget - (consumed - (costs[taskId] ?? 0))));
+              dispatch({ type: "recheck", label: `Reopened: ${titles[taskId] ?? taskId}`, rankedTaskIds: at.views.filter((v) => v.rank !== null).map((v) => v.taskId), costs, stepsByTask, titles });
+            }
+          }}
+          onSetSkipReason={(index, reason) => dispatch({ type: "set-skip-reason", stepsByTask, index, reason })}
+          onSkip={(reason) => dispatch({ type: "skip-task", reason })}
           onEvent={(id) => {
             const ev = s.events.find((e) => e.id === id);
             if (ev) checkConstraints(ev.budget, ev.label);

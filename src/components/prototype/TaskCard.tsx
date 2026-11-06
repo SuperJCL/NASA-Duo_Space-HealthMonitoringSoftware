@@ -38,6 +38,7 @@ export function TaskCard({
   onEvidence: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
   // Map → card: bring the selected card into view, but only inside a list
   // that scrolls on its own (wide layout). On phones the page itself scrolls,
   // and jumping away from the map would hide the target the user just chose.
@@ -102,6 +103,7 @@ export function TaskCard({
       <div className="mt-3 flex items-center justify-between gap-2">
         <button
           type="button"
+          ref={expandRef}
           onClick={onToggleExpand}
           aria-expanded={expanded}
           aria-controls={`mg-detail-${view.taskId}`}
@@ -174,6 +176,19 @@ export function TaskCard({
             className="mt-3 text-sm text-[var(--mg-cyan)] underline underline-offset-2"
           >
             {"Evidence and sources →"}
+          </button>
+          {/* EVA-1.1: the expanded details have their own collapse control, so they can be closed without scrolling back. */}
+          <button
+            type="button"
+            onClick={() => {
+              onToggleExpand();
+              expandRef.current?.focus({ preventScroll: true });
+            }}
+            tabIndex={expanded ? 0 : -1}
+            className="ml-4 mt-3 text-sm text-[var(--mg-dim)] underline underline-offset-2 hover:text-[var(--mg-text)]"
+            data-testid="mg-collapse-details"
+          >
+            {"Hide details ▴"}
           </button>
         </div>
       </div>

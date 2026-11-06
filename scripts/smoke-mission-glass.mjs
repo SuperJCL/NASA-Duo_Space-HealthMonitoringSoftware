@@ -217,7 +217,7 @@ try {
   check((await text(page.getByTestId("mg-replan-committed"))) === "0 pts" && (await text(page.getByTestId("mg-replan-available"))) === "50 pts" && (await text(page.getByTestId("mg-replan-need"))) === "95 pts" && /estimated/.test(await text(page.getByTestId("mg-replan-resources"))), "MG-3: committed effort is distinguished from the estimated remaining need");
   const impact = await page.getByTestId("mg-replan-impact").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-verdict"), e.textContent]));
   check(impact.length === 2 && impact[0][0] === "fits" && /Abrade and analyse a rock/.test(impact[0][1]) && /In progress, 1 of 4 steps done; those steps are kept/.test(impact[0][1]) && impact[1][0] === "too-large" && /Collect a core sample/.test(impact[1][1]) && /Needs 55 pts, more than the 50 pts now available/.test(impact[1][1]), "MG-3: names each affected action with a plain-language feasibility change");
-  check(/Abrade and analyse a rock · 40 pts/.test(await text(page.getByTestId("mg-replan-suggested"))) && /Marked skipped \(kept in the plan, can be undone\): Collect a core sample/.test(await text(page.getByTestId("mg-replan-dropped"))) && /provisional, not scientifically validated/.test(await text(page.getByTestId("mg-option-suggested"))), "MG-3: suggested option (provisional engine order) shows what would be skipped");
+  check(/Abrade and analyse a rock · 40 pts/.test(await text(page.getByTestId("mg-replan-suggested"))) && /Dropped by this replan \(kept in the plan, can be undone\): Collect a core sample/.test(await text(page.getByTestId("mg-replan-dropped"))) && /provisional, not scientifically validated/.test(await text(page.getByTestId("mg-option-suggested"))), "MG-3: suggested option (provisional engine order) shows what would be dropped");
   check(/Infeasible: needs 95 pts, 45 more than available/.test(await text(page.getByTestId("mg-current-feasibility"))) && (await text(page.getByTestId("mg-keep-plan"))) === "Keep current plan anyway", "MG-3: keeping the current plan is labelled infeasible");
   await page.keyboard.press("Escape");
   for (let n = 0; n < 4; n++) await page.keyboard.press("Tab");
@@ -236,7 +236,7 @@ try {
   await settle(page);
   tl = await page.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
   check(JSON.stringify(tl) === JSON.stringify(["active", "skipped"]) && (await text(page.getByTestId("mg-current-step"))) === "Document the natural surface" && /Step 2 of 4/.test(await text(page.getByTestId("mg-eva-progress"))) && (await page.getByTestId("mg-retained-warning").count()) === 0, "MG-3: accepting replans only remaining work; the in-progress steps are kept");
-  check(/Plan updated: 1 action\(s\) skipped\. Completed steps are kept/.test(await text(page.getByTestId("mg-notice-text"))) && (await page.getByTestId("mg-undo-replan").isVisible()) && /50/.test(await text(page.getByTestId("mg-effort-left"))), "MG-3: the change is announced with Undo (nothing discarded silently)");
+  check(/Plan updated: 1 action\(s\) dropped by replan\. Completed steps are kept/.test(await text(page.getByTestId("mg-notice-text"))) && (await page.getByTestId("mg-undo-replan").isVisible()) && /50/.test(await text(page.getByTestId("mg-effort-left"))), "MG-3: the change is announced with Undo (nothing discarded silently)");
   await page.getByTestId("mg-undo-replan").click();
   await settle(page);
   tl = await page.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
@@ -381,9 +381,469 @@ try {
     mk = await markerMap(mp);
     const panel = await text(mp.getByTestId("mg-cards"));
     check(mk["sim-target-b"].tone === "done" && mk["sim-target-c"].tone === "skipped" && mk["sim-target-a"].tone === "infeasible" && (await consistent()), "MAP-1: after replanning, the completed target stays done and dropped work shows skipped");
-    check(/Done \(simulated\)\. Its effort is committed\./.test(panel) && /Skipped\./.test(panel) && /Not feasible: needs 15 pts, 10 pts available\./.test(panel) && !/-\d+ pts/.test(panel) && !/over budget/.test(panel), "MAP-1: planning cards agree with the map after replanning (no stale draft arithmetic)");
+    check(/Done \(simulated\)\. Its effort is committed\./.test(panel) && /Dropped by replanning\./.test(panel) && /Not feasible: needs 15 pts, 10 pts available\./.test(panel) && !/-\d+ pts/.test(panel) && !/over budget/.test(panel), "MAP-1: planning cards agree with the map after replanning (no stale draft arithmetic)");
     check(merr.length === 0, `MAP-1: no page errors${merr.length ? ` (${merr[0]})` : ""}`);
     await mp.close();
+  }
+
+  // ── EVA-1: individual step management (fresh page) ──
+  {
+    const ep = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const eerr = [];
+    ep.on("pageerror", (e) => eerr.push(String(e)));
+    await ep.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await ep.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await settle(ep, 600);
+    await ep.getByTestId("mg-use-suggested").click(); // abrasion + coring, 95 of 100
+    await ep.getByTestId("mg-review-plan").click();
+    await ep.getByTestId("mg-create-plan").click();
+    await ep.getByTestId("mg-start-eva").click();
+    await settle(ep, 800);
+    await ep.getByTestId("mg-start").click();
+    await settle(ep);
+    const states = () => ep.getByTestId("mg-steps").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
+    const focusedId = () => ep.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.id);
+
+    // Complete with the keyboard (focus is on the primary action).
+    await ep.keyboard.press("Enter");
+    await settle(ep);
+    check(JSON.stringify(await states()) === JSON.stringify(["done", "current", "todo", "todo"]) && (await text(ep.getByTestId("mg-step-counts"))) === "1 done · 3 to do" && (await text(ep.getByTestId("mg-notice-text"))) === "Step 1 marked done." && (await ep.getByTestId("mg-undo-step").isVisible()), "EVA-1: a step is marked done (keyboard), with progress counts and Undo");
+
+    // Skip a step with a recorded reason, keyboard only.
+    // EVA-1.2: Skip step is a visible step control right after the primary action.
+    await ep.keyboard.press("Tab");
+    const onSkipItem = (await focusedId()) === "mg-skip-step";
+    await ep.keyboard.press("Enter");
+    await settle(ep);
+    const inputFocused = (await focusedId()) === "mg-step-input";
+    await ep.keyboard.press("Enter"); // empty reason: refused
+    await settle(ep, 150);
+    const refused = (await ep.getByTestId("mg-form-skip-step").isVisible()) && (await ep.getByTestId("mg-form-submit").isDisabled()) && JSON.stringify(await states()) === JSON.stringify(["done", "current", "todo", "todo"]);
+    await ep.keyboard.type("Dust on the target (simulated)");
+    await ep.keyboard.press("Enter");
+    await settle(ep);
+    check(onSkipItem && inputFocused && refused, "EVA-1: skipping a step asks for a reason (keyboard: Tab → Skip step → reason); an empty reason is refused");
+    check(JSON.stringify(await states()) === JSON.stringify(["done", "skipped", "current", "todo"]) && /Step 3 of 4/.test(await text(ep.getByTestId("mg-step-label"))) && (await text(ep.getByTestId("mg-step-counts"))) === "1 done · 1 skipped · 2 to do" && (await focusedId()) === "mg-complete-step", "EVA-1: the skipped step is recorded; the current step moves on; focus returns to the primary action");
+    check(/Skip reason: Dust on the target \(simulated\)/.test(await text(ep.getByTestId("mg-step-row-1"))) && /needs a separate planning confirmation; the HUD cannot edit the procedure/.test(await text(ep.getByTestId("mg-procedure-lock"))), "EVA-1: the steps panel shows the reason; the procedure cannot be edited in the HUD");
+
+    // Pause and resume.
+    await ep.getByTestId("mg-pause").click();
+    await settle(ep);
+    const pausedOk =
+      (await text(ep.getByTestId("mg-resume"))) === "Resume step 3" &&
+      (await ep.getByTestId("mg-complete-step").count()) === 0 &&
+      /paused/.test(await text(ep.getByTestId("mg-step-label"))) &&
+      (await ep.getByTestId("mg-step-done-3").isDisabled()) &&
+      /paused/.test(await text(ep.getByTestId("mg-plan-timeline"))) &&
+      (await focusedId()) === "mg-resume";
+    await ep.keyboard.press("Enter");
+    await settle(ep);
+    check(pausedOk && (await text(ep.getByTestId("mg-complete-step"))) === "Complete step 3", "EVA-1: pause blocks step changes and shows clearly; Resume (keyboard) continues");
+
+    // Observation note on a step.
+    await ep.getByTestId("mg-step-note-btn-2").click();
+    await ep.getByTestId("mg-step-input").fill("Fine laminations visible (simulated)");
+    await ep.getByTestId("mg-form-submit").click();
+    await settle(ep);
+    check(/Your note \(simulated\): Fine laminations visible \(simulated\)/.test(await text(ep.getByTestId("mg-step-note-2"))) && /Fine laminations/.test(await text(ep.getByTestId("mg-current-note"))) && /Note saved on step 3/.test(await text(ep.getByTestId("mg-notice-text"))), "EVA-1: an optional observation note is saved on the step and shown");
+
+    // A single step out of order, then Undo.
+    await ep.getByTestId("mg-step-done-3").click();
+    await settle(ep);
+    const ooo = JSON.stringify(await states()) === JSON.stringify(["done", "skipped", "current", "done"]) && (await text(ep.getByTestId("mg-complete-step"))) === "Finish action" && (await ep.getByTestId("mg-next-step").count()) === 0;
+    await ep.getByTestId("mg-undo-step").click();
+    await settle(ep);
+    check(ooo && JSON.stringify(await states()) === JSON.stringify(["done", "skipped", "current", "todo"]) && (await text(ep.getByTestId("mg-notice-text"))) === "Undone: Step 4 marked done." && (await text(ep.getByTestId("mg-complete-step"))) === "Complete step 3", "EVA-1: any single step can be marked done; Undo reverts an accidental change");
+
+    // Replanning regression: step records, the note and progress survive; drop vs skip stay distinct.
+    await ep.getByTestId("mg-toggle-scenario").click();
+    await ep.getByTestId("mg-event-effort-cut").click();
+    await settle(ep);
+    const impact0 = await text(ep.getByTestId("mg-replan-impact").locator("li").first());
+    await ep.getByTestId("mg-accept-replan").click();
+    await settle(ep);
+    const tl = await ep.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-status"), e.getAttribute("data-drop")]));
+    check(/In progress, 1 of 4 steps done, 1 skipped; those steps are kept\./.test(impact0) && JSON.stringify(await states()) === JSON.stringify(["done", "skipped", "current", "todo"]) && /Fine laminations/.test(await text(ep.getByTestId("mg-step-note-2"))), "EVA-1: a replan explains and keeps the in-progress steps, reasons and notes");
+    check(JSON.stringify(tl) === JSON.stringify([["active", ""], ["skipped", "replan"]]) && /dropped by replan/.test(await text(ep.getByTestId("mg-plan-timeline"))) && (await ep.getByTestId("mg-undo-step").count()) === 0 && (await ep.getByTestId("mg-undo-replan").isVisible()), "EVA-1: the replan-dropped action is labelled as such; step Undo gives way to replan Undo");
+
+    // Committed vs estimated effort, with Undo of a completion.
+    const before = [await text(ep.getByTestId("mg-effort-left")), await text(ep.getByTestId("mg-plan-need"))];
+    await ep.getByTestId("mg-complete-step").click();
+    await ep.getByTestId("mg-complete-step").click(); // Finish action
+    await settle(ep);
+    const after = [await text(ep.getByTestId("mg-effort-left")), await text(ep.getByTestId("mg-plan-need")), await text(ep.getByTestId("mg-effort-note"))];
+    await ep.getByTestId("mg-undo-step").click();
+    await settle(ep);
+    const undone = [await text(ep.getByTestId("mg-effort-left")), await text(ep.getByTestId("mg-plan-need"))];
+    check(
+      JSON.stringify(before) === JSON.stringify(["50", "40"]) &&
+        after[0] === "10" &&
+        after[1] === "0" &&
+        /Committed so far: 40 of 50/.test(after[2]) &&
+        JSON.stringify(undone) === JSON.stringify(["50", "40"]),
+      `EVA-1: finishing the action commits its effort; undoing it restores committed vs estimated (${before} → ${after.slice(0, 2)} → ${undone})`,
+    );
+
+    // A manual skip of the whole action, with a reason.
+    await ep.getByTestId("mg-more").click();
+    await ep.getByTestId("mg-skip").click();
+    await ep.getByTestId("mg-step-input").fill("Changed priorities (simulated)");
+    await ep.getByTestId("mg-form-submit").click();
+    await settle(ep);
+    check(/Plan complete: 0 done, 1 skipped, 1 dropped by replan/.test(await text(ep.getByTestId("mg-eva-progress"))) && /skipped by you/.test(await text(ep.getByTestId("mg-plan-timeline"))) && /dropped by replan/.test(await text(ep.getByTestId("mg-plan-timeline"))), "EVA-1: a manual skip and a replan drop are distinguished");
+    await ep.getByTestId("mg-mode-planning").click();
+    await ep.waitForFunction(() => (document.querySelector('[data-testid="mars-map"]')?.getAttribute("data-sim-markers") ?? "[]") !== "[]", undefined, { timeout: 15_000 });
+    const mk = await markerMap(ep);
+    check(mk["sim-target-b"].status === "skipped" && mk["sim-target-c"].status === "dropped by replan" && /Skipped by you: Changed priorities \(simulated\)/.test(await ep.getByTestId("mg-target-sim-target-b").getAttribute("aria-label")), "EVA-1: the map and planning share the distinction (skipped by you vs dropped by replan)");
+    check(eerr.length === 0, `EVA-1: no page errors${eerr.length ? ` (${eerr[0]})` : ""}`);
+    await ep.close();
+  }
+
+  // ── EVA-1.1: P0 fixes — details collapse and step correction (fresh page) ──
+  {
+    const fp = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const ferr = [];
+    fp.on("pageerror", (e) => ferr.push(String(e)));
+    await fp.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await fp.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await settle(fp, 600);
+    await fp.getByTestId("mg-use-suggested").click();
+    await fp.getByTestId("mg-review-plan").click();
+    await fp.getByTestId("mg-create-plan").click();
+    await settle(fp);
+    const fid = () => fp.evaluate(() => document.activeElement?.getAttribute("data-testid"));
+    // The Steps panel offers an action picker only when more than one action has steps.
+    const pickSteps = async (taskId) => {
+      const b = fp.getByTestId(`mg-steps-of-${taskId}`);
+      if (await b.count()) await b.click();
+    };
+    const card = fp.getByTestId("mg-card-task-abrasion-proximity");
+    const cardState = async () => [await card.getByTestId("mg-expand").getAttribute("aria-expanded"), (await text(card.getByTestId("mg-expand"))).trim()];
+
+    // 1. Details opens and closes repeatedly (card toggle, bottom collapse, keyboard, map summary).
+    const cycles = [];
+    for (let n = 0; n < 3; n++) {
+      await card.getByTestId("mg-expand").click();
+      cycles.push((await cardState()).join("|"));
+      await card.getByTestId("mg-expand").click();
+      cycles.push((await cardState()).join("|"));
+    }
+    await card.getByTestId("mg-expand").click();
+    await card.getByTestId("mg-collapse-details").click();
+    const bottomCollapse = (await cardState())[0] === "false" && (await fid()) === "mg-expand";
+    await card.getByTestId("mg-expand").focus();
+    await fp.keyboard.press("Enter");
+    const kOpen = (await cardState())[0];
+    await fp.keyboard.press("Space");
+    const kClose = (await cardState())[0];
+    check(
+      JSON.stringify(cycles) === JSON.stringify(["true|Hide details", "false|Details", "true|Hide details", "false|Details", "true|Hide details", "false|Details"]) && bottomCollapse && kOpen === "true" && kClose === "false",
+      "EVA-1.1: card Details opens and closes repeatedly; the expanded details have their own collapse control; keyboard works",
+    );
+    await fp.getByTestId("mg-target-sim-target-b").click();
+    await settle(fp, 500);
+    const sum = [];
+    for (let n = 0; n < 2; n++) {
+      await fp.getByTestId("mg-summary-details").click();
+      sum.push(`${await fp.getByTestId("mg-summary-details").getAttribute("aria-expanded")}|${await text(fp.getByTestId("mg-summary-details"))}|${(await cardState())[0]}`);
+      await fp.getByTestId("mg-summary-details").click();
+      sum.push(`${await fp.getByTestId("mg-summary-details").getAttribute("aria-expanded")}|${await text(fp.getByTestId("mg-summary-details"))}|${(await cardState())[0]}`);
+    }
+    check(JSON.stringify(sum) === JSON.stringify(["true|Hide details|true", "false|Details|false", "true|Hide details|true", "false|Details|false"]) && /Plan created · 2 action\(s\)/.test(await text(fp.getByTestId("mg-plan-bar"))) && (await text(fp.getByTestId("mg-budget"))) === "100 pts", `EVA-1.1: the map summary's Details now toggles (was open-only); plan and budget unchanged (${sum.join(", ")})`);
+
+    // EVA panels: each has its own Collapse; repeated cycles; focus returns to the toggle.
+    await fp.getByTestId("mg-start-eva").click();
+    await settle(fp, 800);
+    await fp.getByTestId("mg-start").click();
+    await fp.keyboard.press("Enter"); // step 1 done
+    await settle(fp);
+    const snapshot = async () => [await text(fp.getByTestId("mg-step-label")), await text(fp.getByTestId("mg-step-counts")), await text(fp.getByTestId("mg-effort-left")), await text(fp.getByTestId("mg-plan-need")), await text(fp.getByTestId("mg-plan-timeline"))].join(" / ");
+    const before = await snapshot();
+    let panelsOk = true;
+    for (const id of ["map", "caveats", "scenario", "log"]) {
+      for (let n = 0; n < 3; n++) {
+        await fp.getByTestId(`mg-toggle-${id}`).click();
+        const opened = (await fp.getByTestId(`mg-toggle-${id}`).getAttribute("aria-expanded")) === "true";
+        await fp.getByTestId("mg-panel-collapse").click();
+        const closed = (await fp.getByTestId(`mg-toggle-${id}`).getAttribute("aria-expanded")) === "false" && (await fp.getByTestId("mg-panel-collapse").count()) === 0;
+        if (!opened || !closed || (await fid()) !== `mg-toggle-${id}`) panelsOk = false;
+      }
+    }
+    // EVA-1.3: the steps checklist is always visible in the action card (no toggle to find).
+    const alwaysSteps = (await fp.getByTestId("mg-steps-panel").isVisible()) && (await fp.getByTestId("mg-toggle-steps").count()) === 0 && (await fp.getByTestId("mg-open-steps").count()) === 0;
+    check(panelsOk && alwaysSteps, "EVA-1.1/1.3: every optional EVA panel collapses from inside (×3 each, focus back on its toggle); the steps checklist is always visible");
+    // Evidence sheet: header toggle is no longer covered; Escape works with focus outside; focus returns.
+    const sheet = fp.getByTestId("mg-evidence-sheet");
+    await fp.getByTestId("mg-open-evidence").click();
+    const s1 = await sheet.isVisible();
+    await fp.getByTestId("mg-open-evidence").click({ timeout: 3000 });
+    const s2 = await sheet.isVisible();
+    await fp.getByTestId("mg-more").click();
+    await fp.getByText("Why this action? (evidence)").click();
+    const s3 = await sheet.isVisible();
+    await fp.mouse.click(300, 820); // outside the sheet
+    await fp.keyboard.press("Escape");
+    await settle(fp, 150);
+    check(s1 && !s2 && s3 && !(await sheet.isVisible()) && (await fid()) === "mg-complete-step", "EVA-1.1: the Evidence sheet closes from its header toggle and with Escape from anywhere; focus returns to the primary action");
+    check((await snapshot()) === before, `EVA-1.1: opening and closing panels changes no action, step, effort or plan (${before})`);
+
+    // 2. Complete step 2, then reopen step 2. EVA-1.3: inside the action in progress this is immediate and explained, with Undo.
+    const states = () => fp.getByTestId("mg-steps").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
+    await fp.getByTestId("mg-complete-step").click();
+    await fp.getByTestId("mg-step-reopen-1").click();
+    await settle(fp);
+    const noConfirm = (await fp.getByTestId("mg-reopen-confirm").count()) === 0;
+    const reopenedStates = JSON.stringify(await states());
+    const notice2 = await text(fp.getByTestId("mg-notice-text"));
+    await fp.getByTestId("mg-undo-step").click();
+    await settle(fp);
+    const undone2 = JSON.stringify(await states()) === JSON.stringify(["done", "done", "current", "todo"]);
+    await fp.getByTestId("mg-step-reopen-1").click();
+    await settle(fp);
+    check(
+      noConfirm && reopenedStates === JSON.stringify(["done", "current", "todo", "todo"]) && notice2 === "Step 2 reopened. It is the current step again. Its earlier state is kept in its history." && undone2 && (await text(fp.getByTestId("mg-step-counts"))) === "1 done · 3 to do",
+      "EVA-1.1/1.3: complete step 2, then reopen it: immediate inside the action, explained, undoable; step 2 is current again",
+    );
+
+    // 3. Complete steps 2 and 3, then reopen step 2 via read-only navigation (keyboard).
+    await fp.getByTestId("mg-complete-step").click();
+    await fp.getByTestId("mg-step-note-btn-1").click();
+    await fp.getByTestId("mg-step-input").fill("Laminations (simulated)");
+    await fp.getByTestId("mg-form-submit").click();
+    await fp.getByTestId("mg-complete-step").click();
+    await settle(fp);
+    const s3a = JSON.stringify(await states());
+    await fp.getByTestId("mg-view-prev").focus();
+    await fp.keyboard.press("Enter");
+    await fp.keyboard.press("Enter");
+    await settle(fp, 150);
+    const viewingLabel = await text(fp.getByTestId("mg-step-label"));
+    const viewOnly = JSON.stringify(await states()) === s3a && /Viewing only: this does not change step 2/.test(await text(fp.getByTestId("mg-viewing"))) && (await text(fp.getByTestId("mg-back-current"))) === "Back to current step (4)";
+    await fp.getByTestId("mg-reopen-viewed").focus();
+    await fp.keyboard.press("Enter");
+    await settle(fp);
+    check(s3a === JSON.stringify(["done", "done", "done", "current"]) && viewingLabel === "Viewing step 2 of 4 · done" && viewOnly, "EVA-1.1: navigating to a previous step is read-only (clearly labelled) and distinct from reopening");
+    check(
+      JSON.stringify(await states()) === JSON.stringify(["done", "current", "done", "todo"]) && /Laminations \(simulated\)/.test(await text(fp.getByTestId("mg-current-note"))) && /Then: Analyse chemistry and mineralogy/.test(await text(fp.getByTestId("mg-next-step"))) && (await text(fp.getByTestId("mg-step-counts"))) === "2 done · 2 to do",
+      "EVA-1.1: complete steps 2 and 3, reopen step 2 (keyboard): step 3 stays done; the note is kept; progress is consistent",
+    );
+
+    // 4–6. Reopen the final step after completion: plan change explained; effort released, then committed once.
+    await fp.getByTestId("mg-complete-step").click(); // step 2
+    await fp.getByTestId("mg-complete-step").click(); // step 4: action done
+    await settle(fp);
+    const done = [await text(fp.getByTestId("mg-effort-left")), await text(fp.getByTestId("mg-plan-need")), await text(fp.getByTestId("mg-effort-note"))];
+    await pickSteps("task-abrasion-proximity");
+    await fp.getByTestId("mg-step-reopen-3").click();
+    const fx4 = await text(fp.getByTestId("mg-reopen-confirm"));
+    await fp.getByTestId("mg-reopen-yes").click();
+    await settle(fp);
+    const reopened = [await text(fp.getByTestId("mg-effort-left")), await text(fp.getByTestId("mg-plan-need")), await text(fp.getByTestId("mg-effort-note")), await text(fp.locator("#mg-current-title")), await text(fp.getByTestId("mg-step-label")), await text(fp.getByTestId("mg-complete-step"))];
+    check(
+      done[0] === "60" && done[1] === "55" && /Committed so far: 40 of 100/.test(done[2]) &&
+        /This changes your confirmed plan and committed effort\./.test(fx4) && /committed effort goes from 40 to 0 pts, and the remaining plan's estimate from 55 to 95 pts/.test(fx4),
+      "EVA-1.1: reopening a completed action's final step explains the plan and effort change before confirmation",
+    );
+    await fp.getByTestId("mg-complete-step").click(); // finish again
+    await settle(fp);
+    const again = [await text(fp.getByTestId("mg-effort-left")), await text(fp.getByTestId("mg-plan-need")), await text(fp.getByTestId("mg-effort-note"))];
+    check(
+      reopened[0] === "100" && reopened[1] === "95" && /Committed so far: 0 of 100/.test(reopened[2]) && reopened[3] === "Abrade and analyse a rock" && reopened[4] === "Step 4 of 4" && reopened[5] === "Finish action" &&
+        again[0] === "60" && again[1] === "55" && /Committed so far: 40 of 100/.test(again[2]),
+      `EVA-1.1: committed vs estimated stays consistent: ${done.slice(0, 2)} → reopen ${reopened.slice(0, 2)} → finish again ${again.slice(0, 2)} (no double charge, no wrong refund)`,
+    );
+
+    // 7. Undo and replanning.
+    await pickSteps("task-abrasion-proximity");
+    await fp.getByTestId("mg-step-reopen-3").click();
+    await fp.getByTestId("mg-reopen-yes").click();
+    await fp.getByTestId("mg-undo-step").click();
+    await settle(fp);
+    const undoOk = (await text(fp.getByTestId("mg-effort-left"))) === "60" && (await text(fp.locator("#mg-current-title"))) === "Collect a core sample";
+    await fp.getByTestId("mg-start").click();
+    await fp.getByTestId("mg-toggle-scenario").click();
+    await fp.getByTestId("mg-event-effort-cut").click();
+    await settle(fp);
+    await fp.getByTestId("mg-accept-replan").click(); // nothing fits the 10 pts left: coring dropped
+    await settle(fp);
+    await fp.getByTestId("mg-step-reopen-3").click();
+    const fx7 = await text(fp.getByTestId("mg-reopen-effects"));
+    await fp.getByTestId("mg-reopen-yes").click();
+    await settle(fp);
+    const tl = await fp.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-status"), e.getAttribute("data-drop")]));
+    check(undoOk && /Earlier replanning decisions are not changed: dropped actions stay dropped\./.test(fx7) && JSON.stringify(tl) === JSON.stringify([["active", ""], ["skipped", "replan"]]) && (await text(fp.getByTestId("mg-effort-left"))) === "50" && (await text(fp.getByTestId("mg-plan-need"))) === "40", "EVA-1.1: Undo reverts a reopen; after a replan, reopening keeps the dropped action dropped and reconciles effort");
+    check(ferr.length === 0, `EVA-1.1: no page errors${ferr.length ? ` (${ferr[0]})` : ""}`);
+    await fp.close();
+  }
+
+  // ── EVA-1.2: explicit step skipping and completed-action correction (fresh page) ──
+  {
+    const kp = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const kerr = [];
+    kp.on("pageerror", (e) => kerr.push(String(e)));
+    await kp.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await kp.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await settle(kp, 600);
+    await kp.getByTestId("mg-use-suggested").click();
+    await kp.getByTestId("mg-review-plan").click();
+    await kp.getByTestId("mg-create-plan").click();
+    await kp.getByTestId("mg-start-eva").click();
+    await settle(kp, 800);
+    await kp.getByTestId("mg-start").click();
+    await settle(kp);
+    const kid = () => kp.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.id);
+    const kstates = () => kp.getByTestId("mg-steps").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
+
+    // Discoverable: the Skip button sits beside the primary action; More no longer hides it.
+    await kp.getByTestId("mg-more").click();
+    const notInMore = (await kp.locator("#mg-more [data-testid='mg-skip-step']").count()) === 0;
+    await kp.getByTestId("mg-more").click();
+    const btn = await kp.getByTestId("mg-skip-step").boundingBox();
+    const prim = await kp.getByTestId("mg-complete-step").boundingBox();
+    await kp.getByTestId("mg-complete-step").focus();
+    await kp.keyboard.press("Tab");
+    const tabbed = (await kid()) === "mg-skip-step";
+    await kp.keyboard.press("Enter");
+    await settle(kp, 200);
+    const formText = await text(kp.getByTestId("mg-form-skip-step"));
+    check(
+      notInMore && btn && prim && Math.abs(btn.y - prim.y) < 20 && (await text(kp.getByTestId("mg-skip-step"))) === "Skip step 1…" && tabbed &&
+        /recorded as skipped, not done: its measurement is not made/.test(formText) &&
+        (await text(kp.getByTestId("mg-skip-caution-form"))) === "Later steps 2, 3, 4 may rely on step 1. This scenario has no step-dependency data: check before continuing.",
+      "EVA-1.2: Skip step is visible beside the primary action (keyboard reachable); the form says skipped ≠ done and shows a neutral caution",
+    );
+    await kp.getByRole("button", { name: "Equipment issue (simulated)" }).click();
+    await kp.getByTestId("mg-form-submit").click();
+    await settle(kp);
+    check(
+      JSON.stringify(await kstates()) === JSON.stringify(["skipped", "current", "todo", "todo"]) &&
+        /Later steps 2, 3, 4 may rely on step 1/.test(await text(kp.getByTestId("mg-notice-text"))) &&
+        /Earlier step 1 was skipped\. This step may rely on it/.test(await text(kp.getByTestId("mg-skip-caution"))),
+      "EVA-1.2: skipping continues to the next unfinished step; the caution stays visible on the following step",
+    );
+    // Correct the reason.
+    await kp.getByTestId("mg-step-reason-0").click();
+    const prefilled = (await kp.getByTestId("mg-step-input").inputValue()) === "Equipment issue (simulated)";
+    await kp.getByTestId("mg-step-input").fill("Target obscured by dust (simulated)");
+    await kp.getByTestId("mg-form-submit").click();
+    await settle(kp);
+    check(prefilled && /Skip reason: Target obscured by dust \(simulated\)/.test(await text(kp.getByTestId("mg-step-row-0"))), "EVA-1.2: a skipped step's reason can be corrected");
+
+    // End the action with a skipped step: partial, not complete; accounting stated separately.
+    for (let n = 0; n < 3; n++) await kp.getByTestId("mg-complete-step").click();
+    await settle(kp);
+    const tl1 = await kp.getByTestId("mg-plan-timeline").locator("li").first().evaluate((e) => [e.getAttribute("data-status"), e.getAttribute("data-outcome"), e.textContent]);
+    check(
+      tl1[0] === "done" && tl1[1] === "partial" && /done · 1 step\(s\) skipped/.test(tl1[2]) &&
+        /action ended with 1 skipped step\(s\): those measurements were not made/.test(await text(kp.getByTestId("mg-notice-text"))) &&
+        /whole estimated cost is committed when it ends, also if some steps were skipped\. Per-step costs are not modelled/.test(await text(kp.getByTestId("mg-accounting-note"))) &&
+        (await text(kp.getByTestId("mg-effort-left"))) === "60",
+      "EVA-1.2: an action ending with a skipped step is 'partial' (measurements not made); the effort-accounting assumption is stated separately",
+    );
+
+    // Reopen the skipped step of the ended action: execution, accounting and feasibility explained; re-check runs.
+    await kp.getByTestId("mg-step-reopen-0").click();
+    // The confirmation's buttons must be reachable on screen (the wide layout does not scroll the page).
+    const visibleNow = async (loc) => kp.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      return r.top >= 0 && r.bottom <= window.innerHeight && document.elementFromPoint(x, y)?.closest("button") === el;
+    }, await loc.elementHandle());
+    const yesOnScreen = await visibleNow(kp.getByTestId("mg-reopen-yes"));
+    const ex = await text(kp.getByTestId("mg-reopen-execution"));
+    const ac = await text(kp.getByTestId("mg-reopen-accounting"));
+    const fe = await text(kp.getByTestId("mg-reopen-feasibility"));
+    await kp.getByTestId("mg-reopen-yes").click();
+    await settle(kp);
+    check(
+      /Its earlier state \(skipped: Target obscured by dust \(simulated\)\) is kept in the step's history/.test(ex) && /has ended \(Ended with 1 of 4 step\(s\) skipped/.test(ex) &&
+        /committed effort goes from 40 to 0 pts/.test(ac) && /Nothing is counted twice/.test(ac) &&
+        /needs 95 of 100 pts available: it fits/.test(fe),
+      "EVA-1.2: reopening an ended action explains execution, effort accounting and feasibility separately",
+    );
+    check(yesOnScreen, "EVA-1.2: the long reopen confirmation scrolls into view; its button is on screen and not covered (1440×900)"
+    );
+    check(
+      /Step 1 of 4/.test(await text(kp.getByTestId("mg-step-label"))) && (await text(kp.getByTestId("mg-effort-left"))) === "100" &&
+        /Feasibility re-checked: the remaining plan needs 95 of 100 pts available and still fits\./.test(await text(kp.getByTestId("mg-notice-text"))) &&
+        /Earlier: skipped \(Target obscured by dust \(simulated\)\); reopened\./.test(await text(kp.getByTestId("mg-step-history-0"))),
+      "EVA-1.2: after reopening, feasibility is re-checked with the engine; history keeps the skip reason; effort is released",
+    );
+    await kp.getByTestId("mg-complete-step").click(); // the reopened step, then the action is complete
+    await settle(kp);
+    const tl2 = await kp.getByTestId("mg-plan-timeline").locator("li").first().evaluate((e) => [e.getAttribute("data-status"), e.getAttribute("data-outcome")]);
+    check(JSON.stringify(tl2) === JSON.stringify(["done", "complete"]) && (await text(kp.getByTestId("mg-effort-left"))) === "60" && (await kp.getByTestId("mg-accounting-note").count()) === 0, "EVA-1.2: once every step is done the action is complete; effort committed once (60 left)");
+
+    // A reopen that makes the remaining plan infeasible asks for a replanning decision.
+    await kp.getByTestId("mg-toggle-scenario").click();
+    await kp.getByTestId("mg-event-effort-cut").click();
+    await settle(kp);
+    await kp.getByTestId("mg-keep-plan").click(); // keep coring although only 10 pts are left
+    await settle(kp);
+    await kp.getByTestId("mg-step-reopen-3").click();
+    const fe2 = await text(kp.getByTestId("mg-reopen-feasibility"));
+    await kp.getByTestId("mg-reopen-yes").click();
+    await settle(kp);
+    const dlg = kp.getByTestId("mg-replan");
+    check(/needs 95 pts but only 50 are available\. You will be asked to replan/.test(fe2) && (await dlg.isVisible()) && /Reopened: Abrade and analyse a rock/.test(await text(kp.getByTestId("mg-replan-trigger"))), "EVA-1.2: if reopening makes the remaining plan infeasible, the replanning decision opens");
+    await kp.getByTestId("mg-accept-replan").click();
+    await settle(kp);
+    const tl3 = await kp.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-status"), e.getAttribute("data-drop")]));
+    await kp.getByTestId("mg-undo-replan").click();
+    await settle(kp);
+    const tl4 = await kp.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
+    check(JSON.stringify(tl3) === JSON.stringify([["active", ""], ["skipped", "replan"]]) && JSON.stringify(tl4) === JSON.stringify(["active", "planned"]), "EVA-1.2: accepting drops the action that no longer fits; Undo restores it");
+    check(kerr.length === 0, `EVA-1.2: no page errors${kerr.length ? ` (${kerr[0]})` : ""}`);
+    await kp.close();
+  }
+
+  // ── EVA-1.3: the exact user journey (fresh page) ──
+  // Complete Step 2 → proceed to Step 3 → find Step 2 → Reopen → continue Step 2 → complete it again.
+  {
+    const jp = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const jerr = [];
+    jp.on("pageerror", (e) => jerr.push(String(e)));
+    await jp.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+    await jp.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+    await settle(jp, 600);
+    await jp.getByTestId("mg-use-suggested").click();
+    await jp.getByTestId("mg-review-plan").click();
+    await jp.getByTestId("mg-create-plan").click();
+    await jp.getByTestId("mg-start-eva").click();
+    await settle(jp, 800);
+    await jp.getByTestId("mg-start").click();
+    const js = () => jp.getByTestId("mg-steps").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
+    const effort = async () => [await text(jp.getByTestId("mg-effort-left")), await text(jp.getByTestId("mg-plan-need"))].join("/");
+    await jp.getByTestId("mg-complete-step").click(); // step 1
+    await jp.getByTestId("mg-complete-step").click(); // step 2 → now on step 3
+    await settle(jp);
+    const onStep3 = /Step 3 of 4/.test(await text(jp.getByTestId("mg-step-label"))) && JSON.stringify(await js()) === JSON.stringify(["done", "done", "current", "todo"]);
+    const eff0 = await effort();
+    // Find step 2: it is listed in the always-visible checklist, with a visible Reopen beside it.
+    const row = jp.getByTestId("mg-step-row-1");
+    const found = (await row.isVisible()) && /2\. Document the natural surface\s*Done/.test(await text(row)) && (await jp.getByTestId("mg-step-reopen-1").isVisible()) && (await jp.getByTestId("mg-step-reopen-1").textContent()) === "Reopen";
+    // Viewing it first changes nothing.
+    await jp.getByTestId("mg-step-view-1").click();
+    await settle(jp, 200);
+    const viewSame = JSON.stringify(await js()) === JSON.stringify(["done", "done", "current", "todo"]) && /Viewing step 2 of 4 · done/.test(await text(jp.getByTestId("mg-step-label")));
+    await jp.getByTestId("mg-back-current").click();
+    check(onStep3 && found && viewSame, "EVA-1.3: on step 3, step 2 is listed with a visible Reopen; clicking the step only views it (no change)");
+    // Reopen → continue step 2 → complete it again.
+    await jp.getByTestId("mg-step-reopen-1").click();
+    await settle(jp);
+    const afterReopen = [JSON.stringify(await js()), await text(jp.getByTestId("mg-step-label")), await text(jp.getByTestId("mg-complete-step")), await text(jp.getByTestId("mg-current-step")), await text(jp.getByTestId("mg-notice-text")), await effort()];
+    await jp.getByTestId("mg-complete-step").click(); // step 2 again
+    await settle(jp);
+    const afterAgain = [JSON.stringify(await js()), await text(jp.getByTestId("mg-step-label")), await effort(), await text(jp.getByTestId("mg-step-history-1"))];
+    check(
+      afterReopen[0] === JSON.stringify(["done", "current", "todo", "todo"]) && /Step 2 of 4/.test(afterReopen[1]) && afterReopen[2] === "Complete step 2" && afterReopen[3] === "Document the natural surface" &&
+        afterReopen[4] === "Step 2 reopened. It is the current step again. Its earlier state is kept in its history." && afterReopen[5] === eff0 &&
+        afterAgain[0] === JSON.stringify(["done", "done", "current", "todo"]) && /Step 3 of 4/.test(afterAgain[1]) && afterAgain[2] === eff0 && /Earlier: done; reopened\./.test(afterAgain[3]),
+      `EVA-1.3: Reopen step 2 → continue it → complete it again: back on step 3; effort unchanged (${eff0}); history kept`,
+    );
+    check(jerr.length === 0, `EVA-1.3: no page errors${jerr.length ? ` (${jerr[0]})` : ""}`);
+    await jp.close();
   }
 
   // ── Translation regression (UX-0 rule) ──
@@ -423,7 +883,38 @@ try {
   await settle(tp, 800);
   await translate(tp);
   await tp.getByTestId("mg-start").click();
+  await tp.getByTestId("mg-pause").click();
+  await translate(tp);
+  await tp.getByTestId("mg-resume").click();
+  await tp.getByTestId("mg-step-note-btn-1").click();
+  await tp.getByTestId("mg-step-input").fill("Translated note test");
+  await tp.getByTestId("mg-form-submit").click();
+  await translate(tp);
   await tp.getByTestId("mg-complete-step").click();
+  await tp.getByTestId("mg-undo-step").click();
+  await tp.getByTestId("mg-complete-step").click();
+  // EVA-1.2 under translation: visible skip with caution, reason correction.
+  await tp.getByTestId("mg-skip-step").click();
+  await translate(tp);
+  await tp.getByTestId("mg-step-input").fill("Translated skip reason");
+  await tp.getByTestId("mg-form-submit").click();
+  await tp.getByTestId("mg-step-reason-1").click();
+  await tp.getByTestId("mg-step-input").fill("Corrected reason");
+  await tp.getByTestId("mg-form-submit").click();
+  await translate(tp);
+  await tp.getByTestId("mg-step-reopen-1").click();
+  // EVA-1.1/1.3 controls under translation: immediate reopen, view (checklist and ‹), evidence toggle.
+  await tp.getByTestId("mg-step-reopen-0").click();
+  await translate(tp);
+  await tp.getByTestId("mg-complete-step").click();
+  await tp.getByTestId("mg-step-view-0").click();
+  await translate(tp);
+  await tp.getByTestId("mg-back-current").click();
+  await tp.getByTestId("mg-view-prev").click();
+  await tp.getByTestId("mg-back-current").click();
+  await tp.getByTestId("mg-open-evidence").click();
+  await translate(tp);
+  await tp.getByTestId("mg-open-evidence").click();
   await tp.getByTestId("mg-toggle-scenario").click();
   await tp.getByTestId("mg-event-effort-cut").click();
   await settle(tp);
@@ -439,7 +930,7 @@ try {
   await tp.getByTestId("mg-event-effort-restored").click();
   await tp.getByTestId("mg-toggle-map").click();
   await settle(tp);
-  check(terr.length === 0 && (await tp.getByTestId("mg-plan-timeline").count()) === 1, `[translated] planning, map targets and summary, EVA and replanning (keep, review, accept, undo) without page errors${terr.length ? ` (${terr[0]})` : ""}`);
+  check(terr.length === 0 && (await tp.getByTestId("mg-plan-timeline").count()) === 1, `[translated] planning, map targets and summary, EVA steps (pause, note, undo, reopen, view, collapse) and replanning (keep, review, accept, undo) without page errors${terr.length ? ` (${terr[0]})` : ""}`);
   await tp.close();
 
   // ── Reduced motion ──
@@ -498,6 +989,27 @@ try {
   };
   check((await phoneIn(phone.getByTestId("mg-current-step"))) && (await phoneIn(phone.getByTestId("mg-start"))) && (await hOverflow()) <= 0, "narrow screen: EVA step and primary action fit the phone viewport");
   await phone.getByTestId("mg-start").click();
+  {
+    await settle(phone, 300);
+    const primaryAndPause = (await phoneIn(phone.getByTestId("mg-complete-step"))) && (await phoneIn(phone.getByTestId("mg-pause")));
+    await phone.getByTestId("mg-skip-step").click();
+    await settle(phone, 300);
+    const formBox = await phone.getByTestId("mg-form-skip-step").boundingBox();
+    const formFits = Boolean(formBox && formBox.x >= 0 && formBox.x + formBox.width <= 390) && (await hOverflow()) <= 0;
+    await phone.getByTestId("mg-form-cancel").click();
+    await settle(phone, 300);
+    const panelBox = await phone.getByTestId("mg-steps-panel").boundingBox();
+    const panelFits = Boolean(panelBox && panelBox.x >= 0 && panelBox.x + panelBox.width <= 390) && (await hOverflow()) <= 0;
+    check(primaryAndPause && formFits && panelFits, "EVA-1 narrow screen: primary and Pause on screen; skip form and steps panel fit without horizontal overflow");
+    // EVA-1.1/1.3 on a phone: the checklist's Reopen is reachable and immediate inside the action.
+    await phone.getByTestId("mg-complete-step").click();
+    const rBox = await phone.getByTestId("mg-step-reopen-0").boundingBox();
+    const reopenFits = Boolean(rBox && rBox.x >= 0 && rBox.x + rBox.width <= 390 && rBox.height >= 32);
+    await phone.getByTestId("mg-step-reopen-0").tap().catch(() => phone.getByTestId("mg-step-reopen-0").click());
+    await settle(phone, 300);
+    const reopenedOnPhone = /Step 1 of 4/.test(await text(phone.getByTestId("mg-step-label"))) && (await hOverflow()) <= 0;
+    check(reopenFits && reopenedOnPhone, "EVA-1.1/1.3 narrow screen: each done step's Reopen is on screen and tappable; the step reopens immediately");
+  }
   for (let n = 0; n < 4; n++) await phone.getByTestId("mg-complete-step").click(); // abrasion done: 40 committed
   await phone.getByTestId("mg-toggle-scenario").click();
   await phone.getByTestId("mg-event-effort-cut").click();
@@ -509,7 +1021,7 @@ try {
   await phone.getByTestId("mg-accept-replan").click();
   await settle(phone);
   const ptl = await phone.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
-  check(JSON.stringify(ptl) === JSON.stringify(["done", "skipped"]) && /Plan complete: 1 done, 1 skipped/.test(await text(phone.getByTestId("mg-eva-progress"))) && /Remaining work ended/.test(await text(phone.getByTestId("mg-notice-text"))) && perr.length === 0, "MG-3: ending the remaining work keeps the completed action and marks the rest skipped");
+  check(JSON.stringify(ptl) === JSON.stringify(["done", "skipped"]) && /Plan complete: 1 done, 1 dropped by replan/.test(await text(phone.getByTestId("mg-eva-progress"))) && /Remaining work ended/.test(await text(phone.getByTestId("mg-notice-text"))) && perr.length === 0, "MG-3: ending the remaining work keeps the completed action and marks the rest dropped by replan");
   await phone.close();
 } finally {
   await browser.close();

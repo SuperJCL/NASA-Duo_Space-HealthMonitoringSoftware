@@ -173,7 +173,93 @@ export function taskViews(args: {
 // ── Shared mission state (Planning ↔ EVA) ──
 
 export type PlanItemStatus = "planned" | "active" | "done" | "skipped";
-export type PlanItem = { taskId: string; status: PlanItemStatus; step: number };
+/** EVA-1: the state of one step. The step list itself (the procedure) comes from the scenario and is never edited in the HUD. */
+export type StepStatus = "todo" | "done" | "skipped";
+export type StepRecord = {
+  status: StepStatus;
+  reason?: string;
+  note?: string;
+  /** EVA-1.2: earlier states of a step that was reopened (oldest first), so completed work and skip reasons are not lost. */
+  history?: { status: "done" | "skipped"; reason?: string }[];
+};
+
+/**
+ * EVA-1.2: how an ended action was executed. This is separate from effort
+ * accounting: "partial" means some planned measurements were not made, even
+ * though the action counts as ended.
+ */
+export type ExecutionOutcome = "complete" | "partial";
+export function executionOutcome(item: PlanItem, count: number): ExecutionOutcome | null {
+  if (item.status !== "done") return null;
+  return stepCounts(item, count).skipped ? "partial" : "complete";
+}
+export function executionText(item: PlanItem, count: number): string {
+  const c = stepCounts(item, count);
+  return executionOutcome(item, count) === "partial"
+    ? `Ended with ${c.skipped} of ${count} step(s) skipped: those measurements were not made.`
+    : `Completed: all ${count} steps done.`;
+}
+/** EVA-1.2: the effort accounting assumption, stated wherever committed effort is explained. */
+export const ACCOUNTING_ASSUMPTION =
+  "Simulated effort accounting: an action's whole estimated cost is committed when it ends, also if some steps were skipped. Per-step costs are not modelled.";
+
+/**
+ * EVA-1.2: a neutral caution when a step is skipped while later steps are
+ * unfinished. The scenario has no step-dependency data, so no rule is
+ * invented: later steps only "may" rely on it.
+ */
+export function skipCaution(item: PlanItem, count: number, index: number): string | null {
+  const later = stepRecords(item, count)
+    .map((r, n) => ({ r, n }))
+    .filter(({ r, n }) => n > index && r.status === "todo")
+    .map(({ n }) => n + 1);
+  if (!later.length) return null;
+  return `Later step${later.length > 1 ? "s" : ""} ${later.join(", ")} may rely on step ${index + 1}. This scenario has no step-dependency data: check before continuing.`;
+}
+export type PlanItem = {
+  taskId: string;
+  status: PlanItemStatus;
+  /** Index of the current step: the first step not yet done or skipped (the step count once all are resolved). */
+  step: number;
+  /** EVA-1: per-step records, by index; a missing entry is "todo". */
+  steps?: StepRecord[];
+  /** EVA-1: the current step of the active action is paused. */
+  paused?: boolean;
+  /** EVA-1: who skipped a skipped action: the user (with a reason), or a replan that dropped it. */
+  dropped?: { by: "user" | "replan"; reason?: string };
+};
+
+export const NOTE_MAX = 280;
+export const REASON_MAX = 160;
+
+/** Full step records for an item (missing entries are "todo"). */
+export function stepRecords(item: PlanItem, count: number): StepRecord[] {
+  return Array.from({ length: count }, (_, n) => item.steps?.[n] ?? { status: "todo" as const });
+}
+
+export function stepCounts(item: PlanItem, count: number): { done: number; skipped: number; todo: number; current: number | null } {
+  const r = stepRecords(item, count);
+  const first = r.findIndex((x) => x.status === "todo");
+  return {
+    done: r.filter((x) => x.status === "done").length,
+    skipped: r.filter((x) => x.status === "skipped").length,
+    todo: r.filter((x) => x.status === "todo").length,
+    current: first === -1 ? null : first,
+  };
+}
+
+/** Replace one step record and normalise the item: current step, and completion once every step is resolved. */
+function withStep(item: PlanItem, count: number, index: number, record: StepRecord): PlanItem {
+  const steps = stepRecords(item, count).map((x, n) => (n === index ? record : x));
+  const first = steps.findIndex((x) => x.status === "todo");
+  if (first !== -1) return { ...item, steps, step: first };
+  // All steps resolved: done if any step was completed (its simulated effort is then committed);
+  // skipped by the user if every step was skipped (nothing is committed).
+  const anyDone = steps.some((x) => x.status === "done");
+  return anyDone
+    ? { ...item, steps, step: count, status: "done", paused: false }
+    : { ...item, steps, step: count, status: "skipped", paused: false, dropped: { by: "user", reason: "Every step was skipped" } };
+}
 /** MG-3: what a constraint change does to each action of the plan. */
 export type ImpactVerdict = "kept-done" | "fits" | "no-longer-fits" | "too-large";
 export type ReplanProposal = {
@@ -206,6 +292,8 @@ export type MissionState = {
   previous: { items: PlanItem[] } | null;
   /** A visible, dismissible status message after a constraint change or decision. */
   notice: string | null;
+  /** EVA-1: the plan before the last step-state change, for Undo. Cleared when the mission moves to another action or a replan. */
+  stepUndo: { items: PlanItem[]; label: string } | null;
   log: string[];
 };
 
@@ -218,8 +306,27 @@ export type MissionAction =
   | { type: "create-plan" }
   | { type: "set-mode"; mode: MissionState["mode"] }
   | { type: "start-task" }
-  | { type: "complete-step"; stepsByTask: Record<string, number> }
-  | { type: "skip-task" }
+  /** Complete the current step, or a given step of the active action (EVA-1). */
+  | { type: "complete-step"; stepsByTask: Record<string, number>; index?: number }
+  /** EVA-1: skip one step of the active action; a non-empty reason is required. */
+  | { type: "skip-step"; stepsByTask: Record<string, number>; index?: number; reason: string }
+  | { type: "pause-step" }
+  | { type: "resume-step" }
+  /** EVA-1: the user's own simulated observation note on a step (empty clears it). */
+  | { type: "set-step-note"; stepsByTask: Record<string, number>; index: number; note: string }
+  | { type: "undo-step" }
+  /** EVA-1.1: return a done or skipped step to "not done" (of the active action, or of a completed one). */
+  | { type: "reopen-step"; stepsByTask: Record<string, number>; taskId: string; index: number; titles?: Record<string, string> }
+  /** EVA-1.2: correct the reason of a skipped step of the action in progress. */
+  | { type: "set-skip-reason"; stepsByTask: Record<string, number>; index: number; reason: string }
+  /**
+   * EVA-1.2: re-check feasibility after remaining work changed (a reopened
+   * action). Like a constraint event at the same budget, but it keeps Undo
+   * and only asks for a decision if the remaining plan no longer fits or the
+   * engine's order changed.
+   */
+  | { type: "recheck"; label: string; rankedTaskIds: string[]; costs: Record<string, number>; stepsByTask: Record<string, number>; titles?: Record<string, string> }
+  | { type: "skip-task"; reason?: string }
   | {
       type: "constraint-event";
       budget: number;
@@ -246,6 +353,7 @@ export const initialMissionState = (budget: number): MissionState => ({
   retained: null,
   previous: null,
   notice: null,
+  stepUndo: null,
   log: [],
 });
 
@@ -269,6 +377,68 @@ export function fitInOrder(order: string[], costs: Record<string, number>, avail
 }
 
 const sumCost = (ids: readonly string[], costs: Record<string, number>) => ids.reduce((s, id) => s + (costs[id] ?? 0), 0);
+
+/**
+ * EVA-1.1: what reopening a step would change, in plain language, for the
+ * confirmation. Reopening applies to a done or skipped step of the action in
+ * progress, or of a completed action. Reopening a completed action returns it
+ * to "in progress" and releases its committed effort (it is committed again,
+ * once, when the action is completed again); an action in progress at that
+ * moment is set aside (back in the plan with its steps kept).
+ */
+export function reopenEffects(args: {
+  state: Pick<MissionState, "plan" | "budget">;
+  taskId: string;
+  index: number;
+  costs: Record<string, number>;
+  stepsByTask: Record<string, number>;
+  titles?: Record<string, string>;
+}): { ok: boolean; why?: string; execution: string[]; accounting: string[]; feasibility: string | null; lines: string[]; affectsPlan: boolean } {
+  const { state, taskId, index, costs, stepsByTask, titles = {} } = args;
+  const none = (why: string) => ({ ok: false, why, execution: [], accounting: [], feasibility: null, lines: [], affectsPlan: false });
+  const name = (id: string) => titles[id] ?? id;
+  const items = state.plan?.items ?? [];
+  const item = items.find((i) => i.taskId === taskId);
+  const count = stepsByTask[taskId] ?? 0;
+  if (!item || index < 0 || index >= count) return none("No such step.");
+  if (item.status !== "active" && item.status !== "done") return none("Only steps of the action in progress or of a completed action can be reopened.");
+  const rec = stepRecords(item, count)[index];
+  if (rec.status === "todo") return none("This step is not done yet.");
+  // Execution: what happens to the step and the action.
+  const execution = [
+    `Step ${index + 1} becomes not done again. Its earlier state (${rec.status}${rec.reason ? `: ${rec.reason}` : ""}) is kept in the step's history${rec.note ? ", and your note is kept" : ""}.`,
+  ];
+  const after = stepRecords(item, count).map((x, n) => (n === index ? { status: "todo" as const } : x));
+  const newCurrent = after.findIndex((x) => x.status === "todo");
+  const accounting: string[] = [];
+  let feasibility: string | null = null;
+  let affectsPlan = false;
+  if (item.status === "active") {
+    if (newCurrent !== item.step) execution.push(`The current step becomes step ${newCurrent + 1}.`);
+    accounting.push("No change: this action is still in progress, so nothing was committed for it yet.");
+  } else {
+    affectsPlan = true;
+    execution.push(`${name(taskId)} has ended (${executionText(item, count).replace(/\.$/, "")}); reopening returns it to in progress at step ${newCurrent + 1}.`);
+    const other = items.find((i) => i.status === "active");
+    if (other) execution.push(`${name(other.taskId)} (in progress) is set aside: it goes back into the plan with its steps kept and continues after ${name(taskId)}.`);
+    if (items.some((i) => i.status === "done" && i.taskId !== taskId)) execution.push("Other completed actions stay completed.");
+    if (items.some((i) => i.dropped?.by === "replan")) execution.push("Earlier replanning decisions are not changed: dropped actions stay dropped.");
+    const cost = costs[taskId] ?? 0;
+    const committed = items.filter((i) => i.status === "done").reduce((sum, i) => sum + (costs[i.taskId] ?? 0), 0);
+    const need = remaining(items).reduce((sum, i) => sum + (costs[i.taskId] ?? 0), 0);
+    accounting.push(
+      `Its ${cost} pts are released: committed effort goes from ${committed} to ${committed - cost} pts, and the remaining plan's estimate from ${need} to ${need + cost} pts.`,
+      "They are committed again, once, when the action ends again. Nothing is counted twice and no per-step amount is refunded.",
+      ACCOUNTING_ASSUMPTION,
+    );
+    const available = state.budget - (committed - cost);
+    feasibility =
+      need + cost <= available
+        ? `After reopening, the remaining plan needs ${need + cost} of ${available} pts available: it fits. The engine's order is re-checked when you confirm.`
+        : `After reopening, the remaining plan needs ${need + cost} pts but only ${available} are available. You will be asked to replan when you confirm.`;
+  }
+  return { ok: true, execution, accounting, feasibility, lines: [...execution, ...accounting, ...(feasibility ? [feasibility] : [])], affectsPlan };
+}
 
 /**
  * MG-3: impact of a constraint change on the plan. Completed actions are
@@ -296,8 +466,20 @@ export function buildProposal(args: {
   const impact = items.map((i) => {
     const cost = costs[i.taskId] ?? 0;
     if (i.status === "done") return { taskId: i.taskId, status: i.status, cost, verdict: "kept-done" as const, explanation: `Completed: ${cost} pts already committed. Kept as done.` };
-    if (i.status === "skipped") return { taskId: i.taskId, status: i.status, cost, verdict: "kept-done" as const, explanation: "Skipped earlier. Unchanged." };
-    const progress = i.status === "active" ? ` In progress, ${i.step} of ${stepsByTask[i.taskId] ?? "?"} steps done; those steps are kept.` : "";
+    if (i.status === "skipped")
+      return {
+        taskId: i.taskId,
+        status: i.status,
+        cost,
+        verdict: "kept-done" as const,
+        explanation: i.dropped?.by === "replan" ? "Dropped by an earlier replan. Unchanged." : "Skipped earlier by you. Unchanged.",
+      };
+    const n = stepsByTask[i.taskId] ?? 0;
+    const c = stepCounts(i, n);
+    const progress =
+      i.status === "active"
+        ? ` In progress${i.paused ? " (paused)" : ""}, ${c.done} of ${n || "?"} steps done${c.skipped ? `, ${c.skipped} skipped` : ""}; those steps are kept.`
+        : "";
     if (cost > available) {
       room -= cost;
       return { taskId: i.taskId, status: i.status, cost, verdict: "too-large" as const, explanation: `Needs ${cost} pts, more than the ${available} pts now available.${progress}` };
@@ -368,27 +550,183 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
       if (!state.plan) return state;
       const next = state.plan.items.find((i) => i.status === "planned");
       if (!next || state.plan.items.some((i) => i.status === "active")) return state;
-      // Undo of a replan is offered only until the mission moves on.
-      return { ...state, previous: null, plan: { ...state.plan, items: state.plan.items.map((i) => (i === next ? { ...i, status: "active" } : i)) }, log: [...state.log, `Started: ${next.taskId}`] };
+      // Undo of a replan (or of a step change) is offered only until the mission moves on.
+      return {
+        ...state,
+        previous: null,
+        stepUndo: null,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === next ? { ...i, status: "active" } : i)) },
+        log: [...state.log, `Started: ${next.taskId}`],
+      };
     }
-    case "complete-step": {
+    case "complete-step":
+    case "skip-step":
+    case "set-step-note": {
       if (!state.plan) return state;
-      const items = state.plan.items.map((i) => {
-        if (i.status !== "active") return i;
-        const step = i.step + 1;
-        return step >= (action.stepsByTask[i.taskId] ?? 1) ? { ...i, step, status: "done" as const } : { ...i, step };
+      const active = state.plan.items.find((i) => i.status === "active");
+      if (!active) return state;
+      const count = action.stepsByTask[active.taskId] ?? 0;
+      const index = action.type === "set-step-note" ? action.index : (action.index ?? active.step);
+      if (!Number.isInteger(index) || index < 0 || index >= count) return state;
+      const rec = stepRecords(active, count)[index];
+      let next: StepRecord;
+      let label: string;
+      if (action.type === "set-step-note") {
+        const note = action.note.trim().slice(0, NOTE_MAX);
+        if ((rec.note ?? "") === note) return state;
+        next = note ? { ...rec, note } : { status: rec.status, ...(rec.reason ? { reason: rec.reason } : {}) };
+        label = note ? `Note saved on step ${index + 1}` : `Note removed from step ${index + 1}`;
+      } else {
+        // A paused step must be resumed first; a resolved step is not changed again (use Undo).
+        if (active.paused || rec.status !== "todo") return state;
+        if (action.type === "skip-step") {
+          const reason = action.reason.trim().slice(0, REASON_MAX);
+          if (!reason) return state;
+          next = { ...rec, status: "skipped", reason };
+          label = `Step ${index + 1} skipped (${reason})`;
+        } else {
+          next = { ...rec, status: "done" };
+          label = `Step ${index + 1} marked done`;
+        }
+      }
+      const updated = withStep(active, count, index, next);
+      const skippedSteps = stepCounts(updated, count).skipped;
+      const finished =
+        updated.status === "active"
+          ? ""
+          : updated.status === "done"
+            ? skippedSteps
+              ? `; action ended with ${skippedSteps} skipped step(s): those measurements were not made`
+              : "; action completed (simulated)"
+            : "; action skipped: every step was skipped";
+      // EVA-1.2: a neutral caution when later steps are still to do (no invented dependency rule).
+      const caution = action.type === "skip-step" && updated.status === "active" ? skipCaution(active, count, index) : null;
+      return {
+        ...state,
+        previous: null,
+        stepUndo: { items: state.plan.items, label },
+        notice: `${label}${finished}.${caution ? ` ${caution}` : ""}`,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === active ? updated : i)) },
+        log: [...state.log, `${label}: ${active.taskId}${finished}`],
+      };
+    }
+    case "pause-step":
+    case "resume-step": {
+      if (!state.plan) return state;
+      const active = state.plan.items.find((i) => i.status === "active");
+      const pause = action.type === "pause-step";
+      if (!active || Boolean(active.paused) === pause) return state;
+      const label = `${pause ? "Paused" : "Resumed"} at step ${active.step + 1}`;
+      return {
+        ...state,
+        previous: null,
+        stepUndo: { items: state.plan.items, label },
+        notice: `${label}.`,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === active ? { ...i, paused: pause } : i)) },
+        log: [...state.log, `${label}: ${active.taskId}`],
+      };
+    }
+    case "reopen-step": {
+      if (!state.plan) return state;
+      const item = state.plan.items.find((i) => i.taskId === action.taskId);
+      const count = action.stepsByTask[action.taskId] ?? 0;
+      if (!item || (item.status !== "active" && item.status !== "done") || action.index < 0 || action.index >= count) return state;
+      const records = stepRecords(item, count);
+      const rec = records[action.index];
+      if (rec.status === "todo") return state;
+      const reopened: StepRecord = {
+        status: "todo",
+        ...(rec.note ? { note: rec.note } : {}),
+        history: [...(rec.history ?? []), { status: rec.status, ...(rec.reason ? { reason: rec.reason } : {}) }],
+      };
+      const steps = records.map((x, n) => (n === action.index ? reopened : x));
+      const step = steps.findIndex((x) => x.status === "todo");
+      const wasDone = item.status === "done";
+      const other = wasDone ? state.plan.items.find((i) => i.status === "active") : undefined;
+      const items = state.plan.items.map((i) =>
+        i === item
+          ? { ...item, steps, step, status: "active" as const, ...(wasDone ? { paused: false } : {}) }
+          : i === other
+            ? { ...i, status: "planned" as const, paused: false }
+            : i,
+      );
+      const name = action.titles?.[item.taskId] ?? item.taskId;
+      const laterDone = steps.slice(action.index + 1).filter((x) => x.status === "done").length;
+      const label = `Step ${action.index + 1} reopened${wasDone ? `; ${name} is in progress again and its effort is no longer committed` : ""}`;
+      // EVA-1.3: say exactly what changed (reopening inside the action in progress is immediate and undoable).
+      const detail = `${step === action.index ? ` It is the current step again.` : ` The current step is step ${step + 1}.`}${laterDone ? " Later done steps stay done." : ""} Its earlier state is kept in its history.`;
+      return {
+        ...state,
+        previous: null,
+        stepUndo: { items: state.plan.items, label },
+        notice: `${label}.${detail}`,
+        plan: { ...state.plan, items },
+        log: [...state.log, `${label}: ${item.taskId}${other ? `; set aside: ${other.taskId}` : ""}`],
+      };
+    }
+    case "set-skip-reason": {
+      if (!state.plan) return state;
+      const active = state.plan.items.find((i) => i.status === "active");
+      if (!active) return state;
+      const count = action.stepsByTask[active.taskId] ?? 0;
+      if (action.index < 0 || action.index >= count) return state;
+      const rec = stepRecords(active, count)[action.index];
+      const reason = action.reason.trim().slice(0, REASON_MAX);
+      if (rec.status !== "skipped" || !reason || reason === rec.reason) return state;
+      const steps = stepRecords(active, count).map((x, n) => (n === action.index ? { ...x, reason } : x));
+      const label = `Skip reason of step ${action.index + 1} corrected`;
+      return {
+        ...state,
+        stepUndo: { items: state.plan.items, label },
+        notice: `${label}.`,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === active ? { ...active, steps } : i)) },
+        log: [...state.log, `${label} (${reason}): ${active.taskId}`],
+      };
+    }
+    case "recheck": {
+      if (!state.plan) return state;
+      const p = buildProposal({
+        items: state.plan.items,
+        from: state.budget,
+        to: state.budget,
+        label: action.label,
+        rankedTaskIds: action.rankedTaskIds,
+        costs: action.costs,
+        stepsByTask: action.stepsByTask,
+        titles: action.titles,
       });
-      const finished = items.find((i, n) => i.status === "done" && state.plan!.items[n].status === "active");
-      return { ...state, previous: null, plan: { ...state.plan, items }, log: finished ? [...state.log, `Completed (simulated): ${finished.taskId}`] : state.log };
+      const orderChanged = JSON.stringify(p.suggested.order) !== JSON.stringify(p.current.order);
+      if (!p.current.overBy && !orderChanged) {
+        const ok = `Feasibility re-checked: the remaining plan needs ${p.remainingNeed} of ${p.available} pts available and still fits.`;
+        return { ...state, notice: state.notice ? `${state.notice} ${ok}` : ok, log: [...state.log, ok] };
+      }
+      return { ...state, replan: p, log: [...state.log, `Feasibility re-check after: ${action.label}`] };
+    }
+    case "undo-step": {
+      if (!state.plan || !state.stepUndo) return state;
+      return {
+        ...state,
+        plan: { ...state.plan, items: state.stepUndo.items },
+        stepUndo: null,
+        notice: `Undone: ${state.stepUndo.label}.`,
+        log: [...state.log, `Undid: ${state.stepUndo.label}`],
+      };
     }
     case "skip-task": {
       if (!state.plan) return state;
       const target = state.plan.items.find((i) => i.status === "active") ?? state.plan.items.find((i) => i.status === "planned");
       if (!target) return state;
-      return { ...state, previous: null, plan: { ...state.plan, items: state.plan.items.map((i) => (i === target ? { ...i, status: "skipped" } : i)) }, log: [...state.log, `Skipped: ${target.taskId}`] };
+      const reason = action.reason?.trim().slice(0, REASON_MAX) || undefined;
+      return {
+        ...state,
+        previous: null,
+        stepUndo: null,
+        plan: { ...state.plan, items: state.plan.items.map((i) => (i === target ? { ...i, status: "skipped", paused: false, dropped: { by: "user", ...(reason ? { reason } : {}) } } : i)) },
+        log: [...state.log, `Skipped by the user: ${target.taskId}${reason ? ` (${reason})` : ""}`],
+      };
     }
     case "constraint-event": {
-      const next: MissionState = { ...state, budget: action.budget, log: [...state.log, `Scenario event: ${action.label}`] };
+      const next: MissionState = { ...state, budget: action.budget, stepUndo: null, log: [...state.log, `Scenario event: ${action.label}`] };
       if (!state.plan) return next;
       const p = buildProposal({
         items: state.plan.items,
@@ -422,17 +760,18 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
         // Dropped work is kept in the plan as skipped (with any completed steps), not deleted.
         ...remaining(state.plan.items)
           .filter((i) => !p.suggested.order.includes(i.taskId))
-          .map((i) => ({ ...i, status: "skipped" as const })),
+          .map((i) => ({ ...i, status: "skipped" as const, paused: false, dropped: { by: "replan" as const } })),
       ];
       return {
         ...state,
         plan: { ...state.plan, items },
         replan: null,
         retained: null,
+        stepUndo: null,
         previous: { items: state.plan.items },
         notice: p.noFeasible
           ? "Remaining work ended: no remaining action fits. Completed work is kept."
-          : `Plan updated${p.suggested.dropped.length ? `: ${p.suggested.dropped.length} action(s) skipped` : ""}. Completed steps are kept.`,
+          : `Plan updated${p.suggested.dropped.length ? `: ${p.suggested.dropped.length} action(s) dropped by replan` : ""}. Completed steps are kept.`,
         log: [...state.log, p.noFeasible ? "The user ended the remaining work." : `The user accepted the suggested plan: ${p.suggested.order.join(" → ")}`],
       };
     }
@@ -442,6 +781,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
       return {
         ...state,
         replan: null,
+        stepUndo: null,
         retained: p.current.overBy ? { overBy: p.current.overBy, available: p.available } : null,
         notice: null,
         log: [...state.log, p.current.overBy ? `The user kept a plan that exceeds the available effort by ${p.current.overBy} pts.` : "The user kept the current plan."],
@@ -457,6 +797,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
         ...state,
         plan: { ...state.plan, items },
         previous: null,
+        stepUndo: null,
         retained: need > available ? { overBy: need - available, available } : null,
         notice: "Replan undone: the previous plan is restored.",
         log: [...state.log, "The user undid the last replan."],
@@ -465,7 +806,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
     case "dismiss-notice":
       return { ...state, notice: null };
     case "reset-plan":
-      return { ...state, plan: null, replan: null, retained: null, previous: null, notice: null, mode: "planning", log: [...state.log, "Plan cleared."] };
+      return { ...state, plan: null, replan: null, retained: null, previous: null, stepUndo: null, notice: null, mode: "planning", log: [...state.log, "Plan cleared."] };
   }
 }
 

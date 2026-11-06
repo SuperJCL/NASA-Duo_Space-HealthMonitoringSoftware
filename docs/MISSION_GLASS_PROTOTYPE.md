@@ -63,7 +63,8 @@ or decorative sci-fi elements.
 
 ## Shared mission-state contract (`src/lib/prototype/mission-glass.ts`)
 
-The module is pure: no React and no OpenLayers. It has 17 unit tests.
+The module is pure: no React and no OpenLayers. It has 17 unit tests, plus
+12 EVA-1 step tests (`eva-steps.test.ts`).
 
 - **`MissionState`:**
   - `mode` (`planning` or `eva`);
@@ -123,6 +124,148 @@ The module is pure: no React and no OpenLayers. It has 17 unit tests.
 
   No engine, evidence, geo or briefing file changed. The engine grids are
   byte-identical to MF-1 and BR-2.
+
+## EVA step management (EVA-1)
+
+The HUD manages the **state** of each step. It never edits the
+**procedure**: the step list comes from the scenario, and changing it or
+adding scientific steps would need a separate planning confirmation, which
+is not built. It is a simulated training workflow, not a certified EVA
+procedure system.
+
+- **State (`PlanItem`):**
+  - `steps` holds per-step records (`todo`, `done`, `skipped` with a reason,
+    an optional note);
+  - `step` is the first unresolved step;
+  - `paused` marks a paused current step;
+  - `dropped` records who skipped a skipped action: `{by: "user", reason?}`
+    or `{by: "replan"}`.
+- **Actions:**
+  - `complete-step` (current step, or any single step by index);
+  - `skip-step` (a non-empty reason is required, up to 160 characters);
+  - `pause-step` and `resume-step` (a paused step cannot be completed or
+    skipped);
+  - `set-step-note` (the user's own text, up to 280 characters, empty
+    clears it; never an engine input);
+  - `undo-step`;
+  - `skip-task` (optional reason).
+- **Completion:** when every step is resolved, the action is done if at
+  least one step was done, and its simulated effort is committed. If every
+  step was skipped, the action counts as skipped by the user and nothing is
+  committed. Per-step effort is not modelled.
+- **Undo:** one level, covering the last step change (done, skip, pause,
+  resume, note). It also undoes a completion, which un-commits the effort.
+  It is cleared when the next action starts, the action is skipped, or a
+  constraint change or replan happens. A step change clears the replan
+  Undo, so the two never mix.
+- **Replanning:** an in-progress action keeps its step records, paused
+  state and notes, and the impact text says "1 of 4 steps done, 1 skipped;
+  those steps are kept". Dropped actions are labelled "dropped by replan"
+  everywhere: timeline, plan summary, map markers, target buttons, cards,
+  later replan impacts. A manual skip reads "skipped by you" with its
+  reason.
+- **HUD:**
+  - The primary action reads "Complete step N" or "Finish action"; it
+    becomes "Resume step N" while paused.
+  - Pause sits beside it.
+  - "More" holds Skip step…, Note on step…, All steps…, evidence, and Skip
+    this action….
+  - An inline form handles the reason or note (Enter submits, Escape
+    cancels; focus returns to the primary action).
+  - The step label shows "1 done · 1 skipped · 2 to do"; the step bar
+    colours done green, skipped grey, current coral, and paused yellow.
+  - The **Steps** panel lists every step with its state, reason and note,
+    plus Mark done, Skip… and Note… buttons.
+
+### EVA-1.1: closing details and correcting steps
+
+- **Details and panels close where they open:**
+  - the map summary's Details toggles the card's Level 2;
+  - the card's expanded details end with "Hide details ▴";
+  - each open EVA panel (Steps, Map, Caveats, Scenario controls, Log) has
+    its own Collapse, and focus returns to its toggle;
+  - More → "All steps…" toggles;
+  - the header Evidence button toggles the evidence sheet. On wide screens
+    the sheet starts below the header, so the button stays usable.
+  - Escape closes the sheet wherever focus is, and focus returns.
+
+  Closing anything changes no mission state.
+- **Viewing is not reopening.**
+  - ‹ › in the current card browse other steps read-only ("Viewing step 2 of
+    4 · done … this does not change step 2"); the primary action becomes
+    "Back to current step".
+  - Reopening is a separate, confirmed state change: "Reopen step N…" in the
+    card while viewing, or "Reopen…" in the Steps panel.
+- **`reopen-step` / `reopenEffects`:**
+  - A done or skipped step of the action in progress, or of a completed
+    action, becomes not done. The note is kept, and a skip reason is kept as
+    `previousReason`.
+  - The current step becomes the first unresolved one.
+  - Reopening a completed action returns it to in progress and releases its
+    committed effort; completing it again commits it once.
+  - An action in progress at that moment is set aside (planned again, steps
+    kept) and continues afterwards.
+  - Replan decisions are not changed.
+  - The confirmation lists these effects and flags plan or effort changes.
+  - Undo reverts a reopen.
+- **The Steps panel** can show a completed action's steps (picker), with
+  "Reopen…" only. Notes and marking apply to the action in progress.
+
+### EVA-1.2: explicit step skipping; execution vs effort accounting
+
+- **Skip step N…** is a visible control next to the primary action (it was
+  under More).
+  - The form says the step is recorded as skipped, not done ("its
+    measurement is not made").
+  - It requires a reason and offers quick reasons.
+  - If later steps are unfinished, it shows a neutral caution: "Later steps
+    … may rely on step N. This scenario has no step-dependency data: check
+    before continuing." The caution stays visible on the next step. No
+    dependency rule is invented.
+- **Skip reasons can be corrected** (Steps panel → "Edit reason…") or the
+  step reopened. Reopened steps keep a `history` of their earlier states
+  and reasons.
+- **Execution outcome** (`executionOutcome` and `executionText`):
+  - An action whose steps are all resolved is "complete" if every step was
+    done, and "partial" if some were skipped ("those measurements were not
+    made").
+  - Partial actions are labelled in the timeline ("done · 1 step(s)
+    skipped"), on the map (badge ½, status "done · partial"), in the cards
+    and in the Steps panel.
+- **Effort accounting is stated separately as an assumption**
+  (`ACCOUNTING_ASSUMPTION`): an action's whole estimated cost is committed
+  when it ends, also with skipped steps, because per-step costs are not
+  modelled. The HUD shows this whenever a partial action exists.
+- **Reopening an ended action:** the confirmation has three sections
+  (Execution, Simulated effort accounting, Feasibility after reopening).
+  After confirmation, a `recheck` runs the existing engine at the effort
+  available after the release.
+  - If the plan still fits, a notice says so (Undo kept).
+  - If not, or if the engine's order changed, the replanning dialog opens.
+
+### EVA-1.3: direct past-step correction
+
+- **The step checklist is always visible** in the current-action card, below
+  the primary action. It used to be an optional "Steps" panel that started
+  collapsed.
+  - Each row shows the step's state (✓ done, – skipped, ▶ current, Ⅱ paused,
+    ○ to do), its reason, note and history.
+  - It also offers the row actions: **Reopen** beside every done or skipped
+    step, Mark done, Skip…, Note… and Edit reason….
+  - Completed actions can be picked when more than one action has steps.
+- **Navigation vs status change:**
+  - Clicking a step **views** it, read-only, as with ‹ ›; "Back to current
+    step" returns.
+  - **Reopen** changes its status.
+- **Confirmation only when necessary:**
+  - **Inside the action in progress,** Reopen is immediate and explained ("It
+    is the current step again. Later done steps stay done. Its earlier state
+    is kept in its history."), with Undo; no effort changes.
+  - **For a completed action,** the three-section confirmation and the
+    feasibility re-check remain, because committed effort and the plan
+    change.
+- **The optional Steps panel and More → "All steps…" are removed** (they
+  duplicated the checklist).
 
 ## Spatial decision map (MAP-1)
 

@@ -33,9 +33,26 @@ export function EvidenceSheet({
   awaitingReview: number;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  // EVA-1.1: remember what had focus, and give it back on close.
+  const openerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (open) headingRef.current?.focus();
+    if (open) {
+      openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      headingRef.current?.focus();
+    } else if (openerRef.current?.isConnected) {
+      openerRef.current.focus({ preventScroll: true });
+      openerRef.current = null;
+    }
   }, [open]);
+  // EVA-1.1: Escape closes the sheet wherever focus is (it used to work only with focus inside the sheet).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
   const criterionName = (id: string) => CRITERIA.find((c) => c.id === id)?.name ?? id;
   return (
     <aside
@@ -44,10 +61,8 @@ export function EvidenceSheet({
       aria-labelledby="mg-evidence-title"
       hidden={!open}
       data-testid="mg-evidence-sheet"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
-      className="mg-glass mg-rise fixed inset-y-3 right-3 z-40 flex w-[calc(100%-1.5rem)] flex-col bg-[var(--mg-glass-strong)] sm:w-[34rem]"
+      // On wide screens the sheet starts below the app header, so the header's Evidence toggle stays usable.
+      className="mg-glass mg-rise fixed inset-y-3 right-3 z-40 flex w-[calc(100%-1.5rem)] flex-col bg-[var(--mg-glass-strong)] sm:w-[34rem] lg:top-[4.75rem]"
     >
       <div className="flex items-start justify-between gap-3 border-b border-[var(--mg-line)] px-5 py-4">
         <div>
