@@ -3233,3 +3233,55 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `verify:briefing`: 35 checks, 0 problems;
   - `verify:geo`: 0 problems;
   - `verify:terrain`: the assets match a fresh build.
+
+## SCI-1 v1: review fixes and merge into main
+
+- **Started:** 2026-11-07T19:04:26Z.
+- **Completed:** 2026-11-07T19:15:36Z, at this log commit (pushed right after).
+- **Wall-clock elapsed:** 11 min 10 s. This covers the fixes,
+  the checks and the merge.
+- **Review fixes on `sci1-evidence-v1`:**
+  - `61e4740` changes the wording only:
+    - **Core:** how the carbonate formed (detrital or in situ) is kept
+      separate from the host rock's origin. In-situ carbonate alone favours
+      neither host rock (27-30). The sample-return condition is kept.
+    - **Survey:** "2 of 3 open questions" is marked as a hypothetical result.
+      It applies only if the link is approved and later adopted into scored
+      data; today the count is 1 of 3.
+  - `78edb2a` corrects a count in the report: `verify:citations` covers 156
+    quotes, not 154.
+- **Correction to the SCI-1 v1 entry above:**
+  - It says "20 from the Pelican Point and Comet Geyser initial reports". The
+    correct number is 21: 16 from Comet Geyser and 5 from Pelican Point. The
+    27 total is correct.
+  - It says "`verify:citations`: 154 quotes". That run came before the two
+    Bunsen Peak quotes were added. On the committed data the count is
+    156 = 129 + 27, with 0 problems.
+- **Scope:** `git diff main...` lists only:
+  - the evidence package: the proposals JSON, the schema and tests, two
+    added sources, the report;
+  - its checks: `verify:sci1`, the `verify:citations` collection, the shared
+    PDS helper;
+  - `CLAUDE.md` (one rule) and this log.
+
+  The following are unchanged (the diff is empty): the scored scenario, the
+  review registry (50 pending, 0 approved), `src/lib/decision`, the UI and
+  the other data.
+- **Merge:** `d4b43da2341db19a1e1dba52d0f4eb22cde0d264` (`--no-ff`), from `origin/sci1-evidence-v1` at
+  `78edb2a` into `main` at `556ece2`. The merged tree is identical to
+  `78edb2a`.
+- **Verification:**
+  - **On the final merged tree:**
+    - `npm run check` passes: 277/277;
+    - `verify:sci1`: 27 quotes, 0 problems;
+    - `verify:citations`: 156 quotes, 0 problems.
+  - **On the merged tree of `61e4740`,** which differs from the final tree
+    only in the two count lines of `docs/sci1/SCI1_EVIDENCE_V1.md`:
+    - `npm run check` passes: 277/277;
+    - prototype smoke: 188/188 in two consecutive runs;
+    - research smoke: 120/120 with `SMOKE_LIVE=1`;
+    - `verify:sci1`: 27 quotes, 0 problems;
+    - `verify:citations`: 156 quotes, 0 problems;
+    - `verify:geo`: 0 problems;
+    - `verify:briefing`: 35 checks, 0 problems;
+    - `verify:terrain`: the assets match a fresh build.
