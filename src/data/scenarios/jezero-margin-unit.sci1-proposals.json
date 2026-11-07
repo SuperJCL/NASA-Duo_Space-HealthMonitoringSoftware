@@ -171,9 +171,10 @@
       "quote": "Mineralogy and chemistry are consistent with a sandstone (possibly at least partially altered in-situ), or a heavily altered igneous rock, e.g. a listvenite.",
       "class": "interpretation",
       "about": [
-        "task-abrasion-proximity"
+        "task-abrasion-proximity",
+        "task-core-for-earth"
       ],
-      "summary": "For Comet Geyser, in-situ mineralogy and chemistry did not decide between the two either.",
+      "summary": "For Comet Geyser, in-situ mineralogy and chemistry did not decide between the two either; in-situ alteration is stated as compatible with both host rocks.",
       "report": {
         "pagePrefix": "27",
         "section": "Preliminary Scientific Assessment"
@@ -390,7 +391,7 @@
         "Dusty, minimally layered surfaces may hide structures (ev-pp-dusty-outcrop).",
         "No source places a suitable outcrop at Target A."
       ],
-      "affectsComparison": "Survey's linked open questions would rise from 1 to 2 of 3 if approved, which changes the provisional comparison (SCI-2)."
+      "affectsComparison": "Hypothetical future result, not a current one: only if a reviewer approves this link and SCI-2 later adopts it into the scored data would Survey be linked to 2 of 3 open questions (2025-05-06); today it is linked to 1 of 3. No score is computed here."
     },
     {
       "id": "sci1:hypothesis-support:interp-silica-cemented-sandstone=>hyp-sedimentary",
@@ -501,9 +502,10 @@
         "ev-cg-lab-detrital-or-insitu",
         "ev-cg-carbonate-origin-unknown",
         "ev-cg-lab-two-scenarios",
+        "ev-cg-chemistry-either",
         "ev-nasa-msr-status"
       ],
-      "reasoning": "If returned and studied: detrital carbonate → favours hyp-sedimentary (source-to-sink system); carbonate formed in situ by pervasive water/rock interaction → favours hyp-crystalline-igneous / mineral carbonation. Conditional on return to Earth.",
+      "reasoning": "Conditional on return to Earth. The laboratory test is about how the carbonate formed, which is not the same question as the host rock's origin. Detrital carbonate grains → favours hyp-sedimentary (the source's source-to-sink framing). Carbonate formed in situ → informs the alteration process (e.g. mineral carbonation) but does not by itself favour either host-rock hypothesis: in-situ alteration is stated as compatible with a sandstone as well as an altered igneous rock (ev-cg-chemistry-either).",
       "limitations": [
         "Conditional on sample return, which NASA's page now describes in the past tense (ev-nasa-msr-status).",
         "Three Margin cores already exist and are proposed for the same laboratory questions (ev-cg-three-samples-igneous, ev-pp-geochronology); the added value of a further core is not established.",

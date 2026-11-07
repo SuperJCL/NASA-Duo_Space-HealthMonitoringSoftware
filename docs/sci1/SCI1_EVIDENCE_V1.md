@@ -52,11 +52,11 @@ Page labels below are those printed by `verify:sci1` (report prefix, page).
 | | Survey (`task-standoff-survey`) | Abrade (`task-abrasion-proximity`) | Core (`task-core-for-earth`) |
 |---|---|---|---|
 | **Already done in the Margin unit** | SuperCam and Mastcam-Z at the sampled sites; western Margin outcrops described as lacking clear sedimentary structures (27-2) | Three abrasions: Amherst Point (Pelican Point, sol 915), Bills Bay (Lefroy Bay), Castle Geyser (Comet Geyser, sol 1080), with WATSON, PIXL, SHERLOC, SuperCam | Three cores: Pelican Point (sol 923), Lefroy Bay, Comet Geyser (sol 1088), "the third sample of the Margin campaign" (27-2) |
-| **Possible new output (for review)** | An outcrop-scale record of whether distinctive sedimentary structures are present at Margin outcrops not yet examined: the observation the reports name as missing | Close-up texture and chemistry of a Margin rock expression not yet abraded; the source-named candidate is the lighter-toned low-lying western Margin rock | A sealed core of a Margin rock expression the three cores do not represent, whose carbonate origin (detrital or in situ) Earth laboratories could test **if it is returned** |
-| **Key testable question** | Q-S1: are distinctive sedimentary structures visible at outcrop scale? | Q-B1: does a not-yet-abraded rock expression differ in texture and chemistry from the three abrasions? | Q-C1 (only if returned): is the carbonate detrital or formed in situ? |
-| **Discriminating outcome in the sources?** | Yes, one-sided: structures present → favours sedimentary; absent → favours none | **None yet.** At Comet Geyser, texture and chemistry were each "consistent with" both sandstone and altered igneous rock | Yes, conditional: detrital → sedimentary; in situ → igneous / mineral carbonation |
+| **Possible new output (for review)** | An outcrop-scale record of whether distinctive sedimentary structures are present at Margin outcrops not yet examined: the observation the reports name as missing | Close-up texture and chemistry of a Margin rock expression not yet abraded; the source-named candidate is the lighter-toned low-lying western Margin rock | A sealed core of a Margin rock expression the three cores do not represent, in which Earth laboratories could test how the carbonate formed (detrital or in situ) **if it is returned** |
+| **Key testable question** | Q-S1: are distinctive sedimentary structures visible at outcrop scale? | Q-B1: does a not-yet-abraded rock expression differ in texture and chemistry from the three abrasions? | Q-C1 (only if returned): did the carbonate form as detrital grains or in situ? (carbonate process, not host-rock origin) |
+| **Discriminating outcome in the sources?** | Yes, one-sided: structures present → favours sedimentary; absent → favours none | **None yet.** At Comet Geyser, texture and chemistry were each "consistent with" both sandstone and altered igneous rock | Only if returned, and one-sided: detrital carbonate → favours a sedimentary host; in-situ carbonate → informs the alteration process, not the host-rock origin |
 | **Biggest missing evidence** | Any geology at Target A; whether later observations already found structures | A reviewer-defined discriminating outcome; whether the lighter-toned rocks were abraded after Comet Geyser | Sample-return status beyond the page wording; tube availability; why a fourth core adds to the three |
-| **Effect on the comparison if approved (SCI-2 computes)** | New link to `gap-sedimentary-or-igneous`: Survey would be linked to 2 of 3 open questions instead of 1 | A pivotal existing link (`→ gap-lake-connection`) is flagged for revision | Its lab-dependent value would carry an explicit condition |
+| **Effect on the comparison if approved (SCI-2 computes)** | New link to `gap-sedimentary-or-igneous`. **Hypothetical, not current:** only if this link is approved and later adopted into the scored data (SCI-2) would Survey be linked to 2 of 3 open questions; today 1 of 3 | A pivotal existing link (`→ gap-lake-connection`) is flagged for revision | Its lab-dependent value would carry an explicit condition |
 
 ## 2. Survey (stand-off)
 
@@ -206,8 +206,8 @@ low-lying western rocks. What those rocks are is not established here.
 ### Possible new output
 
 A sealed core of a Margin rock expression that the three cores do not
-represent. Its carbonate origin could be tested in Earth laboratories, but
-only if the core is returned:
+represent. How its carbonate formed could be tested in Earth laboratories,
+but only if the core is returned:
 
 > "the origin of the carbonate, whether detrital grains or the result of in
 > situ alteration, is still unknown." (Comet Geyser, Returned Sample Science
@@ -218,11 +218,18 @@ only if the core is returned:
 
 ### Testable questions
 
-- **Q-C1 (only if returned).** Is the carbonate detrital or formed in situ?
-  - Detrital → favours `hyp-sedimentary` (a source-to-sink system).
-  - In situ, by "pervasive water/rock interaction leading to extensive
-    mineral carbonation likely in a subsurface environment" (27-31) →
-    favours `hyp-crystalline-igneous` / `interp-mineral-carbonation`.
+- **Q-C1 (only if returned).** Did the carbonate form as detrital grains or
+  in situ? This is a question about the **carbonate's formation process**,
+  not directly about the **host rock's origin** (sedimentary or igneous).
+  - Detrital carbonate grains → favours `hyp-sedimentary` (the source frames
+    this as "a source-to-sink sedimentary system").
+  - Carbonate formed in situ → informs the alteration process, for example
+    "pervasive water/rock interaction leading to extensive mineral
+    carbonation likely in a subsurface environment" (27-31). **On its own it
+    does not favour either host rock.** In-situ alteration is stated as
+    compatible with both: "consistent with a sandstone (possibly at least
+    partially altered in-situ), or a heavily altered igneous rock" (27-30).
+    The host rock's origin needs its own evidence.
 - **Q-C2 (before coring, in situ).** Does Target C sample a rock expression
   the three cores do not represent? This decides whether a fourth core adds
   to what the three already offer.
@@ -262,10 +269,10 @@ order is by expected effect on the three-way comparison.
 
 | # | Proposal | Why it matters for the comparison |
 |---|---|---|
-| 1 | `sci1:task-gap:task-standoff-survey->gap-sedimentary-or-igneous` | Survey's best source-supported question is unlinked today (SCI-0 I10). If approved, Survey would be linked to 2 of 3 open questions instead of 1. |
+| 1 | `sci1:task-gap:task-standoff-survey->gap-sedimentary-or-igneous` | Survey's best source-supported question is unlinked today (SCI-0 I10): Survey is linked to 1 of 3 open questions. **Hypothetical future result:** only if a reviewer approves this link and SCI-2 adopts it into the scored data would Survey be linked to 2 of 3. No score is computed here. |
 | 2 | `sci1:review-note:task-gap:task-abrasion-proximity->gap-lake-connection` | This existing link is individually pivotal for #1 (SCI-0). No source here supports it. Suggests "Consider needs_revision" to the reviewer. |
 | 3 | `sci1:review-note:task-gap:task-standoff-survey->gap-formation-unknown` | A loose "input to" link that counts in Survey's score. Suggests "Consider needs_revision"; proposal 1 is the sourced route. |
-| 4 | `sci1:discrimination:task-standoff-survey`, `…:task-abrasion-proximity`, `…:task-core-for-earth` | Hypothesis discrimination is Not Evaluated for all three today (SCI-0 I7). Survey and Core get sourced outcomes. Abrade gets an explicit "no source-supported outcome yet", which is not "no value". |
+| 4 | `sci1:discrimination:task-standoff-survey`, `…:task-abrasion-proximity`, `…:task-core-for-earth` | Hypothesis discrimination is Not Evaluated for all three today (SCI-0 I7). Survey and Core get sourced, one-sided outcomes (Core only if returned). Abrade gets an explicit "no source-supported outcome yet", which is not "no value". |
 | 5 | `sci1:hypothesis-support:interp-silica-cemented-sandstone=>hyp-sedimentary`, `…:interp-altered-igneous=>hyp-crystalline-igneous` | Evidence quality is identical (1.0) for all three because only orbital data are linked to the hypotheses (SCI-0 I4, I6). **A new relationship type: needs a schema change in SCI-2.** |
 | 6 | `sci1:assumption:asm-sample-return` | Core's lab value rests on this condition; the display should carry it (SCI-0 I14, I15). |
 | 7 | `sci1:assumption:asm-instrument-capability` | Replaces an uncited MDI summary with NASA's descriptions (SCI-0 I13). No score effect. |
