@@ -3381,3 +3381,62 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `verify:geo`: 0 problems.
   - `verify:briefing`: 35 checks, 0 problems.
   - `verify:terrain`: the assets match a fresh build.
+
+## Replan change summary (Replanning panel), for review
+
+- **Branch:** `replan-change-summary`, from `main` `23f1e5c`. Not merged.
+- **Started:** 2026-11-07T19:49:08Z.
+- **Completed:** 2026-11-07T20:07:07Z, at this commit (pushed right after).
+- **Wall-clock elapsed:** 17 min 59 s.
+- **What changed (the existing Replanning dialog only):**
+  - **Budget:** the dialog shows "Budget: 100 pts → 50 pts", from the
+    proposal's trigger.
+  - **Remaining actions:** it names those affected (too large now, or no
+    longer fitting after earlier actions) and those that still fit, from the
+    proposal's existing verdicts.
+  - **Ties:**
+    - The proposal now carries the engine's exact provisional totals, from
+      the same result as the order. Mission Glass passes them with
+      `constraint-event` and `recheck`.
+    - Ties are groups with exactly equal totals, which is the engine's own
+      tie condition.
+    - The summary states the tie, the engine's tie-break (lower simulated
+      cost first) and "not a scientific preference".
+    - At 100 → 50 pts: survey and abrasion tie at 0.6285714285714286, shown
+      as "63 of 100"; coring is over budget.
+  - **Decision:**
+    - The two immediate buttons are replaced by a choice ("Use suggested
+      plan" or "Keep current plan") and one Confirm button.
+    - After a choice, the summary next to Confirm shows the actions kept and
+      removed, the effort left (or the overrun) and the new order if it
+      changes.
+    - Nothing is applied before Confirm, and Confirm is disabled until a
+      choice is made.
+    - `accept-replan`, `keep-plan`, `undo-replan`, completed steps, the
+      no-dismiss rule and the focus trap are unchanged.
+- **Unchanged:**
+  - `src/data`, `src/lib/decision` and `src/lib/evidence`: the diff against
+    `main` is empty.
+  - The A1–A4 engine probe output is byte-identical to `main`: scores,
+    ranks, margins, feasibility, unreviewed and pivotal inputs, all 50
+    registry states (pending), and every view text.
+- **Tests:**
+  - 5 new unit tests use the real engine and data:
+    - 100 → 50 with the suggested plan;
+    - the preview equals the applied change, and Undo restores the plan;
+    - with both tied actions in the plan, the tie-break decides which one is
+      dropped;
+    - a new order at 100 pts;
+    - exact-equality ties.
+  - The smoke test now chooses, then confirms (`decide`).
+  - A new acceptance flow runs at desktop (1440×900) and phone (390×844,
+    touch) sizes: create plan → enter EVA → budget drop → summary → choose →
+    (screenshot) → Confirm → Undo.
+- **Verification:**
+  - `npm run check` passes: 282/282;
+  - prototype smoke: 207/207 in two consecutive runs;
+  - research smoke: 120/120 with `SMOKE_LIVE=1`.
+- **Observation (existing behaviour, not changed):** on a phone, after
+  Confirm the page keeps its scroll position. The scenario controls sit
+  below the HUD, so the notice with Undo is above the viewport and is
+  reached by scrolling up. The HUD is not changed by this branch.

@@ -75,7 +75,8 @@ The module is pure: no React and no OpenLayers. It has 17 unit tests, plus
   - `replan`: an MG-3 `ReplanProposal` (`trigger`, `committed`,
     `available`, `remainingNeed`, per-action `impact` with a verdict and a
     plain-language explanation, `current` and `suggested` options,
-    `noFeasible`, `reason`);
+    `noFeasible`, `reason`, and `ties`: groups of actions the engine scores
+    exactly equal at the available effort, read from the engine's result);
   - `retained` (set when the user keeps a plan that exceeds the available
     effort);
   - `previous` (the plan before the last accepted replan, for Undo; cleared
@@ -108,6 +109,21 @@ The module is pure: no React and no OpenLayers. It has 17 unit tests, plus
   - **No feasible alternative:** when no remaining action fits, the options
     are "End remaining work" (remaining actions marked skipped) or keeping
     the plan anyway.
+  - **Change summary (`replanAffected`, `engineTies`,
+    `replanChoiceOutcome`):** presentation only. It computes no score and
+    changes no order.
+    - The old and new budget.
+    - The remaining actions affected (from the proposal's verdicts) and those
+      that still fit.
+    - Any tie in the engine's provisional scores that involves the remaining
+      plan. A tie means exact equality of the engine's totals, which is the
+      engine's own tie condition. The engine's tie-break is stated: lower
+      simulated cost first, then task id. It is labelled "a tie-break, not a
+      scientific preference".
+    - For the chosen option: the actions kept and removed, the effort left
+      (or the overrun), and the new order if it changes. This is plan
+      arithmetic on the proposal; `accept-replan` applies exactly this, and a
+      unit test checks that they agree.
 
 **Reused, unchanged:**
 - **Engine and evidence:** `lib/decision` (engine, review modes),
@@ -385,8 +401,13 @@ checks):
   - constraint changed;
   - committed / available / estimated remaining;
   - impact on each action;
+  - the change summary: budget from → to, the remaining actions affected,
+    and any engine tie;
   - the suggested option vs keeping the current plan;
-  - an always-visible decision footer.
+  - an always-visible decision footer: choose an option, see what it keeps
+    and removes, the effort left and any new order, then confirm. Nothing is
+    applied before Confirm, and Confirm is disabled until an option is
+    chosen.
 
   Escape does not dismiss it, and Tab stays inside. After the decision:
   an Undo notice, or a retained-infeasible warning. The no-feasible state is

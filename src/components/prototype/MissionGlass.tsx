@@ -211,6 +211,8 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   };
   const picked = verifiedPick ? features.find((f) => f.id === verifiedPick) : undefined;
 
+  /** The engine's provisional total per ranked task, read from the same result as the order (replan change summary). */
+  const engineScores = (at: ReturnType<typeof engineAt>) => Object.fromEntries(at.provisional.recommendation.ranking.map((r) => [r.taskId, r.total]));
   /** A constraint change (or a re-check): the engine's provisional order at the newly available effort. */
   const checkConstraints = (budget: number, label: string) => {
     const at = engineAt(Math.max(0, budget - consumed));
@@ -219,6 +221,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
       budget,
       label,
       rankedTaskIds: at.views.filter((v) => v.rank !== null).map((v) => v.taskId),
+      scores: engineScores(at),
       costs,
       stepsByTask,
       titles: Object.fromEntries(planning.views.map((v) => [v.taskId, v.shortTitle])),
@@ -621,7 +624,15 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
             // with the existing engine at the effort available after the release.
             if (wasDone) {
               const at = engineAt(Math.max(0, state.budget - (consumed - (costs[taskId] ?? 0))));
-              dispatch({ type: "recheck", label: `Reopened: ${titles[taskId] ?? taskId}`, rankedTaskIds: at.views.filter((v) => v.rank !== null).map((v) => v.taskId), costs, stepsByTask, titles });
+              dispatch({
+                type: "recheck",
+                label: `Reopened: ${titles[taskId] ?? taskId}`,
+                rankedTaskIds: at.views.filter((v) => v.rank !== null).map((v) => v.taskId),
+                scores: engineScores(at),
+                costs,
+                stepsByTask,
+                titles,
+              });
             }
           }}
           onSetSkipReason={(index, reason) => dispatch({ type: "set-skip-reason", stepsByTask, index, reason })}

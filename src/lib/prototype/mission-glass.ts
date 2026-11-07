@@ -277,6 +277,20 @@ function withStep(item: PlanItem, count: number, index: number, record: StepReco
 }
 /** MG-3: what a constraint change does to each action of the plan. */
 export type ImpactVerdict = "kept-done" | "fits" | "no-longer-fits" | "too-large";
+/**
+ * Replan change summary: actions that the existing engine scores exactly
+ * equal at the newly available effort (the same condition under which the
+ * engine falls back to its tie-break). Read from the engine's result; never
+ * computed or adjusted here.
+ */
+export type ReplanTie = {
+  /** In the engine's order. */
+  taskIds: string[];
+  /** The shared provisional score as shown elsewhere (total × 100, rounded). */
+  scorePct: number;
+  /** The engine's tie-break: lower simulated cost first ("cost"); equal costs fall back to the task id ("cost-then-id"). */
+  orderedBy: "cost" | "cost-then-id";
+};
 export type ReplanProposal = {
   trigger: { label: string; from: number; to: number };
   /** Effort of completed actions: already spent, never replanned. */
@@ -291,6 +305,8 @@ export type ReplanProposal = {
   /** Remaining work exists, but no remaining action fits the available effort. */
   noFeasible: boolean;
   reason: string;
+  /** Ties in the engine's provisional scores at the available effort (empty when no scores were given). */
+  ties: ReplanTie[];
 };
 
 export type MissionState = {
@@ -340,7 +356,16 @@ export type MissionAction =
    * and only asks for a decision if the remaining plan no longer fits or the
    * engine's order changed.
    */
-  | { type: "recheck"; label: string; rankedTaskIds: string[]; costs: Record<string, number>; stepsByTask: Record<string, number>; titles?: Record<string, string> }
+  | {
+      type: "recheck";
+      label: string;
+      rankedTaskIds: string[];
+      /** The engine's provisional total per ranked task, from the same result as rankedTaskIds. */
+      scores?: Record<string, number>;
+      costs: Record<string, number>;
+      stepsByTask: Record<string, number>;
+      titles?: Record<string, string>;
+    }
   | { type: "skip-task"; reason?: string }
   | {
       type: "constraint-event";
@@ -348,6 +373,8 @@ export type MissionAction =
       label: string;
       /** The existing engine's provisional order at the newly available effort. */
       rankedTaskIds: string[];
+      /** The engine's provisional total per ranked task, from the same result as rankedTaskIds. */
+      scores?: Record<string, number>;
       costs: Record<string, number>;
       stepsByTask: Record<string, number>;
       titles?: Record<string, string>;
@@ -467,11 +494,13 @@ export function buildProposal(args: {
   to: number;
   label: string;
   rankedTaskIds: readonly string[];
+  /** The engine's provisional total per ranked task (for the tie report only; never changes the order). */
+  scores?: Record<string, number>;
   costs: Record<string, number>;
   stepsByTask: Record<string, number>;
   titles?: Record<string, string>;
 }): ReplanProposal {
-  const { items, from, to, label, rankedTaskIds, costs, stepsByTask, titles = {} } = args;
+  const { items, from, to, label, rankedTaskIds, scores, costs, stepsByTask, titles = {} } = args;
   const name = (id: string) => titles[id] ?? id;
   const committed = items.filter((i) => i.status === "done").reduce((s, i) => s + (costs[i.taskId] ?? 0), 0);
   const available = to - committed;
@@ -526,6 +555,64 @@ export function buildProposal(args: {
     suggested: { order, total: sumCost(order, costs), dropped },
     noFeasible,
     reason,
+    ties: engineTies(rankedTaskIds, scores, costs),
+  };
+}
+
+/**
+ * Groups of ranked tasks with exactly the same provisional total, in the
+ * engine's order. Exact equality is the engine's own tie condition (it sorts
+ * by total, then by resource feasibility, i.e. lower simulated cost, then by id).
+ */
+export function engineTies(rankedTaskIds: readonly string[], scores: Record<string, number> | undefined, costs: Record<string, number>): ReplanTie[] {
+  if (!scores) return [];
+  const groups = new Map<number, string[]>();
+  for (const id of rankedTaskIds) {
+    const total = scores[id];
+    if (total === undefined) continue;
+    groups.set(total, [...(groups.get(total) ?? []), id]);
+  }
+  return [...groups.entries()]
+    .filter(([, ids]) => ids.length > 1)
+    .map(([total, ids]) => ({
+      taskIds: ids,
+      scorePct: Math.round(total * 100),
+      orderedBy: ids.every((id, n) => n === 0 || costs[ids[n - 1]] !== costs[id]) ? ("cost" as const) : ("cost-then-id" as const),
+    }));
+}
+
+/** Remaining actions of a proposal, split by what the constraint change does to them (from the proposal's own verdicts). */
+export function replanAffected(p: Pick<ReplanProposal, "impact">): {
+  affected: { taskId: string; cost: number; verdict: "too-large" | "no-longer-fits" }[];
+  stillFits: { taskId: string; cost: number }[];
+} {
+  const live = p.impact.filter((i) => i.status === "planned" || i.status === "active");
+  return {
+    affected: live.flatMap((i) => (i.verdict === "too-large" || i.verdict === "no-longer-fits" ? [{ taskId: i.taskId, cost: i.cost, verdict: i.verdict }] : [])),
+    stillFits: live.filter((i) => i.verdict === "fits").map((i) => ({ taskId: i.taskId, cost: i.cost })),
+  };
+}
+
+export type ReplanChoice = "suggested" | "current";
+
+/**
+ * What confirming an option would do to the remaining work: the actions kept
+ * (in their new order) and removed, the effort left afterwards (negative when
+ * the kept work exceeds what is available), and whether the order changes.
+ * Plan arithmetic on the proposal only; nothing is applied until confirmed.
+ */
+export function replanChoiceOutcome(
+  p: Pick<ReplanProposal, "available" | "current" | "suggested">,
+  choice: ReplanChoice,
+): { kept: string[]; removed: string[]; total: number; left: number; orderChanged: boolean } {
+  if (choice === "current") return { kept: [...p.current.order], removed: [], total: p.current.total, left: p.available - p.current.total, orderChanged: false };
+  const before = p.current.order.filter((id) => p.suggested.order.includes(id));
+  return {
+    kept: [...p.suggested.order],
+    removed: [...p.suggested.dropped],
+    total: p.suggested.total,
+    left: p.available - p.suggested.total,
+    orderChanged: JSON.stringify(before) !== JSON.stringify(p.suggested.order),
   };
 }
 
@@ -726,6 +813,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
         to: state.budget,
         label: action.label,
         rankedTaskIds: action.rankedTaskIds,
+        scores: action.scores,
         costs: action.costs,
         stepsByTask: action.stepsByTask,
         titles: action.titles,
@@ -769,6 +857,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
         to: action.budget,
         label: action.label,
         rankedTaskIds: action.rankedTaskIds,
+        scores: action.scores,
         costs: action.costs,
         stepsByTask: action.stepsByTask,
         titles: action.titles,

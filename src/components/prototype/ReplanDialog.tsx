@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import type { ImpactVerdict, ReplanProposal, TaskView } from "@/lib/prototype/mission-glass";
+import { useEffect, useRef, useState } from "react";
+import { replanAffected, replanChoiceOutcome, type ImpactVerdict, type ReplanChoice, type ReplanProposal, type TaskView } from "@/lib/prototype/mission-glass";
 import type { MissionSequence } from "@/lib/prototype/mission-sequence";
 import { SequenceDiagram } from "./SequenceViews";
 
@@ -12,11 +12,20 @@ const VERDICT: Record<ImpactVerdict, { label: string; tone: string }> = {
   "too-large": { label: "Too large now", tone: "text-[var(--mg-caution)]" },
 };
 
+/** "A, B and C" */
+const listText = (names: string[]) => (names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
+
 /**
  * MG-3 replanning: Constraint changed → Explain impact → Compare options →
- * Confirm or retain. A modal alert dialog fixed in the viewport: the decision
+ * Choose → Confirm. A modal alert dialog fixed in the viewport: the decision
  * footer is always visible, never below the fold. There is no dismiss-without-
  * deciding (Escape does nothing); both options are explicit and logged.
+ *
+ * Replan change summary: the old and new budget, which remaining actions are
+ * affected, and any tie in the engine's provisional scores (read from the
+ * engine's result). Choosing an option only previews it next to the confirm
+ * button (kept and removed actions, effort left, new order); nothing is
+ * applied until the user confirms.
  */
 export function ReplanDialog({
   proposal,
@@ -58,10 +67,22 @@ export function ReplanDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const [choice, setChoice] = useState<ReplanChoice | null>(null);
   const p = proposal;
   const name = (id: string) => viewById.get(id)?.shortTitle ?? id;
-  const cost = (id: string) => p.impact.find((i) => i.taskId === id)?.cost ?? 0;
+  const cost = (id: string) => p.impact.find((i) => i.taskId === id)?.cost ?? viewById.get(id)?.cost ?? 0;
   const over = p.current.overBy > 0;
+  const live = new Set(p.current.order);
+  const { affected, stillFits } = replanAffected(p);
+  // Only ties that involve the remaining plan are relevant here.
+  const ties = p.ties.filter((t) => t.taskIds.some((id) => live.has(id)));
+  const outcome = choice ? replanChoiceOutcome(p, choice) : null;
+  const doneCount = p.impact.filter((i) => i.status === "done").length;
+  const withCosts = (ids: string[]) => ids.map((id) => `${name(id)} (${cost(id)} pts)`).join(", ");
+  const choiceLabel: Record<ReplanChoice, string> = {
+    suggested: p.noFeasible ? "End remaining work" : "Use suggested plan",
+    current: over ? "Keep current plan anyway" : "Keep current plan",
+  };
 
   return (
     <div className="fixed inset-0 z-40 flex items-start justify-center bg-[rgba(8,12,20,0.62)] p-3 sm:items-center">
@@ -85,6 +106,39 @@ export function ReplanDialog({
           <p id="mg-replan-reason" className="mt-1 text-[16px] text-[var(--mg-dim)]">
             {p.reason}
           </p>
+
+          {/* Change summary: old and new budget, the remaining actions affected, engine ties. */}
+          <div className="mt-3 rounded-xl border border-[var(--mg-line-strong)] bg-[var(--mg-surface)] p-3" data-testid="mg-replan-summary">
+            <p className="text-[17px] font-semibold" data-testid="mg-replan-budget-change">
+              {p.trigger.from === p.trigger.to ? `Budget unchanged: ${p.trigger.to} pts` : `Budget: ${p.trigger.from} pts → ${p.trigger.to} pts`}
+            </p>
+            <ul className="mt-1.5 space-y-1 text-[15px]" data-testid="mg-replan-affected">
+              {affected.map((a) => (
+                <li key={a.taskId} data-task={a.taskId} data-effect={a.verdict}>
+                  <span className="font-medium text-[var(--mg-caution)]">{"Affected: "}</span>
+                  {a.verdict === "too-large"
+                    ? `${name(a.taskId)} needs ${a.cost} pts, more than the ${p.available} pts now available.`
+                    : `${name(a.taskId)} (${a.cost} pts) no longer fits after the actions before it.`}
+                </li>
+              ))}
+              {stillFits.length ? (
+                <li data-effect="fits">
+                  <span className="font-medium">{"Still fits: "}</span>
+                  {withCosts(stillFits.map((x) => x.taskId))}
+                  {"."}
+                </li>
+              ) : null}
+              {!affected.length && !stillFits.length ? <li>{"No remaining actions."}</li> : null}
+            </ul>
+            {ties.map((t) => {
+              const outside = t.taskIds.filter((id) => !live.has(id));
+              return (
+                <p key={t.taskIds.join()} className="mt-2 text-[14px] text-[var(--mg-dim)]" data-testid="mg-replan-tie" data-tasks={t.taskIds.join(" ")}>
+                  {`Tied at the current provisional score: ${listText(t.taskIds.map(name))} (${t.scorePct} of 100 each at ${p.available} pts). The engine lists ${name(t.taskIds[0])} first because its simulated cost is lower${t.orderedBy === "cost-then-id" ? " (equal costs keep a fixed order)" : ""}. This is a tie-break, not a scientific preference.${outside.length ? ` ${listText(outside.map(name))} ${outside.length === 1 ? "is" : "are"} not in your plan.` : ""}`}
+                </p>
+              );
+            })}
+          </div>
 
           {/* Committed vs estimated */}
           <dl className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-[var(--mg-line)] p-3 text-center" data-testid="mg-replan-resources">
@@ -124,7 +178,7 @@ export function ReplanDialog({
           {/* 3. Compare options (remaining work only) */}
           <h3 className="mt-4 text-[13px] uppercase tracking-[0.12em] text-[var(--mg-faint)]">{"Options for the remaining work"}</h3>
           <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
-            <div className="rounded-xl border border-[var(--mg-coral)] p-3" data-testid="mg-option-suggested">
+            <div className={`rounded-xl border p-3 ${choice === "suggested" ? "border-2 border-[var(--mg-coral)]" : "border-[var(--mg-line)]"}`} data-testid="mg-option-suggested" data-chosen={choice === "suggested"}>
               {p.noFeasible ? (
                 <>
                   <p className="font-semibold">{"No feasible alternative"}</p>
@@ -152,7 +206,7 @@ export function ReplanDialog({
                 </>
               )}
             </div>
-            <div className="rounded-xl border border-[var(--mg-line)] p-3" data-testid="mg-option-current">
+            <div className={`rounded-xl border p-3 ${choice === "current" ? "border-2 border-[var(--mg-coral)]" : "border-[var(--mg-line)]"}`} data-testid="mg-option-current" data-chosen={choice === "current"}>
               <p className="font-semibold">{"Keep current plan"}</p>
               <ol className="mt-1 list-decimal pl-5 text-[15px]">
                 {p.current.order.map((id) => (
@@ -167,14 +221,66 @@ export function ReplanDialog({
           </div>
         </div>
 
-        {/* 4. Confirm or retain: always visible. */}
-        <div className="flex flex-col-reverse gap-2 border-t border-[var(--mg-line)] p-4 sm:flex-row sm:items-center sm:justify-end" data-testid="mg-replan-actions">
-          <button type="button" onClick={onKeep} className="min-h-12 w-full rounded-xl border border-[var(--mg-line-strong)] px-5 text-[16px] sm:w-auto" data-testid="mg-keep-plan">
-            {over ? "Keep current plan anyway" : "Keep current plan"}
-          </button>
-          <button type="button" onClick={onAccept} className="min-h-12 w-full rounded-xl bg-[var(--mg-coral)] px-6 text-[16px] font-semibold text-[#1a0f0c] sm:w-auto" data-testid="mg-accept-replan">
-            {p.noFeasible ? "End remaining work" : "Use suggested plan"}
-          </button>
+        {/* 4. Choose, see what changes, then confirm: always visible. */}
+        <div className="border-t border-[var(--mg-line)] p-3 sm:p-4" data-testid="mg-replan-actions">
+          <div role="radiogroup" aria-label="Choose how to continue" className="grid grid-cols-2 gap-2">
+            {(["suggested", "current"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                role="radio"
+                aria-checked={choice === c}
+                onClick={() => setChoice(c)}
+                className={`min-h-12 rounded-xl border px-3 text-[15px] leading-tight ${choice === c ? "border-2 border-[var(--mg-coral)] bg-[var(--mg-surface)] font-semibold" : "border-[var(--mg-line-strong)]"}`}
+                data-testid={c === "suggested" ? "mg-choose-suggested" : "mg-choose-current"}
+              >
+                {choiceLabel[c]}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0 text-[14px] leading-snug" aria-live="polite" data-testid="mg-replan-selection" data-choice={choice ?? ""}>
+              {outcome ? (
+                <>
+                  <p data-testid="mg-replan-kept">
+                    <span className="font-medium">{"Keeps: "}</span>
+                    {outcome.kept.length ? withCosts(outcome.kept) : "none"}
+                    {"."}
+                  </p>
+                  <p data-testid="mg-replan-removed">
+                    <span className="font-medium">{"Removes: "}</span>
+                    {outcome.removed.length ? `${withCosts(outcome.removed)}, kept in the plan as "dropped by replan" (Undo is offered after confirming).` : "none."}
+                  </p>
+                  <p data-testid="mg-replan-left" className={outcome.left < 0 ? "text-[var(--mg-caution)]" : ""}>
+                    <span className="font-medium">{"After the change: "}</span>
+                    {outcome.left < 0 ? `${-outcome.left} pts over the ${p.available} pts available.` : `${outcome.left} of ${p.available} pts left.`}
+                  </p>
+                  <p data-testid="mg-replan-order">
+                    {outcome.orderChanged ? (
+                      <>
+                        <span className="font-medium">{"New order: "}</span>
+                        {outcome.kept.map((id, n) => `${n + 1}. ${name(id)}`).join(" → ")}
+                      </>
+                    ) : (
+                      "Order unchanged."
+                    )}
+                    {doneCount ? ` Completed actions (${doneCount}) are not changed.` : ""}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[var(--mg-dim)]">{"Choose an option to see what it keeps and removes. Nothing changes until you confirm."}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={!choice}
+              onClick={() => (choice === "suggested" ? onAccept() : choice === "current" ? onKeep() : undefined)}
+              className="min-h-12 w-full shrink-0 rounded-xl bg-[var(--mg-coral)] px-6 text-[16px] font-semibold text-[#1a0f0c] disabled:opacity-40 sm:w-auto"
+              data-testid="mg-confirm-replan"
+            >
+              {choice === "suggested" ? (p.noFeasible ? "Confirm: end remaining work" : "Confirm: use suggested plan") : choice === "current" ? "Confirm: keep current plan" : "Confirm"}
+            </button>
+          </div>
         </div>
       </section>
     </div>
