@@ -3172,3 +3172,22 @@ unchanged, and `verify:terrain` still matches a fresh build.
      - Screenshots of the card, the evidence sheet, the research
        recommendation and the gap card were reviewed.
 - **Rework:** none.
+
+## A1–A4 merge into main
+
+- **Started:** 2026-11-07T18:31:42Z.
+- **Completed:** 2026-11-07T18:38:59Z, at this log commit (pushed right after).
+- **Wall-clock elapsed:** 7 min 17 s.
+- **Merge:** `d19ede86815234863ff5b7f47f77b2822910bc20` (`--no-ff`).
+  - `origin/a1-a4-scientific-wording` was `1475952` and `origin/main` was
+    `ffb9f4c`, both unchanged since acceptance.
+  - The merged tree is identical to `1475952`.
+  - `src/data` and `criteria.ts` are unchanged.
+- **Verification of the merged production build:**
+  - `npm run check` passes, 272/272 unit tests;
+  - prototype smoke: 188/188 in two consecutive runs;
+  - research smoke: 120/120 with `SMOKE_LIVE=1`;
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:terrain`: the assets match a fresh build.
