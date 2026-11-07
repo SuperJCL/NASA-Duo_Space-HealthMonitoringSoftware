@@ -3440,3 +3440,23 @@ unchanged, and `verify:terrain` still matches a fresh build.
   Confirm the page keeps its scroll position. The scenario controls sit
   below the HUD, so the notice with Undo is above the viewport and is
   reached by scrolling up. The HUD is not changed by this branch.
+
+## Replan change summary merge into main
+
+- **Started:** 2026-11-07T21:06:36Z.
+- **Completed:** 2026-11-07T21:14:58Z, at this log commit (pushed right after).
+- **Wall-clock elapsed:** 8 min 22 s.
+- **Merge:** `8434375320d6449b395c8b34beab19c879adf4f4` (`--no-ff`).
+  - `origin/replan-change-summary` was `3619577` and `origin/main` was
+    `23f1e5c`, both unchanged since review.
+  - The merged tree is identical to `3619577`.
+  - `src/data`, `src/lib/decision` and `src/lib/evidence` are unchanged.
+- **Verification of the merged production build:**
+  - `npm run check` passes: 282/282;
+  - prototype smoke: 207/207 in two consecutive runs;
+  - research smoke: 120/120 with `SMOKE_LIVE=1`;
+  - `verify:citations`: 156 quotes, 0 problems;
+  - `verify:sci1`: 27 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:terrain`: the assets match a fresh build.
