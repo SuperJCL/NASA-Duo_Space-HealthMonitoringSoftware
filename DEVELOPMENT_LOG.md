@@ -3504,7 +3504,7 @@ unchanged, and `verify:terrain` still matches a fresh build.
 - **Verification:**
   - `npm run check` passes: 289/289, with 7 new tests (comparison) and one
     updated isolation test;
-  - prototype smoke: 228/228 in two runs, with 20 new comparison checks at
-    desktop 1440×900 and phone 390×844;
+  - prototype smoke: 228/228 in two runs, with 21 new comparison checks:
+    10 at desktop 1440×900 and 11 at phone 390×844;
   - research smoke: 120/120 with `SMOKE_LIVE=1`;
   - `verify:sci1`: 27 quotes, 0 problems.
