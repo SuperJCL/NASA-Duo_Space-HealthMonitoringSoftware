@@ -3002,3 +3002,50 @@ unchanged, and `verify:terrain` still matches a fresh build.
   `itemsAfterReplan` in `src/lib/prototype/mission-glass.ts`; all
   replanning tests are unchanged and pass.
 - **Rework:** none.
+
+## SCI-0: scenario evidence audit (docs only)
+
+- **Branch:** `sci0-scenario-evidence-audit`, created from `main`
+  (`6fd4222`). Docs only; not merged.
+- **Started:** 2026-11-07T00:40:42Z.
+- **Completed:** 2026-11-07T00:47:14Z, at this commit.
+- **Wall-clock elapsed:** 6 min 32 s. One agent, no parallel work, no human
+  intervention.
+- **Deliverable:** `docs/SCI0_SCENARIO_EVIDENCE_CONTRACT.md` (Scenario
+  Evidence Contract, plus a display-safety summary). The R4 row in
+  `docs/EVIDENCE_CURATION.md` now points to it.
+- **Method:**
+  - read the evidence scenario, the review registry, the sources, the
+    Lefroy Bay briefing, the geo records, the mission framing, the Mission
+    Glass scenario and the rank wording in the UI;
+  - ran a read-only probe of the existing engine at 2025-05-06 and
+    2023-09-08, at 100 and 50 pts, from a temporary test file deleted
+    before commit. `git diff main -- src scripts public` is empty.
+- **Main findings:**
+  - **The provisional order rests on two inputs only:** AI-drafted, pending
+    task–gap links and simulated costs (2025-05-06, 100 pts: Abrade 0.743,
+    Core 0.700, Survey 0.671).
+  - **The science criteria carry no information:** discrimination and
+    priority are Not Evaluated, and evidence quality is identical for all
+    three actions.
+  - **The lead is fragile:** three unreviewed inputs are each pivotal, and
+    at 50 pts Survey and Abrade tie.
+  - **The reviewed ranking is unavailable:** 50 relationships are pending.
+  - **All three action types repeat operations already performed in the
+    unit** (three Margin cores, several abrasions, stand-off analyses).
+  - **The targets are scenario-defined points** 118–163 m from the verified
+    Lefroy Bay site.
+  - **Evidence quality's "best existing support: orbital"** misrepresents
+    the present-day dataset.
+- **Verification:**
+  - `npm run check` passes (268/268 unit tests);
+  - no application code, data, review status or formula changed; the
+    review registry is 50 pending, 0 approved.
+- **Rework:** one wording correction. The draft said the UI states the
+  inferred coordinate convention for sample sites; only the 2D map's dashed
+  ring and `docs/GEO_DATA.md` were confirmed, so the text now says that.
+- **Limitations of the audit:**
+  - It used only the dataset's verified sources; no new sources were
+    fetched, and R1 and R2 remain blocked.
+  - The proposed objective and the SCI-1/SCI-2 recommendations are the
+    agent's drafts and await scientific review.
