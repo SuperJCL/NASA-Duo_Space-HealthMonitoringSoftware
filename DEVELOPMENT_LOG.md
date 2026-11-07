@@ -2971,3 +2971,34 @@ unchanged, and `verify:terrain` still matches a fresh build.
   (MAP-1).
 - **Test environment:** headless Chromium with software WebGL; no user
   testing yet.
+
+## Phase A: MAP-2 integration into main
+
+- **Context:** manual acceptance: mission plan synchronization, 2D/3D
+  synchronization, EVA execution states, replanning synchronization and
+  spatial analysis all PASS.
+- **Started:** 2026-11-07T00:30:49Z.
+- **Completed:** 2026-11-07T00:40:26Z, at this log commit (pushed right after).
+- **Wall-clock elapsed:** 9 min 37 s. One agent, no parallel work, no human
+  intervention.
+- **History:**
+  - `map2-spatial-mission-sequence` (`3a161ef`) was `main` (`321e4ee`)
+    plus one commit, and both matched `origin`;
+  - EVA-1 to EVA-1.3, MAP-3A, MAP-3A.1 and MAP-2 are all ancestors;
+  - merge commit `5e5a99d` (`--no-ff`), with no conflicts. The merged tree
+    is identical to the accepted branch tree.
+- **Verification of the merged tree** (production build, `next start`):
+  - `npm run check`: passes, 268/268 unit tests;
+  - prototype smoke: 186/186 in two consecutive runs;
+  - research smoke: 116/116 with `SMOKE_LIVE=1`;
+  - `verify:citations`: 129 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:terrain`: the assets match a fresh build.
+- **Integrity:** 0 lines of diff against `321e4ee` in the engine, evidence,
+  geo, briefing and mission code, `src/data` (the review registry is 50
+  pending, 0 approved), `public/terrain` and the terrain build script.
+  The only non-UI logic change is MAP-2's behaviour-preserving extraction of
+  `itemsAfterReplan` in `src/lib/prototype/mission-glass.ts`; all
+  replanning tests are unchanged and pass.
+- **Rework:** none.
