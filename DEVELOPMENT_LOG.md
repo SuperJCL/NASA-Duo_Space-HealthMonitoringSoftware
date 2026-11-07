@@ -3096,3 +3096,22 @@ unchanged, and `verify:terrain` still matches a fresh build.
     (Lefroy Bay, December 18, 2023);
   - "Correction to wording" was reframed as "Precision", since the
     original wording was accurate.
+
+## SCI-0 merge into main
+
+- **Context:** SCI-0 was approved after manual review of the seven Markdown
+  files at `6dd7fef`. A read-only verification
+  (2026-11-07T18:01:32Z–18:03:03Z) confirmed the branch head, the nine
+  documentation paths and a clean working tree.
+- **Started:** 2026-11-07T18:07:58Z.
+- **Completed:** 2026-11-07T18:09:07Z, at this log commit (pushed right after).
+- **Wall-clock elapsed:** 1 min 09 s.
+- **Merge:** `a9407a7e1bd0464a6967c907097ee61ddb1415dd` (`--no-ff`).
+  - `origin/main` was `6fd4222` and `origin/sci0-scenario-evidence-audit`
+    was `6dd7fef`, unchanged since review.
+  - The merged tree is identical to `6dd7fef`'s tree.
+  - It is documentation only: `docs/` and `DEVELOPMENT_LOG.md`.
+- **Verification:** `npm run check` passes (268/268 unit tests).
+  - The smoke tests and data validators were not re-run, because no code or
+    data changed. The last full run on identical code and data was the
+    MAP-2 integration (2026-11-07T00:31–00:40Z).
