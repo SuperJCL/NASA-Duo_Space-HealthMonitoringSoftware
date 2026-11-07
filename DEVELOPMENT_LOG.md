@@ -3508,3 +3508,24 @@ unchanged, and `verify:terrain` still matches a fresh build.
     10 at desktop 1440×900 and 11 at phone 390×844;
   - research smoke: 120/120 with `SMOKE_LIVE=1`;
   - `verify:sci1`: 27 quotes, 0 problems.
+
+## Candidate comparison merge into main
+
+- **Started:** 2026-11-07T22:37:52Z.
+- **Completed:** 2026-11-07T22:46:28Z, at this log commit (pushed right after).
+- **Wall-clock elapsed:** 8 min 36 s.
+- **Merge:** `29ccc7fab79f05a740a20cb23b0ac8b1afb95726` (`--no-ff`).
+  - `origin/candidate-compare` was `485e9ab` and `origin/main` was
+    `f0c68ee`, both unchanged since acceptance.
+  - The merged tree is identical to `485e9ab`.
+  - The following are unchanged: scored data, the registry, the SCI-1
+    data, sources, the engine and the loaders.
+- **Verification of the merged production build:**
+  - `npm run check` passes: 289/289;
+  - prototype smoke: 228/228 in two consecutive runs;
+  - research smoke: 120/120 with `SMOKE_LIVE=1`;
+  - `verify:citations`: 156 quotes, 0 problems;
+  - `verify:sci1`: 27 quotes, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:terrain`: the assets match a fresh build.
