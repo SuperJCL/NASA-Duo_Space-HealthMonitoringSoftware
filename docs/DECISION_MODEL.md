@@ -36,7 +36,7 @@ Tests: `engine.test.ts`, `scientific-integrity.test.ts`,
 | Hypothesis discrimination | curated | From an **approved** assessment that lists possible results and which hypotheses each would favor or weaken: competing hypotheses affected ÷ competing hypotheses concerned by the task's open gaps. | Fewer than 2 competing hypotheses, or no approved assessment (pending or rejected ones don't count). |
 | Resource feasibility | deterministic | Mean over resources of 1 − cost ÷ budget under the current constraints. | Never. The task is instead not ranked if it is over budget, needs an unavailable platform, or has a **missing** cost (missing ≠ 0). |
 | Scientific priority | curated | 1 if the task addresses an open gap with an **approved**, cited priority statement. | No approved statement. Absence of a citation is not low priority. |
-| Evidence quality gain | deterministic | 1 if the task's evidence type ranks above the best existing support for the competing hypotheses; otherwise 0. The ordering is regional context (0) < orbital (1) < rover in situ (2) < Earth lab (3). Regional context never counts above 0. | Never; a task with no open gaps gets 0. |
+| Evidence quality gain | deterministic | 1 if the task's evidence type ranks above the closest evidence *linked to* the competing hypotheses in the dataset; otherwise 0. Only linked observations are compared, so unlinked observations do not count (SCI-0 A3 states this in the explanation text). The ordering is regional context (0) < orbital (1) < rover in situ (2) < Earth lab (3). Regional context never counts above 0. | Never; a task with no open gaps gets 0. |
 
 **Total.** The weighted average over the ranking-basis criteria only.
 

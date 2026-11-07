@@ -15,7 +15,7 @@ const asOf = "2025-05-06";
 const { snapshot } = selectEvidenceAsOf(scenario, asOf);
 const views = (budget: number) => {
   const c = { ...defaultConstraints(snapshot), budgets: { "res-effort": budget }, unavailablePlatforms: s.excludedPlatforms };
-  return taskViews({ s, snapshot, provisional: rankProvisional(scenario, registry, asOf, DEFAULT_WEIGHTS, c), reviewed: rankReviewed(scenario, registry, asOf, DEFAULT_WEIGHTS, c), budget });
+  return taskViews({ s, snapshot, provisional: rankProvisional(scenario, registry, asOf, DEFAULT_WEIGHTS, c), reviewed: rankReviewed(scenario, registry, asOf, DEFAULT_WEIGHTS, c), budget, registry });
 };
 const costs = Object.fromEntries(scenario.tasks.map((t) => [t.id, t.costs["res-effort"]]));
 const steps = Object.fromEntries(s.actions.map((a) => [a.taskId, a.steps.length]));
@@ -51,8 +51,11 @@ describe("task views read the existing engine (no new scoring)", () => {
       ["task-core-for-earth", 2, "fits"],
       ["task-standoff-survey", 3, "fits"],
     ]);
-    expect(v[0].rationale).toBe("Covers 2 of 3 open questions · adds close-up rover evidence · 40 pts");
-    expect(v[0].conditions[1]).toBe("Stays #1 in 6 of 6 runs with each weight changed by ±20%.");
+    // SCI-0 A1/A2: the link count says its links are AI-drafted and unreviewed; stability says it covers weights only.
+    expect(v[0].rationale).toBe("Linked to 2 of 3 open questions (AI-drafted links, not yet reviewed) · adds close-up rover evidence · 40 pts");
+    expect(v[0].conditions[1]).toBe(
+      "Weights only: stays #1 in 6 of 6 runs with each scored weight changed by ±20%. Not covered by this check: 47 unreviewed inputs; removing any one of 3 of them alone changes #1.",
+    );
     expect(v[0].engineNotes.find((n) => n.criterion === "hypothesis-discrimination")?.evaluated).toBe(false);
   });
 

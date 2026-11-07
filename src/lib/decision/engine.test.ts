@@ -66,7 +66,9 @@ describe("recommend — five criteria", () => {
     });
     expect(outcome(rec, "task-rover-insitu", "evidence-quality")).toMatchObject({
       value: 1,
-      explanation: "Would add rover in situ evidence; best existing support for these hypotheses: orbital.",
+      // SCI-0 A3: the comparison is stated as covering only observations linked to these hypotheses.
+      explanation:
+        "Would add rover in situ evidence. Closest evidence currently linked to these hypotheses in this dataset: orbital. Other observations may not be linked to them yet.",
     });
     expect(outcome(rec, "task-orbital-repeat", "evidence-quality")).toMatchObject({ value: 0 });
   });

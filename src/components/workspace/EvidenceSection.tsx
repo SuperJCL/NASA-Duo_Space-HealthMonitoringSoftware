@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { closedQuestionText } from "@/lib/decision/explain";
 import type { Interpretation, Observation, Source } from "@/lib/evidence/schema";
 import type { SnapshotGap } from "@/lib/evidence/snapshot";
 import { Citations } from "./Citations";
@@ -14,6 +15,8 @@ type Props = {
   interpretations: readonly Interpretation[];
   gaps: readonly SnapshotGap[];
   sourceById: ReadonlyMap<string, Source>;
+  /** Visible, non-approved relationships (SCI-0 A4: is a closed question's basis reviewed?). */
+  unreviewedIds: readonly string[];
 };
 
 /** Date labels: observation date vs public availability vs publication vs reveal. */
@@ -100,18 +103,22 @@ function GapCard({
   g,
   titleOf,
   sourceById,
+  unreviewed,
 }: {
   g: SnapshotGap;
   titleOf: (id: string) => string;
   sourceById: ReadonlyMap<string, Source>;
+  unreviewed: ReadonlySet<string>;
 }) {
+  // SCI-0 A4: a closed question says on what basis, and that it closes only itself.
+  const closed = closedQuestionText(g, unreviewed);
   return (
     <li className="rounded-md border border-border bg-surface-raised p-3" data-record-id={g.id} data-relevance={g.relevance}>
       <div className="flex flex-wrap items-center gap-1.5">
         {g.relevance === "regional-context" ? <EpistemicBadge kind="context" /> : null}
         <EpistemicBadge kind="gap" detail={g.origin.kind} />
         <span className={`font-mono text-[10px] uppercase tracking-wider ${g.status.state === "open" ? "text-warn" : "text-ok"}`}>
-          {g.status.state === "open" ? "Open" : "Addressed"}
+          {g.status.state === "open" ? "Open" : "No longer counted as open"}
         </span>
         <DateLine parts={[`identified ${g.availableFrom}`]} />
       </div>
@@ -122,8 +129,8 @@ function GapCard({
           {`Competing hypotheses it concerns: ${g.discriminatesInterpretationIds.map(titleOf).join(" vs. ")}`}
         </p>
       ) : null}
-      {g.status.state === "addressed" ? (
-        <p className="mt-0.5 text-[11px] text-ok">{`Addressed by: ${g.status.byObservationIds.map(titleOf).join("; ")}`}</p>
+      {closed && g.status.state === "addressed" ? (
+        <p className="mt-0.5 text-[11px] text-ok" data-testid="gap-closed">{`No longer counted as open after: ${g.status.byObservationIds.map(titleOf).join("; ")}. ${closed.note}`}</p>
       ) : null}
       {g.origin.kind === "cited" ? (
         <Citations citations={g.origin.citations} sourceById={sourceById} />
@@ -144,7 +151,8 @@ function GapCard({
   );
 }
 
-export function EvidenceSection({ show = ALL_PARTS, observations, interpretations, gaps, sourceById }: Props) {
+export function EvidenceSection({ show = ALL_PARTS, observations, interpretations, gaps, sourceById, unreviewedIds }: Props) {
+  const unreviewed = new Set(unreviewedIds);
   const titles = new Map<string, string>([
     ...observations.map((o) => [o.id, o.title] as const),
     ...interpretations.map((i) => [i.id, i.title] as const),
@@ -198,7 +206,7 @@ export function EvidenceSection({ show = ALL_PARTS, observations, interpretation
         ) : (
           <ul className="space-y-2">
             {gaps.filter(local).map((g) => (
-              <GapCard key={g.id} g={g} titleOf={titleOf} sourceById={sourceById} />
+              <GapCard key={g.id} g={g} titleOf={titleOf} sourceById={sourceById} unreviewed={unreviewed} />
             ))}
           </ul>
         )}
@@ -220,7 +228,7 @@ export function EvidenceSection({ show = ALL_PARTS, observations, interpretation
             <InterpretationCard key={i.id} i={i} titleOf={titleOf} sourceById={sourceById} />
           ))}
           {gaps.filter(regional).map((g) => (
-            <GapCard key={g.id} g={g} titleOf={titleOf} sourceById={sourceById} />
+            <GapCard key={g.id} g={g} titleOf={titleOf} sourceById={sourceById} unreviewed={unreviewed} />
           ))}
         </ul>
       </Section>

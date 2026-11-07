@@ -232,6 +232,20 @@ try {
   await provisionalBox.locator("summary").first().click();
   const pivotalIds = await page.getByTestId("pivotal-inputs").locator("[data-review-id]").evaluateAll((els) => els.map((e) => e.getAttribute("data-review-id")));
   check(JSON.stringify(pivotalIds) === JSON.stringify(["relevance:gap-lake-connection", "task-gap:task-abrasion-proximity->gap-formation-unknown", "task-gap:task-abrasion-proximity->gap-lake-connection"]), `RI-1: 3 pivotal unreviewed inputs (got ${pivotalIds.length})`);
+  {
+    const stab = await text(page.getByTestId("stability"));
+    check(
+      /^Stability: Weights only: stays #1 in \d+ of \d+ runs with each scored weight changed by ±20%; lead over #2: \d+ points\. Not covered by this check: \d+ unreviewed inputs; removing any one of 3 of them alone changes #1\.$/.test(stab) && pivotalIds.length === 3,
+      `SCI-0 A2: provisional stability is stated as weights-only, with the unreviewed-input sensitivity (${stab})`,
+    );
+    const taskLinks = (await page.getByTestId("task-gap-links").allTextContents()).join(" ");
+    check(
+      /\(no longer counted as open\)/.test(taskLinks) && /Closed by an MDI rule \(awaiting expert review\)\. This closes only this question; the other open questions are not affected\./.test(taskLinks) && !/\(addressed\)/.test(taskLinks),
+      "SCI-0 A4: research task links say a closed question is closed by an MDI rule awaiting review, and only that question",
+    );
+    const notes = await text(page.getByTestId("recommendation"));
+    check(!/best existing support/.test(notes) && (/Closest evidence currently linked to these hypotheses in this dataset/.test(notes) || !/evidence quality/i.test(notes)), "SCI-0 A3: the research recommendation does not use the old evidence-quality wording");
+  }
   check(/Provisional · not scientifically validated/.test(await text(page.getByTestId("recommendation"))) && /Verified historical sample locations are displayed/.test(await text(page.getByTestId("recommendation"))), "RI-1: provisional top task labelled not validated; MF-1 limitation text present");
   await provisionalBox.locator("summary").first().click();
   check((await page.getByTestId("comparison-table").getByText("NE").count()) > 0, "M3: comparison shows Not Evaluated for unapproved curated criteria");
@@ -242,6 +256,13 @@ try {
   await page.getByLabel("Scientific priority weight").fill("4");
   await page.getByTestId("advanced-drawer-close").click();
   await page.getByTestId("open-evidence").click();
+  {
+    const gn = await text(page.locator('[data-testid="evidence-drawer"] [data-record-id="gap-no-in-situ-data"]'));
+    check(
+      /No longer counted as open/.test(gn) && /No longer counted as open after: /.test(gn) && /Closed by an MDI rule \(awaiting expert review\)\. This closes only this question; the other open questions are not affected\./.test(gn) && !/Addressed/.test(gn),
+      "SCI-0 A4: the evidence list states the closed question's basis and scope",
+    );
+  }
   await page.getByTestId("evidence-drawer-close").click();
   await page.getByTestId("open-advanced").click();
   const kept = (await page.getByLabel("Scientific priority weight").inputValue()) === "4" && (await abrasion.getAttribute("aria-pressed")) === "true" && (await card.getAttribute("data-feature-id")) === "rover-last-position-in-dataset";

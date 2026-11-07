@@ -1,4 +1,5 @@
 import { CRITERIA, MAX_WEIGHT, type CriterionId, type Weights } from "@/lib/decision/criteria";
+import { closedQuestionText, stabilityScopeText } from "@/lib/decision/explain";
 import { relationshipIds } from "@/lib/evidence/review-registry";
 import { PLATFORMS } from "@/lib/mission/actions";
 import type { Constraints, CriterionOutcome, Recommendation, TaskEvaluation } from "@/lib/decision/engine";
@@ -48,6 +49,9 @@ type Props = {
   onConstraintsChange: (c: Constraints) => void;
   onResetConstraints: () => void;
   sourceById: ReadonlyMap<string, Source>;
+  /** Visible, non-approved decision inputs and how many of them alone change #1 (`rankProvisional`). */
+  unreviewedIds: readonly string[];
+  pivotalInputCount: number;
 };
 
 function OutcomeCell({ o, inBasis }: { o: CriterionOutcome | undefined; inBasis: boolean }) {
@@ -64,6 +68,7 @@ function OutcomeCell({ o, inBasis }: { o: CriterionOutcome | undefined; inBasis:
 export function DecisionSection(props: Props) {
   const { recommendation: rec, tasks, gaps, interpretations, assessments, resources, weights, sourceById } = props;
   const gapById = new Map(gaps.map((g) => [g.id, g]));
+  const unreviewed = new Set(props.unreviewedIds);
   const interpTitle = (id: string) => interpretations.find((i) => i.id === id)?.title ?? id;
   // With no feasible task there is nothing to rank, so "ranking basis" does not apply.
   const noFeasibleTask = rec.ranking.length === 0 && rec.unranked.length === 0;
@@ -102,14 +107,20 @@ export function DecisionSection(props: Props) {
                   <ul className="mt-1 space-y-1.5">
                     {t.addresses.map((l) => {
                       const g = gapById.get(l.gapId);
+                      const closed = g ? closedQuestionText(g, unreviewed) : null;
                       return (
                         <li key={l.gapId} className="border-l-2 border-border pl-2 text-[11px]">
                           <span className="flex flex-wrap items-center gap-1.5">
                             <span className="font-medium">{g?.title ?? l.gapId}</span>
-                            {g?.status.state === "addressed" ? <span className="text-ok">(addressed)</span> : null}
+                            {closed ? <span className="text-ok">{`(${closed.label})`}</span> : null}
                             <ReviewBadge review={l.review} />
                           </span>
                           <span className="block font-mono text-[10px] text-muted">{relationshipIds.taskGap(t.id, l.gapId)}</span>
+                          {closed ? (
+                            <span className="block text-muted" data-testid="gap-closed-note">
+                              {closed.note}
+                            </span>
+                          ) : null}
                           <span className="block text-muted">{`Why: ${l.rationale}`}</span>
                           <Citations citations={l.citations} sourceById={sourceById} />
                         </li>
@@ -266,9 +277,13 @@ function ProvisionalResults(props: Props) {
   const top = rec.ranking[0];
   const topTask = top ? taskById.get(top.taskId) : undefined;
   const noFeasibleTask = rec.ranking.length === 0 && rec.unranked.length === 0;
-  const stabilityText = `stays #1 in ${rec.stability.topUnchanged} of ${rec.stability.trials} runs with each basis weight changed by ±${pct(
-    rec.stability.perturbation,
-  )}%${rec.stability.margin !== null ? `; lead over #2: ${pct(rec.stability.margin)} points.` : "."}`;
+  // SCI-0 A2: the stability check varies weights only; the unreviewed-input sensitivity is stated with it.
+  const stabilityText = stabilityScopeText({
+    stability: rec.stability,
+    unreviewedInputs: props.unreviewedIds.length,
+    pivotalInputs: props.pivotalInputCount,
+    showLead: true,
+  });
 
   return (
     <>

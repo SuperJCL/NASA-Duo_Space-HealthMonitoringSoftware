@@ -245,8 +245,9 @@ function evaluateTask(
         "evidence-quality",
         taskLevel > best ? 1 : 0,
         taskLevel > best
-          ? `Would add ${EVIDENCE_LEVEL_LABEL[taskLevel]} evidence; best existing support for these hypotheses: ${bestLabel}.`
-          : `Its ${EVIDENCE_LEVEL_LABEL[taskLevel]} evidence does not exceed the best existing support (${bestLabel}).`,
+          ? // SCI-0 A3: the comparison covers only observations linked to these hypotheses in this dataset.
+            `Would add ${EVIDENCE_LEVEL_LABEL[taskLevel]} evidence. Closest evidence currently linked to these hypotheses in this dataset: ${bestLabel}. Other observations may not be linked to them yet.`
+          : `Its ${EVIDENCE_LEVEL_LABEL[taskLevel]} evidence does not exceed the closest evidence currently linked to these hypotheses in this dataset (${bestLabel}).`,
       ),
     );
   }
