@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { ProfileChart, fmt } from "./ProfileChart";
+import { heightsErrorText, loadVerifiedHeights } from "./terrain-data";
 import {
   CAMERA_PRESETS,
   CONTOUR_INTERVAL_M,
@@ -19,9 +21,9 @@ import {
   lonLatToLocal,
   lonLatToUv,
   sampleHeight,
+  segmentCoverage,
   sourceLine,
   type Exaggeration,
-  type Profile,
   type LonLat,
   type TerrainMeta,
 } from "@/lib/terrain/terrain";
@@ -47,6 +49,18 @@ export type TerrainViewerProps = {
   onSelect: (id: string | null) => void;
   /** Called when 3D cannot be shown (no WebGL, data failed, checksum mismatch, context lost). */
   onFallback: (reason: string) => void;
+  /** MAP-2: the conceptual mission sequence (plan order only, never a route); null: none. */
+  sequence?: TerrainSequence | null;
+  selectedSegmentId?: string | null;
+  onSelectSegment?: (id: string) => void;
+  /** MAP-2: simulated targets to emphasise as well (the ends of a selected connection). */
+  highlightIds?: readonly string[];
+};
+
+export type TerrainSequence = {
+  phase: "draft" | "confirmed";
+  segments: readonly { id: string; from: LonLat; to: LonLat; fromId: string; toId: string; fromOrder: number; toOrder: number; state: "draft" | "history" | "current" | "remaining"; infeasible: boolean }[];
+  nodes: readonly { targetId: string; order: number; onLine: boolean }[];
 };
 
 const TONE_COLOR: Record<TerrainMarkerTone, number> = {
@@ -60,6 +74,9 @@ const TONE_COLOR: Record<TerrainMarkerTone, number> = {
 };
 const VERIFIED = 0x8ecae6;
 const PROFILE = 0xffd166;
+// MAP-2 sequence colours, as in 2D: coral (plan order), green (leads to completed work), yellow (does not fit).
+const SEQ = { draft: 0xff8a6b, history: 0x84d8a6, current: 0xff8a6b, remaining: 0xff8a6b, infeasible: 0xf1c878 } as const;
+const SEQ_RADIUS = { draft: 2.5, history: 3, current: 4.5, remaining: 3 } as const;
 type Surface = "imagery" | "relief" | "elevation";
 const SURFACE_LABEL: Record<Surface, string> = { imagery: "Imagery", relief: "Relief shading", elevation: "Elevation colours" };
 // Fixed low sun from the north-west (azimuth 315°, 25° above the horizon), x east / y up / z south.
@@ -148,18 +165,9 @@ const defaultQuality = (): "standard" | "low" => {
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
   return window.innerWidth < 768 || (mem !== undefined && mem <= 4) ? "low" : "standard";
 };
-const fmt = (v: number) => `${Math.round(v).toLocaleString("en-US").replace("-", "−")} m`;
-const fmtSigned = (v: number) => `${Math.round(v) > 0 ? "+" : ""}${fmt(v)}`;
 const fmtDeg = ([lon, lat]: LonLat) => `${lon.toFixed(4)}° E, ${lat.toFixed(4)}° N`;
 const RAMP_CSS = "linear-gradient(to right, rgb(26,77,107), rgb(107,148,122), rgb(209,179,115), rgb(242,230,209))";
-// Profile chart geometry (SVG viewBox units; uniform scale).
-const CH = { w: 320, h: 120, l: 46, r: 8, t: 8, b: 18 };
 
-async function sha256Hex(buf: ArrayBuffer): Promise<string | null> {
-  if (!globalThis.crypto?.subtle) return null; // non-secure contexts: skip, the size check still applies
-  const d = await crypto.subtle.digest("SHA-256", buf);
-  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 /**
  * MAP-3A local 3D terrain: the verified CTX DTM crop (real elevations, 20 m
@@ -167,7 +175,7 @@ async function sha256Hex(buf: ArrayBuffer): Promise<string | null> {
  * simulated targets are drawn with distinct markers. Not a route, travel-time
  * or traversability model.
  */
-export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSelect, onFallback }: TerrainViewerProps) {
+export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSelect, onFallback, sequence = null, selectedSegmentId = null, onSelectSegment, highlightIds = [] }: TerrainViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [heights, setHeights] = useState<Float32Array | null>(null);
   const [imageryOk, setImageryOk] = useState<boolean | null>(null);
@@ -178,7 +186,9 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
   const [aboutOpen, setAboutOpen] = useState(false);
   // On phones the button panel starts collapsed (touch already orbits, tilts and pinch-zooms).
   const [controlsOpen, setControlsOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 640);
-  const [labels, setLabels] = useState<{ id: string; x: number; y: number; visible: boolean }[]>([]);
+  const [labels, setLabels] = useState<{ id: string; x: number; y: number; gy: number; visible: boolean }[]>([]);
+  // MAP-2: where each connection's direction cone is on screen (for tests and debugging).
+  const [segScreen, setSegScreen] = useState<Record<string, [number, number]>>({});
   const [camState, setCamState] = useState({ azDeg: 0, polarDeg: 0, distM: 0 });
   // MAP-3A.1: surface rendering, presets and the straight-line profile.
   const [surface, setSurface] = useState<Surface>("relief");
@@ -198,10 +208,13 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
   const [chartHover, setChartHover] = useState<number | null>(null);
   const onSelectRef = useRef(onSelect);
   const onFallbackRef = useRef(onFallback);
+  const onSelectSegmentRef = useRef(onSelectSegment);
+  const seqGroupRef = useRef<THREE.Group | null>(null);
   useEffect(() => {
     onSelectRef.current = onSelect;
     onFallbackRef.current = onFallback;
-  }, [onSelect, onFallback]);
+    onSelectSegmentRef.current = onSelectSegment;
+  }, [onSelect, onFallback, onSelectSegment]);
 
   // Three.js objects live in refs; React state only drives the HTML overlay.
   const sceneRef = useRef<{
@@ -255,16 +268,10 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(meta.heights.file);
-        if (!res.ok) throw new Error(`the terrain data could not be loaded (HTTP ${res.status})`);
-        const buf = await res.arrayBuffer();
-        if (buf.byteLength !== meta.crop.cols * meta.crop.rows * 4) throw new Error("terrain data has an unexpected size");
-        const digest = await sha256Hex(buf);
-        if (digest && digest !== meta.heights.sha256) throw new Error("terrain data does not match its recorded checksum");
-        if (!cancelled) setHeights(new Float32Array(buf));
+        const h = await loadVerifiedHeights(meta);
+        if (!cancelled) setHeights(h);
       } catch (e) {
-        // A network failure surfaces as a TypeError ("Failed to fetch"): say it in plain words.
-        if (!cancelled) onFallbackRef.current(e instanceof TypeError ? "the terrain data could not be downloaded" : e instanceof Error ? e.message : "the terrain data could not be loaded");
+        if (!cancelled) onFallbackRef.current(heightsErrorText(e));
       }
     })();
     return () => {
@@ -318,7 +325,9 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
         const h = renderer.domElement.clientHeight;
         const projected = markerGroup.children.map((o) => {
           const v = o.position.clone().add(new THREE.Vector3(0, 30, 0)).project(camera);
-          return { id: String(o.userData.id), x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, visible: v.z < 1 && v.z > -1 };
+          // gy: the marker's own base on screen (labels may be stacked upwards; sequence chips are not).
+          const g = o.position.clone().project(camera);
+          return { id: String(o.userData.id), x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, gy: ((1 - g.y) / 2) * h, visible: v.z < 1 && v.z > -1 };
         });
         // Keep labels readable: stack a label above any earlier one it would overlap (nearest first).
         const placed: { x: number; y: number }[] = [];
@@ -328,6 +337,14 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
           placed.push(l);
         }
         setLabels(projected);
+        const cones: Record<string, [number, number]> = {};
+        for (const g of seqGroupRef.current?.children ?? []) {
+          const cone = g.children.at(-1);
+          if (!cone) continue;
+          const v = cone.getWorldPosition(new THREE.Vector3()).project(camera);
+          if (v.z < 1 && v.z > -1) cones[String(g.userData.segmentId)] = [Math.round(((v.x + 1) / 2) * w), Math.round(((1 - v.y) / 2) * h)];
+        }
+        setSegScreen(cones);
         const off = camera.position.clone().sub(controls.target);
         const sph = new THREE.Spherical().setFromVector3(off);
         setCamState({ azDeg: Math.round((sph.theta * 180) / Math.PI), polarDeg: Math.round((sph.phi * 180) / Math.PI), distM: Math.round(sph.radius) });
@@ -393,7 +410,12 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
       const hit = ray.intersectObjects(markerGroup.children, true)[0];
       let o: THREE.Object3D | null = hit?.object ?? null;
       while (o && o.userData.id === undefined) o = o.parent;
-      if (o) onSelectRef.current(String(o.userData.id));
+      if (o) return onSelectRef.current(String(o.userData.id));
+      // MAP-2: a click on a sequence connection selects it (markers win when both are hit).
+      const seqHit = seqGroupRef.current ? ray.intersectObjects(seqGroupRef.current.children, true)[0] : undefined;
+      let so: THREE.Object3D | null = seqHit?.object ?? null;
+      while (so && so.userData.segmentId === undefined) so = so.parent;
+      if (so) onSelectSegmentRef.current?.(String(so.userData.segmentId));
     };
     // Elevation under the pointer, read back from the DTM (not from the mesh).
     let pending = 0;
@@ -599,6 +621,107 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
     };
   }, [profile, exaggeration, meta, heights, quality]);
 
+  // MAP-2: the conceptual sequence, draped on the DTM like the profile line (true elevations,
+  // shown at the current exaggeration). Distances never come from this geometry.
+  const sequenceKey = JSON.stringify(sequence);
+  const coverage = useMemo(() => Object.fromEntries((sequence?.segments ?? []).map((x) => [x.id, segmentCoverage(meta, x.from, x.to)])), [sequence, meta]);
+  useEffect(() => {
+    const ctx = sceneRef.current;
+    if (!ctx || !heights || !sequence) return;
+    const base = meta.heights.minM;
+    const group = new THREE.Group();
+    const at = (lon: number, lat: number, h: number) => {
+      const [e, n] = lonLatToLocal(meta, [lon, lat]);
+      return new THREE.Vector3(e, (h - base) * exaggeration + 5, -n);
+    };
+    for (const x of sequence.segments) {
+      const prof = coverage[x.id] === "inside" ? profileAlong(meta, heights, x.from, x.to, 5) : null;
+      if (!prof) continue; // outside the crop: not drawn (never extrapolated)
+      const pts = prof.samples.map((p) => at(p.lon, p.lat, p.elevationM));
+      const selected = x.id === selectedSegmentId;
+      const color = x.infeasible ? SEQ.infeasible : SEQ[x.state];
+      const radius = SEQ_RADIUS[x.state] + (selected ? 1 : 0);
+      const seg = new THREE.Group();
+      seg.userData.segmentId = x.id;
+      // Dashed for a draft preview or work that does not fit: short tube pieces with gaps.
+      const dashed = x.state === "draft" || x.infeasible;
+      const pieces: THREE.Vector3[][] = [];
+      if (dashed) for (let k = 0; k < pts.length - 1; k += 4) pieces.push(pts.slice(k, Math.min(pts.length, k + 3)));
+      else pieces.push(pts);
+      for (const piece of pieces) {
+        if (piece.length < 2) continue;
+        const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(piece, false, "centripetal"), Math.max(2, piece.length * 2), radius, 6, false), new THREE.MeshBasicMaterial({ color }));
+        seg.add(tube);
+      }
+      if (selected) {
+        const halo = new THREE.Mesh(
+          new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, "centripetal"), Math.max(4, pts.length * 2), radius + 2, 6, false),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 }),
+        );
+        seg.add(halo);
+      }
+      // Direction of plan order: one cone past the middle.
+      const k = Math.min(pts.length - 2, Math.round(pts.length * 0.58));
+      const dir = pts[k + 1].clone().sub(pts[k]).normalize();
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(radius + 5, 22, 12), new THREE.MeshBasicMaterial({ color }));
+      cone.position.copy(pts[k]);
+      cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      seg.add(cone);
+      group.add(seg);
+    }
+    ctx.scene.add(group);
+    seqGroupRef.current = group;
+    ctx.render();
+    return () => {
+      ctx.scene.remove(group);
+      group.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.geometry.dispose();
+          (o.material as THREE.Material).dispose();
+        }
+      });
+      if (seqGroupRef.current === group) seqGroupRef.current = null;
+      ctx.render();
+    };
+    // sequenceKey captures the content of sequence.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sequenceKey, coverage, selectedSegmentId, exaggeration, meta, heights, quality]);
+
+  // MAP-2: on selecting a connection, orbit around its middle and come closer if far away (instant, no animation).
+  useEffect(() => {
+    const ctx = sceneRef.current;
+    const x = sequence?.segments.find((q) => q.id === selectedSegmentId);
+    if (!ctx || !heights || !x || segmentCoverage(meta, x.from, x.to) !== "inside") return;
+    const mid: LonLat = [(x.from[0] + x.to[0]) / 2, (x.from[1] + x.to[1]) / 2];
+    const [e, n] = lonLatToLocal(meta, mid);
+    const target = new THREE.Vector3(e, ((sampleHeight(meta, heights, mid) ?? meta.heights.minM) - meta.heights.minM) * exaggeration, -n);
+    const off = ctx.camera.position.clone().sub(ctx.controls.target);
+    if (off.length() > 1100) off.setLength(1100);
+    ctx.controls.target.copy(target);
+    ctx.camera.position.copy(target).add(off);
+    ctx.controls.update();
+    ctx.render();
+    // Runs when the selected connection changes; the other values are read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSegmentId, heights]);
+
+  // MAP-2: a selected connection drives the existing real-DTM profile tool (same straight sampling line).
+  const selectedSeg = sequence?.segments.find((x) => x.id === selectedSegmentId) ?? null;
+  const [profileFor, setProfileFor] = useState<string | null>(null);
+  if (selectedSeg && coverage[selectedSeg.id] === "inside" && profileFor !== selectedSeg.id) {
+    // Adjusting state while rendering (React's documented pattern): show this connection's profile once per selection.
+    const a = markerData.find((m) => m.id === selectedSeg.fromId);
+    const b = markerData.find((m) => m.id === selectedSeg.toId);
+    if (a && b) {
+      setProfileFor(selectedSeg.id);
+      setProfileEnds({ from: { id: a.id, name: a.name, position: a.position }, to: { id: b.id, name: b.name, position: b.position } });
+      // On phones the open profile would cover the terrain; it stays as the user left it there.
+      if (window.innerWidth >= 640) setProfileOpen(true);
+      setChartHover(null);
+    }
+  } else if (!selectedSeg && profileFor !== null) setProfileFor(null);
+  const highlight = new Set(highlightIds);
+
   // The chart's read-out point, shown on the terrain too (links the chart to the 3D position).
   useEffect(() => {
     const ctx = sceneRef.current;
@@ -691,6 +814,14 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
     surface,
     contours,
     picking: picking ? picking.length : null,
+    sequence: sequence
+      ? {
+          phase: sequence.phase,
+          segments: sequence.segments.map((x) => ({ id: x.id, state: x.state, infeasible: x.infeasible, coverage: coverage[x.id], drawn: coverage[x.id] === "inside", selected: x.id === selectedSegmentId, screen: segScreen[x.id] ?? null })),
+          nodes: sequence.nodes.map((n) => ({ targetId: n.targetId, order: n.order, onLine: n.onLine })),
+          highlighted: [...highlightIds],
+        }
+      : null,
     profile: profile
       ? { from: ends?.from.id ?? ends?.from.name, to: ends?.to.id ?? ends?.to.name, lengthM: Math.round(profile.lengthM), startM: Math.round(profile.startM), endM: Math.round(profile.endM), minM: Math.round(profile.minM), maxM: Math.round(profile.maxM), netM: Math.round(profile.netChangeM) }
       : null,
@@ -711,24 +842,47 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
         const m = markerData.find((x) => x.id === l.id);
         if (!m || !l.visible) return null;
         const selected = m.id === selectedId;
+        const node = sequence?.nodes.find((x) => x.targetId === m.id);
         return (
           <button
             key={m.id}
             type="button"
             onClick={() => onSelect(m.id)}
             aria-pressed={selected}
+            data-highlighted={highlight.has(m.id) || undefined}
             aria-label={m.kind === "verified" ? `${m.name}, verified NASA/PDS sample site, elevation ${fmt(m.elevation)}` : `${m.name}, simulated target (scenario-defined position), elevation ${fmt(m.elevation)}${m.status ? `, ${m.status}` : ""}`}
             className={`absolute -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border px-1.5 py-0.5 text-[12px] font-semibold ${
               m.kind === "verified" ? "border-[#8ecae6] bg-[rgba(11,17,28,0.8)] text-[#8ecae6]" : "border-[var(--mg-coral)] bg-[rgba(11,17,28,0.8)] text-[var(--mg-coral)]"
-            } ${selected ? "ring-2 ring-white" : ""}`}
+            } ${selected || highlight.has(m.id) ? "ring-2 ring-white" : ""}`}
             style={{ left: l.x, top: l.y }}
             data-testid={`terrain-label-${m.id}`}
             data-kind={m.kind}
+            data-seq={node ? node.order : undefined}
           >
             {m.kind === "verified" ? `${m.name} · ${fmt(m.elevation)}` : `SIM · ${m.name}${m.badge ? ` #${m.badge}` : ""}`}
           </button>
         );
       })}
+      {/* MAP-2: plan-order chips under the simulated targets ("Seq n"; "Draft n" for a preview). Not the engine's rank. */}
+      {sequence
+        ? labels.map((l) => {
+            const node = sequence.nodes.find((x) => x.targetId === l.id);
+            if (!node || !l.visible) return null;
+            return (
+              <span
+                key={`seq-${l.id}`}
+                aria-hidden
+                className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap rounded border bg-[rgba(14,21,32,0.88)] px-1 text-[11px] font-semibold ${
+                  node.onLine ? "border-[var(--mg-coral)] text-white" : "border-dashed border-[#8b97a8] text-[#a3b3c8]"
+                }`}
+                style={{ left: l.x, top: l.gy + 6 }}
+                data-testid={`terrain-seq-${l.id}`}
+              >
+                {`${sequence.phase === "draft" ? "Draft" : "Seq"} ${node.order}`}
+              </span>
+            );
+          })
+        : null}
 
       {picking ? (
         <p className="mg-glass absolute left-1/2 top-16 z-10 -translate-x-1/2 px-3 py-1.5 text-[12px] text-[var(--mg-text)]" role="status" data-testid="terrain-picking">
@@ -749,6 +903,11 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
           <p className={`mt-0.5 ${exaggeration === 1 ? "" : "font-semibold text-[var(--mg-caution)]"}`} data-testid="terrain-exaggeration-label">
             {exaggeration === 1 ? "Vertical exaggeration: 1× (true scale)" : `Vertical exaggeration: ${exaggeration}× (heights stretched ${exaggeration} times; not true scale)`}
           </p>
+          {sequence ? (
+            <p className="mt-0.5 font-medium text-[var(--mg-coral)]" data-testid="terrain-seq-label">
+              {sequence.phase === "draft" ? "Coral dashed line: draft order preview — not a navigable route." : "Coral line: conceptual mission sequence — not a navigable route."}
+            </p>
+          ) : null}
           <p className="mt-0.5" data-testid="terrain-elevation">
             {pointerElev !== null
               ? `Pointer: ${fmt(pointerElev)} (DTM, areoid)`
@@ -813,6 +972,13 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
             </button>
           </div>
           <div hidden={!profileOpen}>
+            {selectedSeg ? (
+              <p className="mt-1 font-medium text-[var(--mg-coral)]" data-testid="terrain-profile-segment">
+                {coverage[selectedSeg.id] === "inside"
+                  ? `Selected connection: plan order ${selectedSeg.fromOrder} → ${selectedSeg.toOrder}.`
+                  : `Selected connection (plan order ${selectedSeg.fromOrder} → ${selectedSeg.toOrder}) leaves the 3 km DTM crop: no 3D line and no elevation profile.`}
+              </p>
+            ) : null}
             {/* Phones: the info panel is hidden while the profile is open, so repeat the 3D scale here. */}
             <p className={`sm:hidden ${exaggeration === 1 ? "" : "font-semibold text-[var(--mg-caution)]"}`}>
               {exaggeration === 1 ? "3D view: 1× (true scale)." : `3D view: ${exaggeration}× exaggerated (not true scale).`}
@@ -977,91 +1143,6 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
           </label>
         </div>
       </div>
-    </div>
-  );
-}
-
-/** SVG elevation profile (true DTM metres; the chart's vertical axis is stretched to fit and says by how much). */
-function ProfileChart({ profile, fromName, toName, hover, onHover }: { profile: Profile; fromName: string; toName: string; hover: number | null; onHover: (i: number | null) => void }) {
-  const pw = CH.w - CH.l - CH.r;
-  const ph = CH.h - CH.t - CH.b;
-  // At least a 10 m tall chart, so differences under the DTM's ~5 m agreement never fill the chart.
-  const MIN_SPAN_M = 10;
-  const range = profile.maxM - profile.minM;
-  const pad = Math.max(range * 0.08, (MIN_SPAN_M - range) / 2);
-  const lo = profile.minM - pad;
-  const hi = profile.maxM + pad;
-  const x = (d: number) => CH.l + (d / Math.max(profile.lengthM, 1)) * pw;
-  const y = (h: number) => CH.t + ((hi - h) / (hi - lo)) * ph;
-  const pts = profile.samples.map((p) => `${x(p.distanceM).toFixed(1)},${y(p.elevationM).toFixed(1)}`).join(" ");
-  // How much taller the chart draws heights than the same distance along the line.
-  const stretch = (profile.lengthM / pw) / ((hi - lo) / ph);
-  const n = profile.samples.length;
-  const hv = hover !== null ? profile.samples[hover] : undefined;
-  const pick = (clientX: number, el: SVGSVGElement) => {
-    const r = el.getBoundingClientRect();
-    const vx = ((clientX - r.left) / r.width) * CH.w;
-    const t = Math.min(1, Math.max(0, (vx - CH.l) / pw));
-    onHover(Math.round(t * (n - 1)));
-  };
-  const net = profile.netChangeM;
-  return (
-    <div className="mt-1.5" data-testid="terrain-profile-chart">
-      <svg
-        viewBox={`0 0 ${CH.w} ${CH.h}`}
-        className="block w-full touch-none rounded bg-[rgba(0,0,0,0.25)] outline-offset-2"
-        role="img"
-        tabIndex={0}
-        aria-label={`Elevation profile from ${fromName} to ${toName}: ${Math.round(profile.lengthM)} m long, from ${fmt(profile.startM)} to ${fmt(profile.endM)}. Use the left and right arrow keys to read elevations along the line.`}
-        onPointerMove={(e) => pick(e.clientX, e.currentTarget)}
-        onPointerDown={(e) => pick(e.clientX, e.currentTarget)}
-        onPointerLeave={(e) => e.pointerType === "mouse" && onHover(null)}
-        onBlur={() => onHover(null)}
-        onKeyDown={(e) => {
-          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
-          e.preventDefault();
-          const stepN = Math.max(1, Math.round(n / 20));
-          const cur = hover ?? (e.key === "ArrowLeft" ? n : -1);
-          onHover(e.key === "Home" ? 0 : e.key === "End" ? n - 1 : Math.min(n - 1, Math.max(0, cur + (e.key === "ArrowRight" ? stepN : -stepN))));
-        }}
-        data-testid="terrain-profile-svg"
-      >
-        <line x1={CH.l} x2={CH.w - CH.r} y1={y(profile.maxM)} y2={y(profile.maxM)} stroke="rgba(255,255,255,0.15)" strokeDasharray="2 3" />
-        <line x1={CH.l} x2={CH.w - CH.r} y1={y(profile.minM)} y2={y(profile.minM)} stroke="rgba(255,255,255,0.15)" strokeDasharray="2 3" />
-        <polygon points={`${CH.l},${CH.h - CH.b} ${pts} ${CH.w - CH.r},${CH.h - CH.b}`} fill="rgba(255,209,102,0.16)" />
-        <polyline points={pts} fill="none" stroke="#ffd166" strokeWidth={1.6} strokeLinejoin="round" />
-        <text x={CH.l - 4} y={y(profile.maxM) + 3} textAnchor="end" fontSize={9} fill="currentColor">
-          {fmt(profile.maxM)}
-        </text>
-        <text x={CH.l - 4} y={y(profile.minM) + 3} textAnchor="end" fontSize={9} fill="currentColor">
-          {fmt(profile.minM)}
-        </text>
-        <text x={CH.l} y={CH.h - 5} fontSize={9} fill="currentColor">
-          {"0 m"}
-        </text>
-        <text x={CH.w - CH.r} y={CH.h - 5} textAnchor="end" fontSize={9} fill="currentColor">
-          {fmt(profile.lengthM)}
-        </text>
-        {hv ? (
-          <g>
-            <line x1={x(hv.distanceM)} x2={x(hv.distanceM)} y1={CH.t} y2={CH.h - CH.b} stroke="#fff" strokeWidth={0.8} />
-            <circle cx={x(hv.distanceM)} cy={y(hv.elevationM)} r={3} fill="#fff" />
-          </g>
-        ) : null}
-      </svg>
-      <div className="mt-0.5 flex justify-between gap-2 text-[11px]">
-        <span className="truncate">{`◀ ${fromName}`}</span>
-        <span className="truncate text-right">{`${toName} ▶`}</span>
-      </div>
-      <p className="mt-1 min-h-4 text-[var(--mg-text)]" aria-live="polite" data-testid="terrain-profile-readout">
-        {hv ? `At ${fmt(hv.distanceM)} along the line: ${fmt(hv.elevationM)} (DTM)` : "Point at the chart or use ←/→: a white dot marks the spot on the terrain."}
-      </p>
-      <p className="mt-1" data-testid="terrain-profile-stats">
-        {`${fmt(profile.lengthM)} straight line · start ${fmt(profile.startM)} · end ${fmt(profile.endM)} · net ${fmtSigned(net)}${Math.abs(net) < 5 ? " (under 5 m: not meaningful)" : ""} · range ${fmt(profile.minM)} to ${fmt(profile.maxM)} (${Math.round(range)} m${range < 5 ? "; under 5 m: not meaningful" : ""})`}
-      </p>
-      <p className="mt-0.5 text-[var(--mg-faint)]" data-testid="terrain-profile-scale">
-        {`Chart heights drawn about ${Math.round(stretch)}× taller than distance: slopes look steeper than they are. Numbers are true DTM metres.`}
-      </p>
     </div>
   );
 }

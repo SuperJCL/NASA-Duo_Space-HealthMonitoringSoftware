@@ -10,6 +10,7 @@ import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import Feature from "ol/Feature";
 import Point from "ol/geom/Point";
+import LineString from "ol/geom/LineString";
 import GeoJSON from "ol/format/GeoJSON";
 import { Circle as CircleStyle, Fill, RegularShape, Stroke, Style, Text } from "ol/style";
 import MousePosition from "ol/control/MousePosition";
@@ -52,6 +53,23 @@ export type SimTarget = {
   tone?: SimTargetTone;
 };
 
+/**
+ * MAP-2: a conceptual mission sequence (plan order only, never a route).
+ * Computed by the caller; the map only draws it, under the simulated targets.
+ */
+export type MapSequence = {
+  phase: "draft" | "confirmed";
+  segments: readonly {
+    id: string;
+    from: readonly [number, number];
+    to: readonly [number, number];
+    state: "draft" | "history" | "current" | "remaining";
+    infeasible: boolean;
+  }[];
+  /** Sequence-number chips next to the targets ("Seq 2", or "Draft 2" for a preview). */
+  nodes: readonly { targetId: string; order: number; onLine: boolean; state: string }[];
+};
+
 export type MarsMapProps = {
   /** Verified geographic features to draw (already filtered for the mission mode). */
   features: readonly MapFeature[];
@@ -84,6 +102,12 @@ export type MarsMapProps = {
   chrome?: "full" | "minimal";
   /** Imagery overlays shown at start (default: the CTX mosaic). */
   initialOverlays?: readonly OverlayKey[];
+  /** MAP-2: the conceptual mission sequence (null: none). */
+  sequence?: MapSequence | null;
+  selectedSegmentId?: string | null;
+  onSelectSegment?: (id: string) => void;
+  /** MAP-2: simulated targets to ring as well (the two ends of a selected connection). */
+  highlightIds?: readonly string[];
 };
 
 const SIM = "#ff8a6b";
@@ -100,6 +124,57 @@ const TONE: Record<SimTargetTone, { stroke: string; fill: string; dash?: number[
   skipped: { stroke: "#8b97a8", fill: "rgba(14, 21, 32, 0.7)", dash: [2, 3], text: "#a3b3c8", badge: "#a3b3c8" },
   infeasible: { stroke: "#f1c878", fill: "rgba(14, 21, 32, 0.78)", dash: [4, 3], text: "#f1c878", badge: "#f1c878" },
 };
+// MAP-2 sequence lines: coral family like the targets (never the blue of the verified traverse);
+// green = leads to completed work, yellow dashed = leads to work that does not fit.
+const SEQ_COLOR = { draft: SIM, history: "#84d8a6", current: SIM, remaining: SIM, infeasible: "#f1c878" } as const;
+const SEQ_WIDTH = { draft: 2, history: 2.5, current: 3.5, remaining: 2.5 } as const;
+function sequenceStyle(f: FeatureLike, selected: boolean): Style[] {
+  const kind = f.get("kind");
+  if (kind === "seq-node") {
+    const on = Boolean(f.get("onLine"));
+    return [
+      new Style({
+        zIndex: 1,
+        text: new Text({
+          text: `${f.get("phase") === "draft" ? "Draft" : "Seq"} ${String(f.get("order"))}`,
+          // Right of the marker: the target's own label sits above it, and neighbours' labels often below.
+          offsetX: 19,
+          textAlign: "left",
+          font: "600 11px ui-sans-serif, system-ui, sans-serif",
+          fill: new Fill({ color: on ? "#ffffff" : "#a3b3c8" }),
+          backgroundFill: new Fill({ color: "rgba(14, 21, 32, 0.88)" }),
+          backgroundStroke: new Stroke({ color: on ? SIM : "#8b97a8", width: 1, lineDash: on ? undefined : [2, 2] }),
+          padding: [1, 4, 0, 4],
+        }),
+      }),
+    ];
+  }
+  const state = f.get("state") as keyof typeof SEQ_WIDTH;
+  const infeasible = Boolean(f.get("infeasible"));
+  const color = infeasible ? SEQ_COLOR.infeasible : SEQ_COLOR[state];
+  const width = SEQ_WIDTH[state] + (selected ? 1 : 0);
+  const dash = state === "draft" ? [7, 6] : infeasible ? [5, 4] : undefined;
+  const geom = f.getGeometry() as LineString | undefined;
+  const styles: Style[] = [];
+  if (selected) styles.push(new Style({ zIndex: 0, stroke: new Stroke({ color: "rgba(255, 255, 255, 0.85)", width: width + 5 }) }));
+  if (state === "current" && !selected) styles.push(new Style({ zIndex: 0, stroke: new Stroke({ color: "rgba(255, 255, 255, 0.55)", width: width + 3 }) }));
+  styles.push(new Style({ zIndex: 0, stroke: new Stroke({ color: "rgba(14, 21, 32, 0.55)", width: width + 2, lineDash: dash }) }));
+  styles.push(new Style({ zIndex: 1, stroke: new Stroke({ color, width, lineDash: dash, lineCap: "round" }) }));
+  // Direction of plan order: one small arrowhead past the middle (static, no animation).
+  if (geom) {
+    const [a, b] = geom.getCoordinates();
+    const at = [a[0] + (b[0] - a[0]) * 0.58, a[1] + (b[1] - a[1]) * 0.58];
+    styles.push(
+      new Style({
+        zIndex: 1,
+        geometry: new Point(at),
+        image: new RegularShape({ points: 3, radius: selected ? 7 : 6, rotation: Math.atan2(b[0] - a[0], b[1] - a[1]), fill: new Fill({ color }), stroke: new Stroke({ color: "rgba(14, 21, 32, 0.8)", width: 1 }) }),
+      }),
+    );
+  }
+  return styles;
+}
+
 const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const VIEW_MAX_ZOOM = 18;
@@ -201,6 +276,10 @@ export function MarsMap({
   focusRequest = null,
   focusPadding = [0, 0, 0, 0],
   simLabels = "all",
+  sequence = null,
+  selectedSegmentId = null,
+  onSelectSegment,
+  highlightIds = [],
   ariaLabel = "Mars map of Jezero crater. Arrow keys pan, plus and minus zoom. Use the feature list in the layer panel to select features with the keyboard.",
 }: MarsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -209,6 +288,11 @@ export function MarsMap({
   const layersRef = useRef<Partial<Record<TrekLayerKey, TileLayer>>>({});
   const geoLayersRef = useRef<Partial<Record<GeoLayerKey, VectorLayer>>>({});
   const simLayerRef = useRef<VectorLayer | null>(null);
+  const seqLayerRef = useRef<VectorLayer | null>(null);
+  const selectedSegmentRef = useRef<string | null>(selectedSegmentId);
+  const highlightRef = useRef<ReadonlySet<string>>(new Set(highlightIds));
+  const onSelectSegmentRef = useRef(onSelectSegment);
+  const [sequenceAttr, setSequenceAttr] = useState("null");
   const [viewExtent, setViewExtent] = useState<string>("");
   const selectedRef = useRef<string | null>(selectedId);
   /** Start time of the selection-ring transition (0 = settled). */
@@ -232,7 +316,8 @@ export function MarsMap({
 
   useEffect(() => {
     onSelectRef.current = onSelect;
-  }, [onSelect]);
+    onSelectSegmentRef.current = onSelectSegment;
+  }, [onSelect, onSelectSegment]);
 
   const featureById = useMemo(() => new Map(features.map((f) => [f.id, f])), [features]);
   const counts = useMemo(() => {
@@ -286,7 +371,8 @@ export function MarsMap({
     const simLayer = new VectorLayer({
       source: new VectorSource(),
       style: (f) => {
-        const selected = f.getId() === selectedRef.current;
+        // MAP-2: the two ends of a selected connection are ringed like a selection.
+        const selected = f.getId() === selectedRef.current || highlightRef.current.has(String(f.getId()));
         const dimmed = Boolean(selectedRef.current) && !selected;
         const tone = TONE[(f.get("tone") as SimTargetTone | undefined) ?? "candidate"];
         const badge = String(f.get("badge") ?? "");
@@ -343,9 +429,16 @@ export function MarsMap({
       properties: { simulated: true },
     });
 
+    // MAP-2: conceptual sequence lines and number chips, under the simulated targets.
+    const seqLayer = new VectorLayer({
+      source: new VectorSource(),
+      style: (f) => sequenceStyle(f, f.getId() === selectedSegmentRef.current),
+      properties: { sequence: true },
+    });
+
     const map = new OlMap({
       target,
-      layers: [...orderedKeys.map((key) => layers[key]!), ...GEO_LAYERS.map((g) => geoLayers[g.key]!), simLayer],
+      layers: [...orderedKeys.map((key) => layers[key]!), ...GEO_LAYERS.map((g) => geoLayers[g.key]!), seqLayer, simLayer],
       controls: defaultControls({ rotate: false }).extend([
         new ScaleLine({ units: "metric" }),
         new MousePosition({
@@ -359,16 +452,20 @@ export function MarsMap({
       view: new View({ projection, center: [0, 0], zoom: 2, minZoom: 1, maxZoom: VIEW_MAX_ZOOM }),
     });
 
-    const vectorLayers = new Set<VectorLayer>([...Object.values(geoLayers).filter((l): l is VectorLayer => Boolean(l)), simLayer]);
+    const vectorLayers = new Set<VectorLayer>([...Object.values(geoLayers).filter((l): l is VectorLayer => Boolean(l)), seqLayer, simLayer]);
     const hitsAt = (pixel: number[]) =>
       map
         .getFeaturesAtPixel(pixel, { hitTolerance: 6, layerFilter: (l) => vectorLayers.has(l as VectorLayer) })
-        .map((f) => ({ id: String(f.getId()), kind: f.get("kind") as FeatureKind }));
+        .map((f) => ({ id: String(f.getId()), kind: f.get("kind") as FeatureKind }))
+        // Sequence-number chips are labels, not click targets.
+        .filter((h) => !h.id.startsWith("seqnode:"));
     map.on("singleclick", (e) => {
       const hits = hitsAt(e.pixel);
-      // A simulated target wins over verified features under the same pixel.
-      const sim = hits.find((h) => h.kind === undefined || String(h.id).startsWith("sim-"));
-      onSelectRef.current(sim ? sim.id : (pickFeature(hits.filter((h) => h.kind))?.id ?? null));
+      // A simulated target wins over a sequence connection, which wins over verified features under the same pixel.
+      const sim = hits.find((h) => h.id.startsWith("sim-"));
+      const seg = hits.find((h) => h.id.startsWith("seq:"));
+      if (!sim && seg && onSelectSegmentRef.current) return onSelectSegmentRef.current(seg.id);
+      onSelectRef.current(sim ? sim.id : (pickFeature(hits.filter((h) => h.kind && !h.id.startsWith("seq:")))?.id ?? null));
     });
     // Exposes the visible extent (Mars degrees) for tests and debugging.
     map.on("moveend", () => setViewExtent(map.getView().calculateExtent(map.getSize()).map((v) => v.toFixed(6)).join(",")));
@@ -385,6 +482,7 @@ export function MarsMap({
     layersRef.current = layers;
     geoLayersRef.current = geoLayers;
     simLayerRef.current = simLayer;
+    seqLayerRef.current = seqLayer;
     return () => {
       map.setTarget(undefined);
       map.dispose();
@@ -446,6 +544,62 @@ export function MarsMap({
     // markerKey and simKey capture the content of simulatedTargets.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markerKey, simKey, selectedId]);
+
+  // MAP-2: (re)draw the conceptual sequence whenever the plan state changes it.
+  const sequenceKey = JSON.stringify(sequence);
+  useEffect(() => {
+    const source = seqLayerRef.current?.getSource();
+    if (!source) return;
+    source.clear();
+    const posOf = new Map(simulatedTargets.map((t) => [t.id, t.position]));
+    if (sequence) {
+      for (const x of sequence.segments) {
+        const f = new Feature({ geometry: new LineString([[x.from[0], x.from[1]], [x.to[0], x.to[1]]]), kind: "seq-segment", state: x.state, infeasible: x.infeasible });
+        f.setId(x.id);
+        source.addFeature(f);
+      }
+      for (const n of sequence.nodes) {
+        const at = posOf.get(n.targetId);
+        if (!at) continue; // no position: no chip (never inferred)
+        const f = new Feature({ geometry: new Point([at[0], at[1]]), kind: "seq-node", order: n.order, onLine: n.onLine, state: n.state, phase: sequence.phase });
+        f.setId(`seqnode:${n.targetId}`);
+        source.addFeature(f);
+      }
+    }
+    // sequenceKey and simKey capture the content of sequence and simulatedTargets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sequenceKey, simKey]);
+
+  // MAP-2: selected connection and highlighted ends; the attribute mirrors what is drawn.
+  const highlightKey = highlightIds.join("|");
+  useEffect(() => {
+    selectedSegmentRef.current = selectedSegmentId;
+    highlightRef.current = new Set(highlightIds);
+    seqLayerRef.current?.changed();
+    simLayerRef.current?.changed();
+    const source = seqLayerRef.current?.getSource();
+    const drawn = source?.getFeatures() ?? [];
+    setSequenceAttr(
+      sequence
+        ? JSON.stringify({
+            phase: sequence.phase,
+            segments: drawn
+              .filter((f) => f.get("kind") === "seq-segment")
+              .map((f) => {
+                const [a, b] = (f.getGeometry() as LineString).getCoordinates();
+                return { id: String(f.getId()), state: f.get("state"), infeasible: f.get("infeasible"), selected: f.getId() === selectedSegmentId, from: a, to: b };
+              }),
+            nodes: drawn
+              .filter((f) => f.get("kind") === "seq-node")
+              .map((f) => ({ targetId: String(f.getId()).replace("seqnode:", ""), order: f.get("order"), onLine: f.get("onLine"), state: f.get("state") }))
+              .sort((x, y) => x.order - y.order),
+            highlighted: [...highlightIds],
+          })
+        : "null",
+    );
+    // sequenceKey and highlightKey capture the content of sequence and highlightIds.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sequenceKey, selectedSegmentId, highlightKey, simKey]);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -564,6 +718,7 @@ export function MarsMap({
         data-testid="mars-map"
         data-view-extent={viewExtent}
         data-sim-markers={markerAttr}
+        data-sequence={sequenceAttr}
         data-selected-id={selectedId ?? ""}
         data-motion={reducedMotion ? "reduced" : "full"}
         tabIndex={0}

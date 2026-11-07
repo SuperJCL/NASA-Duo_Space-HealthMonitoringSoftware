@@ -514,6 +514,26 @@ export function buildProposal(args: {
   };
 }
 
+/**
+ * The plan items after accepting a replan proposal: completed and skipped
+ * items are kept as they are (history); the suggested order follows for the
+ * remaining work (an action in progress keeps its steps); remaining work that
+ * no longer fits is kept as "dropped by replan", not deleted. Used by the
+ * reducer and by the MAP-2 sequence preview, so both always agree.
+ */
+export function itemsAfterReplan(items: readonly PlanItem[], p: Pick<ReplanProposal, "suggested">): PlanItem[] {
+  const kept = items.filter((i) => i.status === "done" || i.status === "skipped");
+  const active = items.find((i) => i.status === "active");
+  return [
+    ...kept,
+    ...p.suggested.order.map((taskId) => (active && active.taskId === taskId ? active : { taskId, status: "planned" as const, step: 0 })),
+    // Dropped work is kept in the plan as skipped (with any completed steps), not deleted.
+    ...remaining([...items])
+      .filter((i) => !p.suggested.order.includes(i.taskId))
+      .map((i) => ({ ...i, status: "skipped" as const, paused: false, dropped: { by: "replan" as const } })),
+  ];
+}
+
 export function missionReducer(state: MissionState, action: MissionAction): MissionState {
   switch (action.type) {
     case "select":
@@ -752,16 +772,7 @@ export function missionReducer(state: MissionState, action: MissionAction): Miss
     case "accept-replan": {
       if (!state.plan || !state.replan) return state;
       const p = state.replan;
-      const kept = state.plan.items.filter((i) => i.status === "done" || i.status === "skipped");
-      const active = state.plan.items.find((i) => i.status === "active");
-      const items: PlanItem[] = [
-        ...kept,
-        ...p.suggested.order.map((taskId) => (active && active.taskId === taskId ? active : { taskId, status: "planned" as const, step: 0 })),
-        // Dropped work is kept in the plan as skipped (with any completed steps), not deleted.
-        ...remaining(state.plan.items)
-          .filter((i) => !p.suggested.order.includes(i.taskId))
-          .map((i) => ({ ...i, status: "skipped" as const, paused: false, dropped: { by: "replan" as const } })),
-      ];
+      const items = itemsAfterReplan(state.plan.items, p);
       return {
         ...state,
         plan: { ...state.plan, items },

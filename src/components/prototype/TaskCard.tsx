@@ -19,6 +19,7 @@ export function TaskCard({
   expanded,
   limitations,
   locked = false,
+  highlighted = false,
   onSelect,
   onTogglePlan,
   onToggleExpand,
@@ -32,6 +33,8 @@ export function TaskCard({
   limitations: string[];
   /** A plan exists: the card shows plan state and cannot change the draft (MAP-1 consistency fix). */
   locked?: boolean;
+  /** MAP-2: one end of the selected sequence connection. */
+  highlighted?: boolean;
   onSelect: () => void;
   onTogglePlan: () => void;
   onToggleExpand: () => void;
@@ -58,10 +61,11 @@ export function TaskCard({
       ref={ref}
       data-testid={`mg-card-${view.taskId}`}
       data-selected={selected}
+      data-highlighted={highlighted || undefined}
       data-rank={view.rank ?? ""}
       data-addable={addable.state}
       className={`rounded-2xl border p-4 transition-[background-color,border-color] duration-200 ease-out ${
-        selected ? "border-[var(--mg-coral)] bg-[var(--mg-surface)]" : "border-[var(--mg-line)] bg-[var(--mg-glass)]"
+        selected ? "border-[var(--mg-coral)] bg-[var(--mg-surface)]" : highlighted ? "border-dashed border-[var(--mg-coral)] bg-[var(--mg-glass)]" : "border-[var(--mg-line)] bg-[var(--mg-glass)]"
       }`}
     >
       <div className="flex items-start gap-3">

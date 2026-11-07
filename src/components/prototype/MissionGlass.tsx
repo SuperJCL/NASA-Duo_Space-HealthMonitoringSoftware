@@ -22,16 +22,20 @@ import {
   type SimulatedTarget,
 } from "@/lib/prototype/mission-glass";
 import { targetMarkers } from "@/lib/prototype/target-markers";
+import { missionSequence, replanSequences } from "@/lib/prototype/mission-sequence";
+import type { MapSequence } from "@/components/map/MarsMap";
 import { MarsMapLoader } from "@/components/map/MarsMapLoader";
 import { TerrainLoader } from "@/components/terrain/TerrainLoader";
-import type { TerrainMarker } from "@/components/terrain/TerrainViewer";
-import { LEFROY_TERRAIN } from "@/lib/terrain/terrain";
+import type { TerrainMarker, TerrainSequence } from "@/components/terrain/TerrainViewer";
+import { useTerrainHeights } from "@/components/terrain/terrain-data";
+import { LEFROY_TERRAIN, profileAlong, segmentCoverage } from "@/lib/terrain/terrain";
 import { EvaHud } from "./EvaHud";
 import { EvidenceSheet } from "./EvidenceSheet";
 import { PlanReview } from "./PlanReview";
 import { ReplanDialog } from "./ReplanDialog";
 import { TargetList, TargetSummary } from "./TargetMapOverlay";
 import { TaskCard } from "./TaskCard";
+import { SegmentSummary, SequenceList } from "./SequenceViews";
 
 type Props = {
   scenario: Scenario;
@@ -75,6 +79,8 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   // MAP-3A: 2D map or local 3D terrain (planning only). The 2D map stays mounted, so its view is kept.
   const [mapView, setMapView] = useState<"2d" | "3d">("2d");
   const [terrainNotice, setTerrainNotice] = useState<string | null>(null);
+  // MAP-2: the selected sequence connection (UI state; the sequence itself is derived from the mission state).
+  const [segmentSel, setSegmentSel] = useState<string | null>(null);
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(wideQuery).matches, () => false);
   const sourceById = useMemo(() => new Map(sources.map((x) => [x.id, x])), [sources]);
   const costs = useMemo(() => Object.fromEntries(snapshot.tasks.map((t) => [t.id, t.costs["res-effort"] ?? Infinity])), [snapshot]);
@@ -119,8 +125,69 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
     ],
     [features, mapTargets],
   );
+  // MAP-2: the conceptual mission sequence, from the same mission state as cards, markers and HUD.
+  const draftFitItems = planFit(state.draft, costs, state.budget).items;
+  const feasibleByTask = useMemo(
+    () => (state.plan ? Object.fromEntries(markers.map((m) => [m.taskId, m.feasible])) : Object.fromEntries(draftFitItems.map((i) => [i.taskId, i.fits]))),
+    // draftFitItems is derived from state.draft, costs and state.budget.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.plan, markers, state.draft, costs, state.budget],
+  );
+  const sequence = useMemo(() => missionSequence({ state, targets, stepsByTask, feasibleByTask }), [state, targets, stepsByTask, feasibleByTask]);
+  const selectedSegment = sequence.segments.find((x) => x.id === segmentSel) ?? null;
+  const highlightIds = useMemo(() => (selectedSegment ? [selectedSegment.from.targetId, selectedSegment.to.targetId] : []), [selectedSegment]);
+  const highlightTasks = selectedSegment ? [selectedSegment.from.taskId, selectedSegment.to.taskId] : [];
+  const mapSequence = useMemo<MapSequence | null>(
+    () =>
+      sequence.phase === "none"
+        ? null
+        : {
+            phase: sequence.phase,
+            segments: sequence.segments.map((x) => ({ id: x.id, from: x.from.position, to: x.to.position, state: x.state, infeasible: x.infeasible })),
+            nodes: sequence.nodes.flatMap((n) => (n.targetId ? [{ targetId: n.targetId, order: n.order, onLine: n.onLine, state: n.state }] : [])),
+          },
+    [sequence],
+  );
+  const terrainSequence = useMemo<TerrainSequence | null>(
+    () =>
+      sequence.phase === "none"
+        ? null
+        : {
+            phase: sequence.phase,
+            segments: sequence.segments.map((x) => ({
+              id: x.id,
+              from: x.from.position,
+              to: x.to.position,
+              fromId: x.from.targetId,
+              toId: x.to.targetId,
+              fromOrder: x.from.order,
+              toOrder: x.to.order,
+              state: x.state,
+              infeasible: x.infeasible,
+            })),
+            nodes: sequence.nodes.flatMap((n) => (n.targetId ? [{ targetId: n.targetId, order: n.order, onLine: n.onLine }] : [])),
+          },
+    [sequence],
+  );
+  const titleByTask = useMemo(() => Object.fromEntries(planning.views.map((v) => [v.taskId, v.shortTitle])), [planning]);
+  // The selected connection's coverage and (2D) its real-DTM profile, loaded only when needed.
+  const segCoverage = selectedSegment ? segmentCoverage(LEFROY_TERRAIN, selectedSegment.from.position, selectedSegment.to.position) : "inside";
+  const segTerrain = useTerrainHeights(LEFROY_TERRAIN, Boolean(selectedSegment) && mapView === "2d" && segCoverage === "inside");
+  const segProfile = useMemo(
+    () => (selectedSegment && segTerrain.heights && segCoverage === "inside" ? profileAlong(LEFROY_TERRAIN, segTerrain.heights, selectedSegment.from.position, selectedSegment.to.position) : null),
+    [selectedSegment, segTerrain.heights, segCoverage],
+  );
+  /** Select a connection: its two targets are highlighted and its summary shown (in 2D and 3D). */
+  const pickSegment = (id: string) => {
+    setSegmentSel(id);
+    setVerifiedPick(null);
+    setSummaryFor(null);
+    dispatch({ type: "select", taskId: null });
+  };
+
   /** Select a task from a card or the target list, and focus its target on the map. */
   const pickTask = (taskId: string) => {
+    setSegmentSel(null);
     setVerifiedPick(null);
     dispatch({ type: "select", taskId });
     setSummaryFor(taskId);
@@ -131,6 +198,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const focusTask = state.mode === "eva" ? (evaCurrent?.taskId ?? null) : state.selectedTaskId;
   const mapSelected = verifiedPick ?? (focusTask ? (targetByTask.get(focusTask)?.id ?? null) : null);
   const onMapSelect = (id: string | null) => {
+    setSegmentSel(null);
     const t = targets.find((x) => x.id === id);
     if (t) {
       setVerifiedPick(null);
@@ -192,6 +260,10 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
       // Keep the focused target clear of the planning panel, the target list and (on wide screens) the summary.
       focusPadding={wide ? [64, 472, 16, summaryOpen ? 440 : 16] : [56, 0, 0, 0]}
       initialOverlays={["jezeroCtx", "jezeroHirise"]}
+      sequence={mapSequence}
+      selectedSegmentId={state.mode === "planning" ? (selectedSegment?.id ?? null) : null}
+      onSelectSegment={state.mode === "planning" ? pickSegment : undefined}
+      highlightIds={state.mode === "planning" ? highlightIds : undefined}
     />
   );
 
@@ -256,6 +328,10 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                     setMapView("2d");
                     setTerrainNotice(reason);
                   }}
+                  sequence={terrainSequence}
+                  selectedSegmentId={selectedSegment?.id ?? null}
+                  onSelectSegment={pickSegment}
+                  highlightIds={highlightIds}
                 />
               </div>
             ) : null}
@@ -267,7 +343,8 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                 </button>
               </div>
             ) : null}
-            <div className={`pointer-events-none absolute bottom-12 left-4 hidden ${mapView === "2d" ? "lg:block" : ""}`}>
+            {/* The legend gives way to an open connection summary (same corner of the map). */}
+            <div className={`pointer-events-none absolute bottom-12 left-4 hidden ${mapView === "2d" && !selectedSegment ? "lg:block" : ""}`}>
               <div className="mg-glass pointer-events-auto flex flex-col gap-1.5 px-3 py-2 text-[13px]" data-testid="mg-legend">
                 <span className="flex items-center gap-2">
                   <span aria-hidden className="inline-block size-3 rounded-full bg-[#8ecae6]" />
@@ -279,8 +356,24 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                 </span>
                 <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Number: provisional priority (existing engine, not validated)"}</span>
                 <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · ½ ended with skipped steps · yellow: not feasible"}</span>
+                {sequence.phase !== "none" ? (
+                  <>
+                    <span className="flex items-center gap-2 font-medium text-[var(--mg-coral)]" data-testid="mg-legend-seq">
+                      <span aria-hidden className={`inline-block w-3 border-t-2 border-[var(--mg-coral)] ${sequence.phase === "draft" ? "border-dashed" : ""}`} />
+                      {sequence.label}
+                    </span>
+                    <span className="pl-5 text-[12px] text-[var(--mg-dim)]">
+                      {sequence.phase === "draft" ? "Draft n: position in your draft (not priority)" : "Seq n: plan order (not priority) · green: leads to completed work · yellow dashed: does not fit"}
+                    </span>
+                  </>
+                ) : null}
               </div>
             </div>
+            {mapView === "2d" && sequence.phase !== "none" ? (
+              <p className="mg-glass pointer-events-none absolute bottom-9 left-2 z-[2] px-2 py-1 text-[12px] font-medium text-[var(--mg-coral)] lg:hidden" data-testid="mg-seq-map-label">
+                {sequence.label}
+              </p>
+            ) : null}
             <TargetList
               markers={markers}
               selectedTaskId={state.selectedTaskId}
@@ -308,7 +401,19 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
             />
           </section>
 
-          {picked ? (
+          {selectedSegment ? (
+            <SegmentSummary
+              key={selectedSegment.id}
+              segment={selectedSegment}
+              phase={sequence.phase}
+              titleByTask={titleByTask}
+              view={mapView}
+              coverage={segCoverage}
+              profile={segProfile}
+              profileState={segTerrain.error ? { error: segTerrain.error } : segTerrain.heights ? "ready" : "loading"}
+              onClose={() => setSegmentSel(null)}
+            />
+          ) : picked ? (
             <div className="mg-glass mg-rise relative z-[5] mx-3 mt-3 p-3 text-sm lg:absolute lg:left-14 lg:top-16 lg:m-0 lg:max-w-xs" data-testid="mg-verified-pick">
               <p className="text-[13px] uppercase tracking-[0.12em] text-[var(--mg-cyan)]">{"Verified feature"}</p>
               <p className="mt-0.5 font-medium">{picked.name}</p>
@@ -381,6 +486,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                   view={v}
                   target={targetByTask.get(v.taskId)}
                   selected={state.selectedTaskId === v.taskId}
+                  highlighted={highlightTasks.includes(v.taskId)}
                   addable={
                     state.plan
                       ? {
@@ -464,6 +570,19 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                   </div>
                 </>
               )}
+              {sequence.phase !== "none" ? (
+                <SequenceList
+                  // A new phase (draft → confirmed) starts with its own default: the confirmed sequence opens.
+                  key={sequence.phase}
+                  sequence={sequence}
+                  titleByTask={titleByTask}
+                  selectedTaskId={state.selectedTaskId}
+                  selectedSegmentId={selectedSegment?.id ?? null}
+                  onSelectTask={pickTask}
+                  onSelectSegment={pickSegment}
+                  defaultOpen={sequence.phase === "confirmed"}
+                />
+              ) : null}
             </div>
             <PlanReview
               open={reviewOpen && !state.plan}
@@ -514,7 +633,18 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           onReviewReplan={() => checkConstraints(state.budget, "Re-check of the current plan")}
           onUndo={() => dispatch({ type: "undo-replan", costs })}
           onDismissNotice={() => dispatch({ type: "dismiss-notice" })}
-          replan={state.replan ? <ReplanDialog proposal={state.replan} viewById={viewById} onAccept={() => dispatch({ type: "accept-replan" })} onKeep={() => dispatch({ type: "keep-plan" })} /> : null}
+          replan={
+            state.replan && state.plan ? (
+              <ReplanDialog
+                proposal={state.replan}
+                viewById={viewById}
+                // MAP-2: both options as plan-order diagrams, before the decision.
+                preview={replanSequences({ items: state.plan.items, proposal: state.replan, targets, stepsByTask })}
+                onAccept={() => dispatch({ type: "accept-replan" })}
+                onKeep={() => dispatch({ type: "keep-plan" })}
+              />
+            ) : null
+          }
           onBackToPlanning={() => dispatch({ type: "set-mode", mode: "planning" })}
           onEvidence={(id) => setEvidenceFor(id)}
         />
