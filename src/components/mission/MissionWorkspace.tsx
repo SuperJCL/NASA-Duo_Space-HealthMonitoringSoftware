@@ -147,6 +147,8 @@ export function MissionWorkspace({ scenario, sources, registry, geo, mission, br
     onConstraintsChange: setConstraints,
     onResetConstraints: () => setConstraints(null),
     sourceById,
+    unreviewedIds: provisional.unreviewedInputs,
+    pivotalInputCount: provisional.pivotalInputs.length,
   };
   const replay = mode === "historical-replay";
   const evidenceText = replay ? `Historical replay · evidence as of ${asOf}` : `Evidence: latest verified in this dataset, through ${latest} (not all NASA data)`;
@@ -212,7 +214,7 @@ export function MissionWorkspace({ scenario, sources, registry, geo, mission, br
 
       <Drawer id="evidence-drawer" title="All evidence in this dataset" subtitle={ctx.evidenceNote} open={drawer === "evidence"} onClose={() => setDrawer(null)} widthClass="sm:w-[32rem]">
         <div ref={evidenceRef}>
-          <EvidenceSection observations={snapshot.observations} interpretations={snapshot.interpretations} gaps={snapshot.gaps} sourceById={sourceById} />
+          <EvidenceSection observations={snapshot.observations} interpretations={snapshot.interpretations} gaps={snapshot.gaps} sourceById={sourceById} unreviewedIds={provisional.unreviewedInputs} />
         </div>
       </Drawer>
 

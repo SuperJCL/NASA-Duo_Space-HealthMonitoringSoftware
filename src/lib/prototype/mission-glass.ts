@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { Recommendation } from "@/lib/decision/engine";
+import { linkedQuestionsText, stabilityScopeText } from "@/lib/decision/explain";
 import type { ProvisionalRanking, ReviewedRanking } from "@/lib/decision/review-modes";
+import { relationshipIds, type ReviewRegistry } from "@/lib/evidence/review-registry";
 import { RecordId, TaskPlatform, type Scenario } from "@/lib/evidence/schema";
 import type { SnapshotEvidence } from "@/lib/evidence/snapshot";
 import type { GeoCatalog, LonLat } from "@/lib/geo/schema";
@@ -122,8 +124,12 @@ export function taskViews(args: {
   provisional: ProvisionalRanking;
   reviewed: ReviewedRanking;
   budget: number;
+  /** SCI-0 A1: review status and author of each task–gap link (else the reviewed ranking's awaiting list is used). */
+  registry?: ReviewRegistry;
 }): TaskView[] {
-  const { s, snapshot, provisional, reviewed, budget } = args;
+  const { s, snapshot, provisional, reviewed, budget, registry } = args;
+  const entryById = new Map((registry?.entries ?? []).map((e) => [e.id, e]));
+  const awaiting = new Set(reviewed.awaitingReview);
   const rec: Recommendation = provisional.recommendation;
   const openLocal = snapshot.gaps.filter((g) => g.relevance === "local" && g.status.state === "open");
   const views = s.actions.map((a): TaskView => {
@@ -132,7 +138,9 @@ export function taskViews(args: {
     const ranked = rec.ranking.find((r) => r.taskId === task.id);
     const infeasible = rec.infeasible.find((r) => r.taskId === task.id);
     const evaluation = ranked ?? rec.unranked.find((r) => r.taskId === task.id);
-    const covered = task.addresses.filter((l) => openLocal.some((g) => g.id === l.gapId)).length;
+    const linkIds = task.addresses.filter((l) => openLocal.some((g) => g.id === l.gapId)).map((l) => relationshipIds.taskGap(task.id, l.gapId));
+    const covered = linkIds.length;
+    const unreviewedLinks = linkIds.filter((id) => (registry ? entryById.get(id)?.status !== "approved" : awaiting.has(id)));
     const blocked = reviewed.notAssessed.find((n) => n.taskId === task.id);
     const isTop = ranked?.rank === 1;
     const unavailable = Boolean(infeasible && s.excludedPlatforms.includes(task.platform));
@@ -144,15 +152,22 @@ export function taskViews(args: {
       platformText: `${PLATFORM_TEXT[task.platform] ?? task.platform} · ${task.instruments.join(", ")}`,
       instruments: task.instruments,
       rank: ranked?.rank ?? null,
-      rationale: `Covers ${covered} of ${openLocal.length} open questions · ${EVIDENCE_PHRASE[task.platform] ?? ""} · ${cost} pts`,
+      // SCI-0 A1: say that the linked-question count rests on links that may not be reviewed yet.
+      rationale: `${linkedQuestionsText({
+        linked: covered,
+        open: openLocal.length,
+        unreviewed: unreviewedLinks.length,
+        aiDrafted: Boolean(registry) && unreviewedLinks.every((id) => entryById.get(id)?.draftedBy === "ai-agent"),
+      })} · ${EVIDENCE_PHRASE[task.platform] ?? ""} · ${cost} pts`,
       status: unavailable ? "unavailable" : infeasible ? "over-budget" : "fits",
       statusText: infeasible ? `Needs ${cost} pts, budget is ${budget}` : `Fits: ${cost} of ${budget} pts`,
       cost,
       budget,
       conditions: [
         `Only while the simulated budget is at least ${cost} points.`,
+        // SCI-0 A2: the stability check varies weights only; state the unreviewed-input sensitivity next to it.
         isTop
-          ? `Stays #1 in ${rec.stability.topUnchanged} of ${rec.stability.trials} runs with each weight changed by ±${Math.round(rec.stability.perturbation * 100)}%.`
+          ? stabilityScopeText({ stability: rec.stability, unreviewedInputs: provisional.unreviewedInputs.length, pivotalInputs: provisional.pivotalInputs.length })
           : "Rank can change if the weights change.",
         `Depends on ${blocked?.blockingReviewIds.length ?? 0} scientific relationship(s) that await expert review.`,
       ],

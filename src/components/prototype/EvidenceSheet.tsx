@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { BriefingView } from "@/lib/briefing/view";
 import { CRITERIA } from "@/lib/decision/criteria";
+import { closedQuestionText } from "@/lib/decision/explain";
 import type { Assumption, CandidateTask, Source } from "@/lib/evidence/schema";
 import type { SnapshotGap } from "@/lib/evidence/snapshot";
 import type { TaskView } from "@/lib/prototype/mission-glass";
@@ -21,6 +22,7 @@ export function EvidenceSheet({
   sourceById,
   briefing,
   awaitingReview,
+  unreviewedIds,
 }: {
   open: boolean;
   onClose: () => void;
@@ -31,7 +33,10 @@ export function EvidenceSheet({
   sourceById: ReadonlyMap<string, Source>;
   briefing: BriefingView | null;
   awaitingReview: number;
+  /** Relationships visible on this date that are not approved (SCI-0 A4: is a closed question's basis reviewed?). */
+  unreviewedIds: readonly string[];
 }) {
+  const unreviewed = new Set(unreviewedIds);
   const headingRef = useRef<HTMLHeadingElement>(null);
   // EVA-1.1: remember what had focus, and give it back on close.
   const openerRef = useRef<HTMLElement | null>(null);
@@ -94,9 +99,16 @@ export function EvidenceSheet({
               <ul className="mt-2 space-y-3" data-testid="mg-gap-links">
                 {task.addresses.map((l) => {
                   const g = gaps.find((x) => x.id === l.gapId);
+                  // SCI-0 A4: a closed question says on what basis, and that it closes only itself.
+                  const closed = g ? closedQuestionText(g, unreviewed) : null;
                   return (
                     <li key={l.gapId} className="rounded-xl border border-[var(--mg-line)] p-3">
-                      <span className="block font-medium">{g ? `${g.title}${g.status.state === "addressed" ? " (already addressed)" : ""}` : l.gapId}</span>
+                      <span className="block font-medium">{g ? `${g.title}${closed ? ` — ${closed.label}` : ""}` : l.gapId}</span>
+                      {closed ? (
+                        <span className="mt-0.5 block text-[13px] text-[var(--mg-dim)]" data-testid="mg-gap-closed-note">
+                          {closed.note}
+                        </span>
+                      ) : null}
                       <span className="mt-0.5 block text-[var(--mg-dim)]">{l.rationale}</span>
                       <span className="mt-1 block text-[13px] text-[var(--mg-caution)]">{"Link drafted by AI · awaiting expert review"}</span>
                       {g?.origin.kind === "cited"

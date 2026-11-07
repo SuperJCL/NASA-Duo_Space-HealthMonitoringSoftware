@@ -86,7 +86,10 @@ try {
   const order = await cards.evaluateAll((els) => els.map((e) => [e.getAttribute("data-testid").replace("mg-card-", ""), e.getAttribute("data-rank")]));
   check(JSON.stringify(order) === JSON.stringify([["task-abrasion-proximity", "1"], ["task-core-for-earth", "2"], ["task-standoff-survey", "3"]]), `three scenario actions, ranked by the existing engine (got ${JSON.stringify(order)})`);
   const first = page.getByTestId("mg-card-task-abrasion-proximity");
-  check((await text(first.getByTestId("mg-rationale"))) === "Covers 2 of 3 open questions · adds close-up rover evidence" && (await text(first.getByTestId("mg-cost"))) === "40 pts", "MG-1: Level 1 shows a one-line rationale and the cost");
+  check(
+    (await text(first.getByTestId("mg-rationale"))) === "Linked to 2 of 3 open questions (AI-drafted links, not yet reviewed) · adds close-up rover evidence" && (await text(first.getByTestId("mg-cost"))) === "40 pts",
+    "MG-1 / SCI-0 A1: Level 1 shows a one-line rationale and the cost; the linked-question count says its links are AI-drafted and not yet reviewed",
+  );
   check((await text(first.getByTestId("mg-status"))) === "Fits: 40 pts, leaving 60 pts.", "MG-1: Level 1 states feasibility in plain language");
   check(/Priorities are provisional: existing MDI engine, not scientifically validated/.test(await text(page.getByTestId("mg-ranking-note"))) && /50 relationships await expert review/.test(await text(page.getByTestId("mg-ranking-note"))), "MG-1: provisional priorities are stated once, at the top");
   const primaries = await page.getByTestId("mg-planning").locator("button.bg-\\[var\\(--mg-coral\\)\\]").count();
@@ -111,7 +114,11 @@ try {
   check((await first.getByTestId("mg-expand").getAttribute("aria-expanded")) === "true" && (await detail.getAttribute("aria-hidden")) === "false", "Level 2 details expand");
   const d = await text(detail);
   check(/Target B: scenario-defined position, 118 m straight-line from the verified Lefroy Bay site\. No route or safety assessment\./.test(d), "Level 2: target is scenario-defined; no route or safety claim");
-  check(/Stays #1 in 6 of 6 runs/.test(d) && /at least 40 points/.test(d) && /await expert review/.test(d), "Level 2: priority conditions (stability, budget, pending review)");
+  check(
+    d.includes("Weights only: stays #1 in 6 of 6 runs with each scored weight changed by ±20%. Not covered by this check: 47 unreviewed inputs; removing any one of 3 of them alone changes #1.") &&
+      !/Stays #1/.test(d) && /at least 40 points/.test(d) && /await expert review/.test(d),
+    "Level 2 / SCI-0 A2: priority conditions (stability stated as weights-only with the unreviewed-input sensitivity, budget, pending review)",
+  );
   check(/PIXL, SHERLOC, WATSON/.test(d), "Level 2: equipment");
 
   // ── Level 3 ──
@@ -120,6 +127,21 @@ try {
   const sheet = page.getByTestId("mg-evidence-sheet");
   check(await sheet.isVisible(), "Level 3 evidence sheet opens");
   check(/not evaluated/.test(await text(page.getByTestId("mg-engine-notes"))), "Level 3: engine reasons, including criteria not evaluated");
+  {
+    const notes = await text(page.getByTestId("mg-engine-notes"));
+    const links = await text(page.getByTestId("mg-gap-links"));
+    const closedNote = await text(page.getByTestId("mg-gap-closed-note"));
+    check(
+      notes.includes("Would add rover in situ evidence. Closest evidence currently linked to these hypotheses in this dataset: orbital. Other observations may not be linked to them yet.") && !/best existing support/.test(notes),
+      "SCI-0 A3: evidence quality says it compares only evidence linked to these hypotheses in this dataset",
+    );
+    check(
+      links.includes("No rover measurement yet — no longer counted as open") &&
+        closedNote === "Closed by an MDI rule (awaiting expert review). This closes only this question; the other open questions are not affected." &&
+        !/already addressed/.test(links),
+      "SCI-0 A4: the closed question says on what basis (MDI rule, awaiting review) and that it closes only itself",
+    );
+  }
   check(/Question stated in the source:/.test(await text(page.getByTestId("mg-gap-links"))) && /awaiting expert review/.test(await text(page.getByTestId("mg-gap-links"))), "Level 3: source quotations and review status for each open question");
   check(/Silica fills the spaces between the grains/.test(await text(page.getByTestId("mg-verified-context"))) && /p\. 26-1/.test(await text(page.getByTestId("mg-verified-context"))), "Level 3: verified Lefroy Bay context with PDS page");
   check(/reviewed ranking is unavailable/.test(await text(page.getByTestId("mg-review-status"))), "Level 3: review status says the reviewed ranking is unavailable");

@@ -3115,3 +3115,60 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - The smoke tests and data validators were not re-run, because no code or
     data changed. The last full run on identical code and data was the
     MAP-2 integration (2026-11-07T00:31–00:40Z).
+
+## A1–A4: scientific wording corrections (SCI-0 track A)
+
+- **Branch:** `a1-a4-scientific-wording`, created from `main` `ffb9f4c`
+  (after the SCI-0 merge). Not merged.
+- **Started:** 2026-11-07T18:09:10Z.
+- **Completed:** 2026-11-07T18:21:13Z, at this commit.
+- **Wall-clock elapsed:** 12 min 03 s. Including the SCI-0
+  merge before it, from 18:07:58Z: 13 min 15 s. One agent, no
+  parallel work.
+- **Scope:** wording only, through one pure module
+  (`src/lib/decision/explain.ts`) shared by Mission Glass and the research
+  workspace.
+  - **A1:** the card's "Covers N of 3 open questions" now reads "Linked to N
+    of 3 open questions (AI-drafted links, not yet reviewed)". The status
+    and author come from the review registry.
+  - **A2:** "Stays #1 in X of Y runs …" now reads "Weights only: stays #1 …
+    Not covered by this check: N unreviewed inputs; removing any one of K of
+    them alone changes #1". It uses `rankProvisional`'s existing
+    `unreviewedInputs` and `pivotalInputs`. Applied in Mission Glass
+    Level 2 and on the research stability line.
+  - **A3:** the evidence-quality explanation in `engine.ts` now says the
+    comparison covers the "closest evidence currently linked to these
+    hypotheses in this dataset", and that other observations may not be
+    linked yet. Its value is unchanged. `docs/DECISION_MODEL.md` describes
+    the rule the same way.
+  - **A4:** "(already addressed)", "(addressed)", "Addressed by" and
+    "Addressed" now read "no longer counted as open". A note says the
+    question was closed by an MDI rule (awaiting expert review), that this
+    closes only this question, and that the other open questions are not
+    affected. Applied in the Mission Glass evidence sheet, the research
+    task links and the research evidence list.
+- **Unchanged:** formulas, weights, review statuses, gap states and data.
+  `git diff main -- src/data` is empty.
+- **Acceptance:**
+  1. **Scores, order and review state.** A before/after probe (the same
+     code, run on `main` and on this branch) covered 2 dates × 2 platform
+     sets × 4 budgets plus the Mission Glass task views. Compared exactly
+     (27 groups; 0 differences):
+     - totals in full precision, ranks, criterion values and statuses;
+     - basis, margins, feasibility and infeasibility;
+     - stability, unreviewed and pivotal inputs;
+     - reviewed-ranking status and all 50 registry entries (all pending).
+
+     The only differences are the 15 distinct expected texts: A1 rationale,
+     A2 conditions and A3 explanations.
+  2. **Key pages.**
+     - `npm run check` passes: 272/272 unit tests, 4 new in
+       `explain.test.ts`. Three existing tests changed their expected text
+       only.
+     - Prototype smoke: 188/188 in two consecutive runs. New: A3 and A4
+       checks; A1 and A2 checks updated.
+     - Research smoke: 120/120 with `SMOKE_LIVE=1`, with 4 new A2–A4 checks.
+     - The translation runs pass.
+     - Screenshots of the card, the evidence sheet, the research
+       recommendation and the gap card were reviewed.
+- **Rework:** none.

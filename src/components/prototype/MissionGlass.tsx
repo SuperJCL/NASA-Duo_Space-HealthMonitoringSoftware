@@ -91,7 +91,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
     const constraints = { ...defaultConstraints(snapshot), budgets: { "res-effort": budget }, unavailablePlatforms: s.excludedPlatforms };
     const provisional = rankProvisional(scenario, registry, asOf, DEFAULT_WEIGHTS, constraints);
     const reviewed = rankReviewed(scenario, registry, asOf, DEFAULT_WEIGHTS, constraints);
-    return { provisional, reviewed, views: taskViews({ s, snapshot, provisional, reviewed, budget }) };
+    return { provisional, reviewed, views: taskViews({ s, snapshot, provisional, reviewed, budget, registry }) };
   };
   // engineAt only depends on inputs listed here.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -660,6 +660,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
         sourceById={sourceById}
         briefing={briefing}
         awaitingReview={planning.reviewed.awaitingReview.length}
+        unreviewedIds={planning.provisional.unreviewedInputs}
       />
     </div>
   );
