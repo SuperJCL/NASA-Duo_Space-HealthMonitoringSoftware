@@ -3335,3 +3335,49 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `verify:briefing`: 35 checks, 0 problems;
   - `verify:geo`: 0 problems;
   - `verify:terrain`: the assets match a fresh build.
+
+## PDS locator correction: finishing touches and merge into main
+
+- **Started:** 2026-11-07T19:33:24Z.
+- **Completed:** 2026-11-07T19:43:27Z, at this log commit (pushed right after).
+- **Wall-clock elapsed:** 10 min 03 s. This covers both
+  finishing touches, the checks and the merge.
+- **Finishing touches on `pds-locator-correction` (`5fc4905`):**
+  - The SCI-1 proposal `sci1:locator:pds-quote-in-comet-geyser-report` is
+    kept as the historical record:
+    - each citation keeps its old locator in `locatorWhenProposed`;
+    - `currentLocator` now holds the corrected locator, which matches the
+      live scenario and registry (scratch check);
+    - `correctionApplied` records the date and commit.
+    - Its `status` stays `pending`, the only value the SCI-1 schema allows.
+  - The summary of `ev-cg-lab-detrital-or-insitu` names the Comet Geyser
+    report.
+  - `verify:sci1` now prints the Comet Geyser locator for all four
+    citations.
+  - The report records the applied correction (F1, table row 8) and the
+    SCI-1 merge.
+- **Scope:** `git diff main...` lists only:
+  - the two scored data files, where only the 4 `locator` lines changed;
+  - the SCI-1 proposals file: the locator record and one evidence summary;
+  - `docs/sci1/SCI1_EVIDENCE_V1.md`;
+  - this log.
+
+  No code, scripts or schema changed.
+- **Unchanged:**
+  - quotes;
+  - registry: 50 entries, all `pending` and all `draftedBy: "ai-agent"`;
+  - the 11 SCI-1 proposals: all `pending`.
+- **Merge:** `2e080603edff320050c8aebb8fa97e0e763ce824` (`--no-ff`), from `origin/pds-locator-correction` at
+  `5fc4905` into `main` at `1521fcd`. The merged tree is identical to
+  `5fc4905`.
+- **Verification on the merged tree:**
+  - The A1–A4 engine probe output is byte-identical to `main` `1521fcd`:
+    values, rankings, review states and all texts.
+  - `npm run check` passes: 277/277.
+  - Prototype smoke: 188/188 in two consecutive runs.
+  - Research smoke: 120/120 with `SMOKE_LIVE=1`.
+  - `verify:sci1`: 27 quotes, 0 problems.
+  - `verify:citations`: 156 quotes, 0 problems.
+  - `verify:geo`: 0 problems.
+  - `verify:briefing`: 35 checks, 0 problems.
+  - `verify:terrain`: the assets match a fresh build.
