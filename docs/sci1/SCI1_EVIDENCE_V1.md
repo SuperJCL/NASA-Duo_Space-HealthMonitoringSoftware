@@ -3,7 +3,7 @@
 **Status:**
 
 - first version, for review;
-- branch `sci1-evidence-v1`, not merged;
+- branch `sci1-evidence-v1`, merged into `main` on 2026-11-07 (`d4b43da`);
 - every new relationship is `pending` and drafted by the AI agent;
 - no scoring or ranking change (that is SCI-2).
 
@@ -276,7 +276,7 @@ order is by expected effect on the three-way comparison.
 | 5 | `sci1:hypothesis-support:interp-silica-cemented-sandstone=>hyp-sedimentary`, `…:interp-altered-igneous=>hyp-crystalline-igneous` | Evidence quality is identical (1.0) for all three because only orbital data are linked to the hypotheses (SCI-0 I4, I6). **A new relationship type: needs a schema change in SCI-2.** |
 | 6 | `sci1:assumption:asm-sample-return` | Core's lab value rests on this condition; the display should carry it (SCI-0 I14, I15). |
 | 7 | `sci1:assumption:asm-instrument-capability` | Replaces an uncited MDI summary with NASA's descriptions (SCI-0 I13). No score effect. |
-| 8 | `sci1:locator:pds-quote-in-comet-geyser-report` | Provenance correction (finding F1). No score effect. |
+| 8 | `sci1:locator:pds-quote-in-comet-geyser-report` | Provenance correction (finding F1). No score effect. **Applied on 2026-11-07 after review** (see F1). |
 
 The agent does not apply any of these. Approval, rejection or revision is a
 named reviewer's decision; moving approved items into the scored scenario,
@@ -299,8 +299,16 @@ and any schema change, is SCI-2.
 
   The quotes are verbatim, and the engine does not read locators, so no score
   is affected. `verify:sci1` prints where each quote is found. The correction
-  is proposed, not applied, because it touches scored data and registry
-  evidence.
+  was first proposed, not applied, because it touches scored data and
+  registry evidence.
+
+  **Applied on 2026-11-07 after review** (branch `pds-locator-correction`).
+  All four locators now read "Comet Geyser initial report (M2020-1088-27),
+  Returned Sample Science Considerations". Scores, order and review states are
+  unchanged. The proposal is kept as the historical record:
+  `locatorWhenProposed` is the old locator, `currentLocator` the new one, and
+  `correctionApplied` marks the change. The record's `status` stays `pending`
+  because the SCI-1 schema allows only that value.
 - **F2. Sample-return page wording.** On 2026-11-07, NASA's MSR page
   describes MSR in the past tense ("was a proposed multi-mission campaign").
   The dataset's newest status is the December 2023 "will hopefully be brought

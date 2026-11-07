@@ -3285,3 +3285,53 @@ unchanged, and `verify:terrain` still matches a fresh build.
     - `verify:geo`: 0 problems;
     - `verify:briefing`: 35 checks, 0 problems;
     - `verify:terrain`: the assets match a fresh build.
+
+## PDS locator correction (SCI-1 finding F1), for review
+
+- **Branch:** `pds-locator-correction`, from `main` `1521fcd`. Not merged.
+- **Started:** 2026-11-07T19:15:53Z (recorded when the branch was created).
+- **Completed:** 2026-11-07T19:22:26Z, at this commit (pushed right after).
+- **Wall-clock elapsed:** 6 min 33 s.
+- **Change:** provenance metadata only.
+  - Four `locator` values changed from "Pelican Point initial report" to
+    "Comet Geyser initial report (M2020-1088-27), Returned Sample Science
+    Considerations". This is the text of the reviewed proposal
+    `sci1:locator:pds-quote-in-comet-geyser-report`.
+  - In `jezero-margin-unit.json`:
+    - the `task-core-for-earth → gap-sedimentary-or-igneous` citation;
+    - `da-core-detrital-carbonate`, citation 1.
+  - In `jezero-margin-unit.reviews.json`:
+    - the evidence of `task-gap:task-core-for-earth->gap-sedimentary-or-igneous`;
+    - `discrimination:da-core-detrital-carbonate`, evidence 1.
+  - The quotes themselves are unchanged.
+- **What stayed the same:**
+  - Both data files are identical to `main` apart from these four values
+    (structural JSON comparison).
+  - Registry: 50 entries, all `pending` and all `draftedBy: "ai-agent"`.
+    Every entry is identical outside its evidence list.
+  - The A1–A4 engine probe gives byte-identical output before and after:
+    - 2 dates × 2 platform sets × 4 budgets;
+    - totals, ranks, margins, feasibility, stability, unreviewed and pivotal
+      inputs, reviewed-ranking status;
+    - registry states, and all explanation and display texts.
+- **Locator audit:** all 21 PDS Vol. 4 citations in the scenario and the
+  registry were checked with a scratch script, not committed. Each now names
+  a report whose text contains its quote; before the change, these four were
+  the only mismatches.
+- **Visible effect:** the research workspace citation lines show the new
+  locator text. Mission Glass does not show locators.
+- **Known follow-up, not changed here:** the SCI-1 proposal record keeps
+  the locator as it was when the proposal was written.
+  - Its `currentLocator` field still reads "Pelican Point initial report".
+  - The evidence summary of `ev-cg-lab-detrital-or-insitu` still refers to
+    the old locator.
+  - So `verify:sci1` still prints that text in its NOTE lines.
+- **Verification:**
+  - `npm run check` passes: 277/277;
+  - prototype smoke: 188/188;
+  - research smoke: 120/120 with `SMOKE_LIVE=1`;
+  - `verify:citations`: 156 quotes, 0 problems;
+  - `verify:sci1`: 27 quotes, 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:terrain`: the assets match a fresh build.

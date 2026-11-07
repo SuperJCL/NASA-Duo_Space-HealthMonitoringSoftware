@@ -278,7 +278,7 @@
       "about": [
         "task-core-for-earth"
       ],
-      "summary": "Laboratory study would address whether the carbonate is detrital or formed in situ. This sentence is in the Comet Geyser report (not the Pelican Point report, as the scenario's locator says).",
+      "summary": "Laboratory study would address whether the carbonate is detrital or formed in situ. Source: Comet Geyser initial report (M2020-1088-27), Returned Sample Science Considerations. The scenario and registry locators for this quote said \"Pelican Point initial report\" until they were corrected on 2026-11-07.",
       "report": {
         "pagePrefix": "27",
         "section": "Returned Sample Science Considerations"
@@ -562,24 +562,33 @@
           {
             "where": "scenario task task-core-for-earth → gap-sedimentary-or-igneous",
             "quote": "Detailed laboratory study of the suite of grains/clasts would address this unknown",
-            "currentLocator": "Pelican Point initial report"
+            "locatorWhenProposed": "Pelican Point initial report",
+            "currentLocator": "Comet Geyser initial report (M2020-1088-27), Returned Sample Science Considerations"
           },
           {
             "where": "scenario discrimination da-core-detrital-carbonate (citation 1)",
             "quote": "the origin of the carbonate, whether detrital grains or the result of in situ alteration, is still unknown.",
-            "currentLocator": "Pelican Point initial report"
+            "locatorWhenProposed": "Pelican Point initial report",
+            "currentLocator": "Comet Geyser initial report (M2020-1088-27), Returned Sample Science Considerations"
           },
           {
             "where": "registry task-gap:task-core-for-earth->gap-sedimentary-or-igneous (evidence)",
             "quote": "Detailed laboratory study of the suite of grains/clasts would address this unknown",
-            "currentLocator": "Pelican Point initial report"
+            "locatorWhenProposed": "Pelican Point initial report",
+            "currentLocator": "Comet Geyser initial report (M2020-1088-27), Returned Sample Science Considerations"
           },
           {
             "where": "registry discrimination:da-core-detrital-carbonate (evidence 1)",
             "quote": "the origin of the carbonate, whether detrital grains or the result of in situ alteration, is still unknown.",
-            "currentLocator": "Pelican Point initial report"
+            "locatorWhenProposed": "Pelican Point initial report",
+            "currentLocator": "Comet Geyser initial report (M2020-1088-27), Returned Sample Science Considerations"
           }
-        ]
+        ],
+        "correctionApplied": {
+          "on": "2026-11-07",
+          "change": "branch pds-locator-correction, commit d8e6218",
+          "note": "Accepted in review and applied: all four locators in the scenario and the review registry now read \"Comet Geyser initial report (M2020-1088-27), Returned Sample Science Considerations\". This proposal is kept as the historical record: locatorWhenProposed is the locator when the proposal was written; currentLocator is the locator in the data now. The status field stays \"pending\" because the SCI-1 schema allows only that value; it does not mean the correction is still open."
+        }
       },
       "evidenceIds": [
         "ev-cg-lab-detrital-or-insitu",
