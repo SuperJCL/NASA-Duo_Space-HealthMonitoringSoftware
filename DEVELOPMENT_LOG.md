@@ -3191,3 +3191,45 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `verify:geo`: 0 problems;
   - `verify:briefing`: 35 checks, 0 problems;
   - `verify:terrain`: the assets match a fresh build.
+
+## SCI-1 v1: evidence for the three candidate actions (pending, for review)
+
+- **Branch:** `sci1-evidence-v1`, from `main` `556ece2`. Not merged.
+- **Started:** 2026-11-07T18:39:01Z. This is the recorded time at which the
+  A1–A4 push was confirmed; the branch was created by the next command, which
+  has no timestamp of its own.
+- **Completed:** 2026-11-07T18:57:12Z, at this commit (pushed right after).
+- **Wall-clock elapsed:** 18 min 11 s.
+- **What was added:**
+  - `src/data/scenarios/jezero-margin-unit.sci1-proposals.json`:
+    - 27 verbatim quotes:
+      - 20 from the Pelican Point and Comet Geyser initial reports;
+      - 5 from NASA's Mars 2020 instruments page;
+      - 1 from NASA's Mars Sample Return page;
+    - 11 proposals, all `pending` and `draftedBy: "ai-agent"`.
+    - It is not read by the engine or the app.
+  - Schema and integrity rules: `src/lib/evidence/sci1-proposals.ts`, with
+    5 tests. The tests assert that the provisional ranking is unchanged.
+  - Two sources in `sources.json`.
+  - `npm run verify:sci1`: checks each quote by report and section.
+  - `verify:citations` now also covers the SCI-1 quotes.
+  - The PDS report helpers were moved to `scripts/lib/pds-reports.mjs`.
+  - Report: `docs/sci1/SCI1_EVIDENCE_V1.md`.
+  - A project rule in `CLAUDE.md`.
+- **Unchanged:**
+  - the scored scenario data;
+  - the review registry: 50 pending, 0 approved;
+  - the engine, weights, criteria and UI.
+  - Check: `git diff main` on those paths is empty.
+- **Finding needing a reviewer:** two quotes cited as "Pelican Point initial
+  report" are in the Comet Geyser report (4 citations). A correction is
+  proposed, not applied.
+- **Verification:**
+  - `npm run check` passes: 277/277 unit tests;
+  - prototype smoke: 188/188;
+  - research smoke: 120/120 with `SMOKE_LIVE=1`;
+  - `verify:sci1`: 27 quotes, 0 problems;
+  - `verify:citations`: 154 quotes, 0 problems;
+  - `verify:briefing`: 35 checks, 0 problems;
+  - `verify:geo`: 0 problems;
+  - `verify:terrain`: the assets match a fresh build.

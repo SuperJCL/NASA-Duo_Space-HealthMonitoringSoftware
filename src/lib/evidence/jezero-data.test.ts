@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import sci1Proposals from "@/data/scenarios/jezero-margin-unit.sci1-proposals.json";
 import geoJson from "@/data/geo/jezero-geo.json";
 import { DEFAULT_WEIGHTS } from "@/lib/decision/criteria";
 import { recommend } from "@/lib/decision/engine";
@@ -47,6 +48,8 @@ describe("Jezero Margin Unit scenario data", () => {
         // evidence code never imports geographic data).
         ...geoJson.conventions.flatMap((c) => c.citations),
         ...geoJson.records.flatMap((r) => r.citations),
+        // SCI-1: candidate sources cited only by the pending proposals file (test-only import).
+        ...sci1Proposals.evidence,
       ].map((c) => c.sourceId),
     );
     for (const s of sources) expect(cited, s.id).toContain(s.id);

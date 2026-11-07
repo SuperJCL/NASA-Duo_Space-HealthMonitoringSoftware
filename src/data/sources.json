@@ -158,5 +158,25 @@
     "publishedOn": "2024-07-03",
     "dateBasis": "Mars Trek catalog data_created_date (2024-07-03T03:26:45Z); the catalog record is the source of the extent quoted",
     "accessedOn": "2026-11-05"
+  },
+  {
+    "id": "nasa-m2020-science-instruments",
+    "title": "Perseverance Science Instruments",
+    "publisher": "NASA Science",
+    "kind": "nasa",
+    "url": "https://science.nasa.gov/mission/mars-2020-perseverance/science-instruments/",
+    "publishedOn": "2026-11-07",
+    "dateBasis": "The page shows no publication date; the retrieval date is used so its content is never treated as available earlier. SCI-1 candidate source (cited only by pending proposals)",
+    "accessedOn": "2026-11-07"
+  },
+  {
+    "id": "nasa-mars-sample-return",
+    "title": "Mars Sample Return",
+    "publisher": "NASA Science",
+    "kind": "nasa",
+    "url": "https://science.nasa.gov/mission/mars-sample-return/",
+    "publishedOn": "2026-11-07",
+    "dateBasis": "The page shows no publication date; the retrieval date is used. Status wording is as retrieved on this date and may change. SCI-1 candidate source (cited only by pending proposals)",
+    "accessedOn": "2026-11-07"
   }
 ]

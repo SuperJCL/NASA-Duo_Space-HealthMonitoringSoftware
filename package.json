@@ -15,6 +15,7 @@
     "verify:citations": "node scripts/verify-citations.mjs",
     "verify:geo": "node scripts/verify-geo.mjs",
     "verify:briefing": "node scripts/verify-briefing.mjs",
+    "verify:sci1": "node scripts/verify-sci1.mjs",
     "build:terrain": "node scripts/build-ctx-terrain.mjs",
     "verify:terrain": "node scripts/build-ctx-terrain.mjs --verify",
     "smoke:mission-glass": "node scripts/smoke-mission-glass.mjs"

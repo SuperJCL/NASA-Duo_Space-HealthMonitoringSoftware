@@ -55,6 +55,10 @@ for (const r of geo.records) add(`geo ${r.id}`, r.citations);
 // Location briefings (BR-1): presence here; section scope in verify-briefing.mjs.
 const briefing = JSON.parse(readFileSync(join(root, "src/data/briefings/lefroy-bay.json"), "utf8"));
 for (const i of briefing.items) add(`briefing ${i.id}`, i.citations);
+// SCI-1 candidate evidence (pending proposals, not engine inputs): presence here;
+// report and section scope in verify-sci1.mjs.
+const sci1 = JSON.parse(readFileSync(join(root, "src/data/scenarios/jezero-margin-unit.sci1-proposals.json"), "utf8"));
+for (const e of sci1.evidence) add(`sci1 ${e.id}`, [e]);
 
 const work = mkdtempSync(join(tmpdir(), "mdi-verify-"));
 let failures = 0;
