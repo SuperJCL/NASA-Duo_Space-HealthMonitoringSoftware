@@ -1,0 +1,633 @@
+{
+  "scenarioId": "jezero-margin-unit",
+  "policy": "SCI-1 candidate evidence and relationships, drafted by the AI agent and all pending. Not read by the decision engine or the app: nothing here is scored or displayed until a named human reviewer approves it and a separate change (SCI-2) moves it into the scenario. A verified quote is not a scientific approval.",
+  "retrievedOn": "2026-11-07",
+  "evidence": [
+    {
+      "id": "ev-pp-no-structures-unit",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "In the absence of strong evidence for sedimentary structures, the Margin unit could alternatively be a pyroclastic or extrusive or intrusive igneous deposit.",
+      "class": "interpretation",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "The missing sedimentary structures are what keeps an igneous origin of the Margin unit possible (Margin-unit-wide statement; the same words appear in the Lefroy Bay report).",
+      "report": {
+        "pagePrefix": "25",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-pp-no-structures-sample",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "the absence of distinctive sedimentary structures leaves open the possibility that this rock is igneous (and altered).",
+      "class": "interpretation",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "For Pelican Point, the absence of distinctive sedimentary structures is the stated reason the igneous alternative stays open.",
+      "report": {
+        "pagePrefix": "25",
+        "section": "Preliminary Scientific Assessment"
+      }
+    },
+    {
+      "id": "ev-cg-west-no-structures",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "The western Margin lacks clear sedimentary structures at the outcrop level, including at Bunsen Peak.",
+      "class": "observation",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "Outcrop-scale observation for the western Margin: no clear sedimentary structures.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-east-west-differ",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "This appearance is distinctly different from the eastern Margin from which the Pelican Point and Lefroy Bay samples were collected, where mostly tabular or plate-like outcrop occurs in a relatively flat landscape.",
+      "class": "observation",
+      "about": [
+        "task-standoff-survey",
+        "task-abrasion-proximity",
+        "task-core-for-earth"
+      ],
+      "summary": "The eastern Margin (Pelican Point, Lefroy Bay) and the western Margin (Comet Geyser) look distinctly different at outcrop scale.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-stratigraphy-open",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "Although the elevation of Comet Geyser is 25 meters higher than Lefroy Bay, their relative position within any Margin stratigraphy has not been established.",
+      "class": "open-question",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "The relative stratigraphic position of the sampled Margin sites is not established.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-setting-open",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "In the absence of readily interpreted sedimentary structures, if the Margin unit is sedimentary, it may have been deposited in almost any setting: shoreline, fluviolacustrine, aeolian or pyroclastic.",
+      "class": "interpretation",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "Without readable sedimentary structures, even a sedimentary Margin unit cannot be tied to a setting (shoreline, river/lake, wind, pyroclastic).",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-pp-dusty-outcrop",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "The Hans Amundsen Memorial Workspace is a dusty, light-toned, granular, fractured and minimally layered in-place outcrop.",
+      "class": "observation",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "Natural Margin surfaces can be dusty and only minimally layered, a limit for stand-off reading of structures.",
+      "report": {
+        "pagePrefix": "25",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-supercam-heterogeneous",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "SuperCam analyses indicate that the rocks in the vicinity of Bunsen Peak are compositionally heterogeneous, and similar to previous measurements of the Margin unit.",
+      "class": "observation",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "Stand-off chemistry already shows heterogeneity near Bunsen Peak, similar to earlier Margin measurements.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-nasa-supercam",
+      "sourceId": "nasa-m2020-science-instruments",
+      "quote": "It can identify the chemical and mineral makeup of areas on Mars as small as a pencil point, from a distance of more than 20 feet (7 meters).",
+      "class": "capability",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "NASA's description of SuperCam: stand-off chemical and mineral makeup of small spots."
+    },
+    {
+      "id": "ev-nasa-mastcamz",
+      "sourceId": "nasa-m2020-science-instruments",
+      "quote": "Mastcam-Z has cameras that can zoom in, focus, and take 3D pictures and video at high speed to allow detailed examination of distant objects.",
+      "class": "capability",
+      "about": [
+        "task-standoff-survey"
+      ],
+      "summary": "NASA's description of Mastcam-Z: zoom and 3D imaging of distant objects (outcrop structure)."
+    },
+    {
+      "id": "ev-pp-amherst-abrasion",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "The Amherst Point abrasion reveals a moderately to poorly sorted medium to coarse-grained, aqueously altered rock tentatively identified as a sandstone, with a cement likely composed of silica.",
+      "class": "interpretation",
+      "about": [
+        "task-abrasion-proximity"
+      ],
+      "summary": "What the first Margin abrasion showed (Pelican Point): a tentatively identified, silica-cemented sandstone.",
+      "report": {
+        "pagePrefix": "25",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-texture-either",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "The rock texture is consistent with a moderately to poorly sorted coarse sandstone or an altered igneous rock.",
+      "class": "interpretation",
+      "about": [
+        "task-abrasion-proximity"
+      ],
+      "summary": "For Comet Geyser, the abraded texture did not decide between sandstone and altered igneous rock.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Preliminary Scientific Assessment"
+      }
+    },
+    {
+      "id": "ev-cg-chemistry-either",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "Mineralogy and chemistry are consistent with a sandstone (possibly at least partially altered in-situ), or a heavily altered igneous rock, e.g. a listvenite.",
+      "class": "interpretation",
+      "about": [
+        "task-abrasion-proximity",
+        "task-core-for-earth"
+      ],
+      "summary": "For Comet Geyser, in-situ mineralogy and chemistry did not decide between the two either; in-situ alteration is stated as compatible with both host rocks.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Preliminary Scientific Assessment"
+      }
+    },
+    {
+      "id": "ev-cg-more-altered",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "Comet Geyser appears more enriched in alteration materials than either of the other Margin unit samples.",
+      "class": "observation",
+      "about": [
+        "task-abrasion-proximity",
+        "task-core-for-earth"
+      ],
+      "summary": "The three Margin samples differ: Comet Geyser is the most altered.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-lighter-lowlying",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "Here the landscape consists of resistant dark-toned high-standing and often massive outcrop interbedded with lighter-toned low-lying rocks.",
+      "class": "observation",
+      "about": [
+        "task-abrasion-proximity",
+        "task-core-for-earth"
+      ],
+      "summary": "The western Margin has two rock expressions: dark-toned high-standing outcrop and lighter-toned low-lying rocks (which one was sampled: ev-cg-bunsen-high-standing).",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-bunsen-high-standing",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "The Bunsen Peak workspace consists of a high-standing, resistant, dark-toned and smooth rock which stands ~ 1 m above lighter-toned low-lying rocks.",
+      "class": "observation",
+      "about": [
+        "task-abrasion-proximity",
+        "task-core-for-earth"
+      ],
+      "summary": "The Bunsen Peak workspace, where Comet Geyser was cored and Castle Geyser abraded, is the dark-toned, high-standing rock, about 1 m above the lighter-toned low-lying rocks.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-bunsen-in-place",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "It is not certain that Bunsen Peak is in-place, but similarities with surrounding bedrock strongly support a genetic relationship with them.",
+      "class": "interpretation",
+      "about": [
+        "task-abrasion-proximity",
+        "task-core-for-earth"
+      ],
+      "summary": "Whether the sampled Bunsen Peak rock is in place is uncertain; the report judges it genetically related to the surrounding bedrock.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-nasa-pixl",
+      "sourceId": "nasa-m2020-science-instruments",
+      "quote": "It identifies chemical elements at a tiny scale.",
+      "class": "capability",
+      "about": [
+        "task-abrasion-proximity"
+      ],
+      "summary": "NASA's description of PIXL (X-ray spectrometer): fine-scale elemental chemistry."
+    },
+    {
+      "id": "ev-nasa-sherloc-watson",
+      "sourceId": "nasa-m2020-science-instruments",
+      "quote": "SHERLOC is assisted by WATSON, a color camera for taking close-up images of rock grains and surface textures.",
+      "class": "capability",
+      "about": [
+        "task-abrasion-proximity"
+      ],
+      "summary": "NASA's description of WATSON with SHERLOC: close-up images of grains and textures."
+    },
+    {
+      "id": "ev-nasa-sherloc",
+      "sourceId": "nasa-m2020-science-instruments",
+      "quote": "SHERLOC uses cameras, spectrometers, and a laser to search for organics and minerals that have been altered by watery environments",
+      "class": "capability",
+      "about": [
+        "task-abrasion-proximity"
+      ],
+      "summary": "NASA's description of SHERLOC: organics and water-altered minerals."
+    },
+    {
+      "id": "ev-cg-lab-detrital-or-insitu",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "Detailed laboratory study of the suite of grains/clasts would address this unknown",
+      "class": "proposed-by-source",
+      "about": [
+        "task-core-for-earth"
+      ],
+      "summary": "Laboratory study would address whether the carbonate is detrital or formed in situ. This sentence is in the Comet Geyser report (not the Pelican Point report, as the scenario's locator says).",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Returned Sample Science Considerations"
+      }
+    },
+    {
+      "id": "ev-cg-carbonate-origin-unknown",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "the origin of the carbonate, whether detrital grains or the result of in situ alteration, is still unknown.",
+      "class": "open-question",
+      "about": [
+        "task-core-for-earth"
+      ],
+      "summary": "The open question the laboratory study would address (Comet Geyser report).",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Returned Sample Science Considerations"
+      }
+    },
+    {
+      "id": "ev-cg-lab-two-scenarios",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "pervasive water/rock interaction leading to extensive mineral carbonation likely in a subsurface environment.",
+      "class": "proposed-by-source",
+      "about": [
+        "task-core-for-earth"
+      ],
+      "summary": "The report frames the returned Comet Geyser sample as testing either a source-to-sink sedimentary system or pervasive subsurface mineral carbonation.",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Returned Sample Science Considerations"
+      }
+    },
+    {
+      "id": "ev-cg-three-samples-igneous",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "analyses of the three Margin unit samples could document details of their igneous origin (provided adequately unaltered material remains).",
+      "class": "proposed-by-source",
+      "about": [
+        "task-core-for-earth"
+      ],
+      "summary": "If the Margin unit is igneous, the three existing Margin samples could already serve the laboratory question (conditional).",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-cg-third-sample",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "Comet Geyser is the third sample of the Margin campaign",
+      "class": "observation",
+      "about": [
+        "task-core-for-earth",
+        "task-abrasion-proximity"
+      ],
+      "summary": "Three Margin samples exist (Pelican Point, Lefroy Bay, Comet Geyser).",
+      "report": {
+        "pagePrefix": "27",
+        "section": "Summary Description"
+      }
+    },
+    {
+      "id": "ev-pp-geochronology",
+      "sourceId": "pds-m2020-initial-reports-vol4",
+      "quote": "Crystallization ages of detrital igneous clasts and/or minerals within the Pelican Point sample would provide upper bounds on the timing of deposition of the Margin unit.",
+      "class": "proposed-by-source",
+      "about": [
+        "task-core-for-earth"
+      ],
+      "summary": "A laboratory question an existing Margin core is already proposed for (conditional on return).",
+      "report": {
+        "pagePrefix": "25",
+        "section": "Returned Sample Science Considerations"
+      }
+    },
+    {
+      "id": "ev-nasa-msr-status",
+      "sourceId": "nasa-mars-sample-return",
+      "quote": "Mars Sample Return (MSR) was a proposed multi-mission campaign by NASA and ESA (European Space Agency) to bring carefully selected samples from Mars to Earth.",
+      "class": "status",
+      "about": [
+        "task-core-for-earth"
+      ],
+      "summary": "As retrieved on 2026-11-07, NASA's Mars Sample Return page describes MSR in the past tense, as a proposed campaign. No other status claim is made here."
+    }
+  ],
+  "proposals": [
+    {
+      "id": "sci1:task-gap:task-standoff-survey->gap-sedimentary-or-igneous",
+      "type": "task-gap-link",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "taskId": "task-standoff-survey",
+        "gapId": "gap-sedimentary-or-igneous"
+      },
+      "evidenceIds": [
+        "ev-pp-no-structures-unit",
+        "ev-pp-no-structures-sample",
+        "ev-cg-west-no-structures",
+        "ev-cg-setting-open",
+        "ev-nasa-mastcamz",
+        "ev-nasa-supercam"
+      ],
+      "reasoning": "The PDS reports name the presence or absence of sedimentary structures as what keeps the sedimentary and igneous origins apart. A stand-off survey that images outcrop structure (Mastcam-Z zoom and 3D) at outcrops not yet examined bears directly on that question.",
+      "limitations": [
+        "Absence of structures does not favour either origin; only their presence would (ev-pp-no-structures-sample).",
+        "The western Margin already lacks clear structures at outcrop level (ev-cg-west-no-structures); whether other outcrops show them is unknown.",
+        "Dusty, minimally layered surfaces may hide structures (ev-pp-dusty-outcrop).",
+        "No source places a suitable outcrop at Target A."
+      ],
+      "affectsComparison": "Hypothetical future result, not a current one: only if a reviewer approves this link and SCI-2 later adopts it into the scored data would Survey be linked to 2 of 3 open questions (2025-05-06); today it is linked to 1 of 3. No score is computed here."
+    },
+    {
+      "id": "sci1:hypothesis-support:interp-silica-cemented-sandstone=>hyp-sedimentary",
+      "type": "sample-interpretation-informs-unit-hypothesis",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "interpretationId": "interp-silica-cemented-sandstone",
+        "hypothesisId": "hyp-sedimentary"
+      },
+      "evidenceIds": [
+        "ev-pp-amherst-abrasion"
+      ],
+      "reasoning": "The rover-based Pelican Point interpretation (silica-cemented sandstone) is evidence for the unit-level sedimentary hypothesis. Linking it would let evidence quality see the existing rover data instead of reporting only orbital support.",
+      "limitations": [
+        "New relationship type: the current schema links observations to interpretations, not sample interpretations to unit hypotheses (data-model change, SCI-2).",
+        "The interpretation is tentative and preliminary."
+      ],
+      "affectsComparison": "Evidence quality would no longer be identical for the three actions on this question (SCI-2 decides how)."
+    },
+    {
+      "id": "sci1:hypothesis-support:interp-altered-igneous=>hyp-crystalline-igneous",
+      "type": "sample-interpretation-informs-unit-hypothesis",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "interpretationId": "interp-altered-igneous",
+        "hypothesisId": "hyp-crystalline-igneous"
+      },
+      "evidenceIds": [
+        "ev-cg-texture-either",
+        "ev-cg-chemistry-either",
+        "ev-cg-three-samples-igneous"
+      ],
+      "reasoning": "The Comet Geyser report raises an altered intrusive igneous origin, and says the same could apply to the two earlier Margin samples; that is rover-based evidence bearing on the crystalline-igneous hypothesis.",
+      "limitations": [
+        "Same schema limitation as above.",
+        "The report leaves the question undetermined; this is support for considering the hypothesis, not for preferring it."
+      ],
+      "affectsComparison": "As above: evidence quality would reflect existing rover data."
+    },
+    {
+      "id": "sci1:discrimination:task-standoff-survey",
+      "type": "discrimination-assessment",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "taskId": "task-standoff-survey",
+        "hypothesisIds": [
+          "hyp-sedimentary",
+          "hyp-volcanic-pyroclastic",
+          "hyp-crystalline-igneous"
+        ]
+      },
+      "evidenceIds": [
+        "ev-pp-no-structures-sample",
+        "ev-pp-no-structures-unit",
+        "ev-cg-setting-open"
+      ],
+      "reasoning": "Outcome A: distinctive sedimentary structures observed at outcrop scale → favours hyp-sedimentary and weakens hyp-crystalline-igneous. Outcome B: no structures observed → favours none (the reports say absence leaves both open).",
+      "limitations": [
+        "Pyroclastic deposits can also be layered; outcome A may not separate sedimentary from pyroclastic.",
+        "Draft only; the engine scores nothing from it until approved and moved into the scenario (SCI-2)."
+      ],
+      "affectsComparison": "Would make hypothesis discrimination evaluable for Survey (SCI-2)."
+    },
+    {
+      "id": "sci1:discrimination:task-abrasion-proximity",
+      "type": "discrimination-assessment",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "taskId": "task-abrasion-proximity",
+        "hypothesisIds": [
+          "hyp-sedimentary",
+          "hyp-crystalline-igneous"
+        ]
+      },
+      "evidenceIds": [
+        "ev-cg-texture-either",
+        "ev-cg-chemistry-either",
+        "ev-pp-amherst-abrasion",
+        "ev-cg-lighter-lowlying",
+        "ev-cg-bunsen-high-standing"
+      ],
+      "reasoning": "No outcome is source-supported yet: for Comet Geyser, abraded texture and in-situ chemistry were each stated as consistent with both a sandstone and an altered igneous rock. A discriminating outcome would need a lithology not yet abraded or a texture the three abrasions did not show; the sources do not specify one. The lighter-toned low-lying western Margin rocks are a source-named rock expression that the Comet Geyser sample did not come from; whether they were abraded later, and what they are, is not established here.",
+      "limitations": [
+        "This records the absence of a source-supported discriminating outcome. It is not evidence that abrasion has no scientific value."
+      ],
+      "affectsComparison": "Hypothesis discrimination for Abrade stays unsupported until a reviewer defines a discriminating outcome."
+    },
+    {
+      "id": "sci1:discrimination:task-core-for-earth",
+      "type": "discrimination-assessment",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "taskId": "task-core-for-earth",
+        "hypothesisIds": [
+          "hyp-sedimentary",
+          "hyp-crystalline-igneous"
+        ],
+        "alsoConcerns": [
+          "interp-mineral-carbonation"
+        ]
+      },
+      "evidenceIds": [
+        "ev-cg-lab-detrital-or-insitu",
+        "ev-cg-carbonate-origin-unknown",
+        "ev-cg-lab-two-scenarios",
+        "ev-cg-chemistry-either",
+        "ev-nasa-msr-status"
+      ],
+      "reasoning": "Conditional on return to Earth. The laboratory test is about how the carbonate formed, which is not the same question as the host rock's origin. Detrital carbonate grains → favours hyp-sedimentary (the source's source-to-sink framing). Carbonate formed in situ → informs the alteration process (e.g. mineral carbonation) but does not by itself favour either host-rock hypothesis: in-situ alteration is stated as compatible with a sandstone as well as an altered igneous rock (ev-cg-chemistry-either).",
+      "limitations": [
+        "Conditional on sample return, which NASA's page now describes in the past tense (ev-nasa-msr-status).",
+        "Three Margin cores already exist and are proposed for the same laboratory questions (ev-cg-three-samples-igneous, ev-pp-geochronology); the added value of a further core is not established.",
+        "Extends the existing pending assessment da-core-detrital-carbonate (adds the in-situ outcome and its condition)."
+      ],
+      "affectsComparison": "Would make hypothesis discrimination evaluable for Core, with an explicit condition (SCI-2)."
+    },
+    {
+      "id": "sci1:assumption:asm-instrument-capability",
+      "type": "assumption-citation",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "assumptionId": "asm-instrument-capability"
+      },
+      "evidenceIds": [
+        "ev-nasa-supercam",
+        "ev-nasa-mastcamz",
+        "ev-nasa-pixl",
+        "ev-nasa-sherloc",
+        "ev-nasa-sherloc-watson"
+      ],
+      "reasoning": "Replace the uncited MDI summary of instrument capability with NASA's own instrument descriptions.",
+      "limitations": [
+        "NASA web descriptions are general; instrument papers (resolution, detection limits) are not read yet."
+      ],
+      "affectsComparison": "Supports measurement plausibility for all three actions; no score change."
+    },
+    {
+      "id": "sci1:assumption:asm-sample-return",
+      "type": "assumption-citation",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "assumptionId": "asm-sample-return"
+      },
+      "evidenceIds": [
+        "ev-nasa-msr-status"
+      ],
+      "reasoning": "State the sample-return condition with NASA's current page wording, dated, instead of the Dec 2023 'hopefully' statement alone.",
+      "limitations": [
+        "Only the page wording is recorded; no inference is made about programme decisions.",
+        "The wording may change; re-check before use."
+      ],
+      "affectsComparison": "Core's value rests on this condition; the display of Core's value should carry it (SCI-2)."
+    },
+    {
+      "id": "sci1:locator:pds-quote-in-comet-geyser-report",
+      "type": "locator-correction",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "citations": [
+          {
+            "where": "scenario task task-core-for-earth → gap-sedimentary-or-igneous",
+            "quote": "Detailed laboratory study of the suite of grains/clasts would address this unknown",
+            "currentLocator": "Pelican Point initial report"
+          },
+          {
+            "where": "scenario discrimination da-core-detrital-carbonate (citation 1)",
+            "quote": "the origin of the carbonate, whether detrital grains or the result of in situ alteration, is still unknown.",
+            "currentLocator": "Pelican Point initial report"
+          },
+          {
+            "where": "registry task-gap:task-core-for-earth->gap-sedimentary-or-igneous (evidence)",
+            "quote": "Detailed laboratory study of the suite of grains/clasts would address this unknown",
+            "currentLocator": "Pelican Point initial report"
+          },
+          {
+            "where": "registry discrimination:da-core-detrital-carbonate (evidence 1)",
+            "quote": "the origin of the carbonate, whether detrital grains or the result of in situ alteration, is still unknown.",
+            "currentLocator": "Pelican Point initial report"
+          }
+        ]
+      },
+      "evidenceIds": [
+        "ev-cg-lab-detrital-or-insitu",
+        "ev-cg-carbonate-origin-unknown"
+      ],
+      "reasoning": "Both quotes are in the Comet Geyser report (M2020-1088-27, Returned Sample Science Considerations, Geochemistry), not in the Pelican Point report. verify:sci1 checks this per report.",
+      "limitations": [
+        "Provenance only: the quotes themselves are verbatim and the engine does not read locators."
+      ],
+      "affectsComparison": "No score change.",
+      "suggestedChange": "Set the locator to \"Comet Geyser initial report (M2020-1088-27), Returned Sample Science Considerations\"."
+    },
+    {
+      "id": "sci1:review-note:task-gap:task-standoff-survey->gap-formation-unknown",
+      "type": "review-note",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "reviewId": "task-gap:task-standoff-survey->gap-formation-unknown"
+      },
+      "evidenceIds": [
+        "ev-pp-no-structures-unit"
+      ],
+      "reasoning": "This existing pending link is a loose 'input to' relation. The source-supported route from a survey to formation is via sedimentary structures, proposed above as a link to gap-sedimentary-or-igneous.",
+      "limitations": [
+        "A recommendation for the reviewer only; the agent never changes review status."
+      ],
+      "affectsComparison": "If the reviewer marks it needs_revision or rejects it, Survey's provisional score changes (SCI-2 re-run).",
+      "suggestedChange": "Consider needs_revision."
+    },
+    {
+      "id": "sci1:review-note:task-gap:task-abrasion-proximity->gap-lake-connection",
+      "type": "review-note",
+      "status": "pending",
+      "draftedBy": "ai-agent",
+      "subject": {
+        "reviewId": "task-gap:task-abrasion-proximity->gap-lake-connection"
+      },
+      "evidenceIds": [
+        "ev-cg-texture-either",
+        "ev-cg-chemistry-either"
+      ],
+      "reasoning": "No source in this dataset shows abraded textures or chemistry deciding a lake origin; for Comet Geyser they did not decide even sedimentary vs igneous.",
+      "limitations": [
+        "A recommendation for the reviewer only."
+      ],
+      "affectsComparison": "This link is individually pivotal for #1 at 2025-05-06, 100 pts (SCI-0 reproduction).",
+      "suggestedChange": "Consider needs_revision."
+    }
+  ]
+}

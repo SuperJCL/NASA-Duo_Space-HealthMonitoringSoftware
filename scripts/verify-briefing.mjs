@@ -20,6 +20,7 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pageAt, splitReports } from "./lib/pds-reports.mjs";
 import { fetchTo, htmlToText, normalise, pdfText } from "./lib/source-text.mjs";
 
 const root = new URL("..", import.meta.url).pathname;
@@ -32,38 +33,6 @@ const fail = (msg) => {
   failures++;
   console.log(`FAIL  ${msg}`);
 };
-
-/** Splits pdftotext output into sample reports keyed by page-label prefix. */
-function splitReports(text) {
-  const reports = new Map(); // prefix -> { title, pages: [{ label, body }] }
-  for (const page of text.split("\f")) {
-    const lines = page.split("\n").filter((l) => l.trim());
-    if (!lines.length) continue;
-    const m = /^(\d+)-(\d+)$/.exec(lines.at(-1).trim());
-    if (!m) continue;
-    const prefix = m[1];
-    let body = lines.slice(0, -1);
-    let title = null;
-    if (body.length && new RegExp(`^M2020-\\d+-${prefix} `).test(body[0].trim())) {
-      title = body[0].trim();
-      body = body.slice(1);
-    }
-    if (!reports.has(prefix)) reports.set(prefix, { title: null, pages: [] });
-    const r = reports.get(prefix);
-    r.title ??= title;
-    r.pages.push({ label: lines.at(-1).trim(), body: normalise(body.join(" ")).trim() });
-  }
-  for (const r of reports.values()) {
-    let text = "";
-    r.offsets = [];
-    for (const p of r.pages) {
-      r.offsets.push([text.length, p.label]);
-      text += p.body + " ";
-    }
-    r.text = text;
-  }
-  return reports;
-}
 
 function sectionSpans(text, headings) {
   const found = [];
@@ -80,11 +49,6 @@ function sectionSpans(text, headings) {
   return found.map(([h, i], n) => ({ heading: h, start: i, end: n + 1 < found.length ? found[n + 1][1] : text.length }));
 }
 
-const pageAt = (report, offset) => {
-  let label = report.offsets[0][1];
-  for (const [o, l] of report.offsets) if (o <= offset) label = l;
-  return label;
-};
 
 function locate(report, spans, quote) {
   const n = normalise(quote).trim();
