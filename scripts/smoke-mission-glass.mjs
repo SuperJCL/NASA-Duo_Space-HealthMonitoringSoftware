@@ -1666,6 +1666,97 @@ try {
   await rm.close();
 
   // ── Narrow screen, and the MG-3 no-feasible-alternative state ──
+  // ── Candidate comparison (Planning, read-only): Survey vs Abrade on three aligned rows (desktop and phone) ──
+  {
+    const runCompare = async (opts, label, shot) => {
+      const cp = await browser.newPage(opts);
+      const cerrs = [];
+      cp.on("pageerror", (e) => cerrs.push(String(e)));
+      const { width: W, height: H } = opts.viewport;
+      const press = (loc) => (opts.hasTouch ? loc.tap() : loc.click());
+      const overflowX = () => cp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      const cards = () => cp.locator('[data-testid^="mg-card-"]').evaluateAll((els) => els.map((e) => [e.getAttribute("data-testid"), e.getAttribute("data-rank"), e.getAttribute("data-addable"), e.getAttribute("data-selected")].join("|")));
+      const planState = async () => JSON.stringify([await cards(), await text(cp.getByTestId("mg-budget")), await text(cp.getByTestId("mg-plan-bar")), await cp.getByTestId("mars-map").getAttribute("data-selected-id")]);
+      await cp.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+      await cp.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+      await settle(cp, 600);
+      const before = await planState();
+      await press(cp.getByTestId("mg-compare-open"));
+      await settle(cp, 300);
+      const sheet = cp.getByTestId("mg-compare");
+      check((await sheet.isVisible()) && (await cp.evaluate(() => document.activeElement?.id)) === "mg-compare-title" && (await text(cp.getByTestId("mg-compare-hint"))) === "Choose 2 more actions to compare." && (await cp.getByTestId("mg-compare-table").count()) === 0, `${label}: the existing Planning panel opens the comparison; the user chooses two actions`);
+      await press(cp.getByTestId("mg-compare-pick-task-standoff-survey"));
+      await press(cp.getByTestId("mg-compare-pick-task-abrasion-proximity"));
+      await settle(cp, 250);
+      const table = cp.getByTestId("mg-compare-table");
+      const S = "task-standoff-survey";
+      const A = "task-abrasion-proximity";
+      check((await table.getAttribute("data-tasks")) === `${S} ${A}` && (await cp.getByTestId(`mg-compare-pick-${S}`).getAttribute("aria-pressed")) === "true", `${label}: Survey and Abrade are compared`);
+      // Row 1: simulated cost (existing engine views).
+      const costS = await text(cp.getByTestId(`mg-compare-cost-${S}`));
+      const costA = await text(cp.getByTestId(`mg-compare-cost-${A}`));
+      check(/15 pts/.test(costS) && /Fits: 15 of 100 pts/.test(costS) && /40 pts/.test(costA) && /Fits: 40 of 100 pts/.test(costA) && (await text(cp.getByTestId("mg-compare-cost-diff"))) === "Abrade and analyse a rock costs 25 pts more than Survey the outcrops (simulated).", `${label}: the simulated cost difference is explicit (15 vs 40 pts, 25 pts more)`);
+      // Row 2: possible new observation (SCI-1 draft): different mode and target.
+      const obsS = await text(cp.getByTestId(`mg-compare-observation-${S}`));
+      const obsA = await text(cp.getByTestId(`mg-compare-observation-${A}`));
+      check(
+        (await text(cp.getByTestId(`mg-compare-mode-${S}`))) === "Stand-off · outcrop scale" &&
+          (await text(cp.getByTestId(`mg-compare-mode-${A}`))) === "Close-up · abraded patch" &&
+          /sedimentary structures are present at Margin outcrops not yet examined/.test(obsS) &&
+          /Mastcam-Z/.test(obsS) &&
+          /fine-scale chemistry of a Margin rock not yet abraded/.test(obsA) &&
+          /PIXL/.test(obsA) &&
+          /Sources: PDS Pelican Point report; NASA: Perseverance Science Instruments/.test(obsS) &&
+          /Sources: PDS Comet Geyser report/.test(obsA),
+        `${label}: the observation targets differ (outcrop-scale structures, stand-off vs texture and chemistry of an unabraded rock, close-up), with sources`,
+      );
+      // Row 3: key unknowns (SCI-1 draft).
+      const unkA = await text(cp.getByTestId(`mg-compare-unknowns-${A}`));
+      check((await cp.getByTestId(`mg-compare-unknowns-${S}`).locator("li").count()) === 3 && /This is not evidence that abrasion lacks value/.test(unkA) && /Target B \(a scenario position\)/.test(unkA), `${label}: key unknowns are listed for each action ("insufficient evidence" is not "no value")`);
+      // Scope of the science rows.
+      const rowLabels = await text(cp.getByTestId("mg-compare-row-observation").locator('[role="rowheader"]'));
+      const scope = await text(cp.getByTestId("mg-compare-scope"));
+      check(/SCI-1 draft · pending expert review/.test(rowLabels) && /pending expert review/.test(scope) && /relative to the Margin-unit work already done/.test(scope) && /no verified geology/.test(scope) && /Not used for scores, ranks or your plan/.test(scope), `${label}: the science rows state their scope (SCI-1 draft, pending review, not scored)`);
+      // Layout: side by side on desktop (aligned rows), one above the other on a phone.
+      const box = (id) => cp.getByTestId(id).boundingBox();
+      const rowsAligned = [];
+      for (const r of ["cost", "observation", "unknowns"]) {
+        const a = await box(`mg-compare-${r}-${S}`);
+        const b = await box(`mg-compare-${r}-${A}`);
+        rowsAligned.push(opts.hasTouch ? Math.abs(a.x - b.x) <= 2 && b.y >= a.y + a.height - 1 : Math.abs(a.y - b.y) <= 2 && b.x > a.x + a.width - 2);
+      }
+      check(rowsAligned.every(Boolean) && (await overflowX()) <= 0, `${label}: ${opts.hasTouch ? "each row lists the two actions one above the other" : "the two actions sit side by side on aligned rows"}; no horizontal overflow (${W}×${H})`);
+      if (opts.hasTouch) {
+        const chip = await box(`mg-compare-pick-${S}`);
+        const close = await box("mg-compare-close");
+        check(chip.height >= 44 && close.height >= 44 && close.y >= 0 && close.y + close.height <= H, `${label}: choices and Close are at least 44 px tall; Close is on screen`);
+        // Show the stacked rows in the screenshot.
+        await cp.getByTestId("mg-compare-row-cost").evaluate((e) => e.scrollIntoView({ block: "start" }));
+        await settle(cp, 200);
+      }
+      if (shot) await cp.screenshot({ path: shot });
+      // The existing details entry: the evidence sheet opens above the comparison and returns to it.
+      await press(cp.getByTestId(`mg-compare-evidence-${S}`));
+      await settle(cp, 300);
+      const ev = cp.getByTestId("mg-evidence-sheet");
+      const evOpen = (await ev.isVisible()) && /Survey the outcrops|Stand-off survey/.test(await text(ev));
+      await cp.keyboard.press("Escape");
+      await settle(cp, 300);
+      check(evOpen && !(await ev.isVisible()) && (await sheet.isVisible()), `${label}: "Evidence and sources" opens the existing evidence sheet; Escape returns to the comparison`);
+      // A third choice replaces the earlier one; columns keep the card order.
+      await press(cp.getByTestId("mg-compare-pick-task-core-for-earth"));
+      await settle(cp, 200);
+      check((await table.getAttribute("data-tasks")) === `${A} task-core-for-earth` && /Choosing another replaces the earlier one/.test(await text(cp.getByTestId("mg-compare-hint"))), `${label}: choosing a third action replaces the earlier one; columns follow the order chosen`);
+      await cp.keyboard.press("Escape");
+      await settle(cp, 300);
+      check((await sheet.count()) === 0 && (await planState()) === before && cerrs.length === 0, `${label}: closing leaves ranks, budget, plan and map selection unchanged; no page errors`);
+      await cp.close();
+    };
+    const dir = process.env.SHOT_DIR;
+    await runCompare({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 }, "Candidate comparison, desktop", dir ? `${dir}/compare-desktop.png` : null);
+    await runCompare({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }, "Candidate comparison, phone", dir ? `${dir}/compare-phone.png` : null);
+  }
+
   // ── Replan change summary: create plan → enter EVA → budget drop → summary → confirm → Undo (desktop and phone) ──
   {
     const runChangeSummary = async (opts, label, shot) => {

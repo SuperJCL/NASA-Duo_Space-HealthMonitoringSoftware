@@ -35,6 +35,8 @@ import { PlanReview } from "./PlanReview";
 import { ReplanDialog } from "./ReplanDialog";
 import { TargetList, TargetSummary } from "./TargetMapOverlay";
 import { TaskCard } from "./TaskCard";
+import { CandidateCompare } from "./CandidateCompare";
+import type { CompareView } from "@/lib/prototype/candidate-compare";
 import { SegmentSummary, SequenceList } from "./SequenceViews";
 
 type Props = {
@@ -46,6 +48,8 @@ type Props = {
   features: MapFeature[];
   asOf: string;
   briefing: BriefingView | null;
+  /** Candidate comparison science rows (SCI-1 draft summaries), or null when not available at this evidence date. */
+  compare: CompareView | null;
 };
 
 const LABEL_KINDS = ["sample-site"] as const;
@@ -65,7 +69,7 @@ const subscribeWide = (cb: () => void) => {
  * state (src/lib/prototype/mission-glass.ts). Ranks and feasibility come from
  * the existing engine; this component only renders and dispatches.
  */
-export function MissionGlass({ scenario, registry, sources, s, targets, features, asOf, briefing }: Props) {
+export function MissionGlass({ scenario, registry, sources, s, targets, features, asOf, briefing, compare }: Props) {
   const { snapshot } = useMemo(() => selectEvidenceAsOf(scenario, asOf), [scenario, asOf]);
   const defaultBudget = snapshot.resources[0]?.budget ?? 100;
   const [state, dispatch] = useReducer(missionReducer, defaultBudget, initialMissionState);
@@ -73,6 +77,9 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const [evidenceFor, setEvidenceFor] = useState<string | null>(null);
   const [verifiedPick, setVerifiedPick] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Candidate comparison (read-only): the chosen pair is kept while the sheet is closed.
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [comparePair, setComparePair] = useState<string[]>([]);
   // MAP-1: a focus request moves the map to a target; the summary closes independently.
   const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
   const [summaryFor, setSummaryFor] = useState<string | null>(null);
@@ -483,6 +490,20 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4" data-testid="mg-cards">
+              <button
+                type="button"
+                onClick={() => setCompareOpen(true)}
+                className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--mg-line-strong)] px-4 py-2 text-left"
+                data-testid="mg-compare-open"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-medium">{"Compare two actions"}</span>
+                  <span className="block text-[13px] text-[var(--mg-dim)]">{"Simulated cost, possible new observation, key unknowns"}</span>
+                </span>
+                <span aria-hidden="true" className="text-[var(--mg-coral)]">
+                  {"→"}
+                </span>
+              </button>
               {views.map((v) => (
                 <TaskCard
                   key={v.taskId}
@@ -661,6 +682,16 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
         />
       )}
 
+      <CandidateCompare
+        open={compareOpen && state.mode === "planning"}
+        suspended={evidenceFor !== null}
+        views={views}
+        compare={compare}
+        pair={comparePair}
+        onPair={setComparePair}
+        onEvidence={(taskId) => setEvidenceFor(taskId)}
+        onClose={() => setCompareOpen(false)}
+      />
       <EvidenceSheet
         open={evidenceFor !== null}
         onClose={() => setEvidenceFor(null)}
