@@ -28,7 +28,7 @@ describe("SCI-1 v1 proposals: pending candidate evidence, never scored", () => {
     }
   });
 
-  it("is not imported by the engine, the evidence loader or the app", () => {
+  it("is not read by the engine, the evidence loader or client code; the app reads it only through the candidate-comparison loader", () => {
     const files: string[] = [];
     const walk = (d: string) => {
       for (const f of readdirSync(d)) {
@@ -39,7 +39,21 @@ describe("SCI-1 v1 proposals: pending candidate evidence, never scored", () => {
     };
     walk("src");
     const importers = files.filter((f) => /sci1-proposals/.test(readFileSync(f, "utf8"))).map((f) => f.replace(/\\/g, "/"));
-    expect(importers.sort()).toEqual(["src/lib/evidence/jezero-data.test.ts", "src/lib/evidence/sci1-proposals.test.ts", "src/lib/evidence/sci1-proposals.ts"]);
+    expect(importers.sort()).toEqual([
+      "src/lib/evidence/jezero-data.test.ts",
+      "src/lib/evidence/sci1-proposals.test.ts",
+      "src/lib/evidence/sci1-proposals.ts",
+      // Candidate comparison (display only): the server-side loader, the pure module (a type import) and its test.
+      "src/lib/prototype/candidate-compare-data.ts",
+      "src/lib/prototype/candidate-compare.test.ts",
+      "src/lib/prototype/candidate-compare.ts",
+    ]);
+    // The loader is used only by the Mission Glass page (a Server Component), never by the engine, the evidence loader or client components.
+    const imports = (f: string, mod: string) => new RegExp(`from "[^"]*/${mod}"`).test(readFileSync(f, "utf8"));
+    const loaderUsers = files.filter((f) => imports(f, "candidate-compare-data")).map((f) => f.replace(/\\/g, "/"));
+    expect(loaderUsers.sort()).toEqual(["src/app/page.tsx", "src/lib/prototype/candidate-compare.test.ts"]);
+    const engineOrLoader = files.filter((f) => /src[\\/]lib[\\/](decision|evidence)[\\/]/.test(f) && (imports(f, "candidate-compare") || imports(f, "candidate-compare-data")));
+    expect(engineOrLoader).toEqual([]);
   });
 
   it("leaves the provisional ranking exactly as SCI-0 measured it (no scoring change)", () => {

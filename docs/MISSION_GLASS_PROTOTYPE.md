@@ -397,6 +397,27 @@ checks):
   - warnings, including dynamic over-budget;
   - a minimal map that follows the current target;
   - plan timeline and event log.
+- **Candidate comparison (Planning, read-only):** "Compare two actions" at
+  the top of the card list opens a sheet. The user chooses two actions;
+  the columns follow the order chosen, never the rank order. Three aligned
+  rows:
+  - **Simulated cost:** from the existing engine views (cost and fit),
+    plus the difference in plain language.
+  - **Possible new observation** and **key unknowns:** short summaries of
+    the SCI-1 v1 evidence (`src/data/prototype/candidate-compare.json`).
+    - Each line cites SCI-1 evidence ids about that action, shown as
+      source names.
+    - The rows are labelled "SCI-1 draft · pending expert review".
+    - A scope box states: relative to past Margin work, not findings,
+      scenario targets without verified geology, not used for scores,
+      ranks or the plan.
+    - The rows are hidden for evidence dates before 2025-05-06.
+
+  The two actions sit side by side from the `sm` breakpoint; on a phone,
+  each row stacks the two actions. "Evidence and sources →" opens the
+  existing evidence sheet above the comparison. The SCI-1 file is read
+  only by a server-side loader (`candidate-compare-data.ts`), never by the
+  engine, the evidence loader or client code (tested).
 - **Replanning (MG-3):** a scenario event opens a fixed alert dialog:
   - constraint changed;
   - committed / available / estimated remaining;

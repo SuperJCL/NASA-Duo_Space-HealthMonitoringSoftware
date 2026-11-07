@@ -1,0 +1,90 @@
+{
+  "id": "candidate-compare-sci1-v1",
+  "basis": "SCI-1 v1 evidence package: docs/sci1/SCI1_EVIDENCE_V1.md and src/data/scenarios/jezero-margin-unit.sci1-proposals.json",
+  "availableFrom": "2025-05-06",
+  "scope": [
+    "Draft summaries of the SCI-1 v1 evidence, written by the AI agent and pending expert review.",
+    "They describe what an action could add relative to the Margin-unit work already done (three cores, three abrasions). They are not findings, and not predictions that the action would succeed.",
+    "Margin unit, Jezero crater. Sources: Mars 2020 Initial Reports Vol. 4 (Pelican Point and Comet Geyser reports) and NASA web pages retrieved on 2026-11-07.",
+    "Targets A–C are scenario positions with no verified geology.",
+    "Not used for scores, ranks or your plan."
+  ],
+  "reports": {
+    "25": "PDS Pelican Point report",
+    "27": "PDS Comet Geyser report"
+  },
+  "actions": [
+    {
+      "taskId": "task-standoff-survey",
+      "observation": {
+        "mode": "Stand-off · outcrop scale",
+        "target": "Whether distinctive sedimentary structures are present at Margin outcrops not yet examined.",
+        "note": "The reports name the missing structures as what keeps an igneous origin possible.",
+        "instruments": "Mastcam-Z zoom and 3D imaging; SuperCam chemistry and mineralogy from a distance.",
+        "evidenceIds": ["ev-pp-no-structures-unit", "ev-pp-no-structures-sample", "ev-nasa-mastcamz", "ev-nasa-supercam"]
+      },
+      "unknowns": [
+        {
+          "text": "Only a positive result discriminates: absence of structures favours neither origin.",
+          "evidenceIds": ["ev-pp-no-structures-sample"]
+        },
+        {
+          "text": "Whether structures would be visible: the western Margin already lacks clear sedimentary structures, and dusty, minimally layered surfaces may hide them.",
+          "evidenceIds": ["ev-cg-west-no-structures", "ev-pp-dusty-outcrop"]
+        },
+        {
+          "text": "Whether a suitable outcrop exists at Target A (a scenario position with no verified geology).",
+          "evidenceIds": []
+        }
+      ]
+    },
+    {
+      "taskId": "task-abrasion-proximity",
+      "observation": {
+        "mode": "Close-up · abraded patch",
+        "target": "Texture and fine-scale chemistry of a Margin rock not yet abraded; the source-named candidate is the lighter-toned, low-lying western Margin rock.",
+        "note": "None of the three existing abrasions is described as being on that rock.",
+        "instruments": "Abrasion, then WATSON close-up images, PIXL elemental chemistry and SHERLOC organics and altered minerals.",
+        "evidenceIds": ["ev-cg-lighter-lowlying", "ev-cg-bunsen-high-standing", "ev-cg-east-west-differ", "ev-nasa-sherloc-watson", "ev-nasa-pixl", "ev-nasa-sherloc"]
+      },
+      "unknowns": [
+        {
+          "text": "Which abraded result would discriminate: none is source-supported yet. At Comet Geyser, texture and chemistry were each consistent with both sandstone and altered igneous rock. This is not evidence that abrasion lacks value.",
+          "evidenceIds": ["ev-cg-texture-either", "ev-cg-chemistry-either"]
+        },
+        {
+          "text": "What the lighter-toned rocks are, and whether they were abraded after sol 1088 (not established here).",
+          "evidenceIds": ["ev-cg-lighter-lowlying"]
+        },
+        {
+          "text": "Geology and accessibility at Target B (a scenario position).",
+          "evidenceIds": []
+        }
+      ]
+    },
+    {
+      "taskId": "task-core-for-earth",
+      "observation": {
+        "mode": "Sealed sample · Earth laboratories, only if returned",
+        "target": "A core of a Margin rock the three existing cores do not represent; laboratories could test how its carbonate formed (detrital grains or in situ).",
+        "note": "Detrital carbonate would favour a sedimentary origin; in-situ carbonate alone would not decide the host rock's origin.",
+        "instruments": "Coring and sealing now; laboratory study only after return.",
+        "evidenceIds": ["ev-cg-carbonate-origin-unknown", "ev-cg-lab-detrital-or-insitu", "ev-cg-chemistry-either"]
+      },
+      "unknowns": [
+        {
+          "text": "Sample return: as retrieved on 2026-11-07, NASA's page describes Mars Sample Return in the past tense, as a proposed campaign.",
+          "evidenceIds": ["ev-nasa-msr-status"]
+        },
+        {
+          "text": "What a fourth core adds: the three existing Margin cores are already proposed for the same laboratory questions.",
+          "evidenceIds": ["ev-cg-third-sample", "ev-cg-three-samples-igneous", "ev-pp-geochronology"]
+        },
+        {
+          "text": "Tube availability (not found) and geology at Target C (a scenario position).",
+          "evidenceIds": []
+        }
+      ]
+    }
+  ]
+}

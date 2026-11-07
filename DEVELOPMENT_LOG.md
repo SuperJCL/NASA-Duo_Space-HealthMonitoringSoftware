@@ -3460,3 +3460,51 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `verify:geo`: 0 problems;
   - `verify:briefing`: 35 checks, 0 problems;
   - `verify:terrain`: the assets match a fresh build.
+
+## Candidate comparison, minimal version (Planning), for review
+
+- **Branch:** `candidate-compare`, from `main` `f0c68ee`. Not merged.
+- **Started:** 2026-11-07T21:16:21Z (recorded when the branch was created).
+- **Completed:** 2026-11-07T21:32:40Z, at this commit (pushed right after).
+- **Wall-clock elapsed:** 16 min 19 s.
+- **What:**
+  - In Planning, "Compare two actions" (top of the card list) opens a
+    read-only sheet. The user chooses two actions.
+  - Three aligned rows:
+    - simulated cost (existing engine views, plus a plain difference);
+    - possible new observation;
+    - key unknowns.
+  - The two science rows summarise the SCI-1 v1 evidence
+    (`src/data/prototype/candidate-compare.json`):
+    - every line cites SCI-1 evidence ids about that action;
+    - they are labelled "SCI-1 draft · pending expert review";
+    - a scope box goes with them.
+  - Layout: side by side on desktop; on a phone each row stacks the two
+    actions. Columns follow the order chosen, not the rank.
+  - "Evidence and sources →" opens the existing evidence sheet.
+- **Survey vs Abrade:**
+  - cost: 15 vs 40 pts ("Abrade and analyse a rock costs 25 pts more than
+    Survey the outcrops (simulated).");
+  - observation: "Stand-off · outcrop scale", sedimentary structures at
+    outcrops not yet examined, vs "Close-up · abraded patch", texture and
+    fine-scale chemistry of a rock not yet abraded.
+- **Isolation:**
+  - The SCI-1 file is read only by the server-side loader
+    `candidate-compare-data.ts`, used by `src/app/page.tsx`. The SCI-1
+    isolation test now allows exactly that loader, the pure module (a type
+    import) and its test, and checks that the engine, the evidence loader
+    and client components do not import it.
+  - The project rule in `CLAUDE.md` is updated to match.
+- **Unchanged:**
+  - scored data, the registry (50 pending), the SCI-1 data, sources, the
+    engine and the loaders: the `git diff main` on those paths is empty;
+  - the A1–A4 engine probe output is byte-identical to `main`;
+  - the smoke test confirms that opening, choosing and closing leave card
+    ranks, budget, plan and map selection unchanged.
+- **Verification:**
+  - `npm run check` passes: 289/289, with 7 new tests (comparison) and one
+    updated isolation test;
+  - prototype smoke: 228/228 in two runs, with 20 new comparison checks at
+    desktop 1440×900 and phone 390×844;
+  - research smoke: 120/120 with `SMOKE_LIVE=1`;
+  - `verify:sci1`: 27 quotes, 0 problems.

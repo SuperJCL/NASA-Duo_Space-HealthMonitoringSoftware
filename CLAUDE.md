@@ -27,10 +27,14 @@
   Simulated ideas stay `pending` and never propose repeating operations already
   performed. Future investigations always state their conditions.
 - SCI-1 candidate evidence (`src/data/scenarios/*.sci1-proposals.json`) is
-  not an engine or app input: every proposal stays `pending` and
+  never an engine input: every proposal stays `pending` and
   `draftedBy: "ai-agent"`, and moving one into scored data is a reviewed
   SCI-2 change. Run `npm run verify:sci1` after editing it
-  (`docs/sci1/SCI1_EVIDENCE_V1.md`).
+  (`docs/sci1/SCI1_EVIDENCE_V1.md`). The app may show it only through the
+  candidate comparison (`src/lib/prototype/candidate-compare*.ts`, server-side
+  loader): every science line cites SCI-1 evidence about that action, is
+  labelled "SCI-1 draft · pending expert review" with its scope, and never
+  affects scores, ranks or the plan.
 - Records must declare `relevance`. Regional context (e.g. SIM 3464 unit Nue)
   must never be used as local evidence or as a competing hypothesis; integrity
   checks enforce this.
