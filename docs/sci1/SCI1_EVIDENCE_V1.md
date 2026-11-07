@@ -25,7 +25,7 @@ action would succeed.
 | `src/lib/evidence/sci1-proposals.ts` (+ test) | Zod schema and integrity rules: unique IDs, existing sources/tasks/gaps/hypotheses, `status: "pending"`, `draftedBy: "ai-agent"`, PDS quotes name their report. |
 | `src/data/sources.json` | Two NASA sources added: the Mars 2020 science-instruments page and the Mars Sample Return page (both retrieved 2026-11-07). |
 | `scripts/verify-sci1.mjs` (`npm run verify:sci1`) | Live check: each PDS quote lies inside the named sample report *and section*; prints page labels; reports where the locator-correction quotes actually occur. |
-| `scripts/verify-citations.mjs` | Now also checks the 27 SCI-1 quotes (154 quotes in total). |
+| `scripts/verify-citations.mjs` | Now also checks the 27 SCI-1 quotes (156 quotes in total: 129 + 27). |
 | `scripts/lib/pds-reports.mjs` | `splitReports` / `pageAt` moved out of `verify-briefing.mjs` so both scripts share them (no behaviour change; `verify:briefing` still 35/35). |
 
 **Unchanged:** `jezero-margin-unit.json` (scored scenario data), the review
@@ -346,7 +346,7 @@ The four locator citations are reported with the report they occur in.
 npm run verify:citations
 ```
 
-All 154 quotes are checked, including the 27 SCI-1 quotes.
+All 156 quotes are checked, including the 27 SCI-1 quotes.
 
 ```bash
 npx vitest run src/lib/evidence
