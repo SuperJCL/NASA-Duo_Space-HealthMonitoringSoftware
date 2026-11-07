@@ -3049,3 +3049,50 @@ unchanged, and `verify:terrain` still matches a fresh build.
     fetched, and R1 and R2 remain blocked.
   - The proposed objective and the SCI-1/SCI-2 recommendations are the
     agent's drafts and await scientific review.
+
+## SCI-0 supplement: review package (docs only)
+
+- **Context:** the SCI-0 direction was accepted, but document acceptance is
+  pending. The review asked for:
+  - an integration record;
+  - review materials and reproducible numbers;
+  - the distinction between evidence and value;
+  - the data cutoff;
+  - follow-up proposals A, B and C, without implementing them.
+- **Branch:** `sci0-scenario-evidence-audit`. Not merged; SCI-1 not started.
+- **Started:** 2026-11-07T01:32:59Z.
+- **Completed:** 2026-11-07T01:41:12Z, at this commit.
+- **Wall-clock elapsed:** 8 min 13 s. One agent, no parallel work.
+- **Added:** `docs/sci0/`:
+  - `README.md`: index, MAP-2 integration record with recorded times and
+    unknowns marked, branch and diff, docs-only check, data cutoff, unread
+    sources, unverified status;
+  - `EVIDENCE_MATRIX.md`: generated verbatim from the committed data;
+  - `RANKING_CLAIMS.md`;
+  - `ISSUES.md`;
+  - `REPRODUCTION.md`: probe code, data and engine hashes, parameters,
+    full-precision outputs;
+  - `FOLLOW_UP_PROPOSALS.md`: A, B and C, not implemented.
+- **Edited:** the contract now has:
+  - a scope section ("evidence sufficiency is not scientific value");
+  - the exact IDs of the three pivotal relationships (one relevance
+    classification and two task–gap links);
+  - the exact tie values;
+  - "not assessed as low".
+- **Probe:** re-run against `6fd4222`, from a temporary test file deleted
+  before commit, with results identical to SCI-0:
+  - margin 0.04285714285714293;
+  - an exact tie at 50 pts (0.6285714285714286), broken by the
+    cheaper-first rule;
+  - weight stability 6/6 at 100 pts and 4/6 at 50 pts.
+- **Verification:**
+  - `npm run check` passes (268/268 unit tests);
+  - `git diff --stat main -- src scripts public package.json
+    package-lock.json` is empty.
+- **Rework:**
+  - "re-run at 01:3x" was replaced by the recorded bound "after
+    01:32:59Z";
+  - the Initial Reports dates were narrowed to the one verified example
+    (Lefroy Bay, December 18, 2023);
+  - "Correction to wording" was reframed as "Precision", since the
+    original wording was accurate.

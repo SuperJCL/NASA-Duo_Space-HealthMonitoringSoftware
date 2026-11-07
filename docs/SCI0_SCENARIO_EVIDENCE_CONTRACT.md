@@ -29,6 +29,41 @@ scenario is `src/data/prototype/mission-glass.json`; the evidence is
   **A verified quotation is not an expert validation.** No new sources were
   added.
 
+## Scope of the conclusions
+
+**Supplementary review materials:** see the package index in
+[`sci0/README.md`](sci0/README.md):
+
+- [evidence matrix](sci0/EVIDENCE_MATRIX.md);
+- [ranking claims](sci0/RANKING_CLAIMS.md);
+- [issue list](sci0/ISSUES.md);
+- [reproduction record](sci0/REPRODUCTION.md), with exact parameters,
+  hashes and full-precision outputs;
+- [follow-up proposals](sci0/FOLLOW_UP_PROPOSALS.md).
+
+**Evidence sufficiency is not scientific value.** This audit concludes that
+the current dataset's evidence is insufficient to support a *scientific
+ordering* of the three actions. It does **not** conclude that any action has
+low or no scientific value.
+
+- **Repeating an operation type is not the same as adding nothing.** All
+  three actions repeat operation types already performed in the unit. A new
+  survey, abrasion or core at another outcrop could still add information,
+  for example a lithology or structure not yet sampled. The dataset simply
+  does not describe what it would add.
+- **What the evidence leaves open is the value, not its absence.** Where the
+  sources show that earlier measurements left a question open, that
+  constrains what a similar measurement can be *assumed* to resolve. It is
+  not evidence that it would fail.
+
+**Data cutoff, unread sources and unverified status:**
+
+- The latest record in the dataset is 2025-05-06 (PDS Initial Reports
+  Vol. 4).
+- The quotes were re-verified live on 2026-11-07.
+- The full list of unread sources and of unverified current-status items is
+  in [`sci0/README.md`](sci0/README.md) §4.
+
 ## Verdict
 
 **The scenario cannot yet support a meaningful, explainable scientific
@@ -51,9 +86,15 @@ comparison: which simulated actions fit a simulated budget.
        so separates nothing.
    - **Hypothesis discrimination and scientific priority are "Not Evaluated"
      for every action.**
-   - **The lead is small and fragile.** Abrade leads by 0.043. Removing any
-     one of three unreviewed relationships makes Core #1 (the engine's
-     `pivotalInputs`). At 50 pts, Survey and Abrade tie (margin 0).
+   - **The lead is small and fragile.** Abrade leads by 0.043
+     (0.04285714285714293). Removing any one of three unreviewed
+     relationships makes Core #1 (the engine's `pivotalInputs`):
+     - `relevance:gap-lake-connection`;
+     - `task-gap:task-abrasion-proximity->gap-formation-unknown`;
+     - `task-gap:task-abrasion-proximity->gap-lake-connection`.
+   - **At 50 pts, Survey and Abrade tie exactly** (both
+     0.6285714285714286). Survey is listed first only by the engine's
+     cheaper-first tie-break.
 2. **The reviewed ranking is unavailable.** All 50 relationships are
    pending; none is approved.
 3. **Every action type has already been done in this unit, around the
@@ -119,7 +160,7 @@ been reviewed.
 | Scenario-defined assumptions | rover access; instrument capability (uncited); 15 pts | rover access; instrument capability (uncited); 40 pts | rover access; **sample return**; 55 pts. Sample-tube availability and analysis timescale are not modelled. |
 | Geography | Target A: offset −110 E / +120 N, **163 m** from Lefroy Bay. Simulated; inside the DTM crop. | Target B: +70 E / +95 N, **118 m**. Simulated. | Target C: +130 E / −45 N, **138 m**. Simulated. |
 | Fair comparison? | Under-represented: its strongest source-supported question (GS) is not linked, so it scores 1/3 gap coverage. | Over-dependent on two weak, pivotal, unreviewed links. | Mixes a near-term in-situ result with a deferred, conditional lab result on one scale. Time horizon and conditionality are not modelled. |
-| Scientific usefulness | **Not established** (no reviewed links, no discrimination assessment) | **Not established** | **Not established.** One pending, AI-drafted discrimination assessment, whose limitations note it ignores the pyroclastic hypothesis. |
+| Scientific usefulness | **Not established by reviewed evidence.** No reviewed links and no discrimination assessment. Not assessed as low. | **Not established by reviewed evidence.** Not assessed as low. | **Not established by reviewed evidence.** One pending, AI-drafted discrimination assessment, whose limitations note it ignores the pyroclastic hypothesis. Not assessed as low. |
 | Simulated feasibility | Fits at 100 and 50 pts | Fits at 100 and 50 pts | Fits at 100; **not** at 50 |
 
 Common to all three actions:
