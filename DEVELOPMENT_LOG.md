@@ -3002,3 +3002,97 @@ unchanged, and `verify:terrain` still matches a fresh build.
   `itemsAfterReplan` in `src/lib/prototype/mission-glass.ts`; all
   replanning tests are unchanged and pass.
 - **Rework:** none.
+
+## SCI-0: scenario evidence audit (docs only)
+
+- **Branch:** `sci0-scenario-evidence-audit`, created from `main`
+  (`6fd4222`). Docs only; not merged.
+- **Started:** 2026-11-07T00:40:42Z.
+- **Completed:** 2026-11-07T00:47:14Z, at this commit.
+- **Wall-clock elapsed:** 6 min 32 s. One agent, no parallel work, no human
+  intervention.
+- **Deliverable:** `docs/SCI0_SCENARIO_EVIDENCE_CONTRACT.md` (Scenario
+  Evidence Contract, plus a display-safety summary). The R4 row in
+  `docs/EVIDENCE_CURATION.md` now points to it.
+- **Method:**
+  - read the evidence scenario, the review registry, the sources, the
+    Lefroy Bay briefing, the geo records, the mission framing, the Mission
+    Glass scenario and the rank wording in the UI;
+  - ran a read-only probe of the existing engine at 2025-05-06 and
+    2023-09-08, at 100 and 50 pts, from a temporary test file deleted
+    before commit. `git diff main -- src scripts public` is empty.
+- **Main findings:**
+  - **The provisional order rests on two inputs only:** AI-drafted, pending
+    task–gap links and simulated costs (2025-05-06, 100 pts: Abrade 0.743,
+    Core 0.700, Survey 0.671).
+  - **The science criteria carry no information:** discrimination and
+    priority are Not Evaluated, and evidence quality is identical for all
+    three actions.
+  - **The lead is fragile:** three unreviewed inputs are each pivotal, and
+    at 50 pts Survey and Abrade tie.
+  - **The reviewed ranking is unavailable:** 50 relationships are pending.
+  - **All three action types repeat operations already performed in the
+    unit** (three Margin cores, several abrasions, stand-off analyses).
+  - **The targets are scenario-defined points** 118–163 m from the verified
+    Lefroy Bay site.
+  - **Evidence quality's "best existing support: orbital"** misrepresents
+    the present-day dataset.
+- **Verification:**
+  - `npm run check` passes (268/268 unit tests);
+  - no application code, data, review status or formula changed; the
+    review registry is 50 pending, 0 approved.
+- **Rework:** one wording correction. The draft said the UI states the
+  inferred coordinate convention for sample sites; only the 2D map's dashed
+  ring and `docs/GEO_DATA.md` were confirmed, so the text now says that.
+- **Limitations of the audit:**
+  - It used only the dataset's verified sources; no new sources were
+    fetched, and R1 and R2 remain blocked.
+  - The proposed objective and the SCI-1/SCI-2 recommendations are the
+    agent's drafts and await scientific review.
+
+## SCI-0 supplement: review package (docs only)
+
+- **Context:** the SCI-0 direction was accepted, but document acceptance is
+  pending. The review asked for:
+  - an integration record;
+  - review materials and reproducible numbers;
+  - the distinction between evidence and value;
+  - the data cutoff;
+  - follow-up proposals A, B and C, without implementing them.
+- **Branch:** `sci0-scenario-evidence-audit`. Not merged; SCI-1 not started.
+- **Started:** 2026-11-07T01:32:59Z.
+- **Completed:** 2026-11-07T01:41:12Z, at this commit.
+- **Wall-clock elapsed:** 8 min 13 s. One agent, no parallel work.
+- **Added:** `docs/sci0/`:
+  - `README.md`: index, MAP-2 integration record with recorded times and
+    unknowns marked, branch and diff, docs-only check, data cutoff, unread
+    sources, unverified status;
+  - `EVIDENCE_MATRIX.md`: generated verbatim from the committed data;
+  - `RANKING_CLAIMS.md`;
+  - `ISSUES.md`;
+  - `REPRODUCTION.md`: probe code, data and engine hashes, parameters,
+    full-precision outputs;
+  - `FOLLOW_UP_PROPOSALS.md`: A, B and C, not implemented.
+- **Edited:** the contract now has:
+  - a scope section ("evidence sufficiency is not scientific value");
+  - the exact IDs of the three pivotal relationships (one relevance
+    classification and two task–gap links);
+  - the exact tie values;
+  - "not assessed as low".
+- **Probe:** re-run against `6fd4222`, from a temporary test file deleted
+  before commit, with results identical to SCI-0:
+  - margin 0.04285714285714293;
+  - an exact tie at 50 pts (0.6285714285714286), broken by the
+    cheaper-first rule;
+  - weight stability 6/6 at 100 pts and 4/6 at 50 pts.
+- **Verification:**
+  - `npm run check` passes (268/268 unit tests);
+  - `git diff --stat main -- src scripts public package.json
+    package-lock.json` is empty.
+- **Rework:**
+  - "re-run at 01:3x" was replaced by the recorded bound "after
+    01:32:59Z";
+  - the Initial Reports dates were narrowed to the one verified example
+    (Lefroy Bay, December 18, 2023);
+  - "Correction to wording" was reframed as "Precision", since the
+    original wording was accurate.
