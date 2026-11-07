@@ -21,6 +21,11 @@ const check = (ok, msg) => {
 };
 const text = async (l) => ((await l.textContent().catch(() => null)) ?? "").trim();
 const settle = (p, ms = 300) => p.waitForTimeout(ms);
+/** Replanning: choose an option, then confirm (nothing is applied before confirming). */
+async function decide(p, which) {
+  await p.getByTestId(which === "suggested" ? "mg-choose-suggested" : "mg-choose-current").click();
+  await p.getByTestId("mg-confirm-replan").click();
+}
 
 // Scenario-defined target positions, recomputed independently from the scenario file.
 const R = 3396190;
@@ -235,19 +240,29 @@ try {
   await page.getByTestId("mg-event-effort-cut").click();
   await settle(page);
   const replan = page.getByTestId("mg-replan");
-  check((await replan.isVisible()) && (await inView(page.getByTestId("mg-replan-trigger"))) && (await inView(page.getByTestId("mg-accept-replan"))) && (await inView(page.getByTestId("mg-keep-plan"))), "MG-3: the alert is immediately visible; both decisions are on screen (not below the fold)");
+  check((await replan.isVisible()) && (await inView(page.getByTestId("mg-replan-trigger"))) && (await inView(page.getByTestId("mg-choose-suggested"))) && (await inView(page.getByTestId("mg-choose-current"))) && (await inView(page.getByTestId("mg-confirm-replan"))), "MG-3: the alert is immediately visible; both options and Confirm are on screen (not below the fold)");
+  check((await page.getByTestId("mg-confirm-replan").isDisabled()) && /Nothing changes until you confirm/.test(await text(page.getByTestId("mg-replan-selection"))), "Replan summary: Confirm is disabled until an option is chosen; nothing changes before confirming");
+  check((await text(page.getByTestId("mg-replan-budget-change"))) === "Budget: 100 pts → 50 pts", "Replan summary: shows the original and the new budget");
+  {
+    const aff = await page.getByTestId("mg-replan-affected").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-effect"), e.textContent]));
+    check(aff.length === 2 && aff[0][0] === "too-large" && /Affected: Collect a core sample needs 55 pts, more than the 50 pts now available/.test(aff[0][1]) && aff[1][0] === "fits" && /Still fits: Abrade and analyse a rock \(40 pts\)/.test(aff[1][1]), "Replan summary: names the remaining actions affected (coring over budget) and those that still fit");
+    const tie = await text(page.getByTestId("mg-replan-tie"));
+    check(/Tied at the current provisional score: Survey the outcrops and Abrade and analyse a rock \(63 of 100 each at 50 pts\)/.test(tie) && /lists Survey the outcrops first because its simulated cost is lower/.test(tie) && /not a scientific preference/.test(tie) && /Survey the outcrops is not in your plan/.test(tie), "Replan summary: survey and abrasion tie at the engine's provisional score (tie-break stated, not a preference)");
+  }
   check((await page.evaluate(() => document.activeElement?.id)) === "mg-replan-title" && (await replan.getAttribute("role")) === "alertdialog", "MG-3: focus moves to the replanning alert dialog");
   check(/Available effort drops to 50 points/.test(await text(page.getByTestId("mg-replan-trigger"))) && /Your plan no longer fits/.test(await text(page.locator("#mg-replan-title"))), "MG-3: states which constraint changed");
   check((await text(page.getByTestId("mg-replan-committed"))) === "0 pts" && (await text(page.getByTestId("mg-replan-available"))) === "50 pts" && (await text(page.getByTestId("mg-replan-need"))) === "95 pts" && /estimated/.test(await text(page.getByTestId("mg-replan-resources"))), "MG-3: committed effort is distinguished from the estimated remaining need");
   const impact = await page.getByTestId("mg-replan-impact").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-verdict"), e.textContent]));
   check(impact.length === 2 && impact[0][0] === "fits" && /Abrade and analyse a rock/.test(impact[0][1]) && /In progress, 1 of 4 steps done; those steps are kept/.test(impact[0][1]) && impact[1][0] === "too-large" && /Collect a core sample/.test(impact[1][1]) && /Needs 55 pts, more than the 50 pts now available/.test(impact[1][1]), "MG-3: names each affected action with a plain-language feasibility change");
   check(/Abrade and analyse a rock · 40 pts/.test(await text(page.getByTestId("mg-replan-suggested"))) && /Dropped by this replan \(kept in the plan, can be undone\): Collect a core sample/.test(await text(page.getByTestId("mg-replan-dropped"))) && /provisional, not scientifically validated/.test(await text(page.getByTestId("mg-option-suggested"))), "MG-3: suggested option (provisional engine order) shows what would be dropped");
-  check(/Infeasible: needs 95 pts, 45 more than available/.test(await text(page.getByTestId("mg-current-feasibility"))) && (await text(page.getByTestId("mg-keep-plan"))) === "Keep current plan anyway", "MG-3: keeping the current plan is labelled infeasible");
+  check(/Infeasible: needs 95 pts, 45 more than available/.test(await text(page.getByTestId("mg-current-feasibility"))) && (await text(page.getByTestId("mg-choose-current"))) === "Keep current plan anyway", "MG-3: keeping the current plan is labelled infeasible");
   await page.keyboard.press("Escape");
   for (let n = 0; n < 4; n++) await page.keyboard.press("Tab");
   check((await replan.isVisible()) && (await page.evaluate(() => Boolean(document.activeElement?.closest('[data-testid="mg-replan"]')))), "MG-3: Escape does not dismiss the decision; Tab stays inside the dialog");
-  // Retain the infeasible plan.
-  await page.getByTestId("mg-keep-plan").click();
+  // Retain the infeasible plan: preview first, then confirm.
+  await page.getByTestId("mg-choose-current").click();
+  check((await page.getByTestId("mg-choose-current").getAttribute("aria-checked")) === "true" && (await replan.isVisible()) && /Keeps: Abrade and analyse a rock \(40 pts\), Collect a core sample \(55 pts\)\./.test(await text(page.getByTestId("mg-replan-kept"))) && (await text(page.getByTestId("mg-replan-removed"))) === "Removes: none." && (await text(page.getByTestId("mg-replan-left"))) === "After the change: 45 pts over the 50 pts available." && (await text(page.getByTestId("mg-confirm-replan"))) === "Confirm: keep current plan", "Replan summary: choosing 'keep' previews it next to Confirm without applying it");
+  await page.getByTestId("mg-confirm-replan").click();
   await settle(page);
   let tl = await page.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
   check((await replan.count()) === 0 && JSON.stringify(tl) === JSON.stringify(["active", "planned"]) && /You kept a plan that exceeds the available effort by 45 pts/.test(await text(page.getByTestId("mg-retained-warning"))), "MG-3: keeping an infeasible plan changes nothing and raises an explicit warning");
@@ -256,7 +271,9 @@ try {
   await settle(page);
   check(await replan.isVisible(), "MG-3: the replanning decision can be reviewed again from the warning");
   // Accept the suggestion: remaining work only; completed steps kept.
-  await page.getByTestId("mg-accept-replan").click();
+  await page.getByTestId("mg-choose-suggested").click();
+  check(/Keeps: Abrade and analyse a rock \(40 pts\)\./.test(await text(page.getByTestId("mg-replan-kept"))) && /Removes: Collect a core sample \(55 pts\), kept in the plan as "dropped by replan"/.test(await text(page.getByTestId("mg-replan-removed"))) && (await text(page.getByTestId("mg-replan-left"))) === "After the change: 10 of 50 pts left." && (await text(page.getByTestId("mg-replan-order"))) === "Order unchanged." && JSON.stringify(await page.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")))) === JSON.stringify(["active", "planned"]), "Replan summary: choosing the suggestion previews kept/removed actions and the effort left; the plan is unchanged until Confirm");
+  await page.getByTestId("mg-confirm-replan").click();
   await settle(page);
   tl = await page.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
   check(JSON.stringify(tl) === JSON.stringify(["active", "skipped"]) && (await text(page.getByTestId("mg-current-step"))) === "Document the natural surface" && /Step 2 of 4/.test(await text(page.getByTestId("mg-eva-progress"))) && (await page.getByTestId("mg-retained-warning").count()) === 0, "MG-3: accepting replans only remaining work; the in-progress steps are kept");
@@ -266,7 +283,7 @@ try {
   tl = await page.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
   check(JSON.stringify(tl) === JSON.stringify(["active", "planned"]) && /previous plan is restored/.test(await text(page.getByTestId("mg-notice-text"))) && (await page.getByTestId("mg-retained-warning").isVisible()), "MG-3: Undo restores the previous plan, and its infeasibility is flagged again");
   await page.getByTestId("mg-review-replan").click();
-  await page.getByTestId("mg-accept-replan").click();
+  await decide(page, "suggested");
   await settle(page);
   await page.getByTestId("mg-event-effort-restored").click();
   await settle(page);
@@ -397,7 +414,7 @@ try {
     await mp.getByTestId("mg-toggle-scenario").click();
     await mp.getByTestId("mg-event-effort-cut").click();
     await settle(mp);
-    await mp.getByTestId("mg-accept-replan").click();
+    await decide(mp, "suggested");
     await mp.getByTestId("mg-mode-planning").click();
     await mp.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
     await mp.waitForFunction(() => (document.querySelector('[data-testid="mars-map"]')?.getAttribute("data-sim-markers") ?? "[]") !== "[]", undefined, { timeout: 15_000 });
@@ -484,7 +501,7 @@ try {
     await ep.getByTestId("mg-event-effort-cut").click();
     await settle(ep);
     const impact0 = await text(ep.getByTestId("mg-replan-impact").locator("li").first());
-    await ep.getByTestId("mg-accept-replan").click();
+    await decide(ep, "suggested");
     await settle(ep);
     const tl = await ep.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-status"), e.getAttribute("data-drop")]));
     check(/In progress, 1 of 4 steps done, 1 skipped; those steps are kept\./.test(impact0) && JSON.stringify(await states()) === JSON.stringify(["done", "skipped", "current", "todo"]) && /Fine laminations/.test(await text(ep.getByTestId("mg-step-note-2"))), "EVA-1: a replan explains and keeps the in-progress steps, reasons and notes");
@@ -688,7 +705,7 @@ try {
     await fp.getByTestId("mg-toggle-scenario").click();
     await fp.getByTestId("mg-event-effort-cut").click();
     await settle(fp);
-    await fp.getByTestId("mg-accept-replan").click(); // nothing fits the 10 pts left: coring dropped
+    await decide(fp, "suggested"); // nothing fits the 10 pts left: coring dropped
     await settle(fp);
     await fp.getByTestId("mg-step-reopen-3").click();
     const fx7 = await text(fp.getByTestId("mg-reopen-effects"));
@@ -803,7 +820,7 @@ try {
     await kp.getByTestId("mg-toggle-scenario").click();
     await kp.getByTestId("mg-event-effort-cut").click();
     await settle(kp);
-    await kp.getByTestId("mg-keep-plan").click(); // keep coring although only 10 pts are left
+    await decide(kp, "current"); // keep coring although only 10 pts are left
     await settle(kp);
     await kp.getByTestId("mg-step-reopen-3").click();
     const fe2 = await text(kp.getByTestId("mg-reopen-feasibility"));
@@ -811,7 +828,7 @@ try {
     await settle(kp);
     const dlg = kp.getByTestId("mg-replan");
     check(/needs 95 pts but only 50 are available\. You will be asked to replan/.test(fe2) && (await dlg.isVisible()) && /Reopened: Abrade and analyse a rock/.test(await text(kp.getByTestId("mg-replan-trigger"))), "EVA-1.2: if reopening makes the remaining plan infeasible, the replanning decision opens");
-    await kp.getByTestId("mg-accept-replan").click();
+    await decide(kp, "suggested");
     await settle(kp);
     const tl3 = await kp.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-status"), e.getAttribute("data-drop")]));
     await kp.getByTestId("mg-undo-replan").click();
@@ -1411,7 +1428,7 @@ try {
     await ep2.getByTestId("mg-step-reopen-0").click();
     await ep2.getByTestId("mg-reopen-yes").click();
     await settle(ep2, 500);
-    if (await ep2.getByTestId("mg-replan").count()) await ep2.getByTestId("mg-keep-plan").click();
+    if (await ep2.getByTestId("mg-replan").count()) await decide(ep2, "current");
     await settle(ep2, 300);
     q = await seq2d(ep2);
     const reopenOk =
@@ -1453,7 +1470,7 @@ try {
     await settle(rp, 500);
     const sugg = JSON.parse((await rp.getByTestId("mg-replan-seq-suggested").getAttribute("data-segments")) || "[]");
     const curr = JSON.parse((await rp.getByTestId("mg-replan-seq-current").getAttribute("data-segments")) || "[]");
-    await rp.getByTestId("mg-accept-replan").click();
+    await decide(rp, "suggested");
     await settle(rp, 400);
     await rp.getByTestId("mg-toggle-map").click();
     await settle(rp, 900);
@@ -1473,7 +1490,7 @@ try {
     await kp2.getByTestId("mg-event-effort-cut").click(); // 15 committed, 35 available: neither B nor C fits
     await settle(kp2, 500);
     const nf = (await kp2.getByTestId("mg-no-feasible").isVisible()) && (await kp2.getByTestId("mg-replan-seq-suggested").getAttribute("data-segments")) === "[]";
-    await kp2.getByTestId("mg-keep-plan").click();
+    await decide(kp2, "current");
     await settle(kp2, 400);
     await kp2.getByTestId("mg-toggle-map").click();
     await settle(kp2, 900);
@@ -1612,11 +1629,11 @@ try {
   await tp.getByTestId("mg-event-effort-cut").click();
   await settle(tp);
   await translate(tp);
-  await tp.getByTestId("mg-keep-plan").click();
+  await decide(tp, "current");
   await settle(tp);
   await translate(tp);
   await tp.getByTestId("mg-review-replan").click();
-  await tp.getByTestId("mg-accept-replan").click();
+  await decide(tp, "suggested");
   await settle(tp);
   await translate(tp);
   await tp.getByTestId("mg-undo-replan").click();
@@ -1649,6 +1666,98 @@ try {
   await rm.close();
 
   // ── Narrow screen, and the MG-3 no-feasible-alternative state ──
+  // ── Replan change summary: create plan → enter EVA → budget drop → summary → confirm → Undo (desktop and phone) ──
+  {
+    const runChangeSummary = async (opts, label, shot) => {
+      const rc = await browser.newPage(opts);
+      const rerrs = [];
+      rc.on("pageerror", (e) => rerrs.push(String(e)));
+      const { width: W, height: H } = opts.viewport;
+      const onScreen = async (loc) => {
+        const b = await loc.boundingBox();
+        return Boolean(b && b.y >= 0 && b.y + b.height <= H && b.x >= 0 && b.x + b.width <= W);
+      };
+      const overflowX = () => rc.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      const press = (loc) => (opts.hasTouch ? loc.tap() : loc.click());
+      const timeline = () => rc.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => `${e.getAttribute("data-status")}/${e.getAttribute("data-drop")}`));
+      await rc.goto(BASE_URL, { waitUntil: "domcontentloaded" });
+      await rc.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 20_000 });
+      await settle(rc, 600);
+      // 1. Create the plan: the provisional suggested order at 100 pts (abrasion 40 + coring 55).
+      await press(rc.getByTestId("mg-use-suggested"));
+      await press(rc.getByTestId("mg-review-plan"));
+      await press(rc.getByTestId("mg-create-plan"));
+      // 2. Enter EVA.
+      await press(rc.getByTestId("mg-start-eva"));
+      await settle(rc, 800);
+      const before = await timeline();
+      // 3. Budget drop (scenario event).
+      await press(rc.getByTestId("mg-toggle-scenario"));
+      await press(rc.getByTestId("mg-event-effort-cut"));
+      await settle(rc);
+      // 4. The summary: old and new budget, affected remaining actions, the engine's tie.
+      const aff = await rc.getByTestId("mg-replan-affected").locator("li").evaluateAll((els) => els.map((e) => [e.getAttribute("data-effect"), e.getAttribute("data-task"), e.textContent]));
+      const tie = rc.getByTestId("mg-replan-tie");
+      check(
+        (await text(rc.getByTestId("mg-replan-budget-change"))) === "Budget: 100 pts → 50 pts" &&
+          aff.length === 2 &&
+          aff[0][0] === "too-large" &&
+          aff[0][1] === "task-core-for-earth" &&
+          aff[1][0] === "fits" &&
+          /Abrade and analyse a rock \(40 pts\)/.test(aff[1][2]) &&
+          (await tie.getAttribute("data-tasks")) === "task-standoff-survey task-abrasion-proximity" &&
+          /\(63 of 100 each at 50 pts\)/.test(await text(tie)),
+        `${label}: the summary shows 100 → 50 pts, coring over budget, abrasion still fitting, and survey and abrasion tied at the engine's provisional score`,
+      );
+      check((await onScreen(rc.getByTestId("mg-replan-budget-change"))) && (await rc.getByTestId("mg-confirm-replan").isDisabled()), `${label}: the budget change is visible at once; Confirm waits for a choice`);
+      // 5. Choose the suggested adjustment: preview next to Confirm, nothing applied yet.
+      await press(rc.getByTestId("mg-choose-suggested"));
+      await settle(rc, 250);
+      const sel = rc.getByTestId("mg-replan-selection");
+      const confirm = rc.getByTestId("mg-confirm-replan");
+      check(
+        (await text(rc.getByTestId("mg-replan-kept"))) === "Keeps: Abrade and analyse a rock (40 pts)." &&
+          /^Removes: Collect a core sample \(55 pts\), kept in the plan as "dropped by replan"/.test(await text(rc.getByTestId("mg-replan-removed"))) &&
+          (await text(rc.getByTestId("mg-replan-left"))) === "After the change: 10 of 50 pts left." &&
+          (await text(rc.getByTestId("mg-replan-order"))) === "Order unchanged." &&
+          (await text(confirm)) === "Confirm: use suggested plan" &&
+          JSON.stringify(await timeline()) === JSON.stringify(before),
+        `${label}: choosing shows kept and removed actions and the effort left next to Confirm; the plan is unchanged until confirmed`,
+      );
+      const cBox = await confirm.boundingBox();
+      const fontPx = await sel.evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+      check(
+        (await onScreen(sel)) && (await onScreen(confirm)) && (await onScreen(rc.getByTestId("mg-choose-current"))) && (await onScreen(rc.getByTestId("mg-replan-budget-change"))) && Boolean(cBox && cBox.height >= 44) && fontPx >= 14 && (await overflowX()) <= 0,
+        `${label}: summary and Confirm are on screen together, Confirm is at least 44 px tall, text at least 14 px, no horizontal overflow (${W}×${H})`,
+      );
+      if (shot) await rc.screenshot({ path: shot });
+      // 6. Confirm.
+      await press(confirm);
+      await settle(rc);
+      // Existing behaviour: the page keeps its scroll position. On a phone the scenario controls sit below
+      // the HUD, so the notice with Undo can be above the viewport; it must still be reachable.
+      const undo = rc.getByTestId("mg-undo-replan");
+      const undoAtOnce = await onScreen(undo);
+      if (!undoAtOnce) await undo.scrollIntoViewIfNeeded();
+      if (opts.hasTouch) console.log(`INFO  ${label}: Undo on screen right after confirming: ${undoAtOnce ? "yes" : "no (above the viewport; reached by scrolling up)"}`);
+      check(
+        (await rc.getByTestId("mg-replan").count()) === 0 &&
+          JSON.stringify(await timeline()) === JSON.stringify(["planned/", "skipped/replan"]) &&
+          /Plan updated: 1 action\(s\) dropped by replan/.test(await text(rc.getByTestId("mg-notice-text"))) &&
+          (opts.hasTouch ? await onScreen(undo) : undoAtOnce),
+        `${label}: confirming applies exactly the previewed change (coring dropped by replan), with Undo ${opts.hasTouch ? "reachable" : "on screen"}`,
+      );
+      // 7. Undo.
+      await press(rc.getByTestId("mg-undo-replan"));
+      await settle(rc);
+      check(JSON.stringify(await timeline()) === JSON.stringify(before) && /previous plan is restored/.test(await text(rc.getByTestId("mg-notice-text"))) && rerrs.length === 0, `${label}: Undo restores the previous plan; no page errors`);
+      await rc.close();
+    };
+    const dir = process.env.SHOT_DIR;
+    await runChangeSummary({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 }, "Replan summary flow, desktop", dir ? `${dir}/replan-summary-desktop.png` : null);
+    await runChangeSummary({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true }, "Replan summary flow, phone", dir ? `${dir}/replan-summary-phone.png` : null);
+  }
+
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const perr = [];
   phone.on("pageerror", (e) => perr.push(String(e)));
@@ -1711,8 +1820,10 @@ try {
   check(/No remaining action fits/.test(await text(phone.locator("#mg-replan-title"))) && /None of the remaining actions fits the 10 pts available/.test(await text(phone.getByTestId("mg-no-feasible"))), "MG-3: no-feasible-alternative state is stated plainly");
   const verdicts = await phone.getByTestId("mg-replan-impact").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-verdict")));
   check((await text(phone.getByTestId("mg-replan-committed"))) === "40 pts" && (await text(phone.getByTestId("mg-replan-available"))) === "10 pts" && JSON.stringify(verdicts) === JSON.stringify(["kept-done", "too-large"]), "MG-3: completed work is committed and kept; the remaining action is too large");
-  check((await phoneIn(phone.getByTestId("mg-accept-replan"))) && (await phoneIn(phone.getByTestId("mg-keep-plan"))) && (await hOverflow()) <= 0 && (await text(phone.getByTestId("mg-accept-replan"))) === "End remaining work", "narrow screen: the replanning decision is on screen without horizontal overflow");
-  await phone.getByTestId("mg-accept-replan").click();
+  check((await phoneIn(phone.getByTestId("mg-choose-suggested"))) && (await phoneIn(phone.getByTestId("mg-choose-current"))) && (await phoneIn(phone.getByTestId("mg-confirm-replan"))) && (await hOverflow()) <= 0 && (await text(phone.getByTestId("mg-choose-suggested"))) === "End remaining work", "narrow screen: the replanning decision is on screen without horizontal overflow");
+  await phone.getByTestId("mg-choose-suggested").click();
+  check((await text(phone.getByTestId("mg-replan-kept"))) === "Keeps: none." && /^Removes: Collect a core sample \(55 pts\)/.test(await text(phone.getByTestId("mg-replan-removed"))) && (await text(phone.getByTestId("mg-replan-left"))) === "After the change: 10 of 10 pts left." && /Completed actions \(1\) are not changed/.test(await text(phone.getByTestId("mg-replan-order"))) && (await phoneIn(phone.getByTestId("mg-confirm-replan"))) && (await text(phone.getByTestId("mg-confirm-replan"))) === "Confirm: end remaining work", "narrow screen: ending the remaining work is previewed (completed action unchanged) next to Confirm");
+  await decide(phone, "suggested");
   await settle(phone);
   const ptl = await phone.getByTestId("mg-plan-timeline").locator("li").evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
   check(JSON.stringify(ptl) === JSON.stringify(["done", "skipped"]) && /Plan complete: 1 done, 1 dropped by replan/.test(await text(phone.getByTestId("mg-eva-progress"))) && /Remaining work ended/.test(await text(phone.getByTestId("mg-notice-text"))) && perr.length === 0, "MG-3: ending the remaining work keeps the completed action and marks the rest dropped by replan");

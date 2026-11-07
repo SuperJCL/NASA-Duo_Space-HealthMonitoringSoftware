@@ -6,7 +6,21 @@ import { rankProvisional, rankReviewed } from "@/lib/decision/review-modes";
 import { loadJezeroMarginScenario } from "@/lib/evidence/repository";
 import { selectEvidenceAsOf } from "@/lib/evidence/snapshot";
 import { loadJezeroGeo } from "@/lib/geo/repository";
-import { addability, initialMissionState, missionReducer, parseScenario, planFit, simulatedTargets, taskViews, type MissionState } from "./mission-glass";
+import {
+  addability,
+  consumedEffort,
+  engineTies,
+  initialMissionState,
+  missionReducer,
+  parseScenario,
+  planFit,
+  remaining,
+  replanAffected,
+  replanChoiceOutcome,
+  simulatedTargets,
+  taskViews,
+  type MissionState,
+} from "./mission-glass";
 
 const { scenario, registry } = loadJezeroMarginScenario();
 const geo = loadJezeroGeo();
@@ -239,5 +253,79 @@ describe("MG-1 plan fit and plain-language feasibility", () => {
     );
     const v50 = new Map(views(50).map((v) => [v.taskId, v]));
     expect(addability(v50.get("task-core-for-earth")!, [], costs, 50)).toEqual({ state: "infeasible", text: "Not possible: needs 55 pts, but the whole budget is 50 pts." });
+  });
+});
+
+describe("replan change summary (reads the existing engine; no new scoring)", () => {
+  /** The engine at a simulated effort, exactly as Mission Glass calls it: order and exact totals from one result. */
+  const engine = (budget: number) => {
+    const c = { ...defaultConstraints(snapshot), budgets: { "res-effort": budget }, unavailablePlatforms: s.excludedPlatforms };
+    const rec = rankProvisional(scenario, registry, asOf, DEFAULT_WEIGHTS, c).recommendation;
+    return { rankedTaskIds: rec.ranking.map((r) => r.taskId), scores: Object.fromEntries(rec.ranking.map((r) => [r.taskId, r.total])) };
+  };
+  const planned = (draft: string[], budget = 100): MissionState => {
+    let st = initialMissionState(budget);
+    for (const id of draft) st = missionReducer(st, { type: "toggle-draft", taskId: id });
+    st = missionReducer(st, { type: "create-plan" });
+    return missionReducer(st, { type: "set-mode", mode: "eva" });
+  };
+  const event = (st: MissionState, budget: number) =>
+    missionReducer(st, { type: "constraint-event", budget, label: `Effort ${budget}`, ...engine(budget - consumedEffort(st, costs)), costs, stepsByTask: steps });
+  const SURVEY = "task-standoff-survey";
+  const ABRADE = "task-abrasion-proximity";
+  const CORE = "task-core-for-earth";
+
+  it("100 → 50 pts with the suggested plan: coring is over budget; survey and abrasion tie (engine values)", () => {
+    // The suggested order at 100 pts fills abrasion (40) and coring (55); survey (15) no longer fits.
+    const st = event(planned([ABRADE, CORE]), 50);
+    const p = st.replan!;
+    expect([p.trigger.from, p.trigger.to, p.committed, p.available]).toEqual([100, 50, 0, 50]);
+    expect(replanAffected(p)).toEqual({ affected: [{ taskId: CORE, cost: 55, verdict: "too-large" }], stillFits: [{ taskId: ABRADE, cost: 40 }] });
+    // The tie is the engine's own: identical totals at 50 pts, survey first by lower simulated cost.
+    const e = engine(50);
+    expect(e.scores[SURVEY]).toBe(e.scores[ABRADE]);
+    expect(e.scores[SURVEY]).toBe(0.6285714285714286);
+    expect(p.ties).toEqual([{ taskIds: [SURVEY, ABRADE], scorePct: 63, orderedBy: "cost" }]);
+    // Coring is not ranked by the engine at 50 pts (over budget).
+    expect(e.rankedTaskIds).not.toContain(CORE);
+    // Option previews: nothing is applied yet.
+    expect(replanChoiceOutcome(p, "suggested")).toEqual({ kept: [ABRADE], removed: [CORE], total: 40, left: 10, orderChanged: false });
+    expect(replanChoiceOutcome(p, "current")).toEqual({ kept: [ABRADE, CORE], removed: [], total: 95, left: -45, orderChanged: false });
+    expect(st.plan!.items.map((i) => [i.taskId, i.status])).toEqual([
+      [ABRADE, "planned"],
+      [CORE, "planned"],
+    ]);
+  });
+
+  it("the preview matches what confirming applies, and Undo restores the plan", () => {
+    const st = event(planned([ABRADE, CORE]), 50);
+    const o = replanChoiceOutcome(st.replan!, "suggested");
+    const after = missionReducer(st, { type: "accept-replan" });
+    expect(remaining(after.plan!.items).map((i) => i.taskId)).toEqual(o.kept);
+    expect(after.plan!.items.filter((i) => i.dropped?.by === "replan").map((i) => i.taskId)).toEqual(o.removed);
+    const undone = missionReducer(after, { type: "undo-replan", costs });
+    expect(undone.plan!.items).toEqual(st.plan!.items);
+  });
+
+  it("when both tied actions are in the plan, the tie-break decides which one is dropped", () => {
+    const p = event(planned([SURVEY, ABRADE]), 50).replan!;
+    expect(p.ties[0].taskIds).toEqual([SURVEY, ABRADE]);
+    expect(replanChoiceOutcome(p, "suggested")).toEqual({ kept: [SURVEY], removed: [ABRADE], total: 15, left: 35, orderChanged: false });
+  });
+
+  it("reports a new order when the engine's order differs from the plan's", () => {
+    // Plan in the user's order (survey first) at 100 pts; a re-check at 100 pts follows the engine (abrasion first).
+    const p = event(planned([SURVEY, ABRADE]), 100).replan!;
+    expect([p.trigger.from, p.trigger.to]).toEqual([100, 100]);
+    expect(p.ties).toEqual([]);
+    expect(replanChoiceOutcome(p, "suggested")).toEqual({ kept: [ABRADE, SURVEY], removed: [], total: 55, left: 45, orderChanged: true });
+    expect(replanChoiceOutcome(p, "current").orderChanged).toBe(false);
+  });
+
+  it("finds ties only by exact equality and states the tie-break used", () => {
+    expect(engineTies(["a", "b", "c"], { a: 0.5, b: 0.5, c: 0.4 }, { a: 10, b: 20, c: 5 })).toEqual([{ taskIds: ["a", "b"], scorePct: 50, orderedBy: "cost" }]);
+    expect(engineTies(["a", "b"], { a: 0.5, b: 0.5 }, { a: 10, b: 10 })[0].orderedBy).toBe("cost-then-id");
+    expect(engineTies(["a", "b"], { a: 0.5, b: 0.5 + 1e-15 }, { a: 10, b: 20 })).toEqual([]);
+    expect(engineTies(["a", "b"], undefined, {})).toEqual([]);
   });
 });
