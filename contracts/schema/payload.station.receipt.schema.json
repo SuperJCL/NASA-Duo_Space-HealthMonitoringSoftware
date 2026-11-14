@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.station.receipt.schema.json",
+  "title": "payload.station.receipt",
+  "type": "object",
+  "properties": {
+    "receivedEventId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "receivedType": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "duplicate",
+        "rejected"
+      ]
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "receivedEventId",
+    "receivedType",
+    "status",
+    "reason"
+  ],
+  "additionalProperties": false
+}

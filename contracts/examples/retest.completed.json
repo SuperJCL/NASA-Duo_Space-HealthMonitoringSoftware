@@ -1,0 +1,14 @@
+{
+  "schema": "myomars/v1",
+  "eventId": "example-retest-completed",
+  "sessionId": "demo",
+  "runId": "run-example-1",
+  "caseId": "case-change",
+  "retestId": "case-change-rt1",
+  "sentAt": "2026-11-14T10:00:00.000Z",
+  "source": "hud",
+  "type": "retest.completed",
+  "payload": {
+    "completedAt": "2026-11-14T10:39:00.000Z"
+  }
+}

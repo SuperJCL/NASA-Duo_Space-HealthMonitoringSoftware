@@ -3529,3 +3529,28 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `verify:geo`: 0 problems;
   - `verify:briefing`: 35 checks, 0 problems;
   - `verify:terrain`: the assets match a fresh build.
+
+## MyoMars shared message contracts v1: public handoff
+
+- **Date:** 2026-11-14 (handoff prepared on `feat/myomars-shared-contracts`, from `origin/main` at
+  `c31704b`).
+- **Why a separate branch:** the earlier `feat/myomars-contracts` also carried the EVA route work,
+  the station pages and the station migration. This branch takes only what the team needs.
+- **Content:**
+  - `src/contracts/` (envelope, payloads, publishing rules, shared simulated demo fixtures);
+  - the generated `contracts/` folder (JSON Schema 2020-12, one example message per type,
+    `event-rules.json`, 4 fixed scenarios);
+  - `tools/myomars/` (generator, `contracts:check`, local validator `contracts:validate`, 7 tests);
+  - `docs/myomars/CONTRACTS.md`.
+- **No network service:** relay code (paused F2) is not included, and the guide says so.
+- **Module format, no repository-wide change:** two local `package.json` files
+  (`src/contracts/`, `tools/myomars/`) declare `"type": "module"` only for those folders. Earlier,
+  the root `package.json` declared it; that is not needed and is not used here.
+- **Shared-file changes:**
+  - three `contracts:*` scripts in `package.json`;
+  - `allowImportingTsExtensions` in `tsconfig.json`;
+  - `tools/**/*.test.ts` added to the Vitest include list;
+  - a `CLAUDE.md` bullet.
+- **Proposed extensions:** `retest.completed` and `station.audit.*` are marked
+  `proposed-extension` and are optional. `retest.result` alone is a complete retest submission, so
+  teammates have nothing to migrate.

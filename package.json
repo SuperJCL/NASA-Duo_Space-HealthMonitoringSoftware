@@ -18,7 +18,10 @@
     "verify:sci1": "node scripts/verify-sci1.mjs",
     "build:terrain": "node scripts/build-ctx-terrain.mjs",
     "verify:terrain": "node scripts/build-ctx-terrain.mjs --verify",
-    "smoke:mission-glass": "node scripts/smoke-mission-glass.mjs"
+    "smoke:mission-glass": "node scripts/smoke-mission-glass.mjs",
+    "contracts:build": "node tools/myomars/build-contracts.ts",
+    "contracts:check": "node tools/myomars/build-contracts.ts --check",
+    "contracts:validate": "node tools/myomars/validate-message.ts"
   },
   "dependencies": {
     "next": "16.4.5",

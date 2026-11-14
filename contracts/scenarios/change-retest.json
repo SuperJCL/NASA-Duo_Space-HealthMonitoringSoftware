@@ -1,0 +1,158 @@
+{
+  "id": "change-retest",
+  "title": "可比变化 → 审核 → HUD → 复测 → 重评",
+  "schema": "myomars/v1",
+  "simulated": true,
+  "note": "SIMULATED demo data; not measurements, not clinically validated.",
+  "start": {
+    "scenarioId": "myomars-demo",
+    "astronaut": {
+      "id": "ev1",
+      "callsign": "EV1（模拟宇航员）"
+    },
+    "task": {
+      "id": "eva-sampling",
+      "title": "EVA 采样作业",
+      "targetId": null
+    }
+  },
+  "caseId": "case-change",
+  "observation": {
+    "observationId": "obs-change-1",
+    "astronautId": "ev1",
+    "capturedAt": "2026-11-14T10:00:00Z",
+    "protocol": {
+      "id": "std-grip-40",
+      "label": "标准握持 40% MVC · 30 s",
+      "targetPctMvc": 40,
+      "posture": "standing",
+      "glove": "eva-glove"
+    },
+    "context": {
+      "taskId": "eva-sampling",
+      "phase": "eva",
+      "minutesIntoEva": 95
+    },
+    "signal": {
+      "sampleRateHz": 2000,
+      "durationS": 30,
+      "electrodeImpedanceKOhm": 12,
+      "saturationPct": 0.2,
+      "motionArtifactPct": 4,
+      "dropoutPct": 0.5
+    },
+    "features": {
+      "medianFreqHz": 80,
+      "rmsPctMvc": 44,
+      "gripForceN": 142
+    }
+  },
+  "retestResults": {
+    "retest-normal": {
+      "label": "复测：回到基线范围",
+      "observation": {
+        "observationId": "obs-retest-normal-1",
+        "astronautId": "ev1",
+        "capturedAt": "2026-11-14T10:40:00Z",
+        "protocol": {
+          "id": "std-grip-40",
+          "label": "标准握持 40% MVC · 30 s",
+          "targetPctMvc": 40,
+          "posture": "standing",
+          "glove": "eva-glove"
+        },
+        "context": {
+          "taskId": "eva-sampling",
+          "phase": "retest",
+          "minutesIntoEva": null
+        },
+        "signal": {
+          "sampleRateHz": 2000,
+          "durationS": 30,
+          "electrodeImpedanceKOhm": 12,
+          "saturationPct": 0.2,
+          "motionArtifactPct": 4,
+          "dropoutPct": 0.5
+        },
+        "features": {
+          "medianFreqHz": 89,
+          "rmsPctMvc": 39.5,
+          "gripForceN": 156
+        }
+      }
+    },
+    "retest-changed": {
+      "label": "复测：仍有变化",
+      "observation": {
+        "observationId": "obs-retest-changed-1",
+        "astronautId": "ev1",
+        "capturedAt": "2026-11-14T10:40:00Z",
+        "protocol": {
+          "id": "std-grip-40",
+          "label": "标准握持 40% MVC · 30 s",
+          "targetPctMvc": 40,
+          "posture": "standing",
+          "glove": "eva-glove"
+        },
+        "context": {
+          "taskId": "eva-sampling",
+          "phase": "retest",
+          "minutesIntoEva": null
+        },
+        "signal": {
+          "sampleRateHz": 2000,
+          "durationS": 30,
+          "electrodeImpedanceKOhm": 12,
+          "saturationPct": 0.2,
+          "motionArtifactPct": 4,
+          "dropoutPct": 0.5
+        },
+        "features": {
+          "medianFreqHz": 81,
+          "rmsPctMvc": 43,
+          "gripForceN": 144
+        }
+      }
+    },
+    "retest-invalid": {
+      "label": "复测：质量无效",
+      "observation": {
+        "observationId": "obs-retest-invalid-1",
+        "astronautId": "ev1",
+        "capturedAt": "2026-11-14T10:40:00Z",
+        "protocol": {
+          "id": "std-grip-40",
+          "label": "标准握持 40% MVC · 30 s",
+          "targetPctMvc": 40,
+          "posture": "standing",
+          "glove": "eva-glove"
+        },
+        "context": {
+          "taskId": "eva-sampling",
+          "phase": "retest",
+          "minutesIntoEva": null
+        },
+        "signal": {
+          "sampleRateHz": 2000,
+          "durationS": 30,
+          "electrodeImpedanceKOhm": 12,
+          "saturationPct": 0.2,
+          "motionArtifactPct": 4,
+          "dropoutPct": 22
+        },
+        "features": {
+          "medianFreqHz": 90,
+          "rmsPctMvc": 39,
+          "gripForceN": 158
+        }
+      }
+    }
+  },
+  "expected": [
+    "station: change beyond the individual baseline; candidate notice + retest, pending human review",
+    "station staff approves with a reason → station.notice.approved + station.retest.requested",
+    "HUD → hud.received (device) for each, later hud.ack (astronaut) or hud.defer",
+    "Trigger/HUD → retest.result with the same retestId (complete on its own; HUD → retest.completed is an optional proposed extension)",
+    "station → station.receipt (accepted); re-evaluation v2; staff closes or keeps under watch → station.reassessment"
+  ]
+}

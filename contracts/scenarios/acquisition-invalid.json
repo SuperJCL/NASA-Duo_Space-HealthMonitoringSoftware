@@ -1,0 +1,54 @@
+{
+  "id": "acquisition-invalid",
+  "title": "采集异常 · 信号质量不合格",
+  "schema": "myomars/v1",
+  "simulated": true,
+  "note": "SIMULATED demo data; not measurements, not clinically validated.",
+  "start": {
+    "scenarioId": "myomars-demo",
+    "astronaut": {
+      "id": "ev1",
+      "callsign": "EV1（模拟宇航员）"
+    },
+    "task": {
+      "id": "eva-sampling",
+      "title": "EVA 采样作业",
+      "targetId": null
+    }
+  },
+  "caseId": "case-acquisition",
+  "observation": {
+    "observationId": "obs-acq-1",
+    "astronautId": "ev1",
+    "capturedAt": "2026-11-14T10:00:00Z",
+    "protocol": {
+      "id": "std-grip-40",
+      "label": "标准握持 40% MVC · 30 s",
+      "targetPctMvc": 40,
+      "posture": "standing",
+      "glove": "eva-glove"
+    },
+    "context": {
+      "taskId": "eva-sampling",
+      "phase": "eva",
+      "minutesIntoEva": 95
+    },
+    "signal": {
+      "sampleRateHz": 2000,
+      "durationS": 30,
+      "electrodeImpedanceKOhm": 180,
+      "saturationPct": 0.2,
+      "motionArtifactPct": 32,
+      "dropoutPct": 0.5
+    },
+    "features": {
+      "medianFreqHz": 90,
+      "rmsPctMvc": 39,
+      "gripForceN": 158
+    }
+  },
+  "expected": [
+    "station: quality stage blocked; no physiological inference",
+    "station staff may approve a re-acquisition retest (technical, not a health conclusion)"
+  ]
+}

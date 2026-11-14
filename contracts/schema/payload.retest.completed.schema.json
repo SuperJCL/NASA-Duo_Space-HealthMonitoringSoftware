@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.retest.completed.schema.json",
+  "title": "payload.retest.completed",
+  "type": "object",
+  "properties": {
+    "completedAt": {
+      "type": "string"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "completedAt"
+  ],
+  "additionalProperties": false
+}
