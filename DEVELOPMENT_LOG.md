@@ -3769,3 +3769,14 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - Optional IMU summary and `deviceId` on an observation.
 - **Status:** a proposal from the Station owner, not yet agreed by the HUD and Trigger owners. All
   data is simulated.
+- **Station migration to v1 (separate commit, mock mode unchanged):**
+  - `src/lib/station/protocol.ts` re-exports the shared contracts.
+  - The state machine now:
+    - carries `sessionId` and a relay `cursor`; events at or below the cursor are ignored, and the
+      station's own echoed messages only record the relay `seq`;
+    - ignores other sessions;
+    - handles `retest.completed`;
+    - emits `station.audit.assessment` and `station.audit.review` records.
+  - The fixtures are re-exported from the contracts; the individual baselines stay in the station.
+  - The smoke test now counts only HUD-facing messages.
+  - 4 new unit tests.

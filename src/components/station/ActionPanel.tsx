@@ -198,7 +198,7 @@ function Dispatched({ c, state, api }: { c: Case; state: StationState; api: Stat
       </ul>
       {rt ? (
         <p className="text-[13px]" data-testid="station-retest-list" data-status={rt.status}>
-          {`复测任务 ${rt.retestId}：${{ requested: "已请求，等待结果", acknowledged: "宇航员已确认，等待结果", deferred: "宇航员暂缓", "result-received": `已收到结果 → v${rt.resultVersion}` }[rt.status]}`}
+          {`复测任务 ${rt.retestId}：${{ requested: "已请求，等待结果", acknowledged: "宇航员已确认，等待结果", deferred: "宇航员暂缓", completed: "宇航员报告已完成，等待复测数据", "result-received": `已收到结果 → v${rt.resultVersion}` }[rt.status]}`}
         </p>
       ) : null}
       <p className="text-[11px] text-[var(--mg-faint)]">{"当前为独立演示：适配层是本地 mock，第 2、3 步只在收到真实回传时才会变为完成。"}</p>

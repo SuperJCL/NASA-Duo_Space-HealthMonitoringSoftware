@@ -26,7 +26,7 @@ describe("station controller (adapter + timers)", () => {
     await vi.advanceTimersByTimeAsync(3000);
     expect(s().cases["case-change"].phase).toBe("awaiting-review");
     expect(ctl.pendingTimers).toBe(0);
-    expect(adapter.sent).toHaveLength(0);
+    expect(adapter.sent.filter((e) => !e.type.startsWith("station.audit."))).toHaveLength(0);
   });
 
   it("reset cancels pending analysis timers; nothing from the old run changes the new state", async () => {
@@ -51,13 +51,13 @@ describe("station controller (adapter + timers)", () => {
     adapter.failNextSends(1);
     expect(ctl.review("case-change", 1, "approve", "证据一致，安排复测", "值班员 A")).toBeNull();
     await vi.advanceTimersByTimeAsync(0);
-    const [notice, retest] = s().outbox;
+    const [notice, retest] = s().outbox.filter((m) => !m.type.startsWith("station.audit."));
     expect(notice.delivery).toBe("failed");
     expect(retest.delivery).toBe("sent");
-    expect(adapter.sent.map((e) => e.type)).toEqual(["station.retest.requested"]);
+    expect(adapter.sent.map((e) => e.type).filter((t) => !t.startsWith("station.audit."))).toEqual(["station.retest.requested"]);
     ctl.resend(notice.eventId);
     await vi.advanceTimersByTimeAsync(0);
-    expect(s().outbox[0].delivery).toBe("sent");
+    expect(s().outbox.find((m) => m.eventId === notice.eventId)!.delivery).toBe("sent");
     expect(adapter.sent.map((e) => e.eventId)).toContain(notice.eventId);
 
     // Retest result → receipt → v2 analysis.

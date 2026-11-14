@@ -24,13 +24,22 @@ const inbound = (raw: unknown): Action => ({ type: "inbound", raw, at: T });
 const start = (runId = RUN) => inboundEnvelope("scenario.start", { runId, payload: DEMO_START, eventId: `start-${runId}` });
 const observe = (fx: keyof typeof FIXTURES, eventId = `obs-${fx}`, runId = RUN) => inboundEnvelope("observation.submitted", { runId, caseId: FIXTURES[fx].caseId, payload: FIXTURES[fx].observation, eventId });
 /** Tick the latest evaluation of a case to completion. */
+function finishEffects(state: StationState, caseId: string) {
+  const ev = latest(state.cases[caseId]);
+  const acts: Action[] = [];
+  for (let i = 0; i < stagesToReveal(ev.result); i++) acts.push({ type: "stage-tick", runId: state.run!.runId, caseId, version: ev.version, at: T });
+  return run(state, acts).effects;
+}
+const hudOutbox = (s: StationState) => s.outbox.filter((m) => !m.type.startsWith("station.audit."));
 function finish(state: StationState, caseId: string) {
   const ev = latest(state.cases[caseId]);
   const acts: Action[] = [];
   for (let i = 0; i < stagesToReveal(ev.result); i++) acts.push({ type: "stage-tick", runId: state.run!.runId, caseId, version: ev.version, at: T });
   return run(state, acts).state;
 }
-const sends = (effects: Effect[]) => effects.filter((e): e is Extract<Effect, { kind: "send" }> => e.kind === "send").map((e) => e.envelope);
+/** Messages for the HUD / Trigger (audit records excluded; they are traceability only). */
+const sends = (effects: Effect[]) => allSends(effects).filter((e) => !e.type.startsWith("station.audit."));
+const allSends = (effects: Effect[]) => effects.filter((e): e is Extract<Effect, { kind: "send" }> => e.kind === "send").map((e) => e.envelope);
 const review = (caseId: string, version: number, decision: Action & { type: "review" } extends infer R ? (R extends { decision: infer D } ? D : never) : never, reason = "已核对证据"): Action => ({ type: "review", caseId, version, decision, reason, reviewer: "基地值班员 A", at: T });
 
 describe("simulated analysis (deterministic, demo rules)", () => {
@@ -90,7 +99,9 @@ describe("station state machine", () => {
     expect(state.cases["case-change"].phase).toBe("awaiting-review");
     expect(state.cases["case-change"].alert.level).toBe("alert");
     expect(sends(effects)).toHaveLength(0);
-    expect(state.outbox).toHaveLength(0);
+    expect(state.outbox.filter((m) => !m.type.startsWith("station.audit."))).toHaveLength(0);
+    // Only the audit record of the completed assessment was produced.
+    expect(allSends(finishEffects(first.state, "case-change")).map((e) => e.type)).toEqual(["station.audit.assessment"]);
   });
 
   it("review needs the latest version, a reason and an allowed decision", () => {
@@ -225,9 +236,9 @@ describe("station state machine", () => {
     let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
     state = finish(state, "case-change");
     state = step(state, review("case-change", 1, "approve")).state;
-    const id = state.outbox[0].eventId;
+    const id = hudOutbox(state)[0].eventId;
     state = step(state, { type: "delivery", eventId: id, ok: false, note: "offline", at: T }).state;
-    expect(state.outbox[0].delivery).toBe("failed");
+    expect(hudOutbox(state)[0].delivery).toBe("failed");
     const r = step(state, { type: "resend", eventId: id, at: T });
     expect(sends(r.effects)[0].eventId).toBe(id);
   });
@@ -236,18 +247,18 @@ describe("station state machine", () => {
     let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
     state = finish(state, "case-change");
     state = step(state, review("case-change", 1, "approve")).state;
-    const [notice, retest] = state.outbox;
+    const [notice, retest] = hudOutbox(state);
     expect([notice.delivery, notice.hudReceivedAt, notice.feedback]).toEqual(["queued", null, "none"]);
     state = step(state, { type: "delivery", eventId: notice.eventId, ok: true, note: "mock", at: T }).state;
-    expect(state.outbox[0].delivery).toBe("sent");
-    expect(state.outbox[0].hudReceivedAt).toBeNull();
+    expect(hudOutbox(state)[0].delivery).toBe("sent");
+    expect(hudOutbox(state)[0].hudReceivedAt).toBeNull();
     // An astronaut confirmation does not invent a HUD receipt.
     state = step(state, inbound(inboundEnvelope("hud.ack", { runId: RUN, caseId: "case-change", payload: { messageId: retest.eventId }, eventId: "ack-r" }))).state;
-    expect(state.outbox[1].feedback).toBe("acknowledged");
-    expect(state.outbox[1].hudReceivedAt).toBeNull();
+    expect(hudOutbox(state)[1].feedback).toBe("acknowledged");
+    expect(hudOutbox(state)[1].hudReceivedAt).toBeNull();
     state = step(state, inbound(inboundEnvelope("hud.received", { runId: RUN, caseId: "case-change", payload: { messageId: notice.eventId }, eventId: "rcv-n" }))).state;
-    expect(state.outbox[0].hudReceivedAt).toBe(T);
-    expect(state.outbox[0].feedback).toBe("none");
+    expect(hudOutbox(state)[0].hudReceivedAt).toBe(T);
+    expect(hudOutbox(state)[0].feedback).toBe("none");
   });
 
   it("maps phases to workbench stages and narrows decisions per stage", () => {
@@ -286,5 +297,50 @@ describe("station state machine", () => {
     const separate = loop("retest-invalid");
     expect(separate.kind).toBe("separate");
     if (separate.kind === "separate") expect(separate.why).toMatch(/不计算变化幅度/);
+  });
+
+  it("v1: retest.completed is recorded separately from the retest data", () => {
+    let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
+    state = finish(state, "case-change");
+    state = step(state, review("case-change", 1, "approve")).state;
+    state = step(state, inbound(inboundEnvelope("retest.completed", { runId: RUN, caseId: "case-change", retestId: "case-change-rt1", payload: { completedAt: T }, eventId: "done-1" }))).state;
+    const c = state.cases["case-change"];
+    expect(c.retests[0]).toMatchObject({ status: "completed", completedAt: T, resultEventId: null });
+    expect(c.phase).toBe("awaiting-retest");
+    expect(c.evaluations).toHaveLength(1); // completion alone starts no re-evaluation
+  });
+
+  it("v1: relay sequence numbers — events at or below the cursor are already applied; own echoes only record the seq", () => {
+    let { state } = run(s0, [inbound({ ...start(), sessionId: "local", seq: 1, receivedAt: T, sender: { role: "trigger", clientId: "t" } })]);
+    expect(state.cursor).toBe(1);
+    const obs = { ...observe("change"), seq: 2, receivedAt: T, sender: { role: "trigger", clientId: "t" } };
+    state = step(state, inbound(obs)).state;
+    const again = step(state, inbound(obs));
+    expect(again.state).toBe(state); // seq ≤ cursor: no change at all
+    state = finish(state, "case-change");
+    state = step(state, review("case-change", 1, "approve")).state;
+    const notice = hudOutbox(state)[0];
+    const echo = step(state, inbound({ ...notice.envelope, seq: 9, receivedAt: T, sender: { role: "station", clientId: "s" } }));
+    expect(echo.state.outbox.find((m) => m.eventId === notice.eventId)!.relaySeq).toBe(9);
+    expect(echo.state.cursor).toBe(9);
+    expect(echo.effects).toHaveLength(0);
+  });
+
+  it("v1: messages from another demo session are ignored", () => {
+    const { state } = run(s0, [inbound(start()), inbound({ ...observe("change"), sessionId: "other" })]);
+    expect(state.caseOrder).toHaveLength(0);
+  });
+
+  it("v1: audit records trace each completed assessment and each human decision (never sent as actions)", () => {
+    const first = run(s0, [inbound(start()), inbound(observe("change"))]);
+    const audit1 = allSends(finishEffects(first.state, "case-change"));
+    expect(audit1).toHaveLength(1);
+    expect(audit1[0]).toMatchObject({ type: "station.audit.assessment", caseId: "case-change", source: "station", sessionId: "local" });
+    expect(audit1[0].payload).toMatchObject({ evaluationVersion: 1, outcome: "change-beyond-baseline", candidateKind: "notice-and-retest", simulated: true });
+    const r = step(finish(first.state, "case-change"), review("case-change", 1, "approve"));
+    const all = allSends(r.effects);
+    const rev = all.find((e) => e.type === "station.audit.review")!;
+    expect(rev.payload).toMatchObject({ decision: "approve", reviewer: "基地值班员 A", caseStatus: "awaiting-hud" });
+    expect((rev.payload as { dispatchedEventIds: string[] }).dispatchedEventIds).toEqual(sends(r.effects).map((e) => e.eventId));
   });
 });

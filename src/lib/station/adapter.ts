@@ -59,13 +59,14 @@ let devSeq = 0;
 /** Development helper: build an inbound envelope (as the Trigger or HUD would send it). */
 export function inboundEnvelope(
   type: InboundType,
-  { runId, caseId = null, retestId = null, payload, eventId, at }: { runId: string; caseId?: string | null; retestId?: string | null; payload: unknown; eventId?: string; at?: string },
+  { runId, caseId = null, retestId = null, payload, eventId, at, sessionId = "local" }: { runId: string; caseId?: string | null; retestId?: string | null; payload: unknown; eventId?: string; at?: string; sessionId?: string },
 ): Envelope {
   devSeq += 1;
   const source = type.startsWith("hud.") || type === "retest.result" ? "hud" : "trigger";
   return {
     schema: SCHEMA,
     eventId: eventId ?? `dev-${source}-${Date.now().toString(36)}-${devSeq}`,
+    sessionId,
     runId,
     caseId,
     retestId,

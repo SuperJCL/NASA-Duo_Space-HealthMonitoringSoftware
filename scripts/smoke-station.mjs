@@ -25,7 +25,9 @@ const text = async (l) => ((await l.textContent().catch(() => null)) ?? "").trim
 const attr = (p, id, a) => p.getByTestId(id).getAttribute(a);
 const waitStage = (p, stage, timeout = 15_000) => p.waitForFunction((st) => document.querySelector('[data-testid="station-case"]')?.getAttribute("data-stage") === st, stage, { timeout });
 const stageStatuses = (p) => p.locator('[data-testid="station-stages"] li').evaluateAll((els) => els.map((e) => e.getAttribute("data-status")));
-const outbox = (p) => p.locator('[data-testid="station-outbox"] li').evaluateAll((els) => els.map((e) => ({ type: e.getAttribute("data-type"), delivery: e.getAttribute("data-delivery"), hud: e.getAttribute("data-hud-received"), feedback: e.getAttribute("data-feedback") })));
+/** Messages for the HUD (station.audit.* traceability records excluded). */
+const outbox = async (p) => (await allOutbox(p)).filter((m) => !m.type.startsWith("station.audit."));
+const allOutbox = (p) => p.locator('[data-testid="station-outbox"] li').evaluateAll((els) => els.map((e) => ({ type: e.getAttribute("data-type"), delivery: e.getAttribute("data-delivery"), hud: e.getAttribute("data-hud-received"), feedback: e.getAttribute("data-feedback") })));
 /** Fully inside the 1440×900 viewport without scrolling anything. */
 const onFirstScreen = async (p, id) => {
   const b = await p.getByTestId(id).first().boundingBox();
@@ -80,7 +82,8 @@ try {
   check((await attr(p, "station-candidate", "data-kind")) === "record-only" && (await p.getByTestId("station-outgoing-none").count()) === 1, "normal: record-only candidate, nothing would be sent");
   check((await p.getByTestId("station-decide-approve").count()) === 0, "nothing to approve for a record-only candidate");
   await decide(p, "close", "结果正常，关闭（测试）");
-  check((await attr(p, "station-case", "data-stage")) === "closed" && (await p.getByTestId("station-outbox").count()) === 0, "normal: closed by a human; nothing sent to the HUD");
+  check((await attr(p, "station-case", "data-stage")) === "closed" && (await outbox(p)).length === 0, "normal: closed by a human; nothing sent to the HUD");
+  check((await allOutbox(p)).map((m) => m.type).join(",") === "station.audit.assessment,station.audit.review", "normal: the assessment and the decision are kept as audit records");
   check((await p.getByTestId("station-candidate").count()) === 0 && /结果正常，关闭（测试）/.test(await text(p.getByTestId("station-closed"))), "closed: shows outcome and reason, no leftover pending prompt");
 
   // ---------- Acquisition anomaly ----------
@@ -109,7 +112,7 @@ try {
   check((await p.locator('[data-testid="station-baseline-table"] tr[data-flagged="true"]').count()) >= 2, "change: ≥ 2 features flagged against the baseline");
   check(/基地提示（模拟）/.test(await text(p.getByTestId("station-outgoing-notice"))) && /标准协议/.test(await text(p.getByTestId("station-outgoing-retest"))), "review shows the actual notice and retest text that would be sent");
   for (const id of ["station-what", "station-basis", "station-outgoing", "station-decide-approve", "station-review-reason", "station-review-confirm"]) check(await onFirstScreen(p, id), `review stage, 1440×900 first screen: ${id} visible without scrolling`);
-  check((await p.getByTestId("station-outbox").count()) === 0 && /mock 适配层已发出 0 条/.test(await text(p.getByTestId("station-dev"))), "nothing published before human approval");
+  check((await outbox(p)).length === 0 && (await allOutbox(p)).every((m) => m.type === "station.audit.assessment"), "nothing for the HUD before human approval (only the assessment audit record)");
   await dev(p, "station-dev-toggle");
   await shot(p, "1-review");
   await dev(p, "station-dev-toggle");

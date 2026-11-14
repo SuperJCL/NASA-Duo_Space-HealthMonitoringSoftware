@@ -53,6 +53,8 @@ export type OutMessage = {
   delivery: "queued" | "sent" | "failed";
   deliveryNote: string | null;
   adapterAt: string | null;
+  /** The relay's sequence number for this message, once the relay echoed it back (relay mode only). */
+  relaySeq: number | null;
   /** HUD device receipt (hud.received); null until a real receipt arrives. */
   hudReceivedAt: string | null;
   /** Astronaut feedback (notice and retest messages only); "none" until a real hud.ack / hud.defer arrives. */
@@ -65,7 +67,9 @@ export type Retest = {
   retestId: string;
   requestEventId: string;
   requestedFromVersion: number;
-  status: "requested" | "acknowledged" | "deferred" | "result-received";
+  /** completed: the astronaut reported the retest as performed (retest.completed); data still to come. */
+  status: "requested" | "acknowledged" | "deferred" | "completed" | "result-received";
+  completedAt: string | null;
   resultEventId: string | null;
   resultVersion: number | null;
 };
@@ -86,6 +90,10 @@ export type Case = {
 export type TimelineEntry = { at: string; kind: "in" | "out" | "system" | "review" | "ignored"; text: string; caseId: string | null; eventId: string | null };
 
 export type StationState = {
+  /** Demo session this station works in (the relay's session; "local" in mock mode). */
+  sessionId: string;
+  /** Last relay sequence number applied (0 in mock mode). Events at or below it are already in this state. */
+  cursor: number;
   run: { runId: string; scenarioId: string; astronaut: ScenarioStart["astronaut"]; task: ScenarioStart["task"]; startedAt: string } | null;
   endedRuns: string[];
   seen: Record<string, true>;
@@ -108,8 +116,8 @@ export type Effect = { kind: "send"; envelope: Envelope } | { kind: "schedule-ti
 
 export type StepResult = { state: StationState; effects: Effect[]; error: string | null };
 
-export function initialState(baselines: readonly Baseline[]): StationState {
-  return { run: null, endedRuns: [], seen: {}, cases: {}, caseOrder: [], outbox: [], outSeq: 0, timeline: [], baselines };
+export function initialState(baselines: readonly Baseline[], sessionId = "local"): StationState {
+  return { sessionId, cursor: 0, run: null, endedRuns: [], seen: {}, cases: {}, caseOrder: [], outbox: [], outSeq: 0, timeline: [], baselines };
 }
 
 const LEVEL: Record<AlertLevel, number> = { none: 0, watch: 1, alert: 2 };
@@ -214,10 +222,10 @@ export function step(state: StationState, action: Action): StepResult {
     if (!s.run) return null;
     s.outSeq += 1;
     const eventId = `stn-${s.run.runId}-${String(s.outSeq).padStart(3, "0")}`;
-    const envelope: Envelope = { schema: SCHEMA, eventId, runId: s.run.runId, caseId, retestId, sentAt: at, source: "station", type, payload };
-    s.outbox.push({ eventId, type, caseId, retestId, envelope, delivery: "queued", deliveryNote: null, adapterAt: null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
+    const envelope: Envelope = { schema: SCHEMA, eventId, sessionId: s.sessionId, runId: s.run.runId, caseId, retestId, sentAt: at, source: "station", type, payload };
+    s.outbox.push({ eventId, type, caseId, retestId, envelope, delivery: "queued", deliveryNote: null, adapterAt: null, relaySeq: null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
     effects.push({ kind: "send", envelope });
-    log(at, "out", `发出 ${type}`, caseId, eventId);
+    if (!type.startsWith("station.audit.")) log(at, "out", `发出 ${type}`, caseId, eventId);
     return eventId;
   };
 
@@ -234,6 +242,22 @@ export function step(state: StationState, action: Action): StepResult {
   switch (action.type) {
     case "inbound": {
       const at = action.at;
+      const meta = (action.raw && typeof action.raw === "object" ? action.raw : {}) as { seq?: unknown; type?: unknown; eventId?: unknown; sessionId?: unknown };
+      // Relay delivery order: an event at or below the cursor is already part of this state (resume / replay).
+      if (typeof meta.seq === "number") {
+        if (meta.seq <= s.cursor) return { state, effects: [], error: null };
+        s.cursor = meta.seq;
+      }
+      // The station's own messages come back through the relay: record the relay's sequence number only.
+      if (typeof meta.type === "string" && meta.type.startsWith("station.")) {
+        const own = s.outbox.find((m) => m.eventId === meta.eventId);
+        if (own && typeof meta.seq === "number") own.relaySeq = meta.seq;
+        return { state: s, effects, error: null };
+      }
+      if (typeof meta.sessionId === "string" && meta.sessionId !== s.sessionId) {
+        log(at, "ignored", `来自其他演示会话 ${meta.sessionId}，已忽略`, null, typeof meta.eventId === "string" ? meta.eventId : null);
+        return { state: s, effects, error: null };
+      }
       const parsed = parseInbound(action.raw);
       if (!parsed.ok) {
         log(at, "ignored", `拒收无效消息：${parsed.error.split("\n")[0]}`, null, parsed.eventId);
@@ -337,12 +361,28 @@ export function step(state: StationState, action: Action): StepResult {
         m.feedbackNote = type === "hud.defer" ? (p.reason ?? null) : (p.note ?? null);
         m.feedbackAt = at;
         const rt = m.retestId ? c.retests.find((r) => r.retestId === m.retestId) : null;
-        if (rt && rt.status !== "result-received") rt.status = type === "hud.ack" ? "acknowledged" : "deferred";
+        if (rt && rt.status !== "result-received" && rt.status !== "completed") rt.status = type === "hud.ack" ? "acknowledged" : "deferred";
         if (c.phase !== "closed" && c.phase !== "analysing" && c.phase !== "awaiting-review" && c.phase !== "on-hold") {
           const open = c.retests.some((r) => r.status !== "result-received");
           c.phase = type === "hud.defer" ? "deferred" : open ? "awaiting-retest" : "monitoring";
         }
         log(at, "in", type === "hud.ack" ? `HUD 已确认 ${m.type}` : `HUD 暂缓：${p.reason}`, caseId, env.eventId);
+        return { state: s, effects, error: null };
+      }
+
+      if (type === "retest.completed") {
+        const rid = env.retestId!;
+        const r = c.retests.find((x) => x.retestId === rid);
+        if (!r) {
+          log(at, "ignored", `retest.completed 已忽略：未知复测任务 ${rid}`, caseId, env.eventId);
+          return { state: s, effects, error: null };
+        }
+        if (r.status !== "result-received") {
+          r.status = "completed";
+          r.completedAt = (parsed.payload as { completedAt: string }).completedAt;
+        }
+        if (c.phase === "awaiting-hud" || c.phase === "deferred") c.phase = "awaiting-retest";
+        log(at, "in", `宇航员报告已完成复测 ${rid}（等待复测数据）`, caseId, env.eventId);
         return { state: s, effects, error: null };
       }
 
@@ -395,6 +435,17 @@ export function step(state: StationState, action: Action): StepResult {
       c.phase = "awaiting-review";
       if (LEVEL[ev.result.alert] > LEVEL[c.alert.level]) c.alert = { level: ev.result.alert, reason: ev.result.headline, since: action.at };
       log(action.at, "system", `第 ${ev.version} 版模拟分析完成：${ev.result.headline}；生成待审候选`, c.caseId);
+      // Traceability record of the completed assessment (NOT an action: the HUD ignores station.audit.*).
+      send(action.at, "station.audit.assessment", c.caseId, null, {
+        evaluationVersion: ev.version,
+        trigger: ev.trigger,
+        sourceEventId: ev.sourceEventId,
+        inputKey: ev.result.inputKey.slice(0, 5000),
+        outcome: ev.result.outcome,
+        headline: ev.result.headline,
+        candidateKind: ev.result.candidate?.kind ?? null,
+        simulated: true,
+      });
       return { state: s, effects, error: null };
     }
 
@@ -427,7 +478,7 @@ export function step(state: StationState, action: Action): StepResult {
         }
         const retestId = `${c.caseId}-rt${c.retests.length + 1}`;
         const reqId = send(at, "station.retest.requested", c.caseId, retestId, { retestId, protocol: cand.retest.protocol, instructions: cand.retest.instructions, evaluationVersion: ev.version, reviewedBy: reviewer, simulated: true } satisfies RetestRequestPayload);
-        c.retests.push({ retestId, requestEventId: reqId!, requestedFromVersion: ev.version, status: "requested", resultEventId: null, resultVersion: null });
+        c.retests.push({ retestId, requestEventId: reqId!, requestedFromVersion: ev.version, status: "requested", completedAt: null, resultEventId: null, resultVersion: null });
         c.phase = "awaiting-hud";
       } else if (action.decision === "reject") c.phase = "rejected";
       else if (action.decision === "hold") c.phase = "on-hold";
@@ -446,6 +497,16 @@ export function step(state: StationState, action: Action): StepResult {
           simulated: true,
         } satisfies ReassessmentPayload);
       }
+      // Traceability record of the human decision (NOT an action: the HUD ignores station.audit.*).
+      send(at, "station.audit.review", c.caseId, null, {
+        evaluationVersion: ev.version,
+        decision: action.decision,
+        reason,
+        reviewer,
+        decidedAt: at,
+        caseStatus: c.phase,
+        dispatchedEventIds: s.outbox.filter((m) => m.envelope.sentAt === at && m.caseId === c.caseId && !m.type.startsWith("station.audit.")).map((m) => m.eventId).slice(-10),
+      });
       return { state: s, effects, error: null };
     }
 

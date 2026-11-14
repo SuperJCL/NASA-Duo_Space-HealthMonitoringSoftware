@@ -38,6 +38,8 @@ export const OUT_TEXT: Record<OutMessage["type"], string> = {
   "station.retest.requested": "复测任务",
   "station.receipt": "结果接收回执",
   "station.reassessment": "重评结果",
+  "station.audit.assessment": "审计：评估记录",
+  "station.audit.review": "审计：审核记录",
 };
 
 export const time = (iso: string | null) => {
