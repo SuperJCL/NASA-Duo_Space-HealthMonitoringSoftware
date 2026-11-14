@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/delivered.schema.json",
+  "title": "delivered",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "myomars/v1"
+    },
+    "eventId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "caseId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "retestId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sentAt": {
+      "type": "string"
+    },
+    "occurredAt": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "trigger",
+        "hud",
+        "station"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "scenario.start",
+        "scenario.reset",
+        "observation.submitted",
+        "hud.received",
+        "hud.ack",
+        "hud.defer",
+        "retest.completed",
+        "retest.result",
+        "station.notice.approved",
+        "station.retest.requested",
+        "station.receipt",
+        "station.reassessment",
+        "station.audit.assessment",
+        "station.audit.review"
+      ]
+    },
+    "payload": {},
+    "seq": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "receivedAt": {
+      "type": "string"
+    },
+    "sender": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "trigger",
+            "hud",
+            "station"
+          ]
+        },
+        "clientId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "role",
+        "clientId"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema",
+    "eventId",
+    "sessionId",
+    "runId",
+    "caseId",
+    "sentAt",
+    "source",
+    "type",
+    "payload",
+    "seq",
+    "receivedAt",
+    "sender"
+  ],
+  "additionalProperties": false
+}

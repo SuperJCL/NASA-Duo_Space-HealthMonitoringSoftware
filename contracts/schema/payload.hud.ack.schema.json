@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.hud.ack.schema.json",
+  "title": "payload.hud.ack",
+  "type": "object",
+  "properties": {
+    "messageId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  },
+  "required": [
+    "messageId"
+  ],
+  "additionalProperties": false
+}

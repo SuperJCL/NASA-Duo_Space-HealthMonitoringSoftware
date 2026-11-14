@@ -87,6 +87,14 @@
   profiles are straight sampling lines and must say so; state the real relief
   rather than implying more (`docs/TERRAIN_3D.md`). Terrain never affects
   scores.
+- `src/contracts/`, `contracts/`, `tools/myomars/` — MyoMars shared message
+  contracts v1 (Trigger / HUD / Mars Station), a team PROPOSAL
+  (`docs/myomars/CONTRACTS.md`). Zod sources in erasable TypeScript that Node
+  22 runs directly (the local `package.json` files only set `"type": "module"`
+  for these folders); `contracts/` is GENERATED (`npm run contracts:build`,
+  never edit by hand; `contracts:check` must pass). All data is simulated.
+  Only additive changes within v1; `proposed-extension` types stay optional
+  until the team confirms them. No transport/relay code lives here.
 - `src/data/` — curated JSON evidence records (validated at build time);
   `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 

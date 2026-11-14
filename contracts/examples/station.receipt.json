@@ -1,0 +1,16 @@
+{
+  "schema": "myomars/v1",
+  "eventId": "example-station-receipt",
+  "sessionId": "demo",
+  "runId": "run-example-1",
+  "caseId": "case-change",
+  "sentAt": "2026-11-14T10:00:00.000Z",
+  "source": "station",
+  "type": "station.receipt",
+  "payload": {
+    "receivedEventId": "example-retest-result",
+    "receivedType": "retest.result",
+    "status": "accepted",
+    "reason": null
+  }
+}

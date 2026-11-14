@@ -1,0 +1,11 @@
+{
+  "schema": "myomars/v1",
+  "eventId": "example-scenario-reset",
+  "sessionId": "demo",
+  "runId": "run-example-1",
+  "caseId": null,
+  "sentAt": "2026-11-14T10:00:00.000Z",
+  "source": "trigger",
+  "type": "scenario.reset",
+  "payload": {}
+}

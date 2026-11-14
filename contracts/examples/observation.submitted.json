@@ -1,0 +1,47 @@
+{
+  "schema": "myomars/v1",
+  "eventId": "example-observation-submitted",
+  "sessionId": "demo",
+  "runId": "run-example-1",
+  "caseId": "case-change",
+  "sentAt": "2026-11-14T10:00:00.000Z",
+  "source": "trigger",
+  "type": "observation.submitted",
+  "payload": {
+    "observationId": "obs-change-1",
+    "astronautId": "ev1",
+    "capturedAt": "2026-11-14T10:00:00Z",
+    "protocol": {
+      "id": "std-grip-40",
+      "label": "标准握持 40% MVC · 30 s",
+      "targetPctMvc": 40,
+      "posture": "standing",
+      "glove": "eva-glove"
+    },
+    "context": {
+      "taskId": "eva-sampling",
+      "phase": "eva",
+      "minutesIntoEva": 95
+    },
+    "signal": {
+      "sampleRateHz": 2000,
+      "durationS": 30,
+      "electrodeImpedanceKOhm": 12,
+      "saturationPct": 0.2,
+      "motionArtifactPct": 4,
+      "dropoutPct": 0.5
+    },
+    "features": {
+      "medianFreqHz": 80,
+      "rmsPctMvc": 44,
+      "gripForceN": 142
+    },
+    "deviceId": "sim-band-01",
+    "imu": {
+      "accelRmsG": 0.18,
+      "gyroRmsDps": 22,
+      "movementPct": 6
+    }
+  },
+  "occurredAt": "2026-11-14T10:00:00Z"
+}
