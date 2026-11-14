@@ -1,8 +1,0 @@
-{
-  "_note": "SIMULATED placeholder in the shape of contracts v1 observation.submitted (protocol/signal/features/imu). Replace with the shared base's sample when it exists. The local device fills only timing (capturedAt, signal.durationS); every other value comes from this file.",
-  "sampleId": "walk-auto-v1-sample-01",
-  "protocol": { "id": "walk-auto-v1", "label": "Left quadriceps · auto walking segment", "targetPctMvc": 0, "posture": "standing", "glove": "eva-glove" },
-  "signal": { "sampleRateHz": 2000, "durationS": 6, "electrodeImpedanceKOhm": 14, "saturationPct": 0.1, "motionArtifactPct": 9, "dropoutPct": 0.4 },
-  "features": { "medianFreqHz": 78, "rmsPctMvc": 18, "gripForceN": null },
-  "imu": { "accelRmsG": 0.42, "gyroRmsDps": 61, "movementPct": 88 }
-}

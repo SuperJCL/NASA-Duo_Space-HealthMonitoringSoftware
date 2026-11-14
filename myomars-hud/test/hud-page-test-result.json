@@ -1,5 +1,5 @@
 {
-  "runAt": "2026-11-14T22:08:06.198Z",
+  "runAt": "2026-11-14T23:44:36.217Z",
   "node": "v26.12.1",
   "contract": "myomars/v1",
   "relay": "mock",
@@ -7,10 +7,10 @@
     {
       "name": "P1 page connects to the relay stream and shows link state",
       "ok": true,
-      "detail": "Base link ● Online Last sync 22:07:59 UTC"
+      "detail": "Base link ● Online Last sync 23:44:25 UTC"
     },
     {
-      "name": "P2 \"Start patrol\" starts a run (scenario.start from the local device)",
+      "name": "P2 picking Scenario 2 starts a run (scenario.start from the local device)",
       "ok": true,
       "detail": ""
     },
@@ -27,17 +27,17 @@
     {
       "name": "P5 normal patrol shows \"Auto-monitoring · last sync HH:MM:SS UTC\"",
       "ok": true,
-      "detail": "Auto-monitoring · last sync 22:07:59 UTC"
+      "detail": "Auto-monitoring · last sync 23:44:25 UTC"
     },
     {
-      "name": "P6 after human approval: \"Base recommends in-habitat retest · Left quadriceps · View task\"",
+      "name": "P6 Scenario 2 → AMBER: \"Muscle fatigue suspected · rest and retest · Left quadriceps · View task\"",
       "ok": true,
-      "detail": "Base recommends in-habitat retest · Left quadriceps · View task"
+      "detail": "AMBER · Muscle fatigue suspected · rest and retest · Left quadriceps · View task"
     },
     {
       "name": "P7 alert card shows station reason, next step and data time",
       "ok": true,
-      "detail": "▲ Notice · Consistent left-quadriceps deviation across comparable walking segments; schedule a stand…"
+      "detail": "▲ Notice · Muscle fatigue suspected across comparable walking segments; rest and retest. Reason Base…"
     },
     {
       "name": "P8 device receipt (hud.received) sent automatically; Acknowledge still offered",
@@ -97,7 +97,7 @@
     {
       "name": "P19 reconnect: resent; station.receipt accepted → awaiting reassessment",
       "ok": true,
-      "detail": "Awaiting base reassessment"
+      "detail": "AMBER · Awaiting base reassessment"
     },
     {
       "name": "P20 station.reassessment v2 updates the original alert; case not closed",
@@ -115,7 +115,7 @@
       "detail": ""
     },
     {
-      "name": "P23 station closes the case; auto-monitoring continues",
+      "name": "P23 station closes the case → GREEN",
       "ok": true,
       "detail": ""
     },
@@ -128,6 +128,31 @@
       "name": "P25 every message the page sent or received conforms to contracts v1",
       "ok": true,
       "detail": "20 messages"
+    },
+    {
+      "name": "P26 Scenario 1 → GREEN \"Normal · continue patrol\", no retest card",
+      "ok": true,
+      "detail": "GREEN · Normal · continue patrol · last sync 23:44:32 UTC"
+    },
+    {
+      "name": "P27 Scenario 3 → RED immediately from the local device; patch contact shows Fault",
+      "ok": true,
+      "detail": "RED · Sensor fault · reconnect the patch and verify"
+    },
+    {
+      "name": "P28 base confirms a sensor fault (not a muscle finding); no fatigue diagnosis, no retest",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P29 reconnect + verify → station closes it (signal restored) → GREEN",
+      "ok": true,
+      "detail": "GREEN · Sensor verified · monitoring resumed · last sync 23:44:36 UTC"
+    },
+    {
+      "name": "P30 all three scenarios conform to contracts v1",
+      "ok": true,
+      "detail": "37 messages"
     }
   ]
 }

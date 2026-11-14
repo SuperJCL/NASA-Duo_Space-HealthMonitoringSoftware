@@ -27,7 +27,9 @@ const REASSESS_MS = Number(process.env.REASSESS_MS || 3500);
 const REVIEW_MS = Number(process.env.REVIEW_MS || 2500);      // mock medical reviewer approves after this delay
 const SEG_TRIGGER = Number(process.env.SEG_TRIGGER || 3);      // comparable walking observations before a trend call
 const MIN_SEG_S = Number(process.env.MIN_SEG_SEC || 4);        // quality rule (demo only, not a clinical threshold)
-const BASELINE = { baselineId: 'bl-walk-a02-v3', protocolId: 'walk-auto-v1', taskId: 'eva-patrol', glove: 'eva-glove' };
+const BASELINE = { baselineId: 'bl-walk-a02-v3', protocolId: 'walk-auto-v1', taskId: 'eva-patrol', glove: 'eva-glove', medianFreqHz: 84, rmsPctMvc: 15 };
+const SENSOR_TRIGGER = Number(process.env.SENSOR_TRIGGER || 2);   // consecutive corrupted segments before a sensor-fault notice
+const VERIFY_NEEDED = 2;                                          // valid segments after reconnection to verify the patch
 const RETEST_PROTOCOL = { id: 'std-knee-bend-3', label: 'Left quadriceps · slow standing knee bend × 3', targetPctMvc: 30, posture: 'standing', glove: 'none' };
 const REVIEWER = 'Base medical reviewer (mock)';
 
@@ -89,14 +91,24 @@ function stationOnEvent(sessionId, d) {
     const q = quality(o.signal);
     const comparable = q === 'valid' && o.protocol.id === BASELINE.protocolId && o.context.taskId === BASELINE.taskId
       && o.protocol.glove === BASELINE.glove && o.context.phase === 'eva';
-    c.observations.push({ observationId: o.observationId, capturedAt: o.capturedAt, durationS: o.signal.durationS, quality: q, comparable, seq: d.seq });
-    audit(s, 'analysis', 'observation', o.observationId, q + (comparable ? ' · comparable' : ' · not used'));
-    const n = c.observations.filter(x => x.comparable).length;
-    if (n >= SEG_TRIGGER && !c.notice && !c.pending) {
-      c.pending = { since: now(), n };
-      audit(s, 'analysis', 'deviation-candidate', d.caseId, 'pending human review', { comparable: n, baseline: BASELINE.baselineId });
-      setTimeout(() => { if (g === gen && c.pending) approveCase(sessionId, d.caseId, REVIEWER + ' (auto)'); }, REVIEW_MS);
+    const pattern = comparable ? classify(o.features) : null;           // physiological reading only on valid, comparable data
+    c.observations.push({ observationId: o.observationId, capturedAt: o.capturedAt, durationS: o.signal.durationS, quality: q, comparable, pattern, seq: d.seq });
+    audit(s, 'analysis', 'observation', o.observationId, q + (comparable ? ' · comparable · ' + pattern : ' · not used'));
+    if (c.done || c.pending) return;
+    const obs = c.observations, recent = n => obs.slice(-n);
+    // Scenario 3 — sensor malfunction: corrupted signal → technical notice, never a muscle finding
+    if (!c.sensor && obs.length >= SENSOR_TRIGGER && recent(SENSOR_TRIGGER).every(x => x.quality === 'poor-signal')) return queueReview(sessionId, s, c, 'sensor', g);
+    if (c.sensor && !c.sensor.closed) {
+      const after = obs.filter(x => x.seq > c.sensor.seq && x.quality === 'valid');
+      if (after.length >= VERIFY_NEEDED) closeSensor(sessionId, s, c);
+      return;
     }
+    if (c.notice) return;
+    const comp = obs.filter(x => x.comparable);
+    if (comp.length < SEG_TRIGGER) return;
+    const last = comp.slice(-SEG_TRIGGER);
+    if (last.every(x => x.pattern === 'fatigue-pattern')) return queueReview(sessionId, s, c, 'fatigue', g);     // Scenario 2
+    if (last.every(x => x.pattern === 'within-baseline') && !c.ok) return queueReview(sessionId, s, c, 'ok', g);   // Scenario 1
     return;
   }
   if (d.type === 'retest.result') {
@@ -124,27 +136,70 @@ function stationOnEvent(sessionId, d) {
   if (d.type === 'hud.ack' || d.type === 'hud.defer' || d.type === 'hud.received')
     audit(s, 'hud', d.type, d.payload.messageId, d.type === 'hud.defer' ? 'deferred' : 'recorded', d.type === 'hud.defer' ? { reason: d.payload.reason } : undefined);
 }
+function classify(f) {
+  if (!f || f.medianFreqHz == null || f.rmsPctMvc == null) return 'unknown';
+  return f.medianFreqHz < BASELINE.medianFreqHz * 0.92 && f.rmsPctMvc > BASELINE.rmsPctMvc * 1.1 ? 'fatigue-pattern' : 'within-baseline';
+}
+function queueReview(sessionId, s, c, kind, g) {
+  c.pending = { kind, since: now() };
+  audit(s, 'analysis', kind === 'sensor' ? 'sensor-fault-candidate' : kind === 'fatigue' ? 'deviation-candidate' : 'within-baseline-candidate', c.caseId, 'pending human review', { baseline: BASELINE.baselineId });
+  setTimeout(() => { if (g === gen && c.pending) approveCase(sessionId, c.caseId, REVIEWER + ' (auto)'); }, REVIEW_MS);
+}
+// Notice kinds are told apart by noticeId suffix (-n = health review, -ok = within baseline, -sensor = sensor fault):
+// contracts v1 notices have no category field (gap V1-11).
 function approveCase(sessionId, caseId, by = REVIEWER) {
   const s = sess(sessionId);
   const c = caseId ? s.station.cases[caseId] : Object.values(s.station.cases).at(-1);
   if (!c) return { status: 409, body: { error: 'no-case', detail: 'no observations received yet' } };
-  if (c.notice) return { status: 409, body: { error: 'already-approved' } };
   if (!s.activeRun) return { status: 409, body: { error: 'no-active-run' } };
-  const used = c.observations.filter(x => x.comparable);
-  const base = { runId: s.activeRun, caseId: c.caseId };
-  c.pending = null; c.version = 1; c.status = 'retest-requested';
-  audit(s, by, 'approve', c.caseId, 'notice + retest published', { comparable: used.length });
+  const kind = c.pending ? c.pending.kind : 'fatigue';
+  if ((kind === 'fatigue' && c.notice) || (kind === 'ok' && c.ok) || (kind === 'sensor' && c.sensor)) return { status: 409, body: { error: 'already-approved' } };
+  const used = c.observations.filter(x => x.comparable), base = { runId: s.activeRun, caseId: c.caseId };
+  const lastObs = c.observations.at(-1);
+  const occ = lastObs ? { occurredAt: lastObs.capturedAt } : {};
+  c.pending = null;
+  if (kind === 'sensor') {
+    const bad = c.observations.filter(x => x.quality === 'poor-signal').length;
+    audit(s, by, 'approve', c.caseId, 'sensor-fault notice published', { corrupted: bad });
+    const m = stationPublish(sessionId, base, 'station.notice.approved', {
+      noticeId: c.caseId + '-sensor1',
+      text: 'Base notice: the patch signal is corrupted (high electrode impedance, dropouts, saturation). This is a sensor issue, not a muscle finding. Reconnect the patch and verify the signal.',
+      basis: [bad + ' consecutive segments failed the signal-quality rules; they were not used for any muscle assessment.'],
+      evaluationVersion: 1, reviewedBy: by, reviewReason: 'Sensor fault: signal quality failed in consecutive segments; reconnect and verify. No physiological assessment made.', simulated: true
+    }, occ);
+    c.sensor = { seq: s.seq, eventId: m.eventId, closed: false }; c.version = 1; c.status = 'sensor-fault';
+    return { status: 200, body: { ok: true, kind } };
+  }
+  if (kind === 'ok') {
+    audit(s, by, 'approve', c.caseId, 'within-baseline notice published', { comparable: used.length });
+    stationPublish(sessionId, base, 'station.notice.approved', {
+      noticeId: c.caseId + '-ok1',
+      text: 'Base check: left-quadriceps walking signals are within your personal baseline. Continue the patrol.',
+      basis: [used.length + ' walking segments passed the demo quality rules under matching EVA patrol conditions.', 'Compared with personal walking baseline ' + BASELINE.baselineId + '.'],
+      evaluationVersion: 1, reviewedBy: by, reviewReason: 'Within personal baseline; continue the patrol.', simulated: true
+    }, occ);
+    c.ok = true; c.version = 1; c.status = 'normal';
+    return { status: 200, body: { ok: true, kind } };
+  }
+  c.version = 1; c.status = 'retest-requested';
+  audit(s, by, 'approve', c.caseId, 'fatigue notice + retest published', { comparable: used.length });
   c.notice = stationPublish(sessionId, base, 'station.notice.approved', {
     noticeId: c.caseId + '-n1',
-    text: 'Base notice: left-quadriceps EMG during walking differs from your personal walking baseline. Return to the habitat and complete one standard retest; report any discomfort.',
+    text: 'Base notice: left-quadriceps EMG during walking shows a fatigue pattern (lower median frequency, higher activation) against your personal walking baseline. Rest, then complete one standard retest; report any discomfort.',
     basis: [used.length + ' walking segments passed the demo quality rules under matching EVA patrol conditions.', 'Compared with personal walking baseline ' + BASELINE.baselineId + '.'],
-    evaluationVersion: 1, reviewedBy: by, reviewReason: 'Consistent left-quadriceps deviation across comparable walking segments; schedule a standard retest.', simulated: true
-  }, used.length ? { occurredAt: used.at(-1).capturedAt } : {});
+    evaluationVersion: 1, reviewedBy: by, reviewReason: 'Muscle fatigue suspected across comparable walking segments; rest and retest.', simulated: true
+  }, occ);
   c.request = { retestId: c.caseId + '-rt1', protocol: RETEST_PROTOCOL };
   stationPublish(sessionId, base, 'station.retest.requested', { retestId: c.request.retestId, protocol: RETEST_PROTOCOL,
-    instructions: 'Return to the habitat, rest 2 minutes, then perform the standard knee-bend retest once.', evaluationVersion: 1, reviewedBy: by, simulated: true },
+    instructions: 'Rest for 10 minutes, then perform the standard knee-bend retest once.', evaluationVersion: 1, reviewedBy: by, simulated: true },
     { retestId: c.request.retestId });
-  return { status: 200, body: { ok: true, caseId: c.caseId } };
+  return { status: 200, body: { ok: true, caseId: c.caseId, kind } };
+}
+function closeSensor(sessionId, s, c) {
+  c.sensor.closed = true; c.version = 2; c.status = 'closed'; c.done = true;
+  audit(s, REVIEWER, 'reassessment', c.caseId, 'sensor verified · closed');
+  stationPublish(sessionId, { runId: s.activeRun, caseId: c.caseId }, 'station.reassessment', { evaluationVersion: 2, outcome: 'signal-restored',
+    summary: 'Patch reconnected and signal verified. No muscle finding was made from the faulty data.', reviewDecision: 'close', caseStatus: 'closed', simulated: true });
 }
 function closeCase(sessionId) {
   const s = sess(sessionId), c = Object.values(s.station.cases).find(x => x.status === 'under-watch');

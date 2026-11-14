@@ -96,6 +96,15 @@ canvas{display:block;width:100%;height:30px}
 .card .ver{color:var(--hud-dim);font-size:10px}
 .card.alert{border-color:var(--warn)}.card.alert h5{color:var(--warn)}
 .card.alert.v2{border-color:var(--ok)}.card.alert.v2 h5{color:var(--ok)}
+.card.alert.red{border-color:var(--bad)}.card.alert.red h5{color:var(--bad)}
+.lvl{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;letter-spacing:.08em;border:1px solid var(--hud-dim);color:var(--hud-dim);text-shadow:none;background:rgba(6,18,30,.5)}
+.lvl.green{color:#062;background:var(--ok);border-color:var(--ok);box-shadow:0 0 12px rgba(92,242,168,.6)}
+.lvl.amber{color:#3a2400;background:var(--amber);border-color:var(--amber);box-shadow:0 0 12px rgba(255,179,64,.6)}
+.lvl.red{color:#fff;background:var(--bad);border-color:var(--bad);box-shadow:0 0 14px rgba(255,107,122,.7);animation:blink 1s ease-in-out infinite}
+.scn{display:grid;gap:8px;margin-top:12px;text-align:left}
+.scn button{display:block;width:100%;text-align:left;padding:8px 12px;font-size:13px}
+.scn button small{display:block;color:var(--hud-dim);font-weight:400;font-size:11px;margin-top:2px;text-shadow:none}
+.scn .g{border-color:var(--ok)}.scn .a{border-color:var(--amber)}.scn .r{border-color:var(--bad)}
 .card.alert.updated{animation:upd 1.2s ease-out 2}
 @keyframes upd{30%{background:rgba(92,242,168,.22)}}
 .card.notice{border-color:var(--bad)}.card.notice h5{color:var(--bad)}
@@ -253,7 +262,8 @@ kbd{border:1px solid var(--hud-dim);border-radius:3px;padding:0 5px;font:inherit
 <div id="hud">
   <div id="topL">
     <b>MYOMARS · EVA HUD</b>
-    <div class="sub mono">Astronaut A-02 · SOL 214 · EVA leg 3</div>
+    <div class="sub mono">Astronaut A-02 · SOL 214 · EVA leg 3 · <span id="scnName">—</span></div>
+    <div id="level" class="lvl" role="status">● MONITORING</div>
   </div>
   <div id="topR" class="mono">
     <div>Suit power <span class="t-ok">82%</span></div>
@@ -321,6 +331,7 @@ kbd{border:1px solid var(--hud-dim);border-radius:3px;padding:0 5px;font:inherit
 
   <details id="demo" class="panel p">
     <summary>▸ Link test tools</summary>
+    <div class="btns"><button data-scn="normal">Scenario 1 · Normal</button><button data-scn="fatigue">Scenario 2 · Fatigue</button><button data-scn="sensor">Scenario 3 · Sensor fault</button></div>
     <div class="btns"><button id="bLink">Disconnect base</button><button id="bClear">Clear local cache</button></div>
     <div id="log" class="mono"></div>
   </details>
@@ -331,7 +342,11 @@ kbd{border:1px solid var(--hud-dim);border-radius:3px;padding:0 5px;font:inherit
     <h1>Mars Walking Patrol · First Person</h1>
     <p>You are astronaut A-02 on patrol outside the base.<br><b>Drag</b> to look around, <b>W / S</b> to move forward/back, <b>A / D</b> to step sideways.</p>
     <p style="color:var(--hud-dim);font-size:12px">Just walk as usual. The patch records sEMG and IMU continuously; walking segments upload automatically<br>and the base compares them with your personal walking baseline. If the base recommends a retest, you confirm it.</p>
-    <button id="bStart" class="go">Start patrol</button>
+    <div class="scn">
+      <button class="go g" data-scn="normal">Scenario 1 · Normal<small>Healthy muscle signals, patch transmits fine → GREEN, continue the patrol.</small></button>
+      <button class="go a" data-scn="fatigue">Scenario 2 · Muscle fatigue<small>Patch works, but muscle activity suggests fatigue → AMBER, rest and retest.</small></button>
+      <button class="go r" data-scn="sensor">Scenario 3 · Sensor malfunction<small>Muscle condition is normal, but the patch output is corrupted → RED, reconnect and verify.</small></button>
+    </div>
   </div>
 </div>
 
@@ -577,7 +592,7 @@ function drawFly(ts){
 const emg=new Array(130).fill(0),imu=new Array(130).fill(0);let wt=0,acc=0;
 function drawWaves(dt){
   acc+=dt;if(acc<.033)return;acc=0;wt++;
-  const col=S.phase==='collecting',poor=col&&S.curPoor;
+  const col=S.phase==='collecting',poor=(col&&S.curPoor)||liveFault();
   let e;
   if(poor)e=Math.random()<.35?0:(Math.random()-.5)*(Math.random()<.1?1.8:.3);
   else if(col){const b=S.flex||0;e=(Math.random()-.5)*(.25+1.4*b)}
@@ -601,13 +616,24 @@ let S={phase:'idle',flagBase:false,flex:0,baseLabel:'Connecting',baseCls:'',curP
 let LOCAL;try{LOCAL=JSON.parse(localStorage.getItem('myomars.hud.ui')||'{}')}catch{LOCAL={}}
 LOCAL.collect=LOCAL.collect||{};LOCAL.viewed=LOCAL.viewed||{};LOCAL.aborted=LOCAL.aborted||{};
 function saveLocal(){try{localStorage.setItem('myomars.hud.ui',JSON.stringify(LOCAL))}catch{}}
-let SAMPLE=null,WALK_SAMPLE=null;
+let SAMPLE=null;
+/* three demo scenarios: each feeds different SIMULATED patch data; the station decides from the data */
+const SCN={normal:{id:'myomars-normal',name:'Scenario 1 · Normal',file:'walking-normal'},
+  fatigue:{id:'myomars-fatigue',name:'Scenario 2 · Muscle fatigue',file:'walking-fatigue'},
+  sensor:{id:'myomars-sensor-fault',name:'Scenario 3 · Sensor malfunction',file:'walking-sensor-fault'}};
+const WALK_S={};
+LOCAL.patchOk=LOCAL.patchOk||{};
+function scenarioKey(){const r=client.activeCase().run;if(r)for(const k in SCN)if(SCN[k].id===r.scenarioId)return k;return LOCAL.scenario||'normal'}
+function runId(){const r=client.activeCase().run;return r?r.runId:null}
+function patchOk(){return !!LOCAL.patchOk[runId()]}
+function liveFault(){return started&&scenarioKey()==='sensor'&&!patchOk()}      // local device sees corrupted patch output
+function deviceSample(){const k=scenarioKey();return WALK_S[k==='sensor'&&patchOk()?'normal':k]}
 // protocol samples come from the base's contract files; retry until the base is reachable
 function loadSamples(){
   const get=f=>fetch(BASE_URL+'/'+f,{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.json()});
   if(!SAMPLE)get(SAMPLE_URL).then(j=>{SAMPLE=j;S.err.submit=null;render()}).catch(()=>{});
-  if(!WALK_SAMPLE)get('contract/samples/walking-segment.sample.json').then(j=>{WALK_SAMPLE=j;render()}).catch(()=>{});
-  if(!SAMPLE||!WALK_SAMPLE)setTimeout(loadSamples,3000);
+  for(const k in SCN)if(!WALK_S[k])get('contract/samples/'+SCN[k].file+'.sample.json').then(j=>{WALK_S[k]=j;render()}).catch(()=>{});
+  if(!SAMPLE||Object.keys(WALK_S).length<3)setTimeout(loadSamples,3000);
 }
 /* auto patrol monitoring: the local device cuts walking into segments and queues them for upload */
 const SEG={cur:null,idle:0,LEN:6,MIN:2};
@@ -624,11 +650,13 @@ function closeSegment(){
   emitSegment(c.t,c.steps,c.startedAt);
 }
 function emitSegment(sec,steps,startedAt){
-  if(!WALK_SAMPLE){log('Walking sample not loaded; segment kept local','t-warn');return}
+  const smp=deviceSample();
+  if(!smp){log('Walking sample not loaded; segment kept local','t-warn');return}
   const dur=+sec.toFixed(1),st=steps||Math.round(sec*WALK.stepHz*2);
-  client.ensureRun();                                     // local device starts the run (scenario.start) if none is active
+  client.ensureRun({scenarioId:SCN[scenarioKey()].id});   // local device starts the run (scenario.start) if none is active
   // walking segment → observation.submitted (Trigger role); timing from the device, values from the contract sample
-  const r=client.submitObservation({segmentId:'seg-'+Date.now().toString(36)+'-'+(SEG.n=(SEG.n||0)+1),startedAt:startedAt||new Date(Date.now()-sec*1000).toISOString(),durationSec:dur},WALK_SAMPLE);
+  const r=client.submitObservation({segmentId:'seg-'+Date.now().toString(36)+'-'+(SEG.n=(SEG.n||0)+1),startedAt:startedAt||new Date(Date.now()-sec*1000).toISOString(),durationSec:dur},smp);
+  if(smp===WALK_S.sensor)log('Local device: corrupted patch signal (impedance '+smp.signal.electrodeImpedanceKOhm+' kΩ, dropout '+smp.signal.dropoutPct+'%)','t-bad');
   if(r.ok&&client.state.conn==='online')flight={t0:performance.now(),dur:1400};
   render();
 }
@@ -648,6 +676,19 @@ function onStore(){
   if(rt){const k=keyOfRt(rt);if(!seenUi.has(k)){seenUi.add(k);if(ready&&rt.status==='requested'){$('msgfly').textContent='✉ Retest task · '+rt.bodySite;startMsgFlight();S.flagBase=true}}}
   if(alert){const k=alert.alertId+'@'+alert.version;if(!seenUi.has(k)){seenUi.add(k);if(ready&&alert.version>1)S.alertFlash=true}}
   render();
+}
+
+/* ---- scenarios ---- */
+function startScenario(k){
+  if(!SCN[k])return;LOCAL.scenario=k;saveLocal();
+  if($('intro'))$('intro').remove();started=true;S.flagBase=false;S.reconnect=null;
+  client.ensureRun({scenarioId:SCN[k].id});log('Started '+SCN[k].name);render();
+}
+/* Scenario 3: reconnect the patch, then verify with two short standing captures (no walking needed) */
+function actReconnect(){
+  if(S.reconnect)return;S.reconnect='running';log('Reconnecting patch…');render();
+  setTimeout(()=>{LOCAL.patchOk[runId()]=true;saveLocal();S.reconnect='verifying';log('Patch reconnected · verifying signal');render();
+    emitSegment(5,10);setTimeout(()=>{emitSegment(5,10)},1500);},1600);
 }
 
 /* ---- actions (each reports success only after a service response) ---- */
@@ -731,25 +772,40 @@ const fmtT=iso=>{if(!iso)return '—';const d=new Date(iso);return isNaN(d)?'—
 const RT_LABEL={requested:'Not started',accepted:'In progress',deferred:'Deferred',aborted:'Aborted · can restart',submitted:'Result submitted · awaiting station receipt',reassessing:'Received · awaiting reassessment',rejected:'Result rejected by station',completed:'Completed'};
 const AL_LABEL={published:'Published',reassessed:'Reassessed',closed:'Closed'};
 const DEFER_REASONS=['Patrol task in progress','Environment not suitable','Suit or equipment needs checking','Need to recover energy'];
+function levelOf(alert){
+  const k=alert&&alert.kind,closed=alert&&alert.status==='closed';
+  if(liveFault()||(k==='sensor'&&!closed))return 'red';
+  if(k==='review')return closed?'green':'amber';
+  if(k==='ok'||(k==='sensor'&&closed))return 'green';
+  return '';
+}
 function statusLine(st,alert,rt,res,loc){
-  const mon=client.monitorState(),site=rt?rt.bodySite:'',open=alert&&alert.status!=='closed';
+  const mon=client.monitorState(),site=rt?rt.bodySite:'',k=alert&&alert.kind,open=alert&&alert.status!=='closed',sync=' · last sync '+fmtT(mon.lastAckAt||st.lastSync);
   if(st.conn==='offline'||st.conn==='reconnecting')
     return ['Recording locally · pending upload'+(st.outbox.length?' ('+st.outbox.length+')':'')+'. Will resend when reconnected','warn'];
   if(st.conn==='connecting'&&!alert)return ['Connecting to base…','run'];
+  // Scenario 3 — sensor malfunction (technical, never a muscle diagnosis)
+  if(S.reconnect==='running')return ['RED · Reconnecting patch…','bad'];
+  if(k==='sensor'&&!open)return ['GREEN · Sensor verified · monitoring resumed'+sync,'ok'];
+  if(S.reconnect==='verifying'||(k==='sensor'&&patchOk()))return ['RED · Verifying patch signal · waiting for base','bad'];
+  if(liveFault()||k==='sensor')return ['RED · Sensor fault · reconnect the patch and verify','bad'];
+  // Scenario 2 — muscle fatigue: rest and retest
   if(open&&rt){
-    if(S.phase==='collecting')return ['Retest capturing · view stabilized','run'];
-    if(res==='rejected')return ['Retest result rejected · please resubmit','bad'];
-    if(res==='pending')return ['Result pending · waiting for base receipt','run'];
-    if(res==='persisted'||res==='received')return ['Base received retest result','run'];
-    if(res==='reassessing')return ['Awaiting base reassessment','run'];
-    if(res==='completed')return ['Reassessment delivered · pending medical review','ok'];
-    if(rt.status==='requested')return ['Base recommends '+(rt.inHabitat?'in-habitat ':'')+'retest · '+site,'amber',true];
-    if(rt.status==='accepted'&&loc&&loc.phase==='collected')return ['Retest captured · result ready to submit','amber'];
-    if(rt.status==='deferred')return ['Retest deferred · synced with base','',true];
-    if(rt.status==='aborted')return ['Retest aborted · can restart','',true];
-    return ['Base retest task · '+(RT_LABEL[rt.status]||rt.status),'amber',true];
+    if(S.phase==='collecting')return ['AMBER · Retest capturing · view stabilized','amber'];
+    if(res==='rejected')return ['AMBER · Retest result rejected · please resubmit','bad'];
+    if(res==='pending')return ['AMBER · Result pending · waiting for base receipt','amber'];
+    if(res==='reassessing')return ['AMBER · Awaiting base reassessment','amber'];
+    if(res==='completed')return ['AMBER · Reassessment delivered · pending medical review','amber'];
+    if(rt.status==='requested')return ['AMBER · Muscle fatigue suspected · rest and retest · '+site,'amber',true];
+    if(rt.status==='accepted'&&loc&&loc.phase==='collected')return ['AMBER · Retest captured · result ready to submit','amber'];
+    if(rt.status==='deferred')return ['AMBER · Retest deferred · synced with base','amber',true];
+    if(rt.status==='aborted')return ['AMBER · Retest aborted · can restart','amber',true];
+    return ['AMBER · Retest · '+(RT_LABEL[rt.status]||rt.status),'amber',true];
   }
-  return ['Auto-monitoring · last sync '+fmtT(mon.lastAckAt||st.lastSync),'ok'];
+  if(k==='review'&&!open)return ['GREEN · Case closed by base'+sync,'ok'];
+  // Scenario 1 — normal
+  if(k==='ok')return ['GREEN · Normal · continue patrol'+sync,'ok'];
+  return ['Auto-monitoring'+sync,'ok'];
 }
 function render(){
   const st=client.state,{alert}=client.activeCase();let rt=client.activeCase().retest;
@@ -768,6 +824,22 @@ function render(){
   $('stab').style.display=S.phase==='collecting'?'block':'none';
   $('visor').classList.toggle('focus',S.phase==='collecting'||(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)]));
   $('bLink').textContent=st.conn==='offline'?'Reconnect base':'Disconnect base';
+  const lv=levelOf(alert),le=$('level');
+  le.className='lvl'+(lv?' '+lv:'');le.textContent=lv?'● '+lv.toUpperCase():'● MONITORING';
+  $('scnName').textContent=started?SCN[scenarioKey()].name:'—';
+  const ce=$('contact');if(liveFault()){ce.textContent='● Fault';ce.className='t-bad'}else{ce.textContent='● Good';ce.className='t-ok'}
+  // sensor-fault card (local detection + base notice) with reconnect / verify
+  if(liveFault()||(alert&&alert.kind==='sensor')){
+    const closed=alert&&alert.kind==='sensor'&&alert.status==='closed';
+    const act=closed?'<p class="t-ok" style="margin:6px 0 0">✓ Patch verified · monitoring resumed</p>'
+      :S.reconnect==='running'?'<p style="margin:6px 0 0">Reconnecting patch…</p>'
+      :(S.reconnect==='verifying'||patchOk())?'<p style="margin:6px 0 0">Verifying signal · '+Math.min(2,client.monitorState().uploaded)+' captures sent · waiting for base</p>'
+      :'<div class="btns"><button id="bReconnect" class="go">Reconnect patch &amp; verify</button></div>';
+    $('notice').innerHTML='<div class="card notice'+(closed?' ok':'')+'"><h5>'+(closed?'✓ Sensor verified':'⚠ Sensor fault · not a muscle finding')+'</h5>'
+      +'<p>'+esc(alert&&alert.kind==='sensor'?alert.reason:'Local device: corrupted patch signal (high impedance, dropouts, saturation). The data is not used to judge muscle condition.')+'</p>'
+      +(alert&&alert.kind==='sensor'&&!closed?'':alert&&alert.kind==='sensor'?'':'<p class="ver">Waiting for base confirmation…</p>')+act+'</div>';
+    if($('bReconnect'))$('bReconnect').onclick=actReconnect;
+  }else if(!S.notice)$('notice').innerHTML='';
   const [sl,sc,vt]=statusLine(st,alert,rt,res,loc);const se=$('status');
   se.innerHTML=esc(sl)+(vt?' · <button class="vt" id="bViewTask">View task</button>':'');se.className=sc;
   if($('bViewTask'))$('bViewTask').onclick=()=>{if(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])actView();flash($('rcard'),'flashc',1200);render()};
@@ -781,8 +853,9 @@ function render(){
     if(ak&&ak.status==='confirmed')ackHtml='<span class="t-ok" style="font-size:12px">✓ Acknowledged v'+alert.version+' (not task completion)</span>';
     else ackHtml='<button id="bAck"'+(ak&&ak.status==='pending'?' disabled':'')+'>'+(ak&&ak.status==='pending'?'Acknowledging…':'Acknowledge')+'</button>'
       +(ak&&ak.status==='failed'?'<span class="t-bad" style="font-size:11px">No base receipt; acknowledgement not applied</span>':'');
-    $('alert').innerHTML='<div class="card alert'+(done?' v2':'')+(S.alertFlash?' updated':'')+'"><h5>'+(done?'✓ ':'▲ ')+esc(alert.levelLabel)+' · '+esc(alert.title)+'</h5>'
-      +'<p><span class="lab">Reason</span>'+esc(alert.reason)+'</p><p><span class="lab">Next</span>'+esc(alert.nextAction)+'</p>'
+    $('alert').innerHTML='<div class="card alert'+(alert.kind==='sensor'&&alert.status!=='closed'?' red':(done||alert.kind==='ok')?' v2':'')+(S.alertFlash?' updated':'')+'"><h5>'+((done&&alert.kind!=='sensor')||alert.kind==='ok'||(alert.kind==='sensor'&&alert.status==='closed')?'✓ ':'▲ ')+esc(alert.levelLabel)+' · '+esc(alert.title)+'</h5>'
+      +(alert.kind==='sensor'?'':'<p><span class="lab">Reason</span>'+esc(alert.reason)+'</p>')   // sensor text is already in the fault card
+      +(alert.nextAction&&alert.nextAction!=='—'?'<p><span class="lab">Next</span>'+esc(alert.nextAction)+'</p>':'')
       +'<p class="ver">'+esc(alert.alertId)+' · v'+alert.version+' · '+(AL_LABEL[alert.status]||alert.status)+' · Data time '+fmtT(alert.dataTime)+'</p>'
       +'<p class="ver">Device receipt: '+({confirmed:'sent ✓',sending:'sending…',failed:'unconfirmed · retrying'}[rc]||'—')+'</p>'
       +'<div class="btns">'+ackHtml+'</div></div>';
@@ -850,12 +923,12 @@ function render(){
 }
 
 /* ================= wiring ================= */
-$('bStart').onclick=()=>{$('intro').remove();started=true;client.ensureRun();render()};
+document.querySelectorAll('[data-scn]').forEach(b=>b.onclick=()=>startScenario(b.dataset.scn));
 $('bLink').onclick=()=>{if(client.state.conn==='offline')client.reconnect();else client.disconnect()};
 $('bClear').onclick=()=>{client.stop();client.clearLocal();localStorage.removeItem('myomars.hud.ui');location.reload()};
 $('edge').onclick=e=>{if(e.target.closest('#bLocate'))locateBase()};
 {const th=$('thigh'),tog=()=>{S.legOpen=!S.legOpen;render()};th.onclick=tog;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tog()}}}
-window.__hud={client,get S(){return S},actStart,actAck,actSubmit,actAbort,emitSegment,get walkReady(){return !!WALK_SAMPLE}};
+window.__hud={client,get S(){return S},actStart,actAck,actSubmit,actAbort,actReconnect,emitSegment,startScenario,get walkReady(){return Object.keys(WALK_S).length===3}};
 layout();buildCompass();loadSamples();render();requestAnimationFrame(frame);requestAnimationFrame(progressLoop);
 client.start().then(()=>{const {alert,retest}=client.activeCase();if(retest)seenUi.add(keyOfRt(retest));if(alert)seenUi.add(alert.alertId+'@'+alert.version);ready=true;
   if(retest&&retest.status==='requested'&&!LOCAL.viewed[keyOfRt(retest)])S.flagBase=true;render()});

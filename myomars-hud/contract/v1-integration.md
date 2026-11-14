@@ -39,6 +39,18 @@ mock 中继对每条发布做完整校验：`envelope.schema.json`、对应 `pay
 
 没有服务回执（relay 未返回 `seq`，或站点未发 `station.receipt`）时，HUD 不显示成功。去重按 eventId；任务按 retestId 合并。
 
+## 2b. 三个演示场景
+
+开场选择场景；本地设备按场景使用不同的模拟贴片数据，**站点只根据数据判断**，不读取场景名。切换场景会先发 `scenario.reset` 结束旧 run，再发新的 `scenario.start`（`scenarioId` = `myomars-normal` / `myomars-fatigue` / `myomars-sensor-fault`）。
+
+| 场景 | 本地设备数据 | 站点判断（mock 规则，非临床阈值） | 站点发布 | HUD |
+|---|---|---|---|---|
+| 1 · Normal | `walking-normal`：信号质量合格，特征在个人基线内 | 连续 3 段可比片段在基线内 | `station.notice.approved`（noticeId `…-ok1`） | **GREEN** · Normal · continue patrol |
+| 2 · Muscle fatigue | `walking-fatigue`：信号质量合格，中值频率下降、激活升高 | 连续 3 段可比片段呈疲劳模式（中值频率 < 基线 92% 且 RMS > 基线 110%） | 疲劳提示（`…-n1`）+ `station.retest.requested`（先休息再复测） | **AMBER** · Muscle fatigue suspected · rest and retest |
+| 3 · Sensor malfunction | `walking-sensor-fault`：阻抗高、掉线、饱和；肌肉状态本身正常 | 连续 2 段信号质量不合格 → 这些片段**不做任何肌肉判断** | 传感器故障提示（`…-sensor1`），无复测任务；重连后 2 段合格片段 → `station.reassessment`（`signal-restored`，`close`） | **RED** · Sensor fault · reconnect the patch and verify → 验证后 GREEN |
+
+场景 3 中，本地设备在第一段数据就能看到接触异常，HUD 立即显示 RED（技术提示，不涉及肌肉状态）；站点的故障提示随后确认。点「Reconnect patch & verify」后，本地设备发送两段 5 秒的验证采集。
+
 ## 3. 仍需团队确认的缺口
 
 | 编号 | 缺口 | HUD 当前做法 |
@@ -53,3 +65,5 @@ mock 中继对每条发布做完整校验：`envelope.schema.json`、对应 `pay
 | V1-08 | 契约开放问题：谁创建 caseId；`retest.result` 由谁发 | 本 demo：本地设备（Trigger）创建 caseId；HUD 发 `retest.result` |
 | V1-09 | 样例数据：底座只提供握力场景的 fixtures | 步行片段和膝屈复测样例为占位文件，形状符合契约 |
 | V1-10 | 提议扩展 `retest.completed` | 未发送（契约说明不发送也完全兼容） |
+| V1-11 | `station.notice.approved` 没有类别 / 等级字段（正常、疲劳、传感器故障无法区分） | 用 noticeId 后缀约定：`-ok`、`-n`、`-sensor`；HUD 据此显示 GREEN / AMBER / RED |
+| V1-12 | 没有「传感器已验证」专用事件 | 用 `station.reassessment`（`outcome: signal-restored`，`reviewDecision: close`） |

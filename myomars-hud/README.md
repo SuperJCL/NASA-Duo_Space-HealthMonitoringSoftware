@@ -13,7 +13,9 @@ npm start            # = node server/mock-base.mjs，默认端口 8787（PORT=xx
 - 宇航员 HUD：http://127.0.0.1:8787/hud.html
 - Mock 基站控制台：http://127.0.0.1:8787/mock
 
-演示顺序：HUD 点「Start patrol」→ 按住 W 照常行走（本地设备自动分段上传步行片段，状态行显示 Auto-monitoring · last sync）→ 约 3 段可比片段后站点判定偏离、人工复核批准（mock 自动，也可在控制台手动批准）→ HUD 收到 `station.notice.approved` + `station.retest.requested`（自动回传 `hud.received`）→ 点「Acknowledge」（`hud.ack`）→ View task → Defer（选原因，`hud.defer`）或 Start retest → 采集完成后「Submit simulated retest result」（`retest.result`）→ `station.receipt` → 等待重评 → `station.reassessment` v2 → 控制台「Station: close case」。
+三个场景（开场选择，也可在左下「Link test tools」切换）：**1 · Normal → GREEN**、**2 · Muscle fatigue → AMBER（休息并复测）**、**3 · Sensor malfunction → RED（重连并验证，不做肌肉判断）**，详见 [contract/v1-integration.md](contract/v1-integration.md) §2b。
+
+场景 2 演示顺序：HUD 选「Scenario 2 · Muscle fatigue」→ 按住 W 照常行走（本地设备自动分段上传步行片段，状态行显示 Auto-monitoring · last sync）→ 约 3 段可比片段后站点判定偏离、人工复核批准（mock 自动，也可在控制台手动批准）→ HUD 收到 `station.notice.approved` + `station.retest.requested`（自动回传 `hud.received`）→ 点「Acknowledge」（`hud.ack`）→ View task → Defer（选原因，`hud.defer`）或 Start retest → 采集完成后「Submit simulated retest result」（`retest.result`）→ `station.receipt` → 等待重评 → `station.reassessment` v2 → 控制台「Station: close case」。
 
 > 也可以双击打开：先双击 `start-base.command` 启动基站（会打开一个终端窗口，关掉即停止），再双击 `hud.html`。双击打开的 HUD 会自动连接 `127.0.0.1:8787`；基站没启动时，右上角会提示 `Start the base: npm start`。
 > `mars-hud-scene.html` 是不接基站的离线演示版，保留不变。
@@ -27,8 +29,8 @@ npm run build        # 生成 dist/（静态 HUD + 契约 + mock 基站），cd 
 ## 联调测试
 
 ```bash
-npm test                        # 客户端 ↔ mock relay/station：35 项（含逐条契约校验）
-node test/hud-page-test.mjs     # 运行真实 hud.html 脚本、点击按钮：25 项
+npm test                        # 客户端 ↔ mock relay/station：41 项（含三个场景与逐条契约校验）
+node test/hud-page-test.mjs     # 运行真实 hud.html 脚本、点击按钮：30 项
 ```
 
 结果写入 `test/joint-test-result.json`、`test/hud-page-test-result.json`。

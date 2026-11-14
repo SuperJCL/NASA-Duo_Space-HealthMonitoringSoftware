@@ -11,7 +11,8 @@ const C = globalThis.MyoMarsContract;
 
 const server = await start(0);
 const BASE = 'http://127.0.0.1:' + server.address().port;
-const WALK = JSON.parse(fs.readFileSync(new URL('../contract/samples/walking-segment.sample.json', import.meta.url)));
+const sample = n => JSON.parse(fs.readFileSync(new URL('../contract/samples/' + n + '.sample.json', import.meta.url)));
+const WALK = sample('walking-fatigue'), NORMAL = sample('walking-normal'), FAULT = sample('walking-sensor-fault');
 const RETEST = JSON.parse(fs.readFileSync(new URL('../contract/samples/retest-result.sample.json', import.meta.url)));
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail }); console.log((ok ? 'PASS' : 'FAIL') + '  ' + name + (detail ? '  — ' + detail : '')); };
@@ -25,17 +26,17 @@ const mk = () => createBaseClient({ baseUrl: BASE, storage });
 const seg = (n, sec) => ({ segmentId: 'seg-' + n, startedAt: new Date(Date.now() - sec * 1000).toISOString(), durationSec: sec });
 const ofType = (s, t) => s.events.filter(e => e.type === t);
 
-console.log('\n== A. Connect and start a run ==');
+console.log('\n== A. Connect and start a run (Scenario 2 · muscle fatigue) ==');
 let c = mk(); await c.start();
 await until(() => c.state.conn === 'online');
 check('A1 SSE stream connected', c.state.conn === 'online');
 check('A2 no health content before the station publishes', !c.activeCase().alert && !c.activeCase().retest);
-const runId = c.ensureRun();
+const runId = c.ensureRun({ scenarioId: 'myomars-fatigue' });
 await until(() => c.activeCase().run && !c.activeCase().run.pending);
 let s = await state();
 check('A3 local device (Trigger role) published scenario.start', s.activeRun === runId && ofType(s, 'scenario.start')[0]?.sender.role === 'trigger');
 
-console.log('\n== B. Auto patrol monitoring → approved notice + retest ==');
+console.log('\n== B. Fatigue pattern → AMBER notice + rest-and-retest ==');
 c.submitObservation(seg(0, 3), WALK);
 for (let i = 1; i <= 3; i++) c.submitObservation(seg(i, 6), WALK);
 c.submitObservation(seg(1, 6), WALK);                          // same segment again → not re-sent
@@ -47,7 +48,7 @@ check('B2 station uses only quality-checked, comparable segments', cs.observatio
 await until(() => c.activeCase().retest);
 let { alert, retest } = c.activeCase(); s = await state();
 check('B3 HUD receives station.notice.approved + station.retest.requested only after human approval', alert?.status === 'published' && retest?.status === 'requested' && s.audit.some(a => a.action === 'approve') && s.audit.findIndex(a => a.action === 'deviation-candidate') < s.audit.findIndex(a => a.action === 'approve'), retest?.retestId);
-check('B4 retest request names site and in-habitat setting from station content', retest.bodySite === 'Left quadriceps' && retest.inHabitat);
+check('B4 fatigue notice + retest: site and "rest, then retest" come from station content', alert.kind === 'review' && retest.bodySite === 'Left quadriceps' && /^Rest/.test(retest.instructions));
 await until(async () => ofType(await state(), 'hud.received').length === 2);
 s = await state();
 const notice = ofType(s, 'station.notice.approved')[0], req = ofType(s, 'station.retest.requested')[0];
@@ -122,6 +123,33 @@ const off = createBaseClient({ baseUrl: 'http://127.0.0.1:1', storage: memorySto
 await off.start(); off.ensureRun(); await sleep(100);
 check('G1 relay unreachable: run start stays queued, nothing shown as done', off.state.outbox.length === 1 && off.state.conn === 'reconnecting');
 off.stop();
+
+console.log('\n== H. Scenario 1 · normal  /  Scenario 3 · sensor malfunction ==');
+await post('/mock/reset');
+const st2 = memoryStorage(), c2 = createBaseClient({ baseUrl: BASE, storage: st2 }); await c2.start(); await until(() => c2.state.conn === 'online');
+const runN = c2.ensureRun({ scenarioId: 'myomars-normal' });
+for (let i = 0; i < 3; i++) c2.submitObservation(seg('n' + i, 6), NORMAL);
+await until(() => c2.activeCase().alert);
+s = await state();
+check('H1 normal data → GREEN "within baseline" notice, no retest, no fatigue', c2.activeCase().alert?.kind === 'ok' && !c2.activeCase().retest && ofType(s, 'station.retest.requested').length === 0 && /continue the patrol/i.test(c2.activeCase().alert.reason));
+const runS = c2.ensureRun({ scenarioId: 'myomars-sensor-fault' });
+await until(async () => (await state()).activeRun === runS);
+s = await state();
+check('H2 switching scenario resets the old run (scenario.reset) and starts a new one', s.endedRuns.includes(runN) && runS !== runN && !c2.activeCase().alert);
+c2.submitObservation(seg('f1', 6), FAULT); c2.submitObservation(seg('f2', 6), FAULT);
+await until(() => c2.activeCase().alert);
+s = await state();
+const sc = s.cases.find(x => x.caseId === runS + '-lq');
+check('H3 corrupted patch data → RED sensor-fault notice; no retest request', c2.activeCase().alert?.kind === 'sensor' && !c2.activeCase().retest && /not a muscle finding/.test(c2.activeCase().alert.reason));
+check('H4 corrupted segments are never read as fatigue (quality failed, no pattern)', sc.observations.every(o => o.quality === 'poor-signal' && o.pattern === null) && !s.audit.some(a => a.action === 'deviation-candidate'));
+c2.submitObservation(seg('v1', 5), NORMAL); c2.submitObservation(seg('v2', 5), NORMAL);
+await until(() => c2.activeCase().alert?.status === 'closed');
+s = await state();
+const last = ofType(s, 'station.reassessment').at(-1);
+check('H5 after reconnection, valid segments verify the patch → case closed (signal restored)', c2.activeCase().alert.status === 'closed' && last.payload.outcome === 'signal-restored' && last.payload.reviewDecision === 'close');
+const bad2 = s.events.filter(d => C.checkMessage(CONTRACT, d, { delivered: true, role: d.sender.role }).length);
+check('H6 all scenario messages conform to contracts v1', bad2.length === 0, s.events.length + ' messages');
+c2.stop();
 
 c.stop(); await stop();
 const failed = results.filter(x => !x.ok);

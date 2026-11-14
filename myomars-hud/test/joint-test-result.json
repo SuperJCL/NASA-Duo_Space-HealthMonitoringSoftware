@@ -1,5 +1,5 @@
 {
-  "runAt": "2026-11-14T22:07:59.373Z",
+  "runAt": "2026-11-14T23:44:25.577Z",
   "node": "v26.12.1",
   "contract": "myomars/v1 (contracts-v1 @ 58b5a08)",
   "relay": "mock",
@@ -32,10 +32,10 @@
     {
       "name": "B3 HUD receives station.notice.approved + station.retest.requested only after human approval",
       "ok": true,
-      "detail": "run-mwgyil8w-lq-rt1"
+      "detail": "run-mwh1ylbs-lq-rt1"
     },
     {
-      "name": "B4 retest request names site and in-habitat setting from station content",
+      "name": "B4 fatigue notice + retest: site and \"rest, then retest\" come from station content",
       "ok": true,
       "detail": ""
     },
@@ -178,6 +178,36 @@
       "name": "G1 relay unreachable: run start stays queued, nothing shown as done",
       "ok": true,
       "detail": ""
+    },
+    {
+      "name": "H1 normal data → GREEN \"within baseline\" notice, no retest, no fatigue",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H2 switching scenario resets the old run (scenario.reset) and starts a new one",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H3 corrupted patch data → RED sensor-fault notice; no retest request",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H4 corrupted segments are never read as fatigue (quality failed, no pattern)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H5 after reconnection, valid segments verify the patch → case closed (signal restored)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H6 all scenario messages conform to contracts v1",
+      "ok": true,
+      "detail": "16 messages"
     }
   ]
 }

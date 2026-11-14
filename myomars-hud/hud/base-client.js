@@ -52,10 +52,13 @@
     function currentRun() {
       let run = null;
       for (const e of st.events) {
-        if (e.type === 'scenario.start') run = { runId: e.runId, astronaut: e.payload.astronaut, task: e.payload.task, startedAt: e.sentAt };
+        if (e.type === 'scenario.start') run = { runId: e.runId, scenarioId: e.payload.scenarioId, astronaut: e.payload.astronaut, task: e.payload.task, startedAt: e.sentAt };
         else if (e.type === 'scenario.reset' && run && e.runId === run.runId) run = null;
       }
-      if (!run) { const o = st.outbox.find(m => m.env.type === 'scenario.start'); if (o) run = { runId: o.env.runId, astronaut: o.env.payload.astronaut, task: o.env.payload.task, pending: true }; }
+      if (!run || st.outbox.some(m => m.env.type === 'scenario.reset' && m.env.runId === run.runId)) {
+        const o = st.outbox.filter(m => m.env.type === 'scenario.start').at(-1);
+        run = o ? { runId: o.env.runId, scenarioId: o.env.payload.scenarioId, astronaut: o.env.payload.astronaut, task: o.env.payload.task, pending: true } : null;
+      }
       return run;
     }
     const inRun = run => (run ? st.events.filter(e => e.runId === run.runId) : []);
@@ -86,7 +89,9 @@
       let alert = null;
       if (notice || lastR) {
         const latest = lastR || notice, closed = !!lastR && lastR.payload.caseStatus === 'closed';
-        alert = { alertId: caseId, caseId, messageId: latest.eventId, version: latest.payload.evaluationVersion,
+        // notice kind by noticeId suffix (contracts v1 has no category field — gap V1-11)
+        const kind = !notice ? 'review' : /-sensor\d+$/.test(notice.payload.noticeId) ? 'sensor' : /-ok\d+$/.test(notice.payload.noticeId) ? 'ok' : 'review';
+        alert = { alertId: caseId, caseId, kind, noticeId: notice ? notice.payload.noticeId : null, messageId: latest.eventId, version: latest.payload.evaluationVersion,
           status: closed ? 'closed' : lastR ? 'reassessed' : 'published', levelLabel: lastR ? 'Reassessment' : 'Notice',
           title: lastR ? lastR.payload.summary : notice.payload.reviewReason,
           reason: notice ? notice.payload.text : lastR.payload.summary,
@@ -213,10 +218,12 @@
     }
 
     /* ---------- actions ---------- */
-    function ensureRun({ astronaut = { id: 'a-02', callsign: 'A-02' }, task = { id: 'eva-patrol', title: 'EVA patrol', targetId: null } } = {}) {
-      const run = currentRun(); if (run) return run.runId;
+    function ensureRun({ scenarioId = 'myomars-patrol', astronaut = { id: 'a-02', callsign: 'A-02' }, task = { id: 'eva-patrol', title: 'EVA patrol', targetId: null } } = {}) {
+      const run = currentRun();
+      if (run && run.scenarioId === scenarioId) return run.runId;
+      if (run && !run.pending) enqueue(envelope('trigger', 'scenario.reset', {}, { runId: run.runId }), 'trigger');   // switching scenario ends the old run
       const runId = 'run-' + Date.now().toString(36);
-      enqueue(envelope('trigger', 'scenario.start', { scenarioId: 'myomars-patrol', astronaut, task }, { runId }), 'trigger');
+      enqueue(envelope('trigger', 'scenario.start', { scenarioId, astronaut, task }, { runId }), 'trigger');
       log('Local device started run ' + runId); return runId;
     }
     function submitObservation(seg, sample) {                     // walking segment → observation.submitted (Trigger role)
