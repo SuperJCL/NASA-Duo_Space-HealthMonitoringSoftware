@@ -1,12 +1,7 @@
 {
-  "_note": "占位样例：公共底座尚未提供正式模拟复测样例。底座交付后用其文件替换本文件，HUD 只读取本文件，不自行生成数值。",
-  "sampleId": "RT-P1-v1-sample-01",
-  "simulated": true,
-  "protocol": { "id": "RT-P1", "version": "1" },
-  "quality": "valid",
-  "metrics": [
-    { "name": "repetitions", "label": "Repetitions", "value": 3, "unit": "count" },
-    { "name": "knee_flexion_peak", "label": "Peak knee flexion", "value": 62, "unit": "deg" },
-    { "name": "emg_rms_ratio_to_baseline", "label": "EMG RMS / baseline", "value": 0.91, "unit": "ratio" }
-  ]
+  "_note": "SIMULATED placeholder in the shape of a contracts v1 retest.result observation (signal/features/imu). The protocol is copied from the station's station.retest.requested, never from here. Replace with the shared base's sample when it exists.",
+  "sampleId": "knee-bend-v1-sample-01",
+  "signal": { "sampleRateHz": 2000, "durationS": 20, "electrodeImpedanceKOhm": 12, "saturationPct": 0.2, "motionArtifactPct": 5, "dropoutPct": 0.3 },
+  "features": { "medianFreqHz": 86, "rmsPctMvc": 31.5, "gripForceN": null },
+  "imu": { "accelRmsG": 0.21, "gyroRmsDps": 38, "movementPct": 40 }
 }

@@ -1,180 +1,181 @@
 {
-  "runAt": "2026-11-14T21:45:49.438Z",
+  "runAt": "2026-11-14T22:07:59.373Z",
   "node": "v26.12.1",
-  "base": "mock (SRS v0.1 draft)",
+  "contract": "myomars/v1 (contracts-v1 @ 58b5a08)",
+  "relay": "mock",
   "results": [
     {
-      "name": "A1 连接基站成功",
+      "name": "A1 SSE stream connected",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "A2 基站未批准时 HUD 无任何健康内容",
+      "name": "A2 no health content before the station publishes",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "A3 批准后 HUD 收到告警与复测任务",
-      "ok": true,
-      "detail": "alert v1, retest requested"
-    },
-    {
-      "name": "A4 两条消息均自动回传端侧接收回执",
+      "name": "A3 local device (Trigger role) published scenario.start",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "A5 接收回执不等于人员确认（基站尚无确认记录）",
+      "name": "B1 walking segments published as observation.submitted (Trigger) and counted once",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "B1 点击确认后单独回传人员确认",
+      "name": "B2 station uses only quality-checked, comparable segments",
+      "ok": true,
+      "detail": "too-short, valid/c, valid/c, valid/c"
+    },
+    {
+      "name": "B3 HUD receives station.notice.approved + station.retest.requested only after human approval",
+      "ok": true,
+      "detail": "run-mwgyil8w-lq-rt1"
+    },
+    {
+      "name": "B4 retest request names site and in-habitat setting from station content",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "B2 确认收到不改变任务/案例状态",
+      "name": "B5 automatic hud.received for each station message (messageId = its eventId)",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "B3 暂缓缺少原因时被拒绝，HUD 不显示成功",
+      "name": "B6 device receipt is not an acknowledgement (no hud.ack yet)",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "B4 暂缓与原因回到正确案例",
+      "name": "C1 astronaut acknowledgement sent separately as hud.ack",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "B5 进入获准复测任务（accept）",
+      "name": "C2 acknowledging does not complete the task",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "C1 刷新后恢复当前任务与确认状态",
-      "ok": true,
-      "detail": "retest accepted, ack confirmed"
-    },
-    {
-      "name": "C2 重复投递不产生重复任务",
-      "ok": true,
-      "detail": "duplicates ignored: 2"
-    },
-    {
-      "name": "D1 离线时结果标记为待提交，不显示成功",
+      "name": "C3 defer without a reason is refused locally, nothing published",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "D2 刷新后待提交结果仍在本地队列",
+      "name": "C4 hud.defer with reason goes to the right case and request",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "D3 重连后自动补传并收到服务回执",
+      "name": "C5 starting the retest sends hud.ack for the request",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "D4 结果关联原案例、轮次与 retestId，且标注 simulated",
-      "ok": true,
-      "detail": "{\"alertId\":\"ALT-001\",\"round\":1,\"retestId\":\"RT-001\",\"sampleId\":\"RT-P1-v1-sample-01\"}"
-    },
-    {
-      "name": "D5 同一结果只入库一次",
+      "name": "D1 reload restores the current task and acknowledgement from relay history",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "D6 显示等待重评",
+      "name": "D2 duplicate deliveries create no new task",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "D7 重评结果送达原告警（v2），任务完成但案例未关闭",
+      "name": "D3 no extra receipts after reload or duplicates",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "D8 新版本告警需重新人员确认",
+      "name": "E1 offline: result and segment wait in the outbox; status stays \"pending\", never done",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "D9 案例只在基站关闭后显示已关闭",
+      "name": "E2 outbox survived the reload and was resent",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "E1 基站重置后本地旧案例被清空",
+      "name": "E3 retest.result carries caseId + retestId and the requested protocol",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "E2 中止复测回到基站",
+      "name": "E4 station.receipt accepted → HUD shows received / awaiting reassessment",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "E3 中止后可重新开始（同一 round）",
+      "name": "E5 result stored once despite resend",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "E4 单位与协议不一致的结果被拒绝，HUD 显示拒绝而非成功",
+      "name": "E6 station.reassessment v2 updates the original case; not closed",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "E5 改用协议样例重新提交成功",
+      "name": "E7 new version needs a new acknowledgement",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "E6 服务不可达时确认显示失败，不显示成功",
+      "name": "E8 segment queued offline was resent",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "F1 片段自动上传并收到服务回执；同一片段只入库一次",
+      "name": "E9 only the station closes the case",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "F2 质量不合格或条件不可比的片段不计入趋势",
+      "name": "F1 every delivered message passes delivered.schema + payload schema + event-rules",
+      "ok": true,
+      "detail": "21 messages"
+    },
+    {
+      "name": "F2 eventIds are unique",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "F3 单位与协议不一致的片段被拒绝",
+      "name": "F3 relay rejects a message that breaks the rules (hud.ack without caseId)",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "F4 断链时片段在本地排队（待上传）",
+      "name": "F4 relay rejects a HUD publishing observations (Trigger only)",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "F5 少于触发数量时基站不发布任何内容",
+      "name": "F5 same eventId with different content is refused",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "F6 恢复后自动补传",
+      "name": "F6 identical resend is accepted as duplicate",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "F7 可比片段达到阈值 → 基站复核批准 → 下发回舱复测任务",
+      "name": "F7 messages for an ended run are stale",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "F8 复测任务需宇航员确认后才开始",
+      "name": "F8 HUD drops the case when the run is reset",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "G1 relay unreachable: run start stays queued, nothing shown as done",
       "ok": true,
       "detail": ""
     }

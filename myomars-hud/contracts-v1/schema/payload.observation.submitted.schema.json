@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.observation.submitted.schema.json",
+  "title": "payload.observation.submitted",
+  "type": "object",
+  "properties": {
+    "observationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "astronautId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "capturedAt": {
+      "type": "string"
+    },
+    "deviceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "protocol": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "targetPctMvc": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "posture": {
+          "type": "string",
+          "enum": [
+            "standing",
+            "kneeling",
+            "seated"
+          ]
+        },
+        "glove": {
+          "type": "string",
+          "enum": [
+            "eva-glove",
+            "none"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "targetPctMvc",
+        "posture",
+        "glove"
+      ],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "taskId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "phase": {
+          "type": "string",
+          "enum": [
+            "pre-eva",
+            "eva",
+            "post-eva",
+            "retest"
+          ]
+        },
+        "minutesIntoEva": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "taskId",
+        "phase",
+        "minutesIntoEva"
+      ],
+      "additionalProperties": false
+    },
+    "signal": {
+      "type": "object",
+      "properties": {
+        "sampleRateHz": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "durationS": {
+          "type": "number",
+          "minimum": 0
+        },
+        "electrodeImpedanceKOhm": {
+          "type": "number",
+          "minimum": 0
+        },
+        "saturationPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "motionArtifactPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "dropoutPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "sampleRateHz",
+        "durationS",
+        "electrodeImpedanceKOhm",
+        "saturationPct",
+        "motionArtifactPct",
+        "dropoutPct"
+      ],
+      "additionalProperties": false
+    },
+    "features": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "medianFreqHz": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "rmsPctMvc": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "gripForceN": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "medianFreqHz",
+            "rmsPctMvc",
+            "gripForceN"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "imu": {
+      "type": "object",
+      "properties": {
+        "accelRmsG": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gyroRmsDps": {
+          "type": "number",
+          "minimum": 0
+        },
+        "movementPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "accelRmsG",
+        "gyroRmsDps",
+        "movementPct"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "observationId",
+    "astronautId",
+    "capturedAt",
+    "protocol",
+    "context",
+    "signal",
+    "features"
+  ],
+  "additionalProperties": false
+}

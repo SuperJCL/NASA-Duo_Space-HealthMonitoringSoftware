@@ -1,12 +1,13 @@
-// Page-level joint test: runs the real hud.html script (with a minimal DOM stub) against the mock base,
-// clicking the same buttons a judge would and reading what the HUD renders.
+// Page-level joint test on contracts myomars/v1: runs the real hud.html script (minimal DOM stub) against the
+// mock relay + station, clicking what a judge would click and reading what the HUD renders.
 // Run: node test/hud-page-test.mjs
 process.env.REASSESS_MS = '600';
 process.env.REVIEW_MS = '300';
 import fs from 'node:fs';
-const { start } = await import('../server/mock-base.mjs');
+const { start, stop, CONTRACT } = await import('../server/mock-base.mjs');
 await import('../hud/base-client.js');
 const { createBaseClient, memoryStorage } = globalThis.MyoMarsBaseClient;
+const C = globalThis.MyoMarsContract;
 const server = await start(0);
 const BASE = 'http://127.0.0.1:' + server.address().port;
 const html = fs.readFileSync(new URL('../hud.html', import.meta.url), 'utf8');
@@ -20,80 +21,85 @@ const storage = memoryStorage();
 function boot() {
   for (const k in els) delete els[k];
   const g = { document: { getElementById: id => els[id] || (els[id] = el(id)), createElement: () => el('x'), querySelector: () => null, body: el('body') },
-    innerWidth: 1440, innerHeight: 900, addEventListener() {}, requestAnimationFrame() {}, performance, localStorage: storage, location: { origin: BASE, protocol: 'http:', reload() {} }, MyoMarsBaseClient: { createBaseClient },
+    innerWidth: 1440, innerHeight: 900, addEventListener() {}, requestAnimationFrame() {}, performance, localStorage: storage,
+    location: { origin: BASE, protocol: 'http:', reload() {} }, MyoMarsBaseClient: { createBaseClient },
     fetch: (u, o) => fetch(/^https?:/.test(u) ? u : BASE + '/' + u, o), setInterval: () => 0 };
   g.window = g;
-  const fn = new Function(...Object.keys(g), js);
-  fn(...Object.values(g));
+  new Function(...Object.keys(g), js)(...Object.values(g));
   return g.window.__hud;
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-async function until(f, ms = 5000) { const t = Date.now(); while (Date.now() - t < ms) { if (f()) return true; await sleep(40); } return false; }
+async function until(f, ms = 6000) { const t = Date.now(); while (Date.now() - t < ms) { if (await f()) return true; await sleep(40); } return false; }
 const post = p => fetch(BASE + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }).then(r => r.json());
 const state = () => fetch(BASE + '/mock/state').then(r => r.json());
+const ofType = (s, t) => s.events.filter(e => e.type === t);
 const has = (id, btn) => els[id] && els[id].innerHTML.includes('id="' + btn + '"');
 const text = id => (els[id]?.innerHTML || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const results = []; const check = (n, ok, d = '') => { results.push({ name: n, ok: !!ok, detail: d }); console.log((ok ? 'PASS' : 'FAIL') + '  ' + n + (d ? '  — ' + d : '')); };
 
 let hud = boot();
-els.bStart.onclick();
 await until(() => hud.client.state.conn === 'online');
-check('P1 页面连接基站并显示连接状态', els.linkChip.innerHTML.includes('Online'), text('linkChip'));
-check('P2 基站未发布时只显示自动监测与空告警', text('status').startsWith('Auto-monitoring · last sync') && text('alert') === 'No alerts published by base');
+check('P1 page connects to the relay stream and shows link state', els.linkChip.innerHTML.includes('Online'), text('linkChip'));
+els.bStart.onclick();
+await until(async () => (await state()).activeRun);
+check('P2 "Start patrol" starts a run (scenario.start from the local device)', ofType(await state(), 'scenario.start').length === 1);
+check('P3 nothing published yet: auto-monitoring status, empty alert', text('status').startsWith('Auto-monitoring · last sync') && text('alert') === 'No alerts published by base');
 await until(() => hud.walkReady);
-hud.emitSegment(3, 6);                                   // too short: base quality check should not use it
+hud.emitSegment(3, 6);
 for (let i = 0; i < 3; i++) hud.emitSegment(6, 20);
 await until(() => hud.client.monitorState().uploaded === 4);
-let s0 = await state();
-check('P2a 步行片段自动分段上传，基站做质量检查并只计入可比片段', s0.segments.length === 4 && s0.segments.filter(x => x.comparable).length === 3 && s0.segments[0].quality === 'too-short', s0.segments.map(x => x.quality + (x.comparable ? '/comparable' : '')).join(', '));
-check('P2b 正常巡检显示「Auto-monitoring · 最近同步时间」', /^Auto-monitoring · last sync \d\d:\d\d:\d\d UTC$/.test(text('status')), text('status'));
+let s = await state();
+check('P4 walking segments become observation.submitted; station uses only valid comparable ones', ofType(s, 'observation.submitted').length === 4 && s.cases[0].observations.filter(o => o.comparable).length === 3);
+check('P5 normal patrol shows "Auto-monitoring · last sync HH:MM:SS UTC"', /^Auto-monitoring · last sync \d\d:\d\d:\d\d UTC$/.test(text('status')), text('status'));
 await until(() => has('rcBody', 'bView'));
-s0 = await state();
-check('P2c 偏离经基站复核批准后才下发（审计可见）', s0.audit.some(x => x.action === 'deviation-detected') && s0.audit.some(x => x.action === 'approve' && x.object === 'ALT-001'));
-check('P3 批准后告警卡显示原因 / 下一步 / 数据时间', /Reason.+Next.+Data time \d\d:\d\d:\d\d UTC/.test(text('alert')), text('alert').slice(0, 90) + '…');
-check('P4 状态行显示「Base recommends in-habitat retest · Left quadriceps · View task」', text('status') === 'Base recommends in-habitat retest · Left quadriceps · View task' && has('status', 'bViewTask'), text('status'));
-await until(() => text('alert').includes('sent ✓'));
-check('P5 告警卡显示端侧接收回执已回传，人员确认按钮仍在', text('alert').includes('sent ✓') && has('alert', 'bAck'));
-await hud.actAck(); let s = await state();
-check('P6 点击「确认收到」后单独回传人员确认', text('alert').includes('Acknowledged v1 (not task completion)') && !!s.acks['ALT-001@1']);
+check('P6 after human approval: "Base recommends in-habitat retest · Left quadriceps · View task"', text('status') === 'Base recommends in-habitat retest · Left quadriceps · View task' && has('status', 'bViewTask'), text('status'));
+check('P7 alert card shows station reason, next step and data time', /Reason Base notice:.+Next Return to the habitat.+Data time \d\d:\d\d:\d\d UTC/.test(text('alert')), text('alert').slice(0, 100) + '…');
+await until(() => text('alert').includes('Device receipt: sent ✓'));
+check('P8 device receipt (hud.received) sent automatically; Acknowledge still offered', text('alert').includes('Device receipt: sent ✓') && has('alert', 'bAck') && ofType(await state(), 'hud.ack').length === 0);
+await hud.actAck(); s = await state();
+check('P9 Acknowledge publishes hud.ack for the notice', text('alert').includes('Acknowledged v1 (not task completion)') && ofType(s, 'hud.ack')[0].payload.messageId === ofType(s, 'station.notice.approved')[0].eventId);
 els.bView.onclick();
-check('P7 查看后出现「开始复测」「暂缓」', has('rcBody', 'bGo') && has('rcBody', 'bDefer'));
+check('P10 View task opens Start retest / Defer', has('rcBody', 'bGo') && has('rcBody', 'bDefer'));
 els.bDefer.onclick(); (els.deferReason ||= el('deferReason')).value = '';
 await els.bDeferOk.onclick();
-check('P8 未选原因时暂缓不生效并提示', text('rcBody').includes('Please choose a reason to defer') && (await state()).retests['RT-001'].status === 'requested');
+check('P11 defer without a reason is blocked', text('rcBody').includes('Please choose a reason to defer') && ofType(await state(), 'hud.defer').length === 0);
 els.deferReason.value = 'Patrol task in progress'; await els.bDeferOk.onclick(); s = await state();
-check('P9 选择原因后暂缓回到基站', s.retests['RT-001'].status === 'deferred' && text('rcBody').includes('Defer reason: Patrol task in progress'));
+check('P12 defer publishes hud.defer with the reason for the retest request', ofType(s, 'hud.defer')[0]?.payload.reason === 'Patrol task in progress' && text('rcBody').includes('Defer reason: Patrol task in progress'));
 await els.bGo.onclick();
-check('P10 开始复测：基站 accept 后进入采集，出现「中止复测」', hud.S.phase === 'collecting' && has('rcBody', 'bAbort') && (await state()).retests['RT-001'].status === 'accepted');
+check('P13 Start retest: hud.ack on the request, capture begins, Abort offered', hud.S.phase === 'collecting' && has('rcBody', 'bAbort') && ofType(await state(), 'hud.ack').length === 2);
+await els.bAbort.onclick();
+check('P14 Abort is local only (no protocol event); card offers Restart', hud.S.phase !== 'collecting' && text('rcBody').includes('Aborted · can restart') && has('rcBody', 'bGo'));
+await els.bGo.onclick();
+check('P15 Restart begins a new capture without a second hud.ack', hud.S.phase === 'collecting' && ofType(await state(), 'hud.ack').length === 2);
 
-console.log('— 刷新页面（采集中）');
-hud.client.stop(); hud = boot(); els.bStart.onclick();
+console.log('— reload during capture');
+hud.client.stop(); hud = boot();
 await until(() => hud.client.state.conn === 'online' && has('rcBody', 'bRecollect'));
-check('P11 刷新后恢复当前任务（采集中断 → 重新采集）', has('rcBody', 'bRecollect') && text('alert').includes('Acknowledged v1'));
+check('P16 reload restores the task (capture interrupted → capture again) and the acknowledgement', has('rcBody', 'bRecollect') && text('alert').includes('Acknowledged v1'));
 els.bRecollect.onclick();
-await until(() => has('rcBody', 'bSubmit'), 8000);
-check('P12 采集完成后显示待提交的模拟结果（含单位）', text('rcBody').includes('SIMULATED') && text('rcBody').includes('62 deg') && text('status') === 'Retest captured · result ready to submit');
-els.bLink.onclick();                                   // go offline before submitting
-await until(() => hud.client.state.conn === 'offline');
-els.bSubmit.onclick();
-hud.emitSegment(6, 20);                                  // walking continues while offline
-check('P13 断链：显示「Recording locally · pending upload」，结果与片段只在本地排队', text('status').startsWith('Recording locally · pending upload') && text('rcBody').includes('offline, will submit when reconnected') && hud.client.state.outbox.length === 2, text('status'));
+await until(() => has('rcBody', 'bSubmit'), 9000);
+check('P17 captured result shown as SIMULATED with units, ready to submit', text('rcBody').includes('SIMULATED') && text('rcBody').includes('86 Hz') && text('status') === 'Retest captured · result ready to submit');
+els.bLink.onclick(); await until(() => hud.client.state.conn === 'offline');
+els.bSubmit.onclick(); hud.emitSegment(6, 20);
+check('P18 offline: "Recording locally · pending upload", result and segment queued, nothing shown as received', text('status').startsWith('Recording locally · pending upload') && hud.client.state.outbox.length === 2 && text('rcBody').includes('offline, will submit when reconnected'), text('status'));
 els.bLink.onclick();
-await until(() => /Result received by base|Awaiting base reassessment|Final/.test(text('rcBody')));
-await until(() => hud.client.monitorState().uploaded === 5);
-check('P14 恢复连接后自动补传结果与片段，显示基站已接收 / 等待重评', /Result received by base|Awaiting base reassessment/.test(text('rcBody')) && hud.client.monitorState().uploaded === 5 && hud.client.state.outbox.length === 0, text('status'));
+await until(() => /Awaiting base reassessment|Final/.test(text('rcBody')));
+check('P19 reconnect: resent; station.receipt accepted → awaiting reassessment', /Awaiting base reassessment|Final/.test(text('rcBody')) && hud.client.state.outbox.length === 0 && hud.client.monitorState().uploaded === 5, text('status'));
 await until(() => text('rcBody').includes('Final'));
-check('P15 重评送达：原告警更新为 v2，显示最终处理且案例未关闭', text('alert').includes('v2 · Reassessed') && text('rcBody').includes('does not close the case'));
-check('P16 v2 需要重新人员确认', has('alert', 'bAck'));
+check('P20 station.reassessment v2 updates the original alert; case not closed', text('alert').includes('v2 · Reassessed') && text('rcBody').includes('does not close the case'));
+check('P21 v2 needs a new acknowledgement', has('alert', 'bAck'));
 await post('/mock/duplicate'); await post('/mock/duplicate'); await sleep(150);
-check('P17 重复消息不产生重复任务', Object.keys(hud.client.state.retests).length === 1 && hud.client.state.duplicates >= 2);
+check('P22 duplicate deliveries create no new task', hud.client.state.duplicates >= 2 && text('rcBody').includes('Final'));
 await post('/mock/close'); await until(() => text('rcBody').includes('Case closed by base'));
-check('P18 基站关闭案例后显示已关闭，自动监测继续', text('rcBody').includes('Case closed by base') && text('status').startsWith('Auto-monitoring'));
+check('P23 station closes the case; auto-monitoring continues', text('rcBody').includes('Case closed by base') && text('status').startsWith('Auto-monitoring'));
 els.thigh.onclick();
-check('P19 左腿小卡显示基站发布的前后结论', text('legCard').includes('Retest shift reduced') && text('legCard').includes('EMG deviates from personal baseline'));
+check('P24 left-thigh card shows station findings before / after', text('legCard').includes('Consistent left-quadriceps deviation') && text('legCard').includes('within personal baseline'));
+s = await state();
+const bad = s.events.filter(d => C.checkMessage(CONTRACT, d, { delivered: true, role: d.sender.role }).length);
+check('P25 every message the page sent or received conforms to contracts v1', bad.length === 0, s.events.length + ' messages');
 
-hud.client.stop(); server.close();
+hud.client.stop(); await stop();
 const failed = results.filter(r => !r.ok);
 console.log(`\n结果：${results.length - failed.length}/${results.length} 通过`);
-fs.writeFileSync(new URL('./hud-page-test-result.json', import.meta.url), JSON.stringify({ runAt: new Date().toISOString(), node: process.version, base: 'mock (SRS v0.1 draft)', results }, null, 2));
+fs.writeFileSync(new URL('./hud-page-test-result.json', import.meta.url), JSON.stringify({ runAt: new Date().toISOString(), node: process.version, contract: 'myomars/v1', relay: 'mock', results }, null, 2));
 process.exit(failed.length ? 1 : 0);

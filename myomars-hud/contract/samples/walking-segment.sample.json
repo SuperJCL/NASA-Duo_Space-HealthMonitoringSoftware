@@ -1,11 +1,8 @@
 {
-  "_note": "Placeholder sample: the shared base has not delivered an official walking-segment sample yet. Replace this file with the base's sample; the HUD only reads feature values from here and never invents them. Timing fields (start/end/duration/steps/cadence) come from the local device's walking detection.",
-  "sampleId": "WALK-v1-sample-01",
-  "simulated": true,
-  "protocol": { "id": "WALK-AUTO", "version": "1" },
-  "metrics": [
-    { "name": "emg_rms_left_quad", "label": "Left quad EMG RMS", "value": 41.2, "unit": "uV" },
-    { "name": "emg_rms_right_quad", "label": "Right quad EMG RMS", "value": 47.9, "unit": "uV" },
-    { "name": "stride_time_mean", "label": "Mean stride time", "value": 1.18, "unit": "s" }
-  ]
+  "_note": "SIMULATED placeholder in the shape of contracts v1 observation.submitted (protocol/signal/features/imu). Replace with the shared base's sample when it exists. The local device fills only timing (capturedAt, signal.durationS); every other value comes from this file.",
+  "sampleId": "walk-auto-v1-sample-01",
+  "protocol": { "id": "walk-auto-v1", "label": "Left quadriceps · auto walking segment", "targetPctMvc": 0, "posture": "standing", "glove": "eva-glove" },
+  "signal": { "sampleRateHz": 2000, "durationS": 6, "electrodeImpedanceKOhm": 14, "saturationPct": 0.1, "motionArtifactPct": 9, "dropoutPct": 0.4 },
+  "features": { "medianFreqHz": 78, "rmsPctMvc": 18, "gripForceN": null },
+  "imu": { "accelRmsG": 0.42, "gyroRmsDps": 61, "movementPct": 88 }
 }

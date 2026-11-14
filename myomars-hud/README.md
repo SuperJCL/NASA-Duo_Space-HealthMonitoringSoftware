@@ -1,6 +1,6 @@
 # MyoMars 宇航员 HUD · 基站接入版
 
-> ⚠ 临时契约：公共底座的最终契约与示例尚未交付，本版按 **SRS v0.1 草案** 接入，并附一个本地 **mock 基站** 用于联调。假设与接口缺口见 [contract/draft-v0.1.md](contract/draft-v0.1.md)。底座到位后只需替换 `hud/base-client.js` 中的映射和 `contract/samples/` 下的样例。
+> 消息格式：仓库 `main` 上的 **MyoMars shared message contracts v1**（`myomars/v1`），副本在 `contracts-v1/`。契约尚未提供 relay，本版附一个按其意图（HTTP publish + SSE）实现的本地 **mock relay + mock Mars Station**。映射与剩余缺口见 [contract/v1-integration.md](contract/v1-integration.md)。
 
 ## 启动
 
@@ -13,7 +13,7 @@ npm start            # = node server/mock-base.mjs，默认端口 8787（PORT=xx
 - 宇航员 HUD：http://127.0.0.1:8787/hud.html
 - Mock 基站控制台：http://127.0.0.1:8787/mock
 
-演示顺序：HUD 点「Start patrol」→ 按住 W 照常行走（本地设备自动分段上传步行片段，状态行显示 Auto-monitoring · last sync）→ 约 3 段可比片段后基站判定偏离、复核批准（mock 自动，也可在控制台手动批准）→ HUD 收到告警与复测任务（自动回传接收回执）→ HUD 点「确认收到」（人员确认）→ 查看复测 → 暂缓（选原因）或开始复测 → 采集完成后「提交模拟复测结果」→ 已接收 → 等待重评 → 原告警更新为 v2 → 控制台「复核关闭案例」。
+演示顺序：HUD 点「Start patrol」→ 按住 W 照常行走（本地设备自动分段上传步行片段，状态行显示 Auto-monitoring · last sync）→ 约 3 段可比片段后站点判定偏离、人工复核批准（mock 自动，也可在控制台手动批准）→ HUD 收到 `station.notice.approved` + `station.retest.requested`（自动回传 `hud.received`）→ 点「Acknowledge」（`hud.ack`）→ View task → Defer（选原因，`hud.defer`）或 Start retest → 采集完成后「Submit simulated retest result」（`retest.result`）→ `station.receipt` → 等待重评 → `station.reassessment` v2 → 控制台「Station: close case」。
 
 > 也可以双击打开：先双击 `start-base.command` 启动基站（会打开一个终端窗口，关掉即停止），再双击 `hud.html`。双击打开的 HUD 会自动连接 `127.0.0.1:8787`；基站没启动时，右上角会提示 `Start the base: npm start`。
 > `mars-hud-scene.html` 是不接基站的离线演示版，保留不变。
@@ -27,8 +27,8 @@ npm run build        # 生成 dist/（静态 HUD + 契约 + mock 基站），cd 
 ## 联调测试
 
 ```bash
-npm test                        # 客户端 ↔ mock 基站：35 项
-node test/hud-page-test.mjs     # 运行真实 hud.html 脚本、点击按钮：22 项
+npm test                        # 客户端 ↔ mock relay/station：35 项（含逐条契约校验）
+node test/hud-page-test.mjs     # 运行真实 hud.html 脚本、点击按钮：25 项
 ```
 
 结果写入 `test/joint-test-result.json`、`test/hud-page-test-result.json`。
@@ -38,9 +38,11 @@ node test/hud-page-test.mjs     # 运行真实 hud.html 脚本、点击按钮：
 | 路径 | 说明 |
 |---|---|
 | `hud.html` | 接入版 HUD（全景场景 + 基站驱动的告警 / 复测） |
-| `hud/base-client.js` | 订阅、回执、人员确认、暂缓、提交结果、去重、断线恢复（无 DOM，可在 Node 测试） |
-| `server/mock-base.mjs` | mock 基站：REST + WebSocket（零依赖） |
+| `hud/base-client.js` | contracts v1 客户端：SSE 订阅、hud.received / hud.ack / hud.defer / retest.result、observation 上报、发件箱补传、去重、断线恢复 |
+| `hud/contract-v1.js` | 契约校验（JSON Schema 子集 + event-rules），mock 和测试共用 |
+| `contracts-v1/` | 共享契约副本（schema、examples、scenarios） |
+| `server/mock-base.mjs` | mock relay（HTTP publish + SSE，逐条契约校验）+ mock Mars Station（零依赖） |
 | `server/console.html` | mock 基站控制台 |
-| `contract/draft-v0.1.md` | 采用的草案接口、消息信封、接口缺口 GAP-01…07 |
+| `contract/v1-integration.md` | HUD 流程与契约事件的映射、剩余缺口 V1-01…10 |
 | `contract/samples/retest-result.sample.json` | 占位模拟复测样例（待底座替换） |
 | `test/` | 联调测试脚本与结果 |

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.station.retest.requested.schema.json",
+  "title": "payload.station.retest.requested",
+  "type": "object",
+  "properties": {
+    "retestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "protocol": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "targetPctMvc": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "posture": {
+          "type": "string",
+          "enum": [
+            "standing",
+            "kneeling",
+            "seated"
+          ]
+        },
+        "glove": {
+          "type": "string",
+          "enum": [
+            "eva-glove",
+            "none"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "targetPctMvc",
+        "posture",
+        "glove"
+      ],
+      "additionalProperties": false
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "evaluationVersion": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "reviewedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "simulated": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "required": [
+    "retestId",
+    "protocol",
+    "instructions",
+    "evaluationVersion",
+    "reviewedBy",
+    "simulated"
+  ],
+  "additionalProperties": false
+}

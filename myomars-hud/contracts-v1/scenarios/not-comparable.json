@@ -1,0 +1,54 @@
+{
+  "id": "not-comparable",
+  "title": "条件不可比",
+  "schema": "myomars/v1",
+  "simulated": true,
+  "note": "SIMULATED demo data; not measurements, not clinically validated.",
+  "start": {
+    "scenarioId": "myomars-demo",
+    "astronaut": {
+      "id": "ev1",
+      "callsign": "EV1（模拟宇航员）"
+    },
+    "task": {
+      "id": "eva-sampling",
+      "title": "EVA 采样作业",
+      "targetId": null
+    }
+  },
+  "caseId": "case-noncomparable",
+  "observation": {
+    "observationId": "obs-nc-1",
+    "astronautId": "ev1",
+    "capturedAt": "2026-11-14T10:00:00Z",
+    "protocol": {
+      "id": "eva-core-drill",
+      "label": "岩芯钻取中持续握持",
+      "targetPctMvc": 70,
+      "posture": "kneeling",
+      "glove": "eva-glove"
+    },
+    "context": {
+      "taskId": "eva-sampling",
+      "phase": "eva",
+      "minutesIntoEva": 95
+    },
+    "signal": {
+      "sampleRateHz": 2000,
+      "durationS": 30,
+      "electrodeImpedanceKOhm": 12,
+      "saturationPct": 0.2,
+      "motionArtifactPct": 4,
+      "dropoutPct": 0.5
+    },
+    "features": {
+      "medianFreqHz": 78,
+      "rmsPctMvc": 61,
+      "gripForceN": 241
+    }
+  },
+  "expected": [
+    "station: comparability blocked; no muscle-function conclusion",
+    "station staff may approve a standard-protocol retest"
+  ]
+}

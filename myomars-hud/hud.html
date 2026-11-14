@@ -599,7 +599,7 @@ function plot(c,arr,col){
 const SAMPLE_URL='contract/samples/retest-result.sample.json';
 let S={phase:'idle',flagBase:false,flex:0,baseLabel:'Connecting',baseCls:'',curPoor:false,collectT0:0,collectMs:0,log:[],legOpen:false,busy:{},err:{},deferOpen:false,alertFlash:false};
 let LOCAL;try{LOCAL=JSON.parse(localStorage.getItem('myomars.hud.ui')||'{}')}catch{LOCAL={}}
-LOCAL.collect=LOCAL.collect||{};LOCAL.viewed=LOCAL.viewed||{};
+LOCAL.collect=LOCAL.collect||{};LOCAL.viewed=LOCAL.viewed||{};LOCAL.aborted=LOCAL.aborted||{};
 function saveLocal(){try{localStorage.setItem('myomars.hud.ui',JSON.stringify(LOCAL))}catch{}}
 let SAMPLE=null,WALK_SAMPLE=null;
 // protocol samples come from the base's contract files; retry until the base is reachable
@@ -626,8 +626,9 @@ function closeSegment(){
 function emitSegment(sec,steps,startedAt){
   if(!WALK_SAMPLE){log('Walking sample not loaded; segment kept local','t-warn');return}
   const dur=+sec.toFixed(1),st=steps||Math.round(sec*WALK.stepHz*2);
-  const r=client.submitSegment({segmentId:'SEG-'+Date.now().toString(36)+'-'+(SEG.n=(SEG.n||0)+1),startedAt:startedAt||new Date(Date.now()-sec*1000).toISOString(),endedAt:new Date().toISOString(),
-    durationSec:dur,steps:st,cadenceSpm:Math.round(st/sec*60),condition:COND},WALK_SAMPLE);
+  client.ensureRun();                                     // local device starts the run (scenario.start) if none is active
+  // walking segment → observation.submitted (Trigger role); timing from the device, values from the contract sample
+  const r=client.submitObservation({segmentId:'seg-'+Date.now().toString(36)+'-'+(SEG.n=(SEG.n||0)+1),startedAt:startedAt||new Date(Date.now()-sec*1000).toISOString(),durationSec:dur},WALK_SAMPLE);
   if(r.ok&&client.state.conn==='online')flight={t0:performance.now(),dur:1400};
   render();
 }
@@ -636,15 +637,15 @@ function log(m,c){const t=new Date().toLocaleTimeString('zh-CN',{hour12:false});
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 const keyOfRt=rt=>rt.retestId+'#'+rt.round;
 const ERR={'reason-required':'Please choose a reason to defer','state-conflict':'Task state changed; synced latest from base','round-mismatch':'Round changed; synced latest from base',
-  network:'Not connected to base; action not applied','unknown-retest':'Task not found','no-service-receipt':'No receipt from base'};
+  network:'Not connected to base; queued, will send when reconnected','unknown-message':'Message no longer available','unknown-retest':'Task not found','no-service-receipt':'No receipt from base'};
 const errText=e=>ERR[e]||('Not confirmed by base ('+e+')');
 
-const client=createBaseClient({baseUrl:BASE_URL,crewId:'A-02',storage:localStorage,
+const client=createBaseClient({baseUrl:BASE_URL,sessionId:'demo',storage:localStorage,
   onChange:()=>onStore(),log:(m,l)=>log(m,l==='warn'?'t-warn':'')});
 let ready=false;const seenUi=new Set();
 function onStore(){
   const {alert,retest:rt}=client.activeCase();
-  if(rt){const k=keyOfRt(rt);if(!seenUi.has(k)){seenUi.add(k);if(ready&&rt.status==='requested'){$('msgfly').textContent='✉ Retest task '+rt.retestId;startMsgFlight();S.flagBase=true}}}
+  if(rt){const k=keyOfRt(rt);if(!seenUi.has(k)){seenUi.add(k);if(ready&&rt.status==='requested'){$('msgfly').textContent='✉ Retest task · '+rt.bodySite;startMsgFlight();S.flagBase=true}}}
   if(alert){const k=alert.alertId+'@'+alert.version;if(!seenUi.has(k)){seenUi.add(k);if(ready&&alert.version>1)S.alertFlash=true}}
   render();
 }
@@ -658,8 +659,10 @@ async function actAck(){
 async function actStart(){
   const {retest:rt}=client.activeCase();if(!rt||S.busy.start)return;
   S.err.start=null;
+  // starting = astronaut acknowledges the request (hud.ack); contracts v1 has no separate "accept" event
   if(rt.status!=='accepted'){S.busy.start=true;render();const r=await client.respond(rt.retestId,'accept');S.busy.start=false;
     if(!r.ok){S.err.start=errText(r.error);render();return}}
+  delete LOCAL.aborted[keyOfRt(rt)];
   beginCollect(client.activeCase().retest);
 }
 function beginCollect(rt){
@@ -673,7 +676,8 @@ function beginCollect(rt){
 async function actAbort(){
   const {retest:rt}=client.activeCase();if(!rt||S.phase!=='collecting'||S.busy.abort)return;
   S.busy.abort=true;render();const r=await client.respond(rt.retestId,'abort','Aborted by astronaut');S.busy.abort=false;
-  if(r.ok){S.phase='idle';S.collectToken++;delete LOCAL.collect[keyOfRt(rt)];saveLocal();S.err.abort=null}else S.err.abort=errText(r.error);
+  // contracts v1 has no abort event: the capture is discarded locally and nothing is uploaded
+  if(r.ok){S.phase='idle';S.collectToken++;delete LOCAL.collect[keyOfRt(rt)];LOCAL.aborted[keyOfRt(rt)]=1;saveLocal();S.err.abort=null;log('Retest aborted locally; nothing uploaded')}else S.err.abort=errText(r.error);
   render();
 }
 async function actDefer(){
@@ -724,7 +728,7 @@ function progressLoop(){
 
 /* ================= render (base state -> HUD) ================= */
 const fmtT=iso=>{if(!iso)return '—';const d=new Date(iso);return isNaN(d)?'—':d.toISOString().slice(11,19)+' UTC'};
-const RT_LABEL={requested:'Not started',accepted:'In progress',deferred:'Deferred',aborted:'Aborted · can restart',received:'Result received by base',reassessing:'Awaiting reassessment',completed:'Completed'};
+const RT_LABEL={requested:'Not started',accepted:'In progress',deferred:'Deferred',aborted:'Aborted · can restart',submitted:'Result submitted · awaiting station receipt',reassessing:'Received · awaiting reassessment',rejected:'Result rejected by station',completed:'Completed'};
 const AL_LABEL={published:'Published',reassessed:'Reassessed',closed:'Closed'};
 const DEFER_REASONS=['Patrol task in progress','Environment not suitable','Suit or equipment needs checking','Need to recover energy'];
 function statusLine(st,alert,rt,res,loc){
@@ -739,7 +743,7 @@ function statusLine(st,alert,rt,res,loc){
     if(res==='persisted'||res==='received')return ['Base received retest result','run'];
     if(res==='reassessing')return ['Awaiting base reassessment','run'];
     if(res==='completed')return ['Reassessment delivered · pending medical review','ok'];
-    if(rt.status==='requested')return ['Base recommends in-habitat retest · '+site,'amber',true];
+    if(rt.status==='requested')return ['Base recommends '+(rt.inHabitat?'in-habitat ':'')+'retest · '+site,'amber',true];
     if(rt.status==='accepted'&&loc&&loc.phase==='collected')return ['Retest captured · result ready to submit','amber'];
     if(rt.status==='deferred')return ['Retest deferred · synced with base','',true];
     if(rt.status==='aborted')return ['Retest aborted · can restart','',true];
@@ -748,7 +752,9 @@ function statusLine(st,alert,rt,res,loc){
   return ['Auto-monitoring · last sync '+fmtT(mon.lastAckAt||st.lastSync),'ok'];
 }
 function render(){
-  const st=client.state,{alert,retest:rt}=client.activeCase(),res=client.resultStatus(rt),up=client.upload(rt);
+  const st=client.state,{alert}=client.activeCase();let rt=client.activeCase().retest;
+  if(rt&&rt.status==='accepted'&&LOCAL.aborted[keyOfRt(rt)])rt={...rt,status:'aborted'};   // local abort (no protocol event)
+  const res=client.resultStatus(rt),up=client.upload(rt);
   const loc=rt?LOCAL.collect[keyOfRt(rt)]:null,online=st.conn==='online';
   // connection + data time
   const ct={online:'<span class="t-ok">● Online</span>',connecting:'<span class="t-warn">◌ Connecting</span>',reconnecting:'<span class="t-warn">◌ Reconnecting</span>',offline:'<span class="t-bad">✕ Offline</span>',idle:'—'}[st.conn]||st.conn;
@@ -787,12 +793,12 @@ function render(){
   // retest card
   const rc=$('rcard');rc.classList.toggle('show',!!rt);
   if(rt){
-    $('rcTitle').textContent='📡 Base retest '+rt.retestId+' · Round '+rt.round;
-    const dl='<dl><dt>Status</dt><dd>'+esc(RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.id)+' v'+esc(rt.protocol.version)+'</dd><dt>Site</dt><dd>'+esc(rt.bodySite)+'</dd><dt>Action</dt><dd>'+esc(rt.action)+'</dd><dt>Valid until</dt><dd>'+fmtT(rt.validUntil)+'</dd><dt>Case</dt><dd>'+esc(rt.alertId)+'</dd></dl>';
+    $('rcTitle').textContent='📡 Base retest · Round '+rt.round;
+    const dl='<dl><dt>Status</dt><dd>'+esc(RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.id)+' · '+esc(rt.protocol.posture)+'</dd><dt>Site</dt><dd>'+esc(rt.bodySite)+'</dd><dt>Action</dt><dd>'+esc(rt.action)+'</dd><dt>Instructions</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>';
     const err=k=>S.err[k]?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">'+esc(S.err[k])+'</p>':'';
     let h;
     if(rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])
-      h='<p style="margin:0 0 4px;color:#ffe0a8">The base recommends returning to the habitat for one standardized retest of <b>'+esc(rt.bodySite)+'</b> to verify '+esc(rt.alertId)+'. Auto-monitoring keeps running.</p><div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>';
+      h='<p style="margin:0 0 4px;color:#ffe0a8">The base recommends returning to the habitat for one standardized retest of <b>'+esc(rt.bodySite)+'</b> to verify this case. Auto-monitoring keeps running.</p><div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>';
     else if(res==='completed'){
       h=dl+'<p style="margin:4px 0 0;color:#cfefff"><span class="lab">Final</span>'+esc(alert&&alert.disposition||'Reassessed')+'</p>'
         +'<p class="ver">'+(alert&&alert.status==='closed'?'Case closed by base':'Submitting a result does not close the case · pending medical review')+'</p>';
@@ -804,8 +810,8 @@ function render(){
     else if(rt.status==='accepted'&&loc&&loc.phase==='collecting')
       h=dl+'<p style="color:#ffe0a8;margin:4px 0 0">Capture was interrupted (page reload or disconnect). Please capture again.</p><div class="btns"><button id="bRecollect" class="go">↻ Capture again</button></div>';
     else if(rt.status==='accepted'&&loc&&loc.phase==='collected'){
-      const ms=SAMPLE?SAMPLE.metrics.map(m=>'<dt>'+esc(m.label||m.name)+'</dt><dd>'+esc(m.value)+' '+esc(m.unit)+'</dd>').join(''):'';
-      h='<div class="simres"><span class="tag" style="color:var(--warn)">SIMULATED</span> <span class="ver">'+esc(SAMPLE?SAMPLE.sampleId:'sample not loaded')+' · Protocol '+esc(rt.protocol.id)+' v'+esc(rt.protocol.version)+'</span><dl>'+ms+'</dl></div>'
+      const ms=SAMPLE?('<dt>Duration</dt><dd>'+esc(SAMPLE.signal.durationS)+' s</dd><dt>Median freq.</dt><dd>'+esc(SAMPLE.features.medianFreqHz)+' Hz</dd><dt>RMS</dt><dd>'+esc(SAMPLE.features.rmsPctMvc)+' %MVC</dd><dt>Signal</dt><dd>'+esc(SAMPLE.signal.sampleRateHz)+' Hz · '+esc(SAMPLE.signal.electrodeImpedanceKOhm)+' kΩ</dd>'):'';
+      h='<div class="simres"><span class="tag" style="color:var(--warn)">SIMULATED</span> <span class="ver">'+esc(SAMPLE?SAMPLE.sampleId:'sample not loaded')+' · Protocol '+esc(rt.protocol.id)+'</span><dl>'+ms+'</dl></div>'
         +(res==='rejected'?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">Rejected by base: '+esc(up&&up.error)+'</p>':'')
         +'<div class="btns"><button id="bSubmit" class="go"'+(SAMPLE?'':' disabled')+'>Submit simulated retest result</button></div>'+err('submit');
     }else{
@@ -824,7 +830,7 @@ function render(){
   }
 
   // left-thigh card: published findings before / after reassessment
-  const hist=alert?(st.alertHistory[alert.alertId]||[]):[],after=!!(alert&&alert.version>1),lc=$('legCard');
+  const hist=alert?alert.history:[],after=!!(alert&&alert.version>1),lc=$('legCard');
   $('thigh').classList.toggle('after',after);$('legTip').hidden=!!S.legOpen;lc.hidden=!S.legOpen;lc.className=after?'after':'';
   lc.innerHTML='<div class="k">'+esc(rt?rt.bodySite:'Left thigh')+'</div>'
     +(after?'<div class="now">✓ '+esc(alert.finding)+'</div><div class="was">'+esc(hist[0]&&hist[0].finding)+'</div>'
@@ -839,12 +845,12 @@ function render(){
     const pos=res==='pending'?(online?75:50):100;d.className='pk'+(res==='pending'&&!online?' cached':'')+(res==='rejected'?' poor':'');d.style.left=pos+'%'}
   else if(d)d.remove();
   $('bstatL').textContent=rt?(rt.retestId+' · Round '+rt.round+' · '+(RT_LABEL[rt.status]||rt.status)):'No retest task';
-  $('bstatR').textContent='Cursor '+st.cursor+' · dedup '+st.duplicates;
+  $('bstatR').textContent='Seq '+st.lastSeq+' · dedup '+st.duplicates;
   $('log').innerHTML=S.log.join('<br>');
 }
 
 /* ================= wiring ================= */
-$('bStart').onclick=()=>{$('intro').remove();started=true;render()};
+$('bStart').onclick=()=>{$('intro').remove();started=true;client.ensureRun();render()};
 $('bLink').onclick=()=>{if(client.state.conn==='offline')client.reconnect();else client.disconnect()};
 $('bClear').onclick=()=>{client.stop();client.clearLocal();localStorage.removeItem('myomars.hud.ui');location.reload()};
 $('edge').onclick=e=>{if(e.target.closest('#bLocate'))locateBase()};
