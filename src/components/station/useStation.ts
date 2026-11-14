@@ -12,7 +12,7 @@ export function useStation(adapter: StationAdapter, { stageDelayMs = 1100 }: { s
   const [ctl] = useState(() => new StationController(adapter, stageDelayMs));
   useEffect(() => ctl.attach(), [ctl]);
   const { state, lastError } = useSyncExternalStore(ctl.subscribe, ctl.getSnapshot, ctl.getSnapshot);
-  return { state, lastError, review: ctl.review, resend: ctl.resend };
+  return { state, lastError, review: ctl.review, resend: ctl.resend, view: ctl.view };
 }
 
 export type StationApi = ReturnType<typeof useStation>;

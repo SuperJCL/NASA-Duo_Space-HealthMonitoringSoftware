@@ -11,6 +11,7 @@
 // - No diagnosis, no treatment, no automatic task restriction.
 // All thresholds, baselines and data are DEMO VALUES (not clinical, not validated).
 
+import type { HudReport } from "./local-protocol";
 import type { Observation, Protocol } from "./protocol";
 
 export const STAGES = [
@@ -48,7 +49,7 @@ export const DEMO_RULES = Object.freeze({
 export type Evidence = { label: string; value: string; ok: boolean | null; note?: string };
 export type StageResult = { id: StageId; status: StageStatus; summary: string; evidence: Evidence[] };
 
-export type Outcome = "within-baseline" | "single-feature" | "change-beyond-baseline" | "quality-blocked" | "not-comparable" | "analysis-failed";
+export type Outcome = "within-baseline" | "single-feature" | "change-beyond-baseline" | "quality-blocked" | "not-comparable" | "analysis-failed" | "report-received";
 
 export type Candidate =
   | { kind: "record-only"; title: string; rationale: string }
@@ -79,7 +80,66 @@ export function inputKey(o: Observation, b: Baseline): string {
 }
 
 function standardRetest(b: Baseline, why: string): { protocol: Protocol; instructions: string } {
-  return { protocol: b.protocol, instructions: `${why}按标准协议「${b.protocol.label}」复测一次（${b.protocol.targetPctMvc}% MVC，${postureText(b.protocol.posture)}，${b.protocol.glove === "eva-glove" ? "佩戴 EVA 手套" : "不戴手套"}）。` };
+  return standardTask(b.protocol, why, "复测一次");
+}
+function standardTask(p: Protocol, why: string, what: string): { protocol: Protocol; instructions: string } {
+  return { protocol: p, instructions: `${why}按标准协议「${p.label}」${what}（${p.targetPctMvc}% MVC，${postureText(p.posture)}，${p.glove === "eva-glove" ? "佩戴 EVA 手套" : "不戴手套"}）。` };
+}
+
+/**
+ * The astronaut's OWN REPORT from the HUD (local mock extension). A report is checked, never
+ * treated as a diagnosis, and never discarded because sensor data is missing or invalid. There is
+ * no new measurement, so no sEMG comparison is made: the sensor step only states what the latest
+ * measurement can (or cannot) tell, and the candidate asks for a standardised measurement.
+ * Stage ids are reused: quality = report check, context = sensor data, features = not run.
+ */
+export function analyseReport(r: HudReport, latestMeasurement: { observation: Observation; result: AnalysisResult; at: string } | null, protocol: Protocol | null): AnalysisResult {
+  const at = (iso: string) => new Date(iso).toISOString().slice(11, 16) + " UTC";
+  const valid = latestMeasurement && ["within-baseline", "single-feature", "change-beyond-baseline"].includes(latestMeasurement.result.outcome);
+  const stages: StageResult[] = [
+    {
+      id: "quality",
+      status: "done",
+      summary: `宇航员报告：“${r.text}”${r.request ? `；请求：${r.request}` : ""}。自述不是诊断，按流程核查。`,
+      evidence: [
+        { label: "报告内容", value: r.text, ok: null },
+        { label: "请求", value: r.request ?? "无", ok: null },
+        { label: "报告时间", value: at(r.reportedAt), ok: null },
+      ],
+    },
+    {
+      id: "context",
+      status: valid ? "done" : "blocked",
+      summary: !latestMeasurement
+        ? "该宇航员本轮没有测量数据：无法用传感器核对报告，不作肌电分析。"
+        : valid
+          ? `最近一次有效测量（${at(latestMeasurement.at)}）：${latestMeasurement.result.headline}。仅作参考，不能证实或否定自述。`
+          : `最近一次测量（${at(latestMeasurement.at)}）无效：${latestMeasurement.result.headline}。无法用传感器核对报告，不作肌电分析。`,
+      evidence: [{ label: "最近测量", value: latestMeasurement ? `${at(latestMeasurement.at)} · ${latestMeasurement.result.headline}` : "无", ok: valid ? true : false }],
+    },
+    { id: "features", status: "skipped", summary: "未进行指标比较：报告本身不是测量，需要一次标准化测量。", evidence: [] },
+  ];
+  const candidate: Candidate = protocol
+    ? {
+        kind: "notice-and-retest",
+        title: "回复宇航员并安排一次标准化测量",
+        rationale: "自述需要用标准化测量核查；报告本身不是诊断。",
+        notice: { text: "基地提示（模拟）：基地已收到你的报告。请在下一次停顿时按标准协议完成一次测量，便于基地核查；如情况变化请随时报告。" },
+        retest: standardTask(protocol, "休息后，", "测量一次"),
+      }
+    : { kind: "record-only", title: "记录报告（缺少个体基线，无法安排标准测量）", rationale: "由基地人员直接处理。" };
+  stages.push({ id: "recommendation", status: "done", summary: `生成待审候选：${candidate.title}。`, evidence: [{ label: "候选类型", value: candidate.kind, ok: null, note: "须经基地人员审核后才可发布" }] });
+  return {
+    inputKey: `report:${r.reportId}:${latestMeasurement?.observation.observationId ?? "none"}`,
+    stages,
+    outcome: "report-received",
+    alert: "watch",
+    headline: "宇航员主动报告，待核查",
+    conclusion: "宇航员自述不是诊断。基地人员根据报告内容决定是否安排标准化测量；传感器数据的限制见“传感器数据”一步。",
+    limitations: ["自述不能直接作为诊断依据。", "没有新的测量时不作肌电分析。", ...COMMON_LIMITS],
+    comparisons: [],
+    candidate,
+  };
 }
 const postureText = (p: Protocol["posture"]) => ({ standing: "站姿", kneeling: "跪姿", seated: "坐姿" })[p];
 

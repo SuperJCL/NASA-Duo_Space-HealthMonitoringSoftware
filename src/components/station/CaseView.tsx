@@ -133,6 +133,14 @@ function Comparison({ c }: { c: Case }) {
   const view = comparisonView(c);
   const ev = latest(c);
   const o = ev.observation;
+  if (!o) {
+    return (
+      <section aria-labelledby="station-baseline-title" data-testid="station-baseline" data-view="report">
+        <h3 id="station-baseline-title" className="text-[13px] font-semibold">{"测量与个体基线比较"}</h3>
+        <p className="mt-0.5 text-[12px] text-[var(--mg-dim)]">{"本轮是宇航员报告核查，没有新的测量数据，不作指标比较。"}</p>
+      </section>
+    );
+  }
   const p = o.protocol;
   return (
     <section aria-labelledby="station-baseline-title" data-testid="station-baseline" data-view={view.kind}>

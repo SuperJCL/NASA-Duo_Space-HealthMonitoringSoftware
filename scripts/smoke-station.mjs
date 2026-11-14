@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Browser smoke test for the MyoMars base station (/), a health-event workbench, in standalone
+ * Browser smoke test for the PREVIOUS MyoMars station workbench (/legacy/workbench), in standalone
  * mode (local mock adapter).
  *
  *   BASE_URL=http://localhost:3000 node scripts/smoke-station.mjs
@@ -12,6 +12,8 @@
 import { chromium } from "playwright";
 
 const ORIGIN = process.env.BASE_URL ?? "http://localhost:3000";
+/** The previous three-column workbench (the default entry / is now the crew overview: scripts/smoke-crew.mjs). */
+const PAGE = "/legacy/workbench";
 const SHOT_DIR = process.env.SHOT_DIR ?? null;
 const VIEW = { width: 1440, height: 900 };
 const failures = [];
@@ -72,9 +74,9 @@ try {
   p.on("console", (m) => m.type() === "error" && errors.push(m.text()));
 
   // ---------- Entry ----------
-  await p.goto(ORIGIN + "/", { waitUntil: "domcontentloaded" });
+  await p.goto(ORIGIN + PAGE, { waitUntil: "domcontentloaded" });
   await p.getByTestId("station").waitFor();
-  check((await p.title()) === "MyoMars · 火星基站", "/ is the MyoMars base station");
+  check((await p.title()) === "MyoMars · 基站（旧版三栏工作台）", "/legacy/workbench is the previous station workbench");
   check((await text(p.getByTestId("station-sim-pill"))) === "模拟数据 / 模拟分析", "header always shows 模拟数据 / 模拟分析");
   check(/独立演示/.test(await text(p.getByTestId("station-link"))) && (await attr(p, "station", "data-link-mode")) === "standalone-mock", "link status says standalone demo (mock adapter)");
   check((await p.getByTestId("mars-map").count()) === 0 && (await p.getByTestId("mg-mode-route").count()) === 0, "no map and no EVA route tab on the station");
@@ -83,7 +85,7 @@ try {
   check((await flow(p)) === expectFlow("waiting") && (await text(p.getByTestId("station-stage-title"))) === "等待场景开始", "flow: before the scenario, step 1 current and nothing to do");
 
   // ---------- Normal fixture ----------
-  await p.goto(ORIGIN + "/?dev=1", { waitUntil: "domcontentloaded" });
+  await p.goto(ORIGIN + PAGE + "?dev=1", { waitUntil: "domcontentloaded" });
   await p.getByTestId("station-dev").waitFor();
   await dev(p, "dev-start");
   check(/EV1/.test(await text(p.getByTestId("station-crew"))), "astronaut shown after scenario.start");
@@ -296,7 +298,7 @@ try {
 
   // ---------- Phone ----------
   const mp = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: SHOT_DIR ? 2 : 1 });
-  await mp.goto(ORIGIN + "/?dev=1", { waitUntil: "domcontentloaded" });
+  await mp.goto(ORIGIN + PAGE + "?dev=1", { waitUntil: "domcontentloaded" });
   await dev(mp, "dev-start");
   await dev(mp, "dev-obs-change");
   await dev(mp, "station-dev-toggle");

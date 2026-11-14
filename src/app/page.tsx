@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Station } from "@/components/station/Station";
+import { CrewStation } from "@/components/station/crew/CrewStation";
 
 export const metadata: Metadata = {
   title: "MyoMars · 火星基站",
-  description: "MyoMars base station demo: health-event workbench with simulated observations, simulated (rule-based) analysis, human review, HUD dispatch and retest management. Not a medical device.",
+  description: "MyoMars base station demo: crew overview, alerts, and a per-astronaut analysis and communication panel (simulated observations, rule-based simulated analysis, human review, HUD dispatch, retest and re-evaluation). Not a medical device.",
 };
 
 /**
- * Default entry point on the MyoMars branch: the base station (health-event workbench), built
- * with the Mission Glass visual system. The previous Mission Glass page (with its map and EVA
- * route view) is kept at /legacy/mission-glass; the research workspace is at /research.
+ * Default entry point on the MyoMars branch: the base station crew overview. The previous
+ * three-column workbench is kept at /legacy/workbench; Mission Glass (map, EVA route) at
+ * /legacy/mission-glass; the research workspace at /research.
  */
 export default function StationPage() {
-  return <Station />;
+  return <CrewStation />;
 }

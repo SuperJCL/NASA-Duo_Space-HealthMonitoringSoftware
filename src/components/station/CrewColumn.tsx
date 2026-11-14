@@ -12,9 +12,9 @@ export function CrewColumn({ state, selectedId, onSelect }: { state: StationStat
   const minutes =
     cases
       .flatMap((c) => c.evaluations)
-      .filter((e) => e.observation.context.minutesIntoEva !== null)
+      .filter((e) => e.observation && e.observation.context.minutesIntoEva !== null)
       .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-      .at(-1)?.observation.context.minutesIntoEva ?? null;
+      .at(-1)?.observation?.context.minutesIntoEva ?? null;
   const open = cases.filter((c) => c.phase !== "closed").length;
   return (
     <nav aria-label="宇航员与事件" className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4" data-testid="station-left">

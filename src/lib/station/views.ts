@@ -25,6 +25,7 @@ export function comparisonView(c: Case): ComparisonView {
   if (comparable(before) && comparable(after)) {
     return { kind: "paired", before, after, rows: before.result.comparisons.map((b) => ({ before: b, after: after.result.comparisons.find((x) => x.key === b.key)! })) };
   }
+  if (before.trigger === "report") return { kind: "separate", before, after, why: `v${before.version} 是宇航员报告核查（不是测量），不与 v${after.version} 的测量数值比较，也不计算变化幅度。` };
   const which = [!comparable(before) ? `v${before.version}` : null, !comparable(after) ? `v${after.version}` : null].filter(Boolean).join("、");
   return { kind: "separate", before, after, why: `${which} 未通过质量或可比性检查，两次测量不直接比较数值，也不计算变化幅度。` };
 }
@@ -68,11 +69,12 @@ const OUTCOME: Record<AnalysisResult["outcome"], { text: string; tone: Tone }> =
   "quality-blocked": { text: "采集质量不合格", tone: "caution" },
   "not-comparable": { text: "条件不可比", tone: "caution" },
   "analysis-failed": { text: "分析失败", tone: "caution" },
+  "report-received": { text: "宇航员报告，待核查", tone: "caution" },
 };
 
 /** LATEST EVALUATION result (one measurement), independent of whether the case is still open. */
 export function evaluationStatus(ev: Evaluation): { label: string; tone: Tone } {
-  const name = `最新评估 v${ev.version}${ev.trigger === "retest" ? "（复测）" : ""}`;
+  const name = `最新评估 v${ev.version}${ev.trigger === "retest" ? "（复测）" : ev.trigger === "report" ? "（报告核查）" : ""}`;
   if (ev.completedAt === null) return { label: `${name}：分析中`, tone: "neutral" };
   return { label: `${name}：${OUTCOME[ev.result.outcome].text}`, tone: OUTCOME[ev.result.outcome].tone };
 }

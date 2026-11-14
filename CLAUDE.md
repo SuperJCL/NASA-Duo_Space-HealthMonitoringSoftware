@@ -105,11 +105,22 @@
   the current `stateVersion` and never change numbers. Keep the provenance
   headers of the files derived from Sol Atlas. MAP-2 sequence lines stay
   conceptual and are not replaced by these routes.
-- `src/lib/station/`, `src/components/station/` — MyoMars base station (`/`),
-  a health-event workbench (left: astronaut and real events; centre: summary,
-  analysis, evidence; right: the action for the event's current stage). No
-  map and no EVA route view on the station (they stay in
-  `/legacy/mission-glass`). A SIMULATED demo (`docs/myomars/CONTRACTS.md`; v0 history in `docs/station-integration.md`).
+- `src/lib/station/`, `src/components/station/` — MyoMars base station (`/`):
+  crew overview (one card per astronaut; device connection, data validity and
+  event status are separate statements, no "health light"; no valid data →
+  "无法评估") → clickable alerts (no sound, no auto-open, no focus stealing) →
+  near-full-screen person panel (`crew/PersonPanel.tsx`: analysis chain and
+  process on the left, structured message stream on the right; closing it
+  changes nothing). The flow is DERIVED from recorded state (`flow.ts`,
+  `crew.ts`, `comms.ts`); animations and replays are presentation only and
+  never drive a business step. The local demo (`demo.ts`, drawer) only reacts
+  to messages the station already sent and never decides for base staff.
+  Crew roster, device status and HUD reports are LOCAL mock extensions
+  (`local-protocol.ts`, schema `myomars/v1-local`, proposals in
+  `docs/myomars/STATION-LOCAL-PROPOSALS.md`), never added to the shared
+  contracts without the team. The previous three-column workbench is kept at
+  `/legacy/workbench`. No map and no EVA route view on the station (they stay
+  in `/legacy/mission-glass`). A SIMULATED demo (`docs/myomars/CONTRACTS.md`; v0 history in `docs/station-integration.md`).
   Adapter hand-off, HUD receipt and astronaut confirmation are separate
   statuses and are never inferred from one another. Every view keeps the
   "模拟数据 / 模拟分析" label. The "LLM analysis" is a deterministic rule

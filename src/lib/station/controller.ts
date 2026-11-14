@@ -50,7 +50,7 @@ export class StationController {
 
   dispatch = (action: Action): string | null => {
     const r = step(this.snapshot.state, action);
-    const lastError = action.type === "stage-tick" || action.type === "delivery" ? this.snapshot.lastError : r.error;
+    const lastError = action.type === "stage-tick" || action.type === "delivery" || action.type === "view" ? this.snapshot.lastError : r.error;
     this.snapshot = { state: r.state, lastError };
     for (const e of r.effects) {
       if (e.kind === "cancel-ticks") this.cancelTimers();
@@ -74,6 +74,8 @@ export class StationController {
 
   review = (caseId: string, version: number, decision: Decision, reason: string, reviewer: string) => this.dispatch({ type: "review", caseId, version, decision, reason, reviewer, at: now() });
   resend = (eventId: string) => this.dispatch({ type: "resend", eventId, at: now() });
+  /** Base staff viewed a case (unread counts only; never a confirmation or a close). */
+  view = (caseId: string) => this.dispatch({ type: "view", caseId, at: now() });
 
   private cancelTimers() {
     for (const t of this.timers) clearTimeout(t);

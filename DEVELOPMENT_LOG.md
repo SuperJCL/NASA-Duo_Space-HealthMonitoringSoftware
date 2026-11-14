@@ -3873,3 +3873,59 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - each input is one standardised simulated measurement, not continuous monitoring;
   - grip force is labelled as an independent grip-meter reading, not derived from sEMG;
   - "特征" became "指标" where grip force is included.
+
+## MyoMars base station: crew overview and person panel (interaction prototype)
+
+- **Time (real, UTC):** 2026-11-14. Started after commit `b5b10f4` (21:56:56 UTC). Code ran until
+  about 22:43 UTC; final checks and the commit followed. A flow-canvas draft (`flow.ts`, first
+  `demo.ts`) was started at the request just before and is reused here.
+- **What changed:** the interaction model only. The protocol, analysis rules, state machine,
+  review rules and mock adapter are reused. The interaction is now crew overview → alerts →
+  person panel → back to overview.
+  - Home page (`/`, `crew/CrewStation.tsx`): one card per simulated astronaut. Device connection,
+    data validity ("无法评估" without valid data) and event status are separate statements.
+    Cards show open, needs-base and unread counts. A border pulses once per new message (keyed by
+    eventId; never with reduced motion), and a stable marker stays. A clickable top notification
+    appears. There is no sound and no auto-open.
+  - Person panel (`crew/PersonPanel.tsx`):
+    - layout: analysis chain and process (2/3) and a structured message stream with the current
+      status (1/3);
+    - top facts: where the data is, why it stops there, who acts;
+    - the decision sits at the current node, with the evidence (indicator range chart, summary
+      indicators only) and a compact confirmation (actual content, execution conditions, editable
+      reason templates, demo reviewer identity);
+    - Esc or collapse keeps everything, including drafts; focus returns to the card;
+    - other astronauts' messages only notify;
+    - per-person event switcher; analysis/communication tabs on phones.
+  - Analysis replay is visual only: no re-analysis, no message, no state change.
+  - Demo drawer (`crew/DemoDrawer.tsx`, labelled local simulation):
+    - astronaut and scenario selection; start, pause, step, reset;
+    - manual simulated HUD inputs, only for messages the station actually sent;
+    - simulated device disconnect (not a pause);
+    - auto HUD feedback, off by default and never past a human approval.
+  - The previous three-column workbench moved unchanged to `/legacy/workbench`; its smoke test
+    follows.
+- **State changes (small, verified):**
+  - crew roster and device status;
+  - report-triggered evaluations (`observation` may be null);
+  - a station-internal `view` record for unread counts;
+  - inbound type on timeline entries.
+- **Contract gaps:** crew roster, device status and HUD reports are not in contracts v1. They are
+  isolated local mock messages (`myomars/v1-local`, `local-protocol.ts`), and proposals are in
+  `docs/myomars/STATION-LOCAL-PROPOSALS.md`. A report check has no contract audit form, so no
+  `station.audit.assessment` is sent for it (open point listed there).
+- **Fixes found while building:**
+  - Esc did not collapse the panel when focus was in the demo drawer;
+  - focus was lost after hiding the drawer;
+  - a quality stop was hidden in a folded row;
+  - notifications kept stale "正在核查" text;
+  - a normal measurement looked like an alarm.
+- **Verification:**
+  - `npm run check`;
+  - station unit tests, including new flow / crew / demo / report tests;
+  - `scripts/smoke-crew.mjs` (`npm run smoke:crew`): 58/58, including keyboard, reduced motion,
+    phone, send failure, deferral, keep watching, quality stop, report, reset and per-person
+    isolation;
+  - `scripts/smoke-station.mjs` on `/legacy/workbench`: 121/121.
+- **Scope:** standalone local mock only. No Trigger / HUD integration, no relay (F2 paused), no
+  teammate page and no shared-contract change.
