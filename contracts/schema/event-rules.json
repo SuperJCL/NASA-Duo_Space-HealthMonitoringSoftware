@@ -5,6 +5,7 @@
     ],
     "needsCaseId": false,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.scenario.start.schema.json"
   },
   "scenario.reset": {
@@ -13,6 +14,7 @@
     ],
     "needsCaseId": false,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.scenario.reset.schema.json"
   },
   "observation.submitted": {
@@ -21,6 +23,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.observation.submitted.schema.json"
   },
   "hud.received": {
@@ -29,6 +32,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.hud.received.schema.json"
   },
   "hud.ack": {
@@ -37,6 +41,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.hud.ack.schema.json"
   },
   "hud.defer": {
@@ -45,6 +50,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.hud.defer.schema.json"
   },
   "retest.completed": {
@@ -53,6 +59,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": true,
+    "status": "proposed-extension",
     "payloadSchema": "payload.retest.completed.schema.json"
   },
   "retest.result": {
@@ -62,6 +69,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": true,
+    "status": "core",
     "payloadSchema": "payload.retest.result.schema.json"
   },
   "station.notice.approved": {
@@ -70,6 +78,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.station.notice.approved.schema.json"
   },
   "station.retest.requested": {
@@ -78,6 +87,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": true,
+    "status": "core",
     "payloadSchema": "payload.station.retest.requested.schema.json"
   },
   "station.receipt": {
@@ -86,6 +96,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.station.receipt.schema.json"
   },
   "station.reassessment": {
@@ -94,6 +105,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "core",
     "payloadSchema": "payload.station.reassessment.schema.json"
   },
   "station.audit.assessment": {
@@ -102,6 +114,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "proposed-extension",
     "payloadSchema": "payload.station.audit.assessment.schema.json"
   },
   "station.audit.review": {
@@ -110,6 +123,7 @@
     ],
     "needsCaseId": true,
     "needsRetestId": false,
+    "status": "proposed-extension",
     "payloadSchema": "payload.station.audit.review.schema.json"
   }
 }

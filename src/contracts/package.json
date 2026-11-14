@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Local module format only: lets Node 22 run these TypeScript files as ES modules without changing the whole repository."
+}

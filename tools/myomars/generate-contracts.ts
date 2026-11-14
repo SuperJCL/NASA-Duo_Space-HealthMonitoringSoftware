@@ -81,7 +81,7 @@ export function scenarios() {
         "station: change beyond the individual baseline; candidate notice + retest, pending human review",
         "station staff approves with a reason → station.notice.approved + station.retest.requested",
         "HUD → hud.received (device) for each, later hud.ack (astronaut) or hud.defer",
-        "HUD → retest.completed; Trigger/HUD → retest.result with the same retestId",
+        "Trigger/HUD → retest.result with the same retestId (complete on its own; HUD → retest.completed is an optional proposed extension)",
         "station → station.receipt (accepted); re-evaluation v2; staff closes or keeps under watch → station.reassessment",
       ],
       Object.fromEntries((Object.keys(RETEST_FIXTURES) as (keyof typeof RETEST_FIXTURES)[]).map((k) => [k, { label: RETEST_FIXTURES[k].label, observation: RETEST_FIXTURES[k].observation(1) }])),
@@ -94,7 +94,7 @@ export function generateContractFiles(): Record<string, string> {
   files["contracts/schema/envelope.schema.json"] = json(schemaOf("envelope", Envelope));
   files["contracts/schema/delivered.schema.json"] = json(schemaOf("delivered", Delivered));
   for (const t of EVENT_TYPES) files[`contracts/schema/payload.${t}.schema.json`] = json(schemaOf(`payload.${t}`, EVENT_RULES[t].payload));
-  files["contracts/schema/event-rules.json"] = json(Object.fromEntries(EVENT_TYPES.map((t) => [t, { publishers: EVENT_RULES[t].roles, needsCaseId: EVENT_RULES[t].caseId, needsRetestId: EVENT_RULES[t].retestId, payloadSchema: `payload.${t}.schema.json` }])));
+  files["contracts/schema/event-rules.json"] = json(Object.fromEntries(EVENT_TYPES.map((t) => [t, { publishers: EVENT_RULES[t].roles, needsCaseId: EVENT_RULES[t].caseId, needsRetestId: EVENT_RULES[t].retestId, status: EVENT_RULES[t].status, payloadSchema: `payload.${t}.schema.json` }])));
   for (const [t, e] of Object.entries(exampleEnvelopes())) files[`contracts/examples/${t}.json`] = json(e);
   for (const [id, s] of Object.entries(scenarios())) files[`contracts/scenarios/${id}.json`] = json(s);
   return files;

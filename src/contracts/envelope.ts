@@ -1,5 +1,5 @@
 // MyoMars shared contracts v1: the message envelope, the event types, and who may send what.
-// Language-neutral form: contracts/schema/*.schema.json (generated) and docs/myomars/PROTOCOL.md.
+// Language-neutral form: contracts/schema/*.schema.json (generated) and docs/myomars/CONTRACTS.md.
 
 import { z } from "zod";
 import {
@@ -33,26 +33,33 @@ export type PublisherRole = (typeof PUBLISHER_ROLES)[number];
 
 export const SessionId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, "lower-case letters, digits and '-', at most 40");
 
-type Rule = { roles: readonly PublisherRole[]; caseId: boolean; retestId: boolean; payload: z.ZodType };
+/**
+ * core: derived from the station's v0 draft, which the station already handles.
+ * proposed-extension: new in v1 and PENDING TEAM CONFIRMATION; nobody has to implement it yet.
+ */
+export type RuleStatus = "core" | "proposed-extension";
+type Rule = { roles: readonly PublisherRole[]; caseId: boolean; retestId: boolean; status: RuleStatus; payload: z.ZodType };
 /**
  * Every event type: who may publish it (checked by the relay against the authenticated role, never
  * against the envelope's `source`), whether it needs a caseId / retestId, and its payload schema.
  */
 export const EVENT_RULES = {
-  "scenario.start": { roles: ["trigger"], caseId: false, retestId: false, payload: ScenarioStart },
-  "scenario.reset": { roles: ["trigger"], caseId: false, retestId: false, payload: ScenarioReset },
-  "observation.submitted": { roles: ["trigger"], caseId: true, retestId: false, payload: Observation },
-  "hud.received": { roles: ["hud"], caseId: true, retestId: false, payload: HudReceived },
-  "hud.ack": { roles: ["hud"], caseId: true, retestId: false, payload: HudAck },
-  "hud.defer": { roles: ["hud"], caseId: true, retestId: false, payload: HudDefer },
-  "retest.completed": { roles: ["hud"], caseId: true, retestId: true, payload: RetestCompleted },
-  "retest.result": { roles: ["trigger", "hud"], caseId: true, retestId: true, payload: RetestResult },
-  "station.notice.approved": { roles: ["station"], caseId: true, retestId: false, payload: NoticePayload },
-  "station.retest.requested": { roles: ["station"], caseId: true, retestId: true, payload: RetestRequestPayload },
-  "station.receipt": { roles: ["station"], caseId: true, retestId: false, payload: ReceiptPayload },
-  "station.reassessment": { roles: ["station"], caseId: true, retestId: false, payload: ReassessmentPayload },
-  "station.audit.assessment": { roles: ["station"], caseId: true, retestId: false, payload: AuditAssessment },
-  "station.audit.review": { roles: ["station"], caseId: true, retestId: false, payload: AuditReview },
+  "scenario.start": { roles: ["trigger"], caseId: false, retestId: false, status: "core", payload: ScenarioStart },
+  "scenario.reset": { roles: ["trigger"], caseId: false, retestId: false, status: "core", payload: ScenarioReset },
+  "observation.submitted": { roles: ["trigger"], caseId: true, retestId: false, status: "core", payload: Observation },
+  "hud.received": { roles: ["hud"], caseId: true, retestId: false, status: "core", payload: HudReceived },
+  "hud.ack": { roles: ["hud"], caseId: true, retestId: false, status: "core", payload: HudAck },
+  "hud.defer": { roles: ["hud"], caseId: true, retestId: false, status: "core", payload: HudDefer },
+  // Optional: retest.result alone completes a retest submission; this only adds "astronaut reports done".
+  "retest.completed": { roles: ["hud"], caseId: true, retestId: true, status: "proposed-extension", payload: RetestCompleted },
+  "retest.result": { roles: ["trigger", "hud"], caseId: true, retestId: true, status: "core", payload: RetestResult },
+  "station.notice.approved": { roles: ["station"], caseId: true, retestId: false, status: "core", payload: NoticePayload },
+  "station.retest.requested": { roles: ["station"], caseId: true, retestId: true, status: "core", payload: RetestRequestPayload },
+  "station.receipt": { roles: ["station"], caseId: true, retestId: false, status: "core", payload: ReceiptPayload },
+  "station.reassessment": { roles: ["station"], caseId: true, retestId: false, status: "core", payload: ReassessmentPayload },
+  // Station traceability records: HUD and Trigger simply ignore them.
+  "station.audit.assessment": { roles: ["station"], caseId: true, retestId: false, status: "proposed-extension", payload: AuditAssessment },
+  "station.audit.review": { roles: ["station"], caseId: true, retestId: false, status: "proposed-extension", payload: AuditReview },
 } as const satisfies Record<string, Rule>;
 export type EventType = keyof typeof EVENT_RULES;
 export const EVENT_TYPES = Object.keys(EVENT_RULES) as EventType[];

@@ -109,7 +109,7 @@
   a health-event workbench (left: astronaut and real events; centre: summary,
   analysis, evidence; right: the action for the event's current stage). No
   map and no EVA route view on the station (they stay in
-  `/legacy/mission-glass`). A SIMULATED demo (`docs/station-integration.md`).
+  `/legacy/mission-glass`). A SIMULATED demo (`docs/myomars/CONTRACTS.md`; v0 history in `docs/station-integration.md`).
   Adapter hand-off, HUD receipt and astronaut confirmation are separate
   statuses and are never inferred from one another. Every view keeps the
   "模拟数据 / 模拟分析" label. The "LLM analysis" is a deterministic rule
@@ -124,6 +124,14 @@
   team protocol, and the station is standalone until a real adapter is
   tested. Do not build the Trigger or HUD here (`?dev=1` is a dev-only
   injector).
+- `src/contracts/`, `contracts/`, `tools/myomars/` — MyoMars shared message
+  contracts v1 (Trigger / HUD / Mars Station), a team PROPOSAL
+  (`docs/myomars/CONTRACTS.md`). Zod sources in erasable TypeScript that Node
+  22 runs directly (the local `package.json` files only set `"type": "module"`
+  for these folders); `contracts/` is GENERATED (`npm run contracts:build`,
+  never edit by hand; `contracts:check` must pass). All data is simulated.
+  Only additive changes within v1; `proposed-extension` types stay optional
+  until the team confirms them. No transport/relay code lives here.
 - `src/data/` — curated JSON evidence records (validated at build time);
   `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 

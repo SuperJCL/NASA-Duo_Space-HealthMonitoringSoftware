@@ -51,6 +51,14 @@ describe("shared contracts v1", () => {
     expect(EVENT_TYPES).toEqual(expect.arrayContaining(["hud.received", "hud.ack", "retest.completed", "retest.result"]));
   });
 
+  it("retest.completed is a proposed extension; retest.result alone carries the whole retest submission", () => {
+    expect(EVENT_RULES["retest.completed"].status).toBe("proposed-extension");
+    expect(EVENT_RULES["retest.result"].status).toBe("core");
+    const r = parseEnvelope(exampleEnvelopes()["retest.result"]);
+    expect(r.ok && r.value.retestId).toBe("case-change-rt1");
+    for (const t of ["scenario.start", "observation.submitted", "hud.received", "hud.ack", "hud.defer", "station.notice.approved", "station.retest.requested", "station.receipt", "station.reassessment"] as const) expect(EVENT_RULES[t].status).toBe("core");
+  });
+
   it("schema identifiers are versioned", () => {
     expect(SCHEMA).toBe("myomars/v1");
     expect(PREVIOUS_SCHEMA).toBe("myomars.station/v0-draft");

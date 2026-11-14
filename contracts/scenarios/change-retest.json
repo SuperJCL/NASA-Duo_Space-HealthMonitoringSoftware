@@ -152,7 +152,7 @@
     "station: change beyond the individual baseline; candidate notice + retest, pending human review",
     "station staff approves with a reason → station.notice.approved + station.retest.requested",
     "HUD → hud.received (device) for each, later hud.ack (astronaut) or hud.defer",
-    "HUD → retest.completed; Trigger/HUD → retest.result with the same retestId",
+    "Trigger/HUD → retest.result with the same retestId (complete on its own; HUD → retest.completed is an optional proposed extension)",
     "station → station.receipt (accepted); re-evaluation v2; staff closes or keeps under watch → station.reassessment"
   ]
 }

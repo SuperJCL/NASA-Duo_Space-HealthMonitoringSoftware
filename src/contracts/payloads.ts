@@ -4,7 +4,7 @@
 //
 // EVERYTHING carried by these messages is SIMULATED demo data. Not medical data.
 //
-// Migration from the station draft (myomars.station/v0-draft, src/lib/station/protocol.ts):
+// Migration from the station draft (myomars.station/v0-draft, on branch feat/myomars-station):
 // the v0 payloads are kept field for field. Additions are optional or new message types:
 // Observation.deviceId and Observation.imu (optional), retest.completed (new),
 // station.audit.assessment / station.audit.review (new), and Zod schemas for the station payloads
@@ -94,7 +94,10 @@ export const HudReceived = z.object({ messageId: Id }).strict();
 export const HudAck = z.object({ messageId: Id, note: z.string().max(500).optional() }).strict();
 /** The astronaut deferred the message (with a reason). */
 export const HudDefer = z.object({ messageId: Id, reason: z.string().min(1).max(500) }).strict();
-/** The astronaut reports the retest as performed (the measurement data comes in retest.result). */
+/**
+ * PROPOSED EXTENSION (pending team confirmation): the astronaut reports the retest as performed.
+ * Optional — retest.result alone is a complete result submission.
+ */
 export const RetestCompleted = z.object({ completedAt: Iso, note: z.string().max(500).optional() }).strict();
 /** Retest measurement data (from the sensor simulator or the HUD). */
 export const RetestResult = z.object({ observation: Observation }).strict();

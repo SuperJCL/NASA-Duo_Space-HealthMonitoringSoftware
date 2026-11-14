@@ -1,8 +1,8 @@
 // MyoMars shared DEMO FIXTURES (simulated). The reproducible Trigger-side inputs every component
 // can test against: the scenario start, four observation scenarios and three retest results.
 // Values are invented for the demo; they are not measurements and carry no clinical meaning.
-// (Moved here from the station's src/lib/station/fixtures.ts so the shared contracts do not depend
-// on station code; the station re-exports them and keeps its individual baselines to itself.)
+// (Shared so the contracts do not depend on any component's code; the Mars Station re-exports them
+// and keeps its individual baselines to itself.)
 
 import type { Observation, Protocol, ScenarioStart } from "./payloads.ts";
 
