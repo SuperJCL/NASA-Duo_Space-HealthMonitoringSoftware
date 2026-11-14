@@ -3929,3 +3929,48 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `scripts/smoke-station.mjs` on `/legacy/workbench`: 121/121.
 - **Scope:** standalone local mock only. No Trigger / HUD integration, no relay (F2 paused), no
   teammate page and no shared-contract change.
+
+## MyoMars base station: data-flow canvas prototype (five nodes + quality branch)
+
+- **Time (real, UTC):** 2026-11-14, after commit `9a01ac2`. Work ran until about 23:25 UTC; the
+  final check, commit and build followed. The exact start time was not recorded.
+- **Why:** user acceptance found no visible data flow. In `9a01ac2` the "unified node-link canvas"
+  had not been implemented. The analysis was shown as vertically stacked rows of step chips. A
+  0.55 s connector fill played only for transitions seen while the panel was open, so starting a
+  scenario and then opening the panel showed only the end state. This was a design gap, not a
+  browser cache problem.
+- **Scope (paused feature work):** a visual prototype only. Home page and business logic unchanged.
+- **Canvas** (`src/lib/station/canvas.ts`, `crew/FlowCanvas.tsx`):
+  - one SVG node-link graph with fixed positions and arrowheads:
+    设备 → 设备数据 → 质量检查 → 条件核对 → 指标比较 → 等待基地审核;
+  - labelled branches 质量不合格 / 条件不可比 → 检查设备 / 重新测量 → 建议待审核 → 等待基地审核;
+  - nodes show only name, state and one result line; details (input, output, evidence) open on
+    click; the review node's detail holds the existing decision buttons;
+  - a data marker with a short data summary moves along the edge actually taken; the node then
+    shows 处理中 with a progress bar, then its result; the output moves on;
+  - a quality failure takes the branch, and the normal nodes and edges become 未执行;
+  - at 等待基地审核 the transfer stops.
+- **Honesty gate:** `canvasPlan` comes from the evaluation's fixed result. Every node result has
+  `needs`, compared with the station's revealed progress (`businessProgress`). The picture may lag
+  (labelled) but never leads, and it invents no data, results or receipts.
+- **Replay and pacing:**
+  - live vs 可视化回放 are labelled separately, with play/pause, speed (0.5×–2×) and restart; a
+    replay only re-draws;
+  - reduced motion keeps direction, order and results with no moving marker;
+  - display pacing at 1×: 0.7 s per edge, about 1.6 s per node;
+  - the crew page's simulated-analysis pacing is now 2.6 s per stage (display pacing, not an
+    algorithm's duration).
+- **Missed animations:** the demo drawer offers "打开面板并播放示例" (normal path / quality-failure
+  path). It resets the demo, opens the panel first, then sends the data. After a start the drawer
+  collapses into a compact bar; the message stream is collapsible (collapsed by default).
+- **Build identifier:** `next.config.ts` embeds the commit (with `-dirty` when there are uncommitted
+  tracked changes) and the start/build time. The header shows it, plus "开发模式" under `next dev`.
+- **Not yet on the graph:** review outcome, dispatch, HUD feedback, retest and handling. They stay
+  operable in a collapsible "后续流程" section and join the graph after the user confirms the five
+  nodes.
+- **Verification:**
+  - station unit tests, including new canvas-plan and gating tests;
+  - `scripts/smoke-crew.mjs` against `next dev`: 63/63, including the moving marker, the review
+    stop, the quality branch with skipped edges, and replay pause with no business change;
+  - two screen recordings (normal path, quality-failure path), checked frame by frame for marker
+    motion.

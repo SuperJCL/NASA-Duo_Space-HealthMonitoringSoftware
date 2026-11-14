@@ -171,6 +171,14 @@ export class DemoDirector {
     this.reconsider();
   };
 
+  /** Start the chosen scenario in a FRESH demo run (any current run is reset first). */
+  playExample = (astronautId: string, scenario: DemoScenario) => {
+    this.reset();
+    // The station already ended the run; do not wait for the next state update to know it.
+    if (this.state) this.state = { ...this.state, run: null };
+    this.launch(astronautId, scenario);
+  };
+
   /** Manual simulated HUD input for a case (a direct user action: not affected by pause). Returns false when nothing applies. */
   hud = (caseId: string, kind: HudInput): boolean => {
     if (!this.state) return false;

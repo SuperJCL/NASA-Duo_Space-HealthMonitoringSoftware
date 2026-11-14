@@ -9,6 +9,8 @@ import { caseStatus, evaluationStatus } from "@/lib/station/views";
 import type { StationApi } from "../useStation";
 import { elapsed, duration, prefersReducedMotion, useNow, useOnceAnimation, usePageVisible } from "./motion";
 import { NotificationBar, TONE_BORDER, TONE_TEXT } from "./Overview";
+import { FlowCanvas } from "./FlowCanvas";
+import { businessProgress, canvasPlan, type CanvasNodeId } from "@/lib/station/canvas";
 
 type Props = {
   state: StationState;
@@ -23,6 +25,8 @@ type Props = {
   others: Notice[];
   onSwitch: (astronautId: string, caseId: string) => void;
   reviewer: string;
+  /** Leave room at the bottom for the compact demo control bar. */
+  bottomGap?: boolean;
 };
 
 const STATE_STYLE: Record<NodeState | "replay", string> = {
@@ -63,6 +67,7 @@ export function PersonPanel(p: Props) {
   const c = p.caseId ? state.cases[p.caseId] : null;
   const flow = c ? buildFlow(state, c, { mock }) : null;
   const [tab, setTab] = useState<"analysis" | "comms">("analysis");
+  const [commsOpen, setCommsOpen] = useState(false);
   const [confirm, setConfirm] = useState<{ decision: Decision; trigger: HTMLElement | null } | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -96,7 +101,7 @@ export function PersonPanel(p: Props) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="person-panel-title"
-      className="fixed inset-2 z-40 flex flex-col overflow-hidden rounded-2xl border border-[var(--mg-line-strong)] bg-[var(--mg-bg)] shadow-2xl sm:inset-3"
+      className={`fixed inset-x-2 top-2 z-40 flex flex-col overflow-hidden rounded-2xl border border-[var(--mg-line-strong)] bg-[var(--mg-bg)] shadow-2xl sm:inset-x-3 sm:top-3 ${p.bottomGap ? "bottom-14" : "bottom-2 sm:bottom-3"}`}
       data-testid="person-panel"
       data-astronaut={astronautId}
       data-case={caseId ?? ""}
@@ -132,6 +137,11 @@ export function PersonPanel(p: Props) {
             </div>
           ) : null}
           <span className="rounded-full border border-[var(--mg-coral)] px-2 py-0.5 text-[11px] font-semibold text-[var(--mg-coral)]">{"模拟数据 / 模拟分析"}</span>
+          {c ? (
+            <button type="button" onClick={() => setCommsOpen((o) => !o)} aria-expanded={commsOpen} className="hidden min-h-9 rounded-lg border border-[var(--mg-line-strong)] px-3 text-[13px] lg:block" data-testid="panel-comms-toggle">
+              {commsOpen ? "收起通信记录" : `通信记录（${commStream(state, c, { mock }).length}）`}
+            </button>
+          ) : null}
           <button ref={closeRef} type="button" onClick={p.onClose} className="min-h-9 rounded-lg border border-[var(--mg-line-strong)] px-3 text-[13px]" data-testid="panel-close">
             {"收起，返回总览（Esc）"}
           </button>
@@ -157,18 +167,21 @@ export function PersonPanel(p: Props) {
       </div>
 
       {c && flow ? (
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div className={`grid min-h-0 flex-1 grid-cols-1 ${commsOpen ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}`}>
           <section aria-label="数据与分析链路" className={`${tab === "comms" ? "hidden lg:flex" : "flex"} min-h-0 flex-col gap-3 overflow-y-auto p-4`} data-testid="panel-analysis">
             <Facts c={c} flow={flow} />
-            <Track key={c.caseId} c={c} flow={flow} now={now} onDecide={(decision, trigger) => setConfirm({ decision, trigger })} onResend={p.api.resend} />
+            <CanvasSection c={c} flow={flow} callsign={card?.callsign ?? astronautId} now={now} onDecide={(decision, trigger) => setConfirm({ decision, trigger })} onResend={p.api.resend} />
           </section>
-          <section aria-label="通信与当前操作" className={`${tab === "analysis" ? "hidden lg:flex" : "flex"} min-h-0 flex-col gap-3 border-t border-[var(--mg-line)] p-4 lg:border-l lg:border-t-0`} data-testid="panel-comms">
+          <section aria-label="通信与当前操作" className={`${tab === "analysis" ? "hidden" : "flex"} ${commsOpen ? "lg:flex" : "lg:hidden"} min-h-0 flex-col gap-3 border-t border-[var(--mg-line)] p-4 lg:border-l lg:border-t-0`} data-testid="panel-comms">
             <CurrentCard flow={flow} now={now} />
             <CommList items={commStream(state, c, { mock })} />
           </section>
         </div>
       ) : (
-        <div className="flex flex-1 items-center justify-center p-6 text-[14px] text-[var(--mg-dim)]">{"该宇航员当前没有事件。设备观测或宇航员报告到达后，这里会自动显示分析与通信。"}</div>
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4" data-testid="panel-waiting">
+          <p className="text-[14px] text-[var(--mg-dim)]">{"该宇航员当前没有事件。设备数据或宇航员报告到达后，分析会在下图中自动开始。"}</p>
+          <FlowCanvas key="waiting" steps={[]} progress={0} sourceLabel={`${(card?.callsign ?? astronautId).replace(/（.*）/, "")} 设备`} startAtEnd={false} waitingText="等待设备数据…" renderDetail={() => null} />
+        </div>
       )}
 
       {confirm && c ? (
@@ -193,6 +206,70 @@ export function PersonPanel(p: Props) {
             return err;
           }}
         />
+      ) : null}
+    </div>
+  );
+}
+
+const DECIDED: Record<Decision, string> = { approve: "已批准派发（后续流程见下方）", reject: "建议已驳回", close: "事件已关闭", "keep-open": "继续关注中" };
+
+/**
+ * The data-flow canvas of one measurement round (default: the latest), plus the rest of the
+ * process (review outcome, dispatch, feedback, retest, handling) below it until it joins the graph.
+ */
+function CanvasSection({ c, flow, callsign, now, onDecide, onResend }: { c: Case; flow: FlowView; callsign: string; now: number; onDecide: (d: Decision, trigger: HTMLElement) => void; onResend: (eventId: string) => void }) {
+  const rounds = c.evaluations.filter((e) => e.observation);
+  const [picked, setPicked] = useState<number | null>(null);
+  const ev = rounds.find((e) => e.version === picked) ?? rounds.at(-1);
+  if (!ev) return <Track key={c.caseId} c={c} flow={flow} now={now} onDecide={onDecide} onResend={onResend} />;
+  const isLatest = ev.version === latest(c).version;
+  const pending = isLatest && flow.current && flow.current.node.state === "human" && !flow.finished ? flow.current : null;
+  const decision = c.reviews.filter((r) => r.version === ev.version).at(-1);
+  const review = pending ? { label: "等待基地审核", outcome: "human" as const } : decision ? { label: DECIDED[decision.decision], outcome: "done" as const } : { label: "等待基地审核", outcome: "human" as const };
+  const steps = canvasPlan(ev, callsign, review) ?? [];
+  const row = flow.rows.find((r) => r.id === `v${ev.version}:analysis`);
+  const nodeFor = (id: CanvasNodeId): FlowNode | null => {
+    const at = (suffix: string) => row?.nodes.find((n) => n.id === `v${ev.version}:${suffix}`) ?? null;
+    if (id === "receive" || id === "quality" || id === "context" || id === "features") return at(id);
+    if (id === "branch") return at("recommendation");
+    if (id === "review") return pending ? pending.node : at("recommendation");
+    return null;
+  };
+  // Rows below the canvas: everything except measurement analysis rounds (they are drawn above) and the
+  // pending decision of this round (it is handled at the 等待基地审核 node).
+  const later = { ...flow, rows: flow.rows.filter((r) => !(r.id.endsWith(":analysis") && c.evaluations.find((e) => `v${e.version}:analysis` === r.id)?.observation) && r.id !== pending?.rowId) };
+  const laterCurrent = later.rows.some((r) => r.id === flow.current?.rowId);
+  return (
+    <div className="flex flex-col gap-3">
+      {rounds.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-1.5 text-[12px]" data-testid="canvas-rounds">
+          <span className="text-[var(--mg-faint)]">{"分析轮次："}</span>
+          {rounds.map((e) => (
+            <button key={e.version} type="button" aria-pressed={e.version === ev.version} onClick={() => setPicked(e.version)} className={`rounded-md border px-2 py-0.5 ${e.version === ev.version ? "border-[var(--mg-cyan)] text-[var(--mg-cyan)]" : "border-[var(--mg-line)]"}`} data-testid={`canvas-round-${e.version}`}>
+              {`第 ${e.version} 轮 · ${e.trigger === "retest" ? "复测数据" : "设备数据"}`}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <FlowCanvas
+        key={`${c.caseId}:${ev.version}`}
+        steps={steps}
+        progress={businessProgress(ev)}
+        sourceLabel={`${callsign.replace(/（.*）/, "")} 设备`}
+        startAtEnd={ev.completedAt !== null}
+        waitingText={null}
+        renderDetail={(id) => {
+          const n = nodeFor(id);
+          return n ? <NodeDetail c={c} n={n} isCurrent={!!pending && id === "review"} now={now} onDecide={onDecide} onResend={onResend} onBack={null} /> : null;
+        }}
+      />
+      {later.rows.length ? (
+        <details open={laterCurrent} className="rounded-2xl border border-[var(--mg-line)] p-3" data-testid="later-flow">
+          <summary className="cursor-pointer text-[13px] font-semibold">{"后续流程：审核结果、派发、HUD 反馈、复测与人工处理（下一步再接入同一张图）"}</summary>
+          <div className="mt-2">
+            <Track key={c.caseId} c={c} flow={later} now={now} onDecide={onDecide} onResend={onResend} />
+          </div>
+        </details>
       ) : null}
     </div>
   );
@@ -596,7 +673,7 @@ function ConfirmDecision({ c, decision, reviewer, draft, setDraft, onCancel, onC
   const outgoing: string[] = decision === "approve" && cand && cand.kind !== "record-only" ? [...(cand.kind === "notice-and-retest" ? [`① 提示：${cand.notice.text}`] : []), `${cand.kind === "notice-and-retest" ? "②" : "①"} 复测任务：${cand.retest.instructions}`] : [];
   return (
     <div
-      className="absolute inset-0 z-10 flex items-center justify-center bg-[rgba(5,9,16,0.6)] p-3"
+      className="absolute inset-0 z-30 flex items-center justify-center bg-[rgba(5,9,16,0.6)] p-3"
       onKeyDown={(e) => {
         if (e.key === "Escape") {
           e.preventDefault();

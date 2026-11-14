@@ -6,7 +6,8 @@ import { crewCards, notifications } from "@/lib/station/crew";
 import { DemoDirector } from "@/lib/station/demo";
 import { DevPanel } from "../DevPanel";
 import { useStation } from "../useStation";
-import { DemoDrawer } from "./DemoDrawer";
+import { DemoBar, DemoDrawer } from "./DemoDrawer";
+import type { DemoScenario } from "@/lib/station/demo";
 import { useNow } from "./motion";
 import { CrewCard, NotificationBar } from "./Overview";
 import { PersonPanel } from "./PersonPanel";
@@ -15,6 +16,9 @@ const noop = () => () => {};
 const isDev = () => new URLSearchParams(window.location.search).get("dev") === "1";
 /** The demo identity of the base staff (recorded with every decision; not asked again each time). */
 const REVIEWER = "基地值班员";
+/** Business pacing of the simulated analysis on this page (display pacing, not an algorithm's duration). */
+const STAGE_MS = 2600;
+const BUILD = `${process.env.NEXT_PUBLIC_BUILD_COMMIT ?? "unknown"} · ${(process.env.NEXT_PUBLIC_BUILD_TIME ?? "").slice(11, 16)} UTC${process.env.NODE_ENV === "development" ? " · 开发模式" : ""}`;
 
 /**
  * MyoMars base station: crew overview → alerts → person panel (analysis + communication) → back to
@@ -23,7 +27,7 @@ const REVIEWER = "基地值班员";
  */
 export function CrewStation() {
   const [adapter] = useState(() => new MockStationAdapter());
-  const api = useStation(adapter);
+  const api = useStation(adapter, { stageDelayMs: STAGE_MS });
   const { state } = api;
   const mock = adapter.mode === "standalone-mock";
   const [director] = useState(() => new DemoDirector((raw) => adapter.inject(raw)));
@@ -36,7 +40,7 @@ export function CrewStation() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [drawer, setDrawer] = useState(false);
+  const [drawer, setDrawerMode] = useState<"hidden" | "open" | "bar">("hidden");
 
   const cards = crewCards(state, { mock });
   const notes = notifications(state, { mock });
@@ -48,6 +52,16 @@ export function CrewStation() {
   const openPanel = (astronautId: string, caseId?: string) => {
     if (caseId) setChosen((m) => ({ ...m, [astronautId]: caseId }));
     setOpenId(astronautId);
+  };
+  const playExample = (astronautId: string, scenario: DemoScenario) => {
+    director.playExample(astronautId, scenario);
+    setChosen((m) => {
+      const next = { ...m };
+      delete next[astronautId];
+      return next;
+    });
+    setOpenId(astronautId);
+    setDrawerMode("bar");
   };
   const closePanel = () => {
     const id = openId;
@@ -72,8 +86,11 @@ export function CrewStation() {
               {"未连接真实 Trigger / HUD · 本地模拟"}
             </span>
             <span className="text-[12px] text-[var(--mg-dim)]">{`当前身份：${REVIEWER}（演示）`}</span>
-            <button type="button" onClick={() => setDrawer((d) => !d)} aria-expanded={drawer} className="rounded-full border border-dashed border-[#d678ff] px-3 py-1 text-[12px] text-[#e3a6ff]" data-testid="demo-toggle">
-              {drawer ? "隐藏本地模拟演示" : "本地模拟演示"}
+            <span className="rounded border border-[var(--mg-line)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--mg-faint)]" title="构建标识：服务启动 / 构建时的提交与时间" data-testid="build-id">
+              {`构建 ${BUILD}`}
+            </span>
+            <button type="button" onClick={() => setDrawerMode((d) => (d === "open" ? "hidden" : "open"))} aria-expanded={drawer === "open"} className="rounded-full border border-dashed border-[#d678ff] px-3 py-1 text-[12px] text-[#e3a6ff]" data-testid="demo-toggle">
+              {drawer === "open" ? "隐藏本地模拟演示" : "本地模拟演示"}
             </button>
           </div>
         </header>
@@ -90,7 +107,7 @@ export function CrewStation() {
             <section className="mg-glass flex flex-col items-start gap-2 rounded-2xl p-6" data-testid="crew-empty">
               <p className="text-[18px] font-semibold">{"尚未开始场景"}</p>
               <p className="text-[14px] text-[var(--mg-dim)]">{"基站还没有收到场景开始与人员信息。Trigger 接入前，可打开“本地模拟演示”，选择模拟宇航员和场景后启动。"}</p>
-              <button type="button" onClick={() => setDrawer(true)} className="rounded-lg border border-dashed border-[#d678ff] px-3 py-1.5 text-[13px] text-[#e3a6ff]">
+              <button type="button" onClick={() => setDrawerMode("open")} className="rounded-lg border border-dashed border-[#d678ff] px-3 py-1.5 text-[13px] text-[#e3a6ff]">
                 {"打开本地模拟演示"}
               </button>
             </section>
@@ -121,16 +138,20 @@ export function CrewStation() {
           others={notes.filter((n) => n.astronautId !== openId)}
           onSwitch={(astronautId, caseId) => openPanel(astronautId, caseId)}
           reviewer={REVIEWER}
+          bottomGap={drawer === "bar"}
         />
       ) : null}
-      {drawer ? (
+      {drawer === "bar" ? <DemoBar director={director} snap={demo} state={state} now={now} onExpand={() => setDrawerMode("open")} /> : null}
+      {drawer === "open" ? (
         <DemoDrawer
           director={director}
           snap={demo}
           state={state}
           now={now}
+          onLaunched={() => setDrawerMode("bar")}
+          onPlayExample={playExample}
           onClose={() => {
-            setDrawer(false);
+            setDrawerMode("hidden");
             // Focus goes back to the panel when one is open, else to the drawer button.
             requestAnimationFrame(() => document.querySelector<HTMLElement>(openId ? '[data-testid="panel-close"]' : '[data-testid="demo-toggle"]')?.focus());
           }}

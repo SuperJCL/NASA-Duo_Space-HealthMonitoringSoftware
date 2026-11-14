@@ -113,7 +113,11 @@
   process on the left, structured message stream on the right; closing it
   changes nothing). The flow is DERIVED from recorded state (`flow.ts`,
   `crew.ts`, `comms.ts`); animations and replays are presentation only and
-  never drive a business step. The local demo (`demo.ts`, drawer) only reacts
+  never drive a business step. The data-flow canvas (`canvas.ts`,
+  `crew/FlowCanvas.tsx`) draws the path the data actually took; a node may
+  show its result only once the station revealed it (`businessProgress` ≥
+  `needs`), the transfer stops at a human node, and a replay never re-runs
+  analysis or sends anything. Summary indicators only, never a fake waveform. The local demo (`demo.ts`, drawer) only reacts
   to messages the station already sent and never decides for base staff.
   Crew roster, device status and HUD reports are LOCAL mock extensions
   (`local-protocol.ts`, schema `myomars/v1-local`, proposals in

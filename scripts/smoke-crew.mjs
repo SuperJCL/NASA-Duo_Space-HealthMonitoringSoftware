@@ -14,7 +14,7 @@ import { chromium } from "playwright";
 const ORIGIN = process.env.BASE_URL ?? "http://localhost:3000";
 const SHOT_DIR = process.env.SHOT_DIR ?? null;
 const VIEW = { width: 1440, height: 900 };
-const ANALYSIS = 4 * 1100 + 400;
+const ANALYSIS = 4 * 2600 + 600; // the crew page paces the simulated analysis at 2.6 s per stage
 const failures = [];
 let checks = 0;
 const check = (ok, msg) => {
@@ -34,7 +34,15 @@ const waitFact = (p, k, re, timeout = 15_000) => p.waitForFunction(([id, src]) =
 async function drawer(p, fn) {
   if (!(await tid(p, "demo-drawer").count())) await tid(p, "demo-toggle").evaluate((el) => el.click());
   await fn();
-  await tid(p, "demo-close").click();
+  // A start collapses the drawer into the compact bar by itself.
+  if (await tid(p, "demo-drawer").count()) await tid(p, "demo-close").click();
+}
+/** Decisions are taken at the canvas node 等待基地审核: open its detail once the picture has reached it. */
+async function openDecision(p, decision) {
+  if (await tid(p, `decide-${decision}`).isVisible().catch(() => false)) return;
+  await p.waitForFunction(() => document.querySelector('[data-testid="flow-canvas"]')?.dataset.phase === "end", null, { timeout: 30_000 });
+  if (!(await tid(p, "canvas-detail").count())) await tid(p, "canvas-node-review").click();
+  await tid(p, `decide-${decision}`).waitFor();
 }
 async function launch(p, astronaut, scenario) {
   await drawer(p, async () => {
@@ -45,6 +53,7 @@ async function launch(p, astronaut, scenario) {
 }
 const hud = (p, kind) => drawer(p, () => tid(p, `demo-hud-${kind}`).click());
 async function decide(p, decision, reason) {
+  await openDecision(p, decision);
   await tid(p, `decide-${decision}`).click();
   if (reason === null) await tid(p, "reason-template").first().click();
   else await tid(p, "confirm-reason").fill(reason);
@@ -90,16 +99,21 @@ try {
   await tid(p, "crew-card-ev1").click();
   await p.waitForTimeout(250);
   check((await tid(p, "person-panel").count()) === 1 && (await p.evaluate(() => !!document.activeElement?.closest('[data-testid="person-panel"]'))), "card opens the person panel; focus moves into it");
-  check((await fact(p, "who")) === "系统" && (await p.locator('[data-testid^="node-v1:"][data-state="running"]').count()) === 1, "analysis in progress: one running node, handled by the system");
+  check((await fact(p, "who")) === "系统" && ["travel", "process", "hold"].includes(await attr(p, "flow-canvas", "data-phase")) && (await attr(p, "flow-canvas", "data-mode")) === "live", "analysis in progress: the live canvas is moving data through the nodes, handled by the system");
+  await p.waitForFunction(() => document.querySelector('[data-testid="canvas-packet"]'), null, { timeout: 8000 });
+  check((await tid(p, "canvas-packet").count()) === 1 && (await text(tid(p, "canvas-packet"))).length > 2, "a data marker with a data summary travels along an edge");
   check((await attr(p, "crew-card-ev1", "data-unread")) === "0", "opening the event marks it viewed by the base (unread 0)");
   await shot(p, "2-analysis-running");
   await waitFact(p, "who", /基地人员/);
   check((await fact(p, "where")) === "审核与派发 · 等待基地批准" && /发布前必须由基地人员批准/.test(await fact(p, "why")), "stops at 等待基地批准 with the reason");
-  for (const id of ["panel-facts", "indicator-chart", "decide-approve"]) check(await onScreen(p, id), `review, 1440×900 first screen: ${id} visible`);
+  await openDecision(p, "approve");
+  check((await attr(p, "canvas-node-review", "data-state")) === "human" && (await attr(p, "canvas-node-branch", "data-state")) === "todo", "normal path: data stops at 等待基地审核; the failure branch stays unused");
+  for (const id of ["panel-facts", "flow-canvas", "canvas-node-review", "decide-approve"]) check(await onScreen(p, id), `review, 1440×900 first screen: ${id} visible`);
   check((await p.locator('[data-testid="indicator-chart"] [data-testid^="indicator-"]').count()) === 3 && /握力计/.test(await text(tid(p, "indicator-gripForceN"))) && /没有原始肌电波形/.test(await text(tid(p, "indicator-chart"))), "summary indicators only; grip from the grip meter; no fake waveform");
   check((await p.locator('[data-testid="comm-action"]').count()) === 0 && /未发送/.test(await text(tid(p, "comm-list"))), "nothing sent before approval; analysis marked 未发送");
 
   // ---------- Collapse / reopen / drafts ----------
+  await openDecision(p, "approve");
   await tid(p, "decide-approve").click();
   await tid(p, "confirm-reason").fill("草稿：待补充");
   await tid(p, "confirm-cancel").click();
@@ -110,6 +124,7 @@ try {
   await p.keyboard.press("Enter");
   await p.waitForTimeout(250);
   check((await fact(p, "where")) === "审核与派发 · 等待基地批准", "keyboard Enter reopens; flow restored");
+  await openDecision(p, "approve");
   await tid(p, "decide-approve").click();
   check((await tid(p, "confirm-reason").inputValue()) === "草稿：待补充", "unsent draft kept across cancel and collapse");
   check(/将发送给 HUD 的行动消息（2 条/.test(await text(tid(p, "confirm-content"))) && /执行条件/.test(await text(tid(p, "confirm-dialog"))) && /审核人：基地值班员/.test(await text(tid(p, "confirm-dialog"))), "confirmation shows the actual content, execution conditions and the demo reviewer");
@@ -140,21 +155,26 @@ try {
 
   await hud(p, "retest-normal");
   await p.waitForTimeout(300);
-  check((await fact(p, "who")) === "系统" && (await p.locator('[data-testid="row-v1:analysis"]').count()) === 1 && (await p.locator('[data-testid="row-v2:analysis"]').count()) === 1, "retest result starts round 2 automatically; round 1 kept");
+  check((await fact(p, "who")) === "系统" && (await tid(p, "canvas-round-1").count()) === 1 && (await tid(p, "canvas-round-2").count()) === 1, "retest result starts round 2 automatically (canvas shows it live); round 1 kept");
   await waitFact(p, "who", /基地人员/);
   check(/原告警未关闭/.test(await fact(p, "why")) && /最新评估 v2（复测）：在参考范围内/.test(await text(tid(p, "panel-eval-status"))) && /告警未关闭/.test(await text(tid(p, "panel-case-status"))), "re-evaluation: in range, original alert still open, shown as two statuses");
+  await openDecision(p, "close");
   check(/都满足质量与可比条件/.test(await text(tid(p, "node-relation"))) && (await p.locator('[data-testid="indicator-chart"] span[title^="v1"]').count()) === 3, "applicability shown; v1 and v2 side by side only because both are comparable");
 
   // Replay: visual only.
   const commBefore = await p.locator('[data-testid="comm-list"] li').count();
-  await tid(p, "row-replay-v1:analysis").click();
-  check((await tid(p, "replay-note").count()) === 1, "replay of round 1 is labelled visual-only");
+  await tid(p, "canvas-speed").selectOption("2");
+  await tid(p, "canvas-replay").click();
+  check((await attr(p, "flow-canvas", "data-mode")) === "replay" && /可视化回放/.test(await text(tid(p, "canvas-mode"))), "visual replay is labelled (no re-analysis, no message)");
+  await tid(p, "canvas-pause").click();
+  const pausedAt = await attr(p, "flow-canvas", "data-step");
   await p.waitForTimeout(1600);
+  check((await attr(p, "flow-canvas", "data-step")) === pausedAt, "replay can be paused");
   check((await p.locator('[data-testid="comm-list"] li').count()) === commBefore && /等待人工处理/.test(await fact(p, "where")), "replay publishes nothing and changes no state");
-  await tid(p, "row-replay-v1:analysis").click(); // stop the replay
-  check((await tid(p, "replay-note").count()) === 0, "replay can be stopped");
+  await tid(p, "canvas-pause").click();
 
   // ---------- Close: status notification, delivery tracked separately ----------
+  await openDecision(p, "close");
   await tid(p, "decide-close").click();
   check(/此事件已由基地人员关闭/.test(await text(tid(p, "confirm-content"))) && /不是行动/.test(await text(tid(p, "confirm-content"))), "close: the status notification text shown before confirming");
   await tid(p, "reason-template").first().click();
@@ -175,7 +195,7 @@ try {
   await p.waitForTimeout(250);
   check((await attr(p, "person-panel", "data-astronaut")) === "ev2", "notification opens that astronaut's panel");
   await decide(p, "keep-open", null);
-  check(/继续关注中/.test(await fact(p, "where")) && (await tid(p, "process-summary").count()) === 0 && (await tid(p, "decide-close").count()) === 1, "继续关注: case stays open, only 关闭事件 remains, no completion summary");
+  check(/继续关注中/.test(await fact(p, "where")) && (await tid(p, "process-summary").count()) === 0 && (await openDecision(p, "close"), (await tid(p, "decide-close").count()) === 1), "继续关注: case stays open, only 关闭事件 remains, no completion summary");
   await p.keyboard.press("Escape");
 
   // ---------- Exceptions stop where they happen ----------
@@ -183,7 +203,8 @@ try {
   await p.waitForTimeout(1700 + ANALYSIS);
   check((await attr(p, "crew-card-ev3", "data-validity")) === "invalid" && /无法评估/.test(await text(tid(p, "crew-card-ev3").getByTestId("crew-card-data"))), "EV3 invalid data: 数据不可用 · 无法评估");
   await tid(p, "crew-card-ev3").click();
-  check((await attr(p, "node-v1:quality", "data-state")) === "stopped" && /信号质量不合格/.test(await fact(p, "why")), "quality failure stops at 信号质量 with the reason");
+  check((await attr(p, "canvas-node-quality", "data-state")) === "stopped" && (await attr(p, "canvas-node-branch", "data-state")) === "done" && (await attr(p, "canvas-node-context", "data-state")) === "skipped" && /信号质量不合格/.test(await fact(p, "why")), "quality failure: stops at 质量检查, takes the 检查设备/重新测量 branch, normal downstream 未执行");
+  check((await attr(p, "canvas-edge-b-quality", "data-state")) === "done" && (await attr(p, "canvas-edge-e-context", "data-state")) === "skipped", "the failure edge is the one used; the normal edge is marked not executed");
   await p.keyboard.press("Escape");
   await launch(p, "ev2", "report");
   await p.waitForTimeout(1700 + ANALYSIS);

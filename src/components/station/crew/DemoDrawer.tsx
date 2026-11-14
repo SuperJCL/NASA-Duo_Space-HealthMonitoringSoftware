@@ -10,7 +10,7 @@ import type { StationState } from "@/lib/station/station";
  * so; base staff decisions are never made here. Pausing the replay is a demo state and is NOT a
  * device disconnect (that is a separate, simulated device status).
  */
-export function DemoDrawer({ director, snap, state, now, onClose }: { director: DemoDirector; snap: DemoSnapshot; state: StationState; now: number; onClose: () => void }) {
+export function DemoDrawer({ director, snap, state, now, onClose, onLaunched, onPlayExample }: { director: DemoDirector; snap: DemoSnapshot; state: StationState; now: number; onClose: () => void; onLaunched: () => void; onPlayExample: (astronautId: string, scenario: DemoScenario) => void }) {
   const [astro, setAstro] = useState("ev1");
   const [scenario, setScenario] = useState<DemoScenario>("change");
   const [note, setNote] = useState<string | null>(null);
@@ -29,6 +29,19 @@ export function DemoDrawer({ director, snap, state, now, onClose }: { director: 
           {"隐藏"}
         </button>
       </div>
+
+      <section className="flex flex-col gap-2 rounded-xl border border-[#d678ff] p-2.5">
+        <p className="font-semibold">{"打开面板并播放示例（从头开始，会重置当前演示）"}</p>
+        <div className="flex flex-col gap-1.5">
+          <button type="button" className={`${btn} border-[#d678ff] text-left`} onClick={() => onPlayExample("ev1", "change")} data-testid="demo-example-normal">
+            {"▶ 正常路径：EV1 · 可比变化 → 等待基地审核"}
+          </button>
+          <button type="button" className={`${btn} border-[#d678ff] text-left`} onClick={() => onPlayExample("ev1", "acquisition")} data-testid="demo-example-quality">
+            {"▶ 质量不合格路径：EV1 · 采集质量异常 → 检查设备/重新测量"}
+          </button>
+        </div>
+        <p className="text-[11px] text-[var(--mg-faint)]">{"先打开个人面板，再由模拟 Trigger 发送数据，所以能从第一步看到数据流动。"}</p>
+      </section>
 
       <section className="flex flex-col gap-2">
         <p className="font-semibold">{"① 场景"}</p>
@@ -53,7 +66,15 @@ export function DemoDrawer({ director, snap, state, now, onClose }: { director: 
           </select>
         </label>
         <div className="flex flex-wrap gap-1.5">
-          <button type="button" className={`${btn} border-[#d678ff]`} onClick={() => director.launch(astro, scenario)} data-testid="demo-launch">
+          <button
+            type="button"
+            className={`${btn} border-[#d678ff]`}
+            onClick={() => {
+              director.launch(astro, scenario);
+              onLaunched();
+            }}
+            data-testid="demo-launch"
+          >
             {"启动"}
           </button>
           <button type="button" className={btn} onClick={() => director.setPaused(!snap.paused)} data-testid="demo-pause">
@@ -107,5 +128,31 @@ export function DemoDrawer({ director, snap, state, now, onClose }: { director: 
 
       <p className="mt-auto text-[11px] text-[var(--mg-faint)]">{"高级开发调试入口默认隐藏：在地址后加 ?dev=1。"}</p>
     </aside>
+  );
+}
+
+/** Compact demo control bar shown after a start: it stays out of the way of the canvas. */
+export function DemoBar({ director, snap, state, now, onExpand }: { director: DemoDirector; snap: DemoSnapshot; state: StationState; now: number; onExpand: () => void }) {
+  const due = snap.pending?.dueAt && now ? Math.max(0, Math.ceil((snap.pending.dueAt - now) / 1000)) : null;
+  const btn = "min-h-7 rounded-md border border-[var(--mg-line-strong)] px-2 text-[12px] disabled:opacity-40";
+  return (
+    <div className="fixed bottom-2 left-1/2 z-50 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-2 rounded-full border-2 border-dashed border-[#d678ff] bg-[rgba(11,17,28,0.97)] px-3 py-1 text-[12px] shadow-2xl" role="region" aria-label="本地模拟演示控制条" data-testid="demo-bar">
+      <span className="font-semibold text-[#e3a6ff]">{"本地模拟"}</span>
+      <span className="max-w-[24rem] truncate text-[var(--mg-dim)]" data-testid="demo-bar-pending">
+        {snap.pending ? `${snap.paused ? "已暂停 · " : ""}下一条：${snap.pending.label}${!snap.paused && due !== null ? `（${due} 秒）` : ""}` : snap.paused ? "回放已暂停" : "无待发送的模拟输入"}
+      </span>
+      <button type="button" className={btn} onClick={() => director.setPaused(!snap.paused)} data-testid="demo-bar-pause">
+        {snap.paused ? "继续" : "暂停"}
+      </button>
+      <button type="button" className={btn} disabled={!snap.pending} onClick={director.stepNow} data-testid="demo-bar-step">
+        {"下一条"}
+      </button>
+      <button type="button" className={btn} disabled={!state.run} onClick={director.reset} data-testid="demo-bar-reset">
+        {"重置"}
+      </button>
+      <button type="button" className={`${btn} border-[#d678ff] text-[#e3a6ff]`} onClick={onExpand} data-testid="demo-bar-expand">
+        {"展开（HUD 反馈等）"}
+      </button>
+    </div>
   );
 }
