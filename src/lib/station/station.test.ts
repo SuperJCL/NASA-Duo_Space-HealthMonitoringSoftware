@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { analyse } from "./analysis";
 import { inboundEnvelope } from "./adapter";
 import { DEMO_BASELINES, DEMO_START, FIXTURES, RETEST_FIXTURES } from "./fixtures";
-import { allowedDecisions, initialState, latest, step, stagesToReveal, type Action, type Effect, type StationState } from "./station";
+import { allowedDecisions, initialState, latest, step, stagesToReveal, workbenchStage, type Action, type Effect, type StationState } from "./station";
+import { comparisonView } from "./views";
 
 const T = "2026-11-14T10:00:00Z";
 const RUN = "run-1";
@@ -229,5 +230,61 @@ describe("station state machine", () => {
     expect(state.outbox[0].delivery).toBe("failed");
     const r = step(state, { type: "resend", eventId: id, at: T });
     expect(sends(r.effects)[0].eventId).toBe(id);
+  });
+
+  it("keeps adapter hand-off, HUD receipt and astronaut confirmation separate; nothing is filled in", () => {
+    let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
+    state = finish(state, "case-change");
+    state = step(state, review("case-change", 1, "approve")).state;
+    const [notice, retest] = state.outbox;
+    expect([notice.delivery, notice.hudReceivedAt, notice.feedback]).toEqual(["queued", null, "none"]);
+    state = step(state, { type: "delivery", eventId: notice.eventId, ok: true, note: "mock", at: T }).state;
+    expect(state.outbox[0].delivery).toBe("sent");
+    expect(state.outbox[0].hudReceivedAt).toBeNull();
+    // An astronaut confirmation does not invent a HUD receipt.
+    state = step(state, inbound(inboundEnvelope("hud.ack", { runId: RUN, caseId: "case-change", payload: { messageId: retest.eventId }, eventId: "ack-r" }))).state;
+    expect(state.outbox[1].feedback).toBe("acknowledged");
+    expect(state.outbox[1].hudReceivedAt).toBeNull();
+    state = step(state, inbound(inboundEnvelope("hud.received", { runId: RUN, caseId: "case-change", payload: { messageId: notice.eventId }, eventId: "rcv-n" }))).state;
+    expect(state.outbox[0].hudReceivedAt).toBe(T);
+    expect(state.outbox[0].feedback).toBe("none");
+  });
+
+  it("maps phases to workbench stages and narrows decisions per stage", () => {
+    let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
+    const c = () => state.cases["case-change"];
+    expect(workbenchStage(c())).toBe("analysing");
+    state = finish(state, "case-change");
+    expect(workbenchStage(c())).toBe("review");
+    state = step(state, review("case-change", 1, "approve")).state;
+    expect(workbenchStage(c())).toBe("dispatched");
+    expect(allowedDecisions(c())).toEqual(["close"]);
+    state = step(state, inbound(inboundEnvelope("retest.result", { runId: RUN, caseId: "case-change", retestId: "case-change-rt1", payload: { observation: RETEST_FIXTURES["retest-changed"].observation(1) } }))).state;
+    expect(workbenchStage(c())).toBe("reassessing");
+    state = finish(state, "case-change");
+    expect(workbenchStage(c())).toBe("reassessed");
+    // Still changed at v2: a new dispatch may be approved, or the case closed / kept under watch.
+    expect(allowedDecisions(c())).toEqual(["approve", "close", "keep-open", "hold"]);
+    state = step(state, review("case-change", 2, "keep-open")).state;
+    expect(workbenchStage(c())).toBe("decided");
+    expect(allowedDecisions(c())).toEqual(["close"]);
+    state = step(state, review("case-change", 2, "close")).state;
+    expect(workbenchStage(c())).toBe("closed");
+    expect(allowedDecisions(c())).toEqual([]);
+  });
+
+  it("puts v1 and v2 side by side only when both are comparable", () => {
+    const loop = (fx: "retest-normal" | "retest-invalid") => {
+      let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
+      state = finish(state, "case-change");
+      state = step(state, review("case-change", 1, "approve")).state;
+      state = step(state, inbound(inboundEnvelope("retest.result", { runId: RUN, caseId: "case-change", retestId: "case-change-rt1", payload: { observation: RETEST_FIXTURES[fx].observation(1) } }))).state;
+      return comparisonView(finish(state, "case-change").cases["case-change"]);
+    };
+    const paired = loop("retest-normal");
+    expect(paired.kind).toBe("paired");
+    const separate = loop("retest-invalid");
+    expect(separate.kind).toBe("separate");
+    if (separate.kind === "separate") expect(separate.why).toMatch(/不计算变化幅度/);
   });
 });

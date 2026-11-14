@@ -106,7 +106,12 @@
   headers of the files derived from Sol Atlas. MAP-2 sequence lines stay
   conceptual and are not replaced by these routes.
 - `src/lib/station/`, `src/components/station/` — MyoMars base station (`/`),
-  a SIMULATED demo (`docs/station-integration.md`). Every view keeps the
+  a health-event workbench (left: astronaut and real events; centre: summary,
+  analysis, evidence; right: the action for the event's current stage). No
+  map and no EVA route view on the station (they stay in
+  `/legacy/mission-glass`). A SIMULATED demo (`docs/station-integration.md`).
+  Adapter hand-off, HUD receipt and astronaut confirmation are separate
+  statuses and are never inferred from one another. Every view keeps the
   "模拟数据 / 模拟分析" label. The "LLM analysis" is a deterministic rule
   pipeline (`analysis.ts`, demo thresholds); never call a real model, never
   produce a diagnosis, treatment or automatic task restriction, never infer

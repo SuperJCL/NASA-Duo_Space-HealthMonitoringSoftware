@@ -49,11 +49,16 @@ export type OutMessage = {
   caseId: string | null;
   retestId: string | null;
   envelope: Envelope;
+  /** Handed to the adapter (NOT received by the HUD). */
   delivery: "queued" | "sent" | "failed";
   deliveryNote: string | null;
-  /** HUD feedback (notice and retest messages only). */
+  adapterAt: string | null;
+  /** HUD device receipt (hud.received); null until a real receipt arrives. */
+  hudReceivedAt: string | null;
+  /** Astronaut feedback (notice and retest messages only); "none" until a real hud.ack / hud.defer arrives. */
   feedback: "none" | "acknowledged" | "deferred";
   feedbackNote: string | null;
+  feedbackAt: string | null;
 };
 
 export type Retest = {
@@ -134,18 +139,49 @@ export function nextOwner(c: Case): string {
   }
 }
 
+/**
+ * The station's work stage for a case (what the base staff is looking at now):
+ * analysing → review (v1) → dispatched → reassessing (result received) → reassessed (v ≥ 2) →
+ * decided (rejected / kept under watch) → closed.
+ */
+export type WorkbenchStage = "analysing" | "review" | "dispatched" | "reassessing" | "reassessed" | "decided" | "closed";
+export function workbenchStage(c: Case): WorkbenchStage {
+  const v = latest(c)?.version ?? 1;
+  switch (c.phase) {
+    case "analysing":
+      return v >= 2 ? "reassessing" : "analysing";
+    case "awaiting-review":
+    case "on-hold":
+      return v >= 2 ? "reassessed" : "review";
+    case "awaiting-hud":
+    case "awaiting-retest":
+    case "deferred":
+      return "dispatched";
+    case "rejected":
+    case "monitoring":
+      return "decided";
+    case "closed":
+      return "closed";
+  }
+}
+
 /** Decisions a reviewer may take now on the latest evaluation. */
 export function allowedDecisions(c: Case): Decision[] {
   const ev = latest(c);
-  if (!ev || ev.completedAt === null || c.phase === "analysing" || c.phase === "closed") return [];
+  if (!ev || ev.completedAt === null) return [];
   const act = isActionable(ev.result.candidate);
-  switch (c.phase) {
-    case "awaiting-review":
-      return act ? ["approve", "reject", "hold"] : ["close", "keep-open", "hold"];
-    case "on-hold":
-      return act ? ["approve", "reject", "close", "keep-open"] : ["close", "keep-open"];
+  const noRepeatHold = (d: Decision[]) => (c.phase === "on-hold" ? d.filter((x) => x !== "hold") : d);
+  switch (workbenchStage(c)) {
+    case "review":
+      return noRepeatHold(act ? ["approve", "reject", "hold"] : ["close", "keep-open", "hold"]);
+    case "reassessed":
+      return noRepeatHold(act ? ["approve", "close", "keep-open", "hold"] : ["close", "keep-open", "hold"]);
+    case "dispatched":
+      return ["close"];
+    case "decided":
+      return c.phase === "rejected" ? ["close", "keep-open"] : ["close"];
     default:
-      return ["close", "keep-open"];
+      return [];
   }
 }
 
@@ -179,7 +215,7 @@ export function step(state: StationState, action: Action): StepResult {
     s.outSeq += 1;
     const eventId = `stn-${s.run.runId}-${String(s.outSeq).padStart(3, "0")}`;
     const envelope: Envelope = { schema: SCHEMA, eventId, runId: s.run.runId, caseId, retestId, sentAt: at, source: "station", type, payload };
-    s.outbox.push({ eventId, type, caseId, retestId, envelope, delivery: "queued", deliveryNote: null, feedback: "none", feedbackNote: null });
+    s.outbox.push({ eventId, type, caseId, retestId, envelope, delivery: "queued", deliveryNote: null, adapterAt: null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
     effects.push({ kind: "send", envelope });
     log(at, "out", `发出 ${type}`, caseId, eventId);
     return eventId;
@@ -278,6 +314,18 @@ export function step(state: StationState, action: Action): StepResult {
         return { state: s, effects, error: null };
       }
 
+      if (type === "hud.received") {
+        const p = parsed.payload as { messageId: string };
+        const m = s.outbox.find((x) => x.eventId === p.messageId && x.caseId === caseId);
+        if (!m) {
+          log(at, "ignored", `hud.received 已忽略：没有对应的基站消息 ${p.messageId}`, caseId, env.eventId);
+          return { state: s, effects, error: null };
+        }
+        if (!m.hudReceivedAt) m.hudReceivedAt = at;
+        log(at, "in", `HUD 接收回执：${m.type}`, caseId, env.eventId);
+        return { state: s, effects, error: null };
+      }
+
       if (type === "hud.ack" || type === "hud.defer") {
         const p = parsed.payload as { messageId: string; reason?: string; note?: string };
         const m = s.outbox.find((x) => x.eventId === p.messageId && x.caseId === caseId && (x.type === "station.notice.approved" || x.type === "station.retest.requested"));
@@ -287,6 +335,7 @@ export function step(state: StationState, action: Action): StepResult {
         }
         m.feedback = type === "hud.ack" ? "acknowledged" : "deferred";
         m.feedbackNote = type === "hud.defer" ? (p.reason ?? null) : (p.note ?? null);
+        m.feedbackAt = at;
         const rt = m.retestId ? c.retests.find((r) => r.retestId === m.retestId) : null;
         if (rt && rt.status !== "result-received") rt.status = type === "hud.ack" ? "acknowledged" : "deferred";
         if (c.phase !== "closed" && c.phase !== "analysing" && c.phase !== "awaiting-review" && c.phase !== "on-hold") {
@@ -405,6 +454,7 @@ export function step(state: StationState, action: Action): StepResult {
       if (!m) return { state, effects: [], error: null };
       m.delivery = action.ok ? "sent" : "failed";
       m.deliveryNote = action.note;
+      m.adapterAt = action.ok ? action.at : null;
       if (!action.ok) log(action.at, "system", `发送失败：${m.type}（${action.note ?? "未知原因"}）`, m.caseId, m.eventId);
       return { state: s, effects, error: null };
     }

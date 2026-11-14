@@ -11,7 +11,7 @@ import { z } from "zod";
 
 export const SCHEMA = "myomars.station/v0-draft";
 
-export const INBOUND_TYPES = ["scenario.start", "scenario.reset", "observation.submitted", "hud.ack", "hud.defer", "retest.result"] as const;
+export const INBOUND_TYPES = ["scenario.start", "scenario.reset", "observation.submitted", "hud.received", "hud.ack", "hud.defer", "retest.result"] as const;
 export const OUTBOUND_TYPES = ["station.notice.approved", "station.retest.requested", "station.receipt", "station.reassessment"] as const;
 export type InboundType = (typeof INBOUND_TYPES)[number];
 export type OutboundType = (typeof OUTBOUND_TYPES)[number];
@@ -93,6 +93,9 @@ export const ScenarioStart = z
   .strict();
 export type ScenarioStart = z.infer<typeof ScenarioStart>;
 
+/** HUD device-level receipt: the message reached the HUD (not that the astronaut saw or accepted it). */
+export const HudReceived = z.object({ messageId: Id }).strict();
+/** The astronaut confirmed the message on the HUD. */
 export const HudAck = z.object({ messageId: Id, note: z.string().max(500).optional() }).strict();
 export const HudDefer = z.object({ messageId: Id, reason: z.string().min(1).max(500) }).strict();
 export const RetestResult = z.object({ observation: Observation }).strict();
@@ -101,6 +104,7 @@ export const INBOUND_PAYLOADS = {
   "scenario.start": ScenarioStart,
   "scenario.reset": z.object({}).strict(),
   "observation.submitted": Observation,
+  "hud.received": HudReceived,
   "hud.ack": HudAck,
   "hud.defer": HudDefer,
   "retest.result": RetestResult,
@@ -154,7 +158,7 @@ export function parseInbound(raw: unknown): InboundParse {
   const schema = INBOUND_PAYLOADS[e.type as InboundType];
   const p = schema.safeParse(e.payload);
   if (!p.success) return { ok: false, error: `invalid ${e.type} payload: ${z.prettifyError(p.error)}`, eventId: e.eventId };
-  if ((e.type === "observation.submitted" || e.type === "retest.result" || e.type === "hud.ack" || e.type === "hud.defer") && !e.caseId) return { ok: false, error: `${e.type} needs a caseId`, eventId: e.eventId };
+  if ((e.type === "observation.submitted" || e.type === "retest.result" || e.type === "hud.received" || e.type === "hud.ack" || e.type === "hud.defer") && !e.caseId) return { ok: false, error: `${e.type} needs a caseId`, eventId: e.eventId };
   if (e.type === "retest.result" && !e.retestId) return { ok: false, error: "retest.result needs a retestId", eventId: e.eventId };
   return { ok: true, envelope: e, payload: p.data };
 }

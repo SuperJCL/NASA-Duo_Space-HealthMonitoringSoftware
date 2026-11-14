@@ -22,8 +22,8 @@ export const DEMO_BASELINES: readonly Baseline[] = [
 export const DEMO_START: ScenarioStart = {
   scenarioId: "myomars-demo",
   astronaut: DEMO_ASTRONAUT,
-  // The current EVA task reuses the Mission Glass simulated action at Target B.
-  task: { id: "task-abrasion-proximity", title: "Abrade and analyse a rock（模拟 EVA 任务）", targetId: "sim-target-b" },
+  // Neutral task context (mock until the Trigger's scenario payload is agreed).
+  task: { id: "eva-sampling", title: "EVA 采样作业", targetId: null },
 };
 
 const goodSignal = { sampleRateHz: 2000, durationS: 30, electrodeImpedanceKOhm: 12, saturationPct: 0.2, motionArtifactPct: 4, dropoutPct: 0.5 };
@@ -34,7 +34,7 @@ function obs(id: string, phase: Observation["context"]["phase"], partial: Partia
     astronautId: "ev1",
     capturedAt: "2026-11-14T10:00:00Z",
     protocol: STANDARD_PROTOCOL,
-    context: { taskId: "task-abrasion-proximity", phase, minutesIntoEva: phase === "eva" ? 95 : null },
+    context: { taskId: "eva-sampling", phase, minutesIntoEva: phase === "eva" ? 95 : null },
     signal: goodSignal,
     features: { medianFreqHz: 90, rmsPctMvc: 39, gripForceN: 158 },
     ...partial,

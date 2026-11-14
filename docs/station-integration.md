@@ -50,7 +50,8 @@ Validated with Zod in `src/lib/station/protocol.ts` (`Envelope`, `parseInbound`)
 | `scenario.start` | Trigger | null | `scenarioId`, `astronaut {id, callsign}`, `task {id, title, targetId}` |
 | `scenario.reset` | Trigger | null | `{}` (must use the active `runId`) |
 | `observation.submitted` | Trigger | required | `Observation` (below) |
-| `hud.ack` | HUD | required | `messageId` (the station message's `eventId`), optional `note` |
+| `hud.received` | HUD (device) | required | `messageId`: the message reached the HUD (not that the astronaut saw or accepted it) |
+| `hud.ack` | HUD (astronaut) | required | `messageId` (the station message's `eventId`), optional `note`: the astronaut confirmed |
 | `hud.defer` | HUD | required | `messageId`, `reason` |
 | `retest.result` | HUD (or Trigger) | required, plus `retestId` | `{ observation: Observation }` |
 
@@ -78,13 +79,22 @@ The station sends only after a human approval, except for receipts.
 
 - The simulated analysis **never** sends anything by itself. It only produces a candidate that
   waits for human review.
-- The HUD should answer `station.notice.approved` and `station.retest.requested` with `hud.ack`
-  or `hud.defer`, using the station message's `eventId` as `messageId`.
+- **Answering station messages.** The HUD should answer `station.notice.approved` and
+  `station.retest.requested`, always using the station message's `eventId` as `messageId`:
+  - first with `hud.received`, as soon as the message is on the device;
+  - then with `hud.ack` or `hud.defer`, when the astronaut responds.
+- **Open question for the HUD owner:** can the HUD send a device receipt (`hud.received`) that is
+  separate from the astronaut's confirmation? `hud.received` was added on 2026-11-14 for this.
+  Without it the station shows "未收到接收回执" and never infers a receipt.
 - A retest result must carry the `retestId` from `station.retest.requested`. Unknown ids get a
   `rejected` receipt. A second result for the same retest gets a `duplicate` receipt and does not
   start a new evaluation.
-- The station shows two separate statuses: delivery to the adapter ("已交给适配层") and HUD
-  feedback ("HUD 已确认 / 暂缓"). Only the second means the astronaut side reacted.
+- **Three separate statuses per dispatched message:**
+  1. Handed to the adapter ("已交给适配层").
+  2. Received by the HUD (`hud.received`).
+  3. Astronaut confirmed or deferred (`hud.ack` / `hud.defer`).
+
+  Each status shows "done" only when that exact signal arrives; none is inferred from another.
 
 ## Adapter contract
 

@@ -3680,3 +3680,57 @@ unchanged, and `verify:terrain` still matches a fresh build.
     built or tested.
   - No real model, backend or sensor.
   - The astronaut, baseline, signals and thresholds are simulated demo values.
+
+## MyoMars base station: health-event workbench layout
+
+- **Started:** exact time not recorded. The first recorded action is the unit test run at
+  2026-11-14T20:06:15Z, right after the state-logic change. Branch `feat/myomars-station`, from
+  `07bd1a8`.
+- **Completed:** 2026-11-14T20:17:28Z, at this commit.
+- **Why:** the first version kept the old Mission Glass product in front:
+  - a full-screen Lefroy Bay geology map;
+  - an EVA route tab with terrain planning, targets, a scout rover and route scores;
+  - the health event squeezed into a side panel, with the review below the fold at 1440×900.
+
+  The project owner asked for the station to centre on the astronaut and health events.
+- **Decisions confirmed by the project owner:**
+  - The map is removed from the station; there is no thumbnail.
+  - The EVA route tab is hidden from the station. The old code is kept and still runs at
+    `/legacy/mission-glass`.
+  - The task context is neutral ("EVA 采样作业 · 第 95 分钟") and comes in through the adapter,
+    as mock data for now.
+  - One astronaut (EV1), listing only events that exist.
+- **Layout:** three columns using the Mission Glass visual system.
+  - **Left:** the astronaut and the real events.
+  - **Centre:**
+    - the summary: what happened, key basis, next owner;
+    - a four-step analysis bar, each step expandable to its evidence;
+    - observation versus individual baseline;
+    - conclusion and limitations;
+    - technical fields, the message log, the timeline and versions, folded by default.
+  - **Right:** only the current stage, switched by a new pure `workbenchStage()`:
+    - review: the exact notice and retest text that would be sent, decision, reason and confirm;
+    - dispatched: per message, three separate steps;
+    - reassessing: receipt and progress;
+    - reassessed: close, keep under watch or hold;
+    - decided;
+    - closed: outcome and reason, with no leftover candidate.
+  - At 1440×900 the summary, the basis and the current main action are on the first screen in
+    each stage; the smoke test checks this.
+- **Small logic corrections:** the previous state machine could not show the requested statuses.
+  - The protocol proposal gains `hud.received`, a HUD device receipt. Each message now records
+    `adapterAt`, `hudReceivedAt` and `feedbackAt`, so adapter hand-off, HUD receipt and astronaut
+    confirmation are never merged or inferred.
+  - Decisions narrow per stage:
+    - once dispatched, only "close";
+    - at v ≥ 2, close or keep under watch directly;
+    - after "keep under watch", only "close".
+  - `comparisonView()` puts v1 and v2 side by side only when both passed the quality and
+    comparability checks. Otherwise it describes each separately, with no change size.
+- **Verification (standalone mode only):**
+  - `npm run check`: 329/329 tests (326 before, plus 3 new station tests); lint, typecheck and build pass.
+  - `smoke:station`: 63/63. This includes the first-screen visibility checks for the review,
+    dispatched and reassessed stages, the three separate dispatch statuses, side-by-side versus
+    separate v1/v2, and the phone order: summary, then action, then analysis.
+  - Legacy suites: Mission Glass smoke 228/228, EVA route smoke 50/50, research smoke
+    120/120 (`SMOKE_LIVE=1`).
