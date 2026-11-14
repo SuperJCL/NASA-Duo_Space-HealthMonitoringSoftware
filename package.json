@@ -2,6 +2,7 @@
   "name": "mars-discovery-intelligence",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,7 +21,10 @@
     "verify:terrain": "node scripts/build-ctx-terrain.mjs --verify",
     "smoke:mission-glass": "node scripts/smoke-mission-glass.mjs",
     "smoke:eva-route": "node scripts/smoke-eva-route.mjs",
-    "smoke:station": "node scripts/smoke-station.mjs"
+    "smoke:station": "node scripts/smoke-station.mjs",
+    "contracts:build": "node tools/myomars/build-contracts.ts",
+    "contracts:check": "node tools/myomars/build-contracts.ts --check",
+    "contracts:validate": "node tools/myomars/validate-message.ts"
   },
   "dependencies": {
     "next": "16.4.5",

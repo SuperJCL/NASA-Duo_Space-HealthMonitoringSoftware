@@ -1,0 +1,21 @@
+{
+  "schema": "myomars/v1",
+  "eventId": "example-station-notice-approved",
+  "sessionId": "demo",
+  "runId": "run-example-1",
+  "caseId": "case-change",
+  "sentAt": "2026-11-14T10:00:00.000Z",
+  "source": "station",
+  "type": "station.notice.approved",
+  "payload": {
+    "noticeId": "case-change-n1",
+    "text": "基地提示（模拟）：你的前臂肌电与握力测量与平时基线不同。请在下一次停顿时按标准协议完成一次复测；如有不适请报告。",
+    "basis": [
+      "信号质量满足演示规则，可继续。"
+    ],
+    "evaluationVersion": 1,
+    "reviewedBy": "基地值班员",
+    "reviewReason": "多项特征同向偏离，安排复测",
+    "simulated": true
+  }
+}

@@ -3734,3 +3734,38 @@ unchanged, and `verify:terrain` still matches a fresh build.
     separate v1/v2, and the phone order: summary, then action, then analysis.
   - Legacy suites: Mission Glass smoke 228/228, EVA route smoke 50/50, research smoke
     120/120 (`SMOKE_LIVE=1`).
+
+## MyoMars shared message contracts v1 (F1)
+
+- **Started:** 2026-11-14T20:57:34Z, on branch `feat/myomars-foundation` from `a4bb19d`.
+- **Scope:** the shared message contracts only, usable on their own. The relay (F2) is **not**
+  part of this commit; it stays unfinished on the working branch.
+- **Added:**
+  - `src/contracts/`, Zod sources written as erasable TypeScript so Node 22 runs them directly:
+    - `payloads.ts`;
+    - `envelope.ts`: the envelope, the 14 event types, publisher rules, `parseEnvelope` and
+      `parseIncoming`;
+    - `demo-fixtures.ts`: the shared simulated inputs, moved out of the station so the contracts do
+      not depend on station code.
+  - Generated `contracts/` folder: JSON Schema 2020-12, one example message per type, `event-rules.json`
+    and 4 fixed scenarios.
+  - `tools/myomars/`:
+    - a generator, plus `contracts:build` and `contracts:check`;
+    - a local validator, `contracts:validate`;
+    - 6 tests, including drift between the sources and the generated files.
+  - `docs/myomars/CONTRACTS.md`: the minimal integration guide, migration from the v0 station draft,
+    the change procedure and open questions for the teammates.
+- **Shared-file changes:**
+  - `package.json`: `"type": "module"`, so Node loads the `.ts` contracts without warnings;
+    the repository has no CommonJS files. Also three new scripts.
+  - `tsconfig.json`: `allowImportingTsExtensions`.
+  - `vitest.config.mts`: also runs `tools/**/*.test.ts`.
+- **Behaviour additions** (from the owner's requirements):
+  - `retest.completed` as a separate type: the astronaut reports the retest done, with the data
+    sent separately.
+  - `hud.received`, `hud.ack` and `retest.completed` are separate types.
+  - `station.audit.*` traceability records, which must never be acted on.
+  - Required `sessionId`, optional `occurredAt`.
+  - Optional IMU summary and `deviceId` on an observation.
+- **Status:** a proposal from the Station owner, not yet agreed by the HUD and Trigger owners. All
+  data is simulated.

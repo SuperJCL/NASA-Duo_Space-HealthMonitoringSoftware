@@ -1,0 +1,25 @@
+{
+  "schema": "myomars/v1",
+  "eventId": "example-station-retest-requested",
+  "sessionId": "demo",
+  "runId": "run-example-1",
+  "caseId": "case-change",
+  "retestId": "case-change-rt1",
+  "sentAt": "2026-11-14T10:00:00.000Z",
+  "source": "station",
+  "type": "station.retest.requested",
+  "payload": {
+    "retestId": "case-change-rt1",
+    "protocol": {
+      "id": "std-grip-40",
+      "label": "标准握持 40% MVC · 30 s",
+      "targetPctMvc": 40,
+      "posture": "standing",
+      "glove": "eva-glove"
+    },
+    "instructions": "休息后，按标准协议复测一次。",
+    "evaluationVersion": 1,
+    "reviewedBy": "基地值班员",
+    "simulated": true
+  }
+}

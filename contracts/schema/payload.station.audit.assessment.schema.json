@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.station.audit.assessment.schema.json",
+  "title": "payload.station.audit.assessment",
+  "type": "object",
+  "properties": {
+    "evaluationVersion": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "trigger": {
+      "type": "string",
+      "enum": [
+        "observation",
+        "retest"
+      ]
+    },
+    "sourceEventId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "inputKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 5000
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "headline": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "candidateKind": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "record-only",
+            "retest",
+            "notice-and-retest"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "simulated": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "required": [
+    "evaluationVersion",
+    "trigger",
+    "sourceEventId",
+    "inputKey",
+    "outcome",
+    "headline",
+    "candidateKind",
+    "simulated"
+  ],
+  "additionalProperties": false
+}

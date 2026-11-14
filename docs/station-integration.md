@@ -1,5 +1,9 @@
 # MyoMars base station: integration proposal (DRAFT)
 
+> **Superseded on 2026-11-14 by the shared contracts v1: `docs/myomars/CONTRACTS.md`.** This page
+> describes the v0 station draft and is kept for its history; the migration table in
+> CONTRACTS.md lists every change.
+
 > **Status:** proposal from the base station side, written 2026-11-14 on branch
 > `feat/myomars-station`. No team protocol existed in the repository when this was written, and
 > neither did the Trigger or HUD branches. **Nothing here is an agreed team standard.**

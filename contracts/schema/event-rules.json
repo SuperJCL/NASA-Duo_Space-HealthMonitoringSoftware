@@ -1,0 +1,115 @@
+{
+  "scenario.start": {
+    "publishers": [
+      "trigger"
+    ],
+    "needsCaseId": false,
+    "needsRetestId": false,
+    "payloadSchema": "payload.scenario.start.schema.json"
+  },
+  "scenario.reset": {
+    "publishers": [
+      "trigger"
+    ],
+    "needsCaseId": false,
+    "needsRetestId": false,
+    "payloadSchema": "payload.scenario.reset.schema.json"
+  },
+  "observation.submitted": {
+    "publishers": [
+      "trigger"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.observation.submitted.schema.json"
+  },
+  "hud.received": {
+    "publishers": [
+      "hud"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.hud.received.schema.json"
+  },
+  "hud.ack": {
+    "publishers": [
+      "hud"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.hud.ack.schema.json"
+  },
+  "hud.defer": {
+    "publishers": [
+      "hud"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.hud.defer.schema.json"
+  },
+  "retest.completed": {
+    "publishers": [
+      "hud"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": true,
+    "payloadSchema": "payload.retest.completed.schema.json"
+  },
+  "retest.result": {
+    "publishers": [
+      "trigger",
+      "hud"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": true,
+    "payloadSchema": "payload.retest.result.schema.json"
+  },
+  "station.notice.approved": {
+    "publishers": [
+      "station"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.station.notice.approved.schema.json"
+  },
+  "station.retest.requested": {
+    "publishers": [
+      "station"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": true,
+    "payloadSchema": "payload.station.retest.requested.schema.json"
+  },
+  "station.receipt": {
+    "publishers": [
+      "station"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.station.receipt.schema.json"
+  },
+  "station.reassessment": {
+    "publishers": [
+      "station"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.station.reassessment.schema.json"
+  },
+  "station.audit.assessment": {
+    "publishers": [
+      "station"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.station.audit.assessment.schema.json"
+  },
+  "station.audit.review": {
+    "publishers": [
+      "station"
+    ],
+    "needsCaseId": true,
+    "needsRetestId": false,
+    "payloadSchema": "payload.station.audit.review.schema.json"
+  }
+}
