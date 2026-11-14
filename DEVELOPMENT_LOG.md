@@ -3780,3 +3780,19 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - The fixtures are re-exported from the contracts; the individual baselines stay in the station.
   - The smoke test now counts only HUD-facing messages.
   - 4 new unit tests.
+
+## MyoMars relay (F2): paused, work in progress only on `feat/myomars-foundation`
+
+- **Paused:** on the project owner's instruction, after the shared contracts were made usable on
+  their own.
+- **Kept, not deleted:**
+  - `relay/` (configuration, authentication, store, app, static files, server entry point);
+  - `src/contracts/api.ts` (draft relay API contract);
+  - `tools/myomars/client.ts` (Node reference client).
+
+  They typecheck and lint cleanly. The relay was started manually: health check, a login refused
+  without the client header, and an HttpOnly cookie set on login.
+- **No automated relay tests yet.** Remaining work and known open points:
+  `docs/myomars/RELAY-STATUS.md`.
+- **Not merged anywhere.** The shared contracts and the station migration are on
+  `feat/myomars-contracts` (`0366711`), without any relay code.
