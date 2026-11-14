@@ -29,7 +29,7 @@ const version = async (p) => Number(await p.getByTestId("route-status").getAttri
 const recommended = async (p) => p.getByTestId("route-options").getAttribute("data-recommended");
 
 async function openRoute(p) {
-  await p.goto(ORIGIN + "/", { waitUntil: "domcontentloaded" });
+  await p.goto(ORIGIN + (process.env.MG_PATH ?? "/legacy/mission-glass"), { waitUntil: "domcontentloaded" });
   await p.getByTestId("mg-mode-route").click();
   await p.getByTestId("route-status").waitFor({ timeout: 30_000 });
 }

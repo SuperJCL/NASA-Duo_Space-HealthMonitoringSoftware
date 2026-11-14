@@ -3612,3 +3612,71 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - The rover sensor has no line-of-sight model.
   - The traverse corridor counts as surveyed ground by assumption.
   - The demo weights, rover model and crew surface rules are simulated, not validated.
+
+## MyoMars base station (part 3 of 3), first version, standalone
+
+- **Started:** 2026-11-14T19:28:03Z, on branch `feat/myomars-station`, created from
+  `eva-route-scouting` at `76e2888` (the current latest work, as the project owner asked).
+  `eva-route-scouting` and `main` are untouched.
+- **Completed:** 2026-11-14T19:48:21Z, at this commit. Not pushed, not merged, not deployed.
+- **Scope:**
+  - This branch builds only the base station.
+  - The Trigger and the HUD belong to teammates and are not built here.
+  - No team protocol or teammate branch existed in the repository. The message format is
+    therefore a **proposal** (`docs/station-integration.md`), not an agreed standard.
+- **Reuse:**
+  - The Mission Glass shell: header, mode tabs, `.mission-glass` tokens, glass panels, map-first
+    layout with floating cards and a right panel.
+  - The map component (`MarsMapLoader`).
+  - The EVA route view, unchanged (`EVA 路线` tab).
+  - The choose-then-confirm decision pattern, the versioned-state and stale-result pattern,
+    Zod validation, and the smoke-test style.
+- **Changed:**
+  - `/` is now the station.
+  - Mission Glass is kept unchanged at `/legacy/mission-glass`. `/mission-glass` still redirects
+    to `/` through the existing `next.config.ts`, which was not edited.
+  - The research header link, the legacy smoke scripts and the SCI-1 isolation whitelist now
+    point to that path.
+- **Added:**
+  - `src/lib/station/`:
+    - `protocol.ts`: envelope and payloads, Zod;
+    - `analysis.ts`: the deterministic four-stage simulated analysis (quality → context and
+      comparability → feature comparison → recommendation template), with demo thresholds;
+    - `station.ts`: the pure state machine with effects;
+    - `controller.ts`: timers and adapter;
+    - `adapter.ts`: the adapter interface and the local mock;
+    - `fixtures.ts`: four observation sets plus three retest results;
+    - 22 unit tests.
+  - `src/components/station/`: the station page, the case panel, and a development injector
+    that only shows with `?dev=1`.
+  - `scripts/smoke-station.mjs`.
+- **Rules implemented:**
+  - Nothing reaches the HUD without a human approval with a reason.
+  - A record-only candidate cannot be approved for sending.
+  - A duplicate `eventId` creates no new evaluation, dispatch or task.
+  - A duplicate retest result gets a `duplicate` receipt.
+  - An unknown `retestId` is rejected.
+  - A reset cancels pending analysis timers, and later events from that run are ignored.
+  - Poor quality or non-comparable conditions stop the pipeline before any physiological inference.
+  - Alerts are cleared only by a human close.
+  - A single normal retest does not close a case.
+  - A delivery failure is shown and can be resent with the same `eventId`.
+  - No diagnosis, treatment or automatic task restriction.
+- **Verification (production build, standalone mode only):**
+  - `npm run check`: 326/326 tests (304 before, plus 22 station tests); lint, typecheck and build pass.
+  - `smoke:station`: 51/51 checks:
+    - the normal, acquisition-anomaly, not-comparable and comparable-change fixtures;
+    - the full review and retest loop with HUD defer and acknowledgement, receipt, v2, and close
+      with reassessment;
+    - duplicates;
+    - reset during analysis plus a late event from the old run;
+    - delivery failure and resend;
+    - tab switching;
+    - phone 390×844 with no horizontal scroll.
+  - Legacy suites still pass at the new path: Mission Glass smoke 228/228 and EVA route smoke
+    50/50. Research smoke 120/120 with `SMOKE_LIVE=1`.
+- **Not done:**
+  - No real adapter: the station is standalone, and no same-browser or cross-device link was
+    built or tested.
+  - No real model, backend or sensor.
+  - The astronaut, baseline, signals and thresholds are simulated demo values.

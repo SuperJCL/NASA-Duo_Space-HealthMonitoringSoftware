@@ -9,7 +9,7 @@ export function AppHeader() {
       </div>
       <div className="flex items-center gap-3">
         <p className="text-xs text-muted">Research workspace &middot; Jezero crater sample-site science briefings</p>
-        <Link href="/" className="rounded border border-border px-2 py-1 text-xs hover:border-accent-muted" data-testid="link-mission-glass">
+        <Link href="/legacy/mission-glass" className="rounded border border-border px-2 py-1 text-xs hover:border-accent-muted" data-testid="link-mission-glass">
           &larr; Mission Glass
         </Link>
       </div>

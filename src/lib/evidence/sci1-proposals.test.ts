@@ -51,7 +51,7 @@ describe("SCI-1 v1 proposals: pending candidate evidence, never scored", () => {
     // The loader is used only by the Mission Glass page (a Server Component), never by the engine, the evidence loader or client components.
     const imports = (f: string, mod: string) => new RegExp(`from "[^"]*/${mod}"`).test(readFileSync(f, "utf8"));
     const loaderUsers = files.filter((f) => imports(f, "candidate-compare-data")).map((f) => f.replace(/\\/g, "/"));
-    expect(loaderUsers.sort()).toEqual(["src/app/page.tsx", "src/lib/prototype/candidate-compare.test.ts"]);
+    expect(loaderUsers.sort()).toEqual(["src/app/legacy/mission-glass/page.tsx", "src/lib/prototype/candidate-compare.test.ts"]);
     const engineOrLoader = files.filter((f) => /src[\\/]lib[\\/](decision|evidence)[\\/]/.test(f) && (imports(f, "candidate-compare") || imports(f, "candidate-compare-data")));
     expect(engineOrLoader).toEqual([]);
   });

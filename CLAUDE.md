@@ -68,8 +68,9 @@
   the existing `selectEvidenceAsOf`, and contains no science logic.
 - `src/lib/briefing/` — location science briefings: Zod schema, integrity
   rules, loader. Not imported by `lib/evidence` or `lib/decision`.
-- `src/lib/prototype/`, `src/data/prototype/` — MDI 2.0 Mission Glass, the
-  default entry point (`/`; the research workspace is `/research`). Its
+- `src/lib/prototype/`, `src/data/prototype/` — MDI 2.0 Mission Glass (on the
+  `feat/myomars-station` branch it is kept at `/legacy/mission-glass`; `/` is
+  the MyoMars base station; the research workspace is `/research`). Its
   targets, steps and events are
   scenario-defined and must stay labelled simulated; never copy them into
   `src/data/geo/`. Ranks come only from the existing engine. MAP-2
@@ -104,6 +105,20 @@
   the current `stateVersion` and never change numbers. Keep the provenance
   headers of the files derived from Sol Atlas. MAP-2 sequence lines stay
   conceptual and are not replaced by these routes.
+- `src/lib/station/`, `src/components/station/` — MyoMars base station (`/`),
+  a SIMULATED demo (`docs/station-integration.md`). Every view keeps the
+  "模拟数据 / 模拟分析" label. The "LLM analysis" is a deterministic rule
+  pipeline (`analysis.ts`, demo thresholds); never call a real model, never
+  produce a diagnosis, treatment or automatic task restriction, never infer
+  physiology from data that failed quality or comparability checks. The
+  analysis only creates a candidate: nothing reaches the HUD without a human
+  approval with a reason (`station.ts` enforces it). Alerts are cleared only
+  by a human close. Inbound events are deduplicated by `eventId`, scoped by
+  `runId`, and a reset cancels pending analysis. Transport lives only in an
+  adapter (`adapter.ts`); the message format is a PROPOSAL, not an agreed
+  team protocol, and the station is standalone until a real adapter is
+  tested. Do not build the Trigger or HUD here (`?dev=1` is a dev-only
+  injector).
 - `src/data/` — curated JSON evidence records (validated at build time);
   `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 
