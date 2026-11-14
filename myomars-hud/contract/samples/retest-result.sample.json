@@ -1,0 +1,12 @@
+{
+  "_note": "占位样例：公共底座尚未提供正式模拟复测样例。底座交付后用其文件替换本文件，HUD 只读取本文件，不自行生成数值。",
+  "sampleId": "RT-P1-v1-sample-01",
+  "simulated": true,
+  "protocol": { "id": "RT-P1", "version": "1" },
+  "quality": "valid",
+  "metrics": [
+    { "name": "repetitions", "label": "Repetitions", "value": 3, "unit": "count" },
+    { "name": "knee_flexion_peak", "label": "Peak knee flexion", "value": 62, "unit": "deg" },
+    { "name": "emg_rms_ratio_to_baseline", "label": "EMG RMS / baseline", "value": 0.91, "unit": "ratio" }
+  ]
+}

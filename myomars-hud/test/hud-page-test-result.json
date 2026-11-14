@@ -1,0 +1,117 @@
+{
+  "runAt": "2026-11-14T21:45:56.827Z",
+  "node": "v26.12.1",
+  "base": "mock (SRS v0.1 draft)",
+  "results": [
+    {
+      "name": "P1 页面连接基站并显示连接状态",
+      "ok": true,
+      "detail": "Base link ● Online Last sync 21:45:49 UTC"
+    },
+    {
+      "name": "P2 基站未发布时只显示自动监测与空告警",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P2a 步行片段自动分段上传，基站做质量检查并只计入可比片段",
+      "ok": true,
+      "detail": "too-short, valid/comparable, valid/comparable, valid/comparable"
+    },
+    {
+      "name": "P2b 正常巡检显示「Auto-monitoring · 最近同步时间」",
+      "ok": true,
+      "detail": "Auto-monitoring · last sync 21:45:49 UTC"
+    },
+    {
+      "name": "P2c 偏离经基站复核批准后才下发（审计可见）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P3 批准后告警卡显示原因 / 下一步 / 数据时间",
+      "ok": true,
+      "detail": "▲ Review · Left quadriceps deviates from walking baseline Reason 3 quality-checked walking…"
+    },
+    {
+      "name": "P4 状态行显示「Base recommends in-habitat retest · Left quadriceps · View task」",
+      "ok": true,
+      "detail": "Base recommends in-habitat retest · Left quadriceps · View task"
+    },
+    {
+      "name": "P5 告警卡显示端侧接收回执已回传，人员确认按钮仍在",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P6 点击「确认收到」后单独回传人员确认",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P7 查看后出现「开始复测」「暂缓」",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P8 未选原因时暂缓不生效并提示",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P9 选择原因后暂缓回到基站",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P10 开始复测：基站 accept 后进入采集，出现「中止复测」",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P11 刷新后恢复当前任务（采集中断 → 重新采集）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P12 采集完成后显示待提交的模拟结果（含单位）",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P13 断链：显示「Recording locally · pending upload」，结果与片段只在本地排队",
+      "ok": true,
+      "detail": "Recording locally · pending upload (2). Will resend when reconnected"
+    },
+    {
+      "name": "P14 恢复连接后自动补传结果与片段，显示基站已接收 / 等待重评",
+      "ok": true,
+      "detail": "Base received retest result"
+    },
+    {
+      "name": "P15 重评送达：原告警更新为 v2，显示最终处理且案例未关闭",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P16 v2 需要重新人员确认",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P17 重复消息不产生重复任务",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P18 基站关闭案例后显示已关闭，自动监测继续",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P19 左腿小卡显示基站发布的前后结论",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

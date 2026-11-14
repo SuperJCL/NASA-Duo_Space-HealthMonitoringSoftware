@@ -1,0 +1,11 @@
+{
+  "_note": "Placeholder sample: the shared base has not delivered an official walking-segment sample yet. Replace this file with the base's sample; the HUD only reads feature values from here and never invents them. Timing fields (start/end/duration/steps/cadence) come from the local device's walking detection.",
+  "sampleId": "WALK-v1-sample-01",
+  "simulated": true,
+  "protocol": { "id": "WALK-AUTO", "version": "1" },
+  "metrics": [
+    { "name": "emg_rms_left_quad", "label": "Left quad EMG RMS", "value": 41.2, "unit": "uV" },
+    { "name": "emg_rms_right_quad", "label": "Right quad EMG RMS", "value": 47.9, "unit": "uV" },
+    { "name": "stride_time_mean", "label": "Mean stride time", "value": 1.18, "unit": "s" }
+  ]
+}
