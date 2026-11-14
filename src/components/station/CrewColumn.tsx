@@ -1,7 +1,8 @@
 "use client";
 
 import { latest, workbenchStage, type StationState } from "@/lib/station/station";
-import { AlertBadge, Label, PHASE_SHORT } from "./ui";
+import { caseStatus, evaluationStatus } from "@/lib/station/views";
+import { Label, StatusChip } from "./ui";
 
 /** Left column: the astronaut and the events that actually exist for them. */
 export function CrewColumn({ state, selectedId, onSelect }: { state: StationState; selectedId: string | null; onSelect: (id: string) => void }) {
@@ -50,19 +51,15 @@ export function CrewColumn({ state, selectedId, onSelect }: { state: StationStat
                   data-testid={`station-case-tab-${c.caseId}`}
                   data-stage={workbenchStage(c)}
                 >
-                  <span className="flex items-center gap-2">
-                    <AlertBadge level={c.alert.level} />
-                    <span className="text-[12px] text-[var(--mg-dim)]">{PHASE_SHORT[c.phase]}</span>
-                  </span>
+                  <StatusChip tone={caseStatus(c).tone}>{caseStatus(c).label}</StatusChip>
                   <span className="text-[13px] font-medium leading-snug">{ev.completedAt ? ev.result.headline : "模拟分析中…"}</span>
-                  <span className="text-[11px] text-[var(--mg-faint)]">{`${c.caseId} · v${ev.version}`}</span>
+                  <span className={`text-[12px] ${{ ok: "text-[var(--mg-ok)]", alert: "text-[#ff8f8f]", caution: "text-[var(--mg-caution)]", neutral: "text-[var(--mg-faint)]" }[evaluationStatus(ev).tone]}`}>{evaluationStatus(ev).label}</span>
                 </button>
               </li>
             );
           })}
         </ul>
       )}
-      {run ? <p className="mt-auto text-[11px] text-[var(--mg-faint)]">{`场景 ${run.scenarioId} · 运行 ${run.runId}`}</p> : null}
     </nav>
   );
 }

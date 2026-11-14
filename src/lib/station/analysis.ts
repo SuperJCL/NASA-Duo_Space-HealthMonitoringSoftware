@@ -1,5 +1,7 @@
 // MyoMars base station: SIMULATED analysis. A deterministic rule pipeline stands in for the
-// "LLM analysis" of the demo; no model is called. The same observation and baseline always give
+// "LLM analysis" of the demo; no model is called. Input: ONE standardised simulated measurement
+// (fixed grip protocol), not continuous sEMG monitoring during free activity. Grip force is an
+// independent simulated grip-meter reading taken with the protocol, never derived from sEMG. The same observation and baseline always give
 // the same result (the UI only reveals the stages with a delay).
 //
 // Stages: quality check → context & comparability → feature comparison → recommendation template.
@@ -21,10 +23,11 @@ export type StageId = (typeof STAGES)[number]["id"];
 export type StageStatus = "done" | "blocked" | "failed" | "skipped";
 
 export type FeatureKey = "medianFreqHz" | "rmsPctMvc" | "gripForceN";
-export const FEATURES: Record<FeatureKey, { label: string; unit: string; concern: "down" | "up" }> = {
-  medianFreqHz: { label: "肌电中位频率", unit: "Hz", concern: "down" },
-  rmsPctMvc: { label: "肌电幅值 RMS", unit: "%MVC", concern: "up" },
-  gripForceN: { label: "握力", unit: "N", concern: "down" },
+/** The three compared indicators. `source`: sEMG features vs the independent grip-meter reading. */
+export const FEATURES: Record<FeatureKey, { label: string; unit: string; concern: "down" | "up"; source: string }> = {
+  medianFreqHz: { label: "肌电中位频率", unit: "Hz", concern: "down", source: "sEMG" },
+  rmsPctMvc: { label: "肌电幅值 RMS", unit: "%MVC", concern: "up", source: "sEMG" },
+  gripForceN: { label: "握力", unit: "N", concern: "down", source: "握力计（独立测量）" },
 };
 
 export type Baseline = {
@@ -108,7 +111,7 @@ export function analyse(o: Observation, b: Baseline, rules = DEMO_RULES): Analys
       outcome: "quality-blocked",
       alert: "watch",
       headline: "采集质量不合格，无法评估",
-      conclusion: "本次观测的信号质量未达到演示规则要求，不对肌肉状态作任何推断。",
+      conclusion: "本次测量的信号质量未达到演示规则要求，不对肌肉状态作任何推断。",
       limitations: ["质量不合格的数据不能说明生理状态正常或异常。", ...COMMON_LIMITS],
       comparisons: [],
       candidate: { kind: "retest", title: "重新采集（检查电极与佩戴）", rationale: "数据质量问题，属于采集操作建议，不是生理结论。", retest: standardRetest(b, "检查电极接触与固定后，") },
@@ -172,7 +175,7 @@ export function analyse(o: Observation, b: Baseline, rules = DEMO_RULES): Analys
     label: FEATURES[c.key].label,
     value: `${fmt(c.current!)} ${FEATURES[c.key].unit}（基线 ${fmt(c.mean)} ± ${fmt(c.sd)}，z = ${c.z!.toFixed(2)}）`,
     ok: !c.flagged,
-    note: c.flagged ? `超出 ±${rules.features.zFlag} SD（关注方向：${FEATURES[c.key].concern === "down" ? "下降" : "上升"}）` : "在个体基线波动范围内",
+    note: c.flagged ? `超出 ±${rules.features.zFlag} SD（关注方向：${FEATURES[c.key].concern === "down" ? "下降" : "上升"}）` : "在参考范围内",
   }));
   const outcome: Outcome = flagged.length >= rules.features.minFlaggedForChange ? "change-beyond-baseline" : flagged.length === 1 ? "single-feature" : "within-baseline";
   stages.push({
@@ -180,10 +183,10 @@ export function analyse(o: Observation, b: Baseline, rules = DEMO_RULES): Analys
     status: "done",
     summary:
       outcome === "change-beyond-baseline"
-        ? `${flagged.length} 项特征超出个体基线波动（${flagged.map((c) => FEATURES[c.key].label).join("、")}）。`
+        ? `${flagged.length} 项指标超出个体基线波动（${flagged.map((c) => FEATURES[c.key].label).join("、")}）。`
         : outcome === "single-feature"
           ? `仅 ${FEATURES[flagged[0].key].label} 超出基线波动，证据不足以判断变化。`
-          : "各项特征均在个体基线波动范围内。",
+          : `各项指标均在参考范围内（个体基线 ± ${rules.features.zFlag} SD）。`,
     evidence: fEv,
   });
 
@@ -195,8 +198,8 @@ export function analyse(o: Observation, b: Baseline, rules = DEMO_RULES): Analys
   const isRetest = o.context.phase === "retest";
   if (outcome === "change-beyond-baseline") {
     alert = "alert";
-    headline = isRetest ? "复测仍超出个体基线波动" : "可比条件下特征超出个体基线波动";
-    conclusion = "在与基线可比的条件下，多项特征的变化超出该宇航员的基线波动（演示规则）。这是需要人工关注的信号，不是诊断。";
+    headline = isRetest ? "复测仍超出个体基线波动" : "可比条件下指标超出个体基线波动";
+    conclusion = "在与基线可比的标准化测量中，多项指标的变化超出该宇航员的基线波动（演示规则）。这是需要人工关注的信号，不是诊断。";
     candidate = {
       kind: "notice-and-retest",
       title: "向宇航员发送提示并安排标准复测",
@@ -206,14 +209,16 @@ export function analyse(o: Observation, b: Baseline, rules = DEMO_RULES): Analys
     };
   } else if (outcome === "single-feature") {
     alert = "watch";
-    headline = "单项特征超出基线，证据不足";
-    conclusion = "只有一项特征超出基线波动，不足以判断变化，建议复测。";
+    headline = "单项指标超出基线，证据不足";
+    conclusion = "只有一项指标超出基线波动，不足以判断变化，建议复测。";
     candidate = { kind: "retest", title: "安排标准复测", rationale: "单项偏离可能来自测量波动。", retest: standardRetest(b, "") };
   } else {
     alert = "none";
-    headline = isRetest ? "复测在个体基线范围内" : "在个体基线范围内";
-    conclusion = isRetest ? "本次复测各项特征回到个体基线波动范围内。单次正常结果不能证明已经恢复，是否关闭事件由基地人员决定。" : "各项特征均在该宇航员的基线波动范围内（演示规则）。";
-    candidate = { kind: "record-only", title: "仅记录，无需向 HUD 发送行动", rationale: isRetest ? "由人工决定关闭事件或继续观察。" : "结果在基线范围内。" };
+    headline = isRetest ? "复测在参考范围内" : "测量在参考范围内";
+    conclusion = isRetest
+      ? "本次复测各项指标在参考范围内。单次正常结果不能证明已经恢复。"
+      : "各项指标均在该宇航员的参考范围内（演示规则）。";
+    candidate = { kind: "record-only", title: "仅记录：不发送行动消息", rationale: isRetest ? "复测结果在参考范围内，无需新的行动。" : "结果在参考范围内。" };
   }
   stages.push({ id: "recommendation", status: "done", summary: `生成待审候选：${candidate.title}。`, evidence: [{ label: "候选类型", value: candidate.kind, ok: null, note: "须经基地人员审核后才可发布" }] });
   return { inputKey: key, stages, outcome, alert, headline, conclusion, limitations: COMMON_LIMITS, comparisons, candidate };

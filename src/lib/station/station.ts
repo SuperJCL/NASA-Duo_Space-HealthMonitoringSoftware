@@ -5,6 +5,9 @@
 // - events from an old scenario run, or late analysis ticks, are ignored;
 // - the simulated analysis only produces a CANDIDATE; nothing reaches the HUD without a human
 //   "approve" with a recorded reason;
+// - ACTION messages (notice, retest task) are sent only on "approve"; a human "close" or
+//   "keep-open" publishes a STATUS notification (station.reassessment with caseStatus), never an
+//   action, and the same case status is never published twice;
 // - a retest result must match a retest this case requested; duplicates make no new evaluation;
 // - alerts are never lowered by a result, a data failure or an analysis failure: only a human
 //   "close" clears them, and a single normal retest does not close a case by itself.
@@ -26,8 +29,12 @@ import {
 
 export type LinkMode = "standalone-mock" | "same-browser" | "cross-device";
 
-export type Phase = "analysing" | "awaiting-review" | "on-hold" | "awaiting-hud" | "awaiting-retest" | "deferred" | "rejected" | "monitoring" | "closed";
-export type Decision = "approve" | "reject" | "hold" | "close" | "keep-open";
+export type Phase = "analysing" | "awaiting-review" | "awaiting-hud" | "awaiting-retest" | "deferred" | "rejected" | "monitoring" | "closed";
+/**
+ * Human decisions offered in this version. ("hold" from the v0 draft is not offered: it left the
+ * event in the same pending state with no other effect, so it duplicated simply not deciding.)
+ */
+export type Decision = "approve" | "reject" | "close" | "keep-open";
 export type AlertLevel = "none" | "watch" | "alert";
 
 export type Evaluation = {
@@ -61,6 +68,37 @@ export type OutMessage = {
   feedback: "none" | "acknowledged" | "deferred";
   feedbackNote: string | null;
   feedbackAt: string | null;
+};
+
+/**
+ * What a station message is for the HUD:
+ * - action: the astronaut is asked to do something (notice to acknowledge, retest to perform);
+ * - status: information about the case status only (closed / kept under watch); nothing to do;
+ * - receipt: the station received a retest result;
+ * - audit: traceability record, not for the HUD (station.audit.*).
+ */
+export type MessageKind = "action" | "status" | "receipt" | "audit";
+export function messageKind(type: string): MessageKind {
+  if (type === "station.notice.approved" || type === "station.retest.requested") return "action";
+  if (type === "station.reassessment") return "status";
+  if (type === "station.receipt") return "receipt";
+  return "audit";
+}
+
+/**
+ * Station messages for a case IN THE CURRENT RUN. Demo case IDs repeat across runs and the outbox
+ * keeps earlier runs' messages, so lookups by case must also match the run.
+ */
+export const caseMessages = (s: Pick<StationState, "outbox" | "run">, caseId: string | null): OutMessage[] => s.outbox.filter((m) => m.caseId === caseId && !!s.run && m.envelope.runId === s.run.runId);
+
+/** Readable names of the station messages (event types stay in the technical details). */
+export const OUT_LABEL: Record<OutboundType, string> = {
+  "station.notice.approved": "提示（行动消息）",
+  "station.retest.requested": "复测任务（行动消息）",
+  "station.receipt": "复测结果接收回执",
+  "station.reassessment": "状态通知",
+  "station.audit.assessment": "审计：评估记录",
+  "station.audit.review": "审计：审核记录",
 };
 
 export type Retest = {
@@ -161,7 +199,6 @@ export function workbenchStage(c: Case): WorkbenchStage {
     case "analysing":
       return v >= 2 ? "reassessing" : "analysing";
     case "awaiting-review":
-    case "on-hold":
       return v >= 2 ? "reassessed" : "review";
     case "awaiting-hud":
     case "awaiting-retest":
@@ -180,18 +217,43 @@ export function allowedDecisions(c: Case): Decision[] {
   const ev = latest(c);
   if (!ev || ev.completedAt === null) return [];
   const act = isActionable(ev.result.candidate);
-  const noRepeatHold = (d: Decision[]) => (c.phase === "on-hold" ? d.filter((x) => x !== "hold") : d);
   switch (workbenchStage(c)) {
     case "review":
-      return noRepeatHold(act ? ["approve", "reject", "hold"] : ["close", "keep-open", "hold"]);
+      return act ? ["approve", "reject"] : ["close", "keep-open"];
     case "reassessed":
-      return noRepeatHold(act ? ["approve", "close", "keep-open", "hold"] : ["close", "keep-open", "hold"]);
+      return act ? ["approve", "close", "keep-open"] : ["close", "keep-open"];
     case "dispatched":
       return ["close"];
     case "decided":
       return c.phase === "rejected" ? ["close", "keep-open"] : ["close"];
     default:
       return [];
+  }
+}
+
+/** Case status a decision leads to (approve: waiting for the HUD). */
+const PHASE_AFTER: Record<Decision, Phase> = { approve: "awaiting-hud", reject: "rejected", close: "closed", "keep-open": "monitoring" };
+
+/**
+ * Text of the STATUS notification a decision publishes (null: the decision publishes none).
+ * Shown to the reviewer before confirming, and sent unchanged as station.reassessment.summary.
+ * close / keep-open: always (any evaluation version); approve: only for a re-evaluation (v ≥ 2),
+ * next to the new action messages; reject: never.
+ */
+export function statusNoticeText(c: Case, decision: Decision): string | null {
+  const ev = latest(c);
+  if (!ev || ev.completedAt === null) return null;
+  const result = `最新评估 v${ev.version}：${ev.result.headline}。`;
+  const openRetest = c.retests.some((r) => r.status !== "result-received");
+  switch (decision) {
+    case "close":
+      return `基地状态（模拟）：此事件已由基地人员关闭。${result}无需进一步操作。${openRetest ? "之前安排的复测无需再做。" : ""}`;
+    case "keep-open":
+      return `基地状态（模拟）：此事件保留关注，暂不关闭。${result}目前无需操作。`;
+    case "approve":
+      return ev.version >= 2 ? `基地状态（模拟）：已完成重评。${result}已安排新的复测，请查看复测任务。` : null;
+    case "reject":
+      return null;
   }
 }
 
@@ -227,7 +289,7 @@ export function step(state: StationState, action: Action): StepResult {
     const envelope: Envelope = { schema: SCHEMA, eventId, sessionId: s.sessionId, runId: s.run.runId, caseId, retestId, sentAt: at, source: "station", type, payload };
     s.outbox.push({ eventId, type, caseId, retestId, envelope, delivery: "queued", deliveryNote: null, adapterAt: null, relaySeq: null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
     effects.push({ kind: "send", envelope });
-    if (!type.startsWith("station.audit.")) log(at, "out", `发出 ${type}`, caseId, eventId);
+    if (!type.startsWith("station.audit.")) log(at, "out", `发出${OUT_LABEL[type]}`, caseId, eventId);
     return eventId;
   };
 
@@ -237,7 +299,7 @@ export function step(state: StationState, action: Action): StepResult {
     const version = c.evaluations.length + 1;
     c.evaluations.push({ version, trigger, sourceEventId, retestId, observation, result, revealed: 0, startedAt: at, completedAt: null });
     c.phase = "analysing";
-    log(at, "system", `开始第 ${version} 版模拟分析（${trigger === "retest" ? "复测结果" : "观测"}）`, c.caseId, sourceEventId);
+    log(at, "system", `开始第 ${version} 版模拟分析（${trigger === "retest" ? "复测结果" : "测量"}）`, c.caseId, sourceEventId);
     effects.push({ kind: "schedule-tick", runId: s.run!.runId, caseId: c.caseId, version });
   };
 
@@ -288,13 +350,13 @@ export function step(state: StationState, action: Action): StepResult {
         if (s.run) {
           s.endedRuns.push(s.run.runId);
           effects.push({ kind: "cancel-ticks" });
-          log(at, "system", `新场景开始，结束上一轮 ${s.run.runId}`);
+          log(at, "system", "新场景开始，结束上一轮");
         }
         const p = parsed.payload as ScenarioStart;
         s.run = { runId: env.runId, scenarioId: p.scenarioId, astronaut: p.astronaut, task: p.task, startedAt: at };
         s.cases = {};
         s.caseOrder = [];
-        log(at, "in", `场景开始：${p.scenarioId}（运行 ${env.runId}）`, null, env.eventId);
+        log(at, "in", `场景开始：${p.astronaut.callsign} · ${p.task.title}`, null, env.eventId);
         return { state: s, effects, error: null };
       }
 
@@ -308,7 +370,7 @@ export function step(state: StationState, action: Action): StepResult {
       if (type === "scenario.reset") {
         s.endedRuns.push(s.run.runId);
         effects.push({ kind: "cancel-ticks" });
-        log(at, "in", `场景重置：运行 ${s.run.runId} 结束，取消进行中的分析`, null, env.eventId);
+        log(at, "in", "场景重置：本轮结束，取消进行中的分析", null, env.eventId);
         s.run = null;
         s.cases = {};
         s.caseOrder = [];
@@ -328,7 +390,7 @@ export function step(state: StationState, action: Action): StepResult {
           s.cases[caseId] = c;
           s.caseOrder.push(caseId);
         }
-        log(at, "in", `收到模拟观测 ${o.observationId}`, caseId, env.eventId);
+        log(at, "in", "收到标准化模拟测量", caseId, env.eventId);
         startEvaluation(at, c, "observation", env.eventId, o, null);
         return { state: s, effects, error: null };
       }
@@ -342,19 +404,19 @@ export function step(state: StationState, action: Action): StepResult {
 
       if (type === "hud.received") {
         const p = parsed.payload as { messageId: string };
-        const m = s.outbox.find((x) => x.eventId === p.messageId && x.caseId === caseId);
+        const m = caseMessages(s, caseId).find((x) => x.eventId === p.messageId);
         if (!m) {
           log(at, "ignored", `hud.received 已忽略：没有对应的基站消息 ${p.messageId}`, caseId, env.eventId);
           return { state: s, effects, error: null };
         }
         if (!m.hudReceivedAt) m.hudReceivedAt = at;
-        log(at, "in", `HUD 接收回执：${m.type}`, caseId, env.eventId);
+        log(at, "in", `HUD 已接收：${OUT_LABEL[m.type]}`, caseId, env.eventId);
         return { state: s, effects, error: null };
       }
 
       if (type === "hud.ack" || type === "hud.defer") {
         const p = parsed.payload as { messageId: string; reason?: string; note?: string };
-        const m = s.outbox.find((x) => x.eventId === p.messageId && x.caseId === caseId && (x.type === "station.notice.approved" || x.type === "station.retest.requested"));
+        const m = caseMessages(s, caseId).find((x) => x.eventId === p.messageId && messageKind(x.type) === "action");
         if (!m) {
           log(at, "ignored", `${type} 已忽略：没有对应的基站消息 ${p.messageId}`, caseId, env.eventId);
           return { state: s, effects, error: null };
@@ -364,11 +426,11 @@ export function step(state: StationState, action: Action): StepResult {
         m.feedbackAt = at;
         const rt = m.retestId ? c.retests.find((r) => r.retestId === m.retestId) : null;
         if (rt && rt.status !== "result-received" && rt.status !== "completed") rt.status = type === "hud.ack" ? "acknowledged" : "deferred";
-        if (c.phase !== "closed" && c.phase !== "analysing" && c.phase !== "awaiting-review" && c.phase !== "on-hold") {
+        if (c.phase !== "closed" && c.phase !== "analysing" && c.phase !== "awaiting-review") {
           const open = c.retests.some((r) => r.status !== "result-received");
           c.phase = type === "hud.defer" ? "deferred" : open ? "awaiting-retest" : "monitoring";
         }
-        log(at, "in", type === "hud.ack" ? `HUD 已确认 ${m.type}` : `HUD 暂缓：${p.reason}`, caseId, env.eventId);
+        log(at, "in", type === "hud.ack" ? `宇航员已确认：${OUT_LABEL[m.type]}` : `宇航员暂缓：${p.reason}`, caseId, env.eventId);
         return { state: s, effects, error: null };
       }
 
@@ -384,7 +446,7 @@ export function step(state: StationState, action: Action): StepResult {
           r.completedAt = (parsed.payload as { completedAt: string }).completedAt;
         }
         if (c.phase === "awaiting-hud" || c.phase === "deferred") c.phase = "awaiting-retest";
-        log(at, "in", `宇航员报告已完成复测 ${rid}（等待复测数据）`, caseId, env.eventId);
+        log(at, "in", "宇航员报告已完成复测（等待复测数据）", caseId, env.eventId);
         return { state: s, effects, error: null };
       }
 
@@ -416,7 +478,7 @@ export function step(state: StationState, action: Action): StepResult {
       rt.status = "result-received";
       rt.resultEventId = env.eventId;
       rt.resultVersion = c.evaluations.length + 1;
-      log(at, "in", `收到复测结果 ${o.observationId}（${retestId}）`, caseId, env.eventId);
+      log(at, "in", "收到复测结果（标准化模拟测量）", caseId, env.eventId);
       receipt("accepted", null);
       startEvaluation(at, c, "retest", env.eventId, o, retestId);
       return { state: s, effects, error: null };
@@ -464,7 +526,9 @@ export function step(state: StationState, action: Action): StepResult {
       c.reviews.push({ version: ev.version, decision: action.decision, reason, reviewer, at: action.at });
       const at = action.at;
       const cand = ev.result.candidate;
-      const DECISION_TEXT: Record<Decision, string> = { approve: "批准", reject: "驳回", hold: "保留复核", close: "关闭事件", "keep-open": "保留事件继续观察" };
+      const DECISION_TEXT: Record<Decision, string> = { approve: "批准", reject: "驳回", close: "关闭事件", "keep-open": "保留关注" };
+      // Computed before the case changes, so it is exactly the text shown to the reviewer.
+      const statusText = statusNoticeText(c, action.decision);
       log(at, "review", `${reviewer} ${DECISION_TEXT[action.decision]}（第 ${ev.version} 版）：${reason}`, c.caseId);
       if (action.decision === "approve" && cand && (cand.kind === "retest" || cand.kind === "notice-and-retest")) {
         if (cand.kind === "notice-and-retest") {
@@ -481,19 +545,16 @@ export function step(state: StationState, action: Action): StepResult {
         const retestId = `${c.caseId}-rt${c.retests.length + 1}`;
         const reqId = send(at, "station.retest.requested", c.caseId, retestId, { retestId, protocol: cand.retest.protocol, instructions: cand.retest.instructions, evaluationVersion: ev.version, reviewedBy: reviewer, simulated: true } satisfies RetestRequestPayload);
         c.retests.push({ retestId, requestEventId: reqId!, requestedFromVersion: ev.version, status: "requested", completedAt: null, resultEventId: null, resultVersion: null });
-        c.phase = "awaiting-hud";
-      } else if (action.decision === "reject") c.phase = "rejected";
-      else if (action.decision === "hold") c.phase = "on-hold";
-      else if (action.decision === "keep-open") c.phase = "monitoring";
-      else if (action.decision === "close") {
-        c.phase = "closed";
-        c.alert = { level: "none", reason: `由 ${reviewer} 人工关闭`, since: at };
       }
-      if (ev.version >= 2 && action.decision !== "hold") {
+      c.phase = PHASE_AFTER[action.decision];
+      if (action.decision === "close") c.alert = { level: "none", reason: `由 ${reviewer} 人工关闭`, since: at };
+      // STATUS notification (not an action). Never the same case status twice for one evaluation.
+      const published = caseMessages(s, c.caseId).some((m) => m.type === "station.reassessment" && (m.envelope.payload as ReassessmentPayload).evaluationVersion === ev.version && (m.envelope.payload as ReassessmentPayload).caseStatus === c.phase);
+      if (statusText && !published) {
         send(at, "station.reassessment", c.caseId, ev.retestId, {
           evaluationVersion: ev.version,
           outcome: ev.result.outcome,
-          summary: ev.result.headline,
+          summary: statusText,
           reviewDecision: action.decision,
           caseStatus: c.phase,
           simulated: true,
@@ -507,7 +568,7 @@ export function step(state: StationState, action: Action): StepResult {
         reviewer,
         decidedAt: at,
         caseStatus: c.phase,
-        dispatchedEventIds: s.outbox.filter((m) => m.envelope.sentAt === at && m.caseId === c.caseId && !m.type.startsWith("station.audit.")).map((m) => m.eventId).slice(-10),
+        dispatchedEventIds: caseMessages(s, c.caseId).filter((m) => m.envelope.sentAt === at && !m.type.startsWith("station.audit.")).map((m) => m.eventId).slice(-10),
       });
       return { state: s, effects, error: null };
     }
@@ -518,7 +579,7 @@ export function step(state: StationState, action: Action): StepResult {
       m.delivery = action.ok ? "sent" : "failed";
       m.deliveryNote = action.note;
       m.adapterAt = action.ok ? action.at : null;
-      if (!action.ok) log(action.at, "system", `发送失败：${m.type}（${action.note ?? "未知原因"}）`, m.caseId, m.eventId);
+      if (!action.ok) log(action.at, "system", `发送失败：${OUT_LABEL[m.type]}（${action.note ?? "未知原因"}）`, m.caseId, m.eventId);
       return { state: s, effects, error: null };
     }
 
@@ -527,7 +588,7 @@ export function step(state: StationState, action: Action): StepResult {
       if (!m || m.delivery !== "failed") return fail("只有发送失败的消息可以重发");
       m.delivery = "queued";
       effects.push({ kind: "send", envelope: m.envelope });
-      log(action.at, "out", `重发 ${m.type}（同一 eventId）`, m.caseId, m.eventId);
+      log(action.at, "out", `重发${OUT_LABEL[m.type]}（同一消息编号）`, m.caseId, m.eventId);
       return { state: s, effects, error: null };
     }
   }

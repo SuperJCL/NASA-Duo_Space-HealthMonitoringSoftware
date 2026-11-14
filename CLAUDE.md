@@ -117,8 +117,18 @@
   produce a diagnosis, treatment or automatic task restriction, never infer
   physiology from data that failed quality or comparability checks. The
   analysis only creates a candidate: nothing reaches the HUD without a human
-  approval with a reason (`station.ts` enforces it). Alerts are cleared only
-  by a human close. Inbound events are deduplicated by `eventId`, scoped by
+  approval with a reason (`station.ts` enforces it). Only `approve` sends
+  ACTION messages (notice, retest task); `close` and `keep-open` publish a
+  STATUS notification (`station.reassessment` with `caseStatus`) at any
+  evaluation version, never an action and never twice for the same status;
+  `reject` sends nothing. Show the case status and the latest evaluation
+  result as separate indicators. Outbox lookups by case are scoped to the
+  current run (demo case IDs repeat across runs). The demo input is one
+  standardised simulated measurement (fixed grip protocol), not continuous
+  sEMG monitoring; grip force is an independent grip-meter reading, never
+  derived from sEMG. In mock mode a hand-off is never shown as a delivery
+  success; event types and IDs belong in the technical details. Alerts are
+  cleared only by a human close. Inbound events are deduplicated by `eventId`, scoped by
   `runId`, and a reset cancels pending analysis. Transport lives only in an
   adapter (`adapter.ts`); the message format is a PROPOSAL, not an agreed
   team protocol, and the station is standalone until a real adapter is

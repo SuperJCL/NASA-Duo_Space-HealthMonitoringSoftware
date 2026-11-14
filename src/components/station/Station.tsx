@@ -22,6 +22,7 @@ export function Station() {
   const api = useStation(adapter);
   const { state } = api;
   const dev = useSyncExternalStore(noop, isDev, () => false);
+  const mock = adapter.mode === "standalone-mock";
   const [selected, setSelected] = useState<string | null>(null);
   const cases = state.caseOrder.map((id) => state.cases[id]);
   const current = (selected && state.cases[selected]) || cases[cases.length - 1] || null;
@@ -35,7 +36,7 @@ export function Station() {
           <span className="text-sm text-[var(--mg-dim)]">{"火星基站 · 健康事件工作台"}</span>
         </div>
         <p className="text-[13px] text-[var(--mg-dim)]" data-testid="station-counts">
-          {`待审核 ${count(["review", "reassessed"])} · 等待宇航员 ${count(["dispatched"])} · 分析中 ${count(["analysing", "reassessing"])}`}
+          {`待审核/处理 ${count(["review", "reassessed"])} · 等待宇航员 ${count(["dispatched"])} · 分析中 ${count(["analysing", "reassessing"])}`}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-[var(--mg-coral)] px-3 py-1 text-[13px] font-semibold text-[var(--mg-coral)]" data-testid="station-sim-pill">
@@ -57,26 +58,29 @@ export function Station() {
               <CaseSummary c={current} />
             </div>
             <section aria-label="当前处理" className="mg-glass flex min-h-0 flex-col overflow-y-auto lg:col-start-3 lg:row-span-2 lg:row-start-1">
-              <ActionPanel c={current} state={state} api={api} />
+              <ActionPanel c={current} state={state} api={api} mock={mock} />
             </section>
             <section aria-label="分析与证据" className="mg-glass min-h-0 overflow-y-auto p-4 lg:col-start-2 lg:row-start-2">
-              <CaseDetails c={current} state={state} />
+              <CaseDetails c={current} state={state} mock={mock} />
             </section>
           </>
         ) : (
           <>
             <div className="mg-glass flex flex-col gap-1 p-5 lg:col-start-2 lg:row-start-1" data-testid="station-empty">
               <p className="text-[12px] text-[var(--mg-faint)]">{"发生了什么"}</p>
-              <h2 className="text-[19px] font-semibold">{state.run ? "场景进行中，等待模拟观测" : "等待场景开始"}</h2>
+              <h2 className="text-[19px] font-semibold">{state.run ? "场景进行中，等待标准化模拟测量" : "等待场景开始"}</h2>
               <p className="text-[14px] text-[var(--mg-dim)]">
                 {state.run
-                  ? `运行 ${state.run.runId}：${state.run.astronaut.callsign} · ${state.run.task.title}。尚未收到观测；收到后基站自动进行模拟分析并生成待审候选。`
+                  ? `${state.run.astronaut.callsign} · ${state.run.task.title}。尚未收到测量；收到后基站自动进行模拟分析并生成待审候选。`
                   : "基站尚未收到场景开始事件。Trigger 接入前，可在地址后加 ?dev=1 打开开发测试入口注入模拟事件。"}
               </p>
-              <p className="text-[12px] text-[var(--mg-faint)]">{`输入来源：${adapter.mode === "standalone-mock" ? "本地 mock 适配层（未连接 Trigger / HUD）" : adapter.label}`}</p>
+              <p className="text-[13px] text-[var(--mg-dim)]" data-testid="station-demo-flow">
+                {"演示流程：标准化模拟测量出现变化 → 人工审核 → 标准化复测 → 重评 → 人工处理。每次输入是按固定协议的单次模拟测量，不是自由活动中的连续肌电监测。"}
+              </p>
+              <p className="text-[12px] text-[var(--mg-faint)]">{`输入来源：${mock ? "本地模拟（独立演示，未连接 Trigger / HUD）" : adapter.label}`}</p>
             </div>
             <section aria-label="当前处理" className="mg-glass min-h-0 overflow-y-auto lg:col-start-3 lg:row-span-2 lg:row-start-1">
-              <ActionPanel c={null} state={state} api={api} />
+              <ActionPanel c={null} state={state} api={api} mock={mock} />
             </section>
             <section aria-label="事件时间线" className="mg-glass min-h-0 overflow-y-auto p-4 lg:col-start-2 lg:row-start-2">
               <Timeline entries={state.timeline} />

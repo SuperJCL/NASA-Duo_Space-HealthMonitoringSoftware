@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { inboundEnvelope, type MockStationAdapter } from "@/lib/station/adapter";
 import { DEMO_START, FIXTURES, RETEST_FIXTURES, type FixtureId, type RetestFixtureId } from "@/lib/station/fixtures";
 import type { Envelope } from "@/lib/station/protocol";
-import type { StationState } from "@/lib/station/station";
+import { caseMessages, type StationState } from "@/lib/station/station";
 
 /**
  * DEVELOPMENT ONLY (shown with ?dev=1). Injects inbound events into the mock adapter as the Trigger
@@ -25,11 +25,14 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
     setNote(`已注入 ${env.type} · ${env.eventId}`);
   };
   const activeCase = caseId ? state.cases[caseId] : null;
-  const latestHudMessage = (type?: string) => [...state.outbox].reverse().find((m) => m.caseId === caseId && (type ? m.type === type : m.type === "station.notice.approved" || m.type === "station.retest.requested"));
+  const current = caseMessages(state, caseId);
+  const latestHudMessage = (type?: string) => [...current].reverse().find((m) => (type ? m.type === type : m.type === "station.notice.approved" || m.type === "station.retest.requested"));
   // Notice / retest messages of the latest dispatch (highest evaluation version) for the current case.
-  const dispatchMsgs = state.outbox.filter((m) => m.caseId === caseId && (m.type === "station.notice.approved" || m.type === "station.retest.requested"));
+  const dispatchMsgs = current.filter((m) => m.type === "station.notice.approved" || m.type === "station.retest.requested");
   const lastVersion = Math.max(0, ...dispatchMsgs.map((m) => (m.envelope.payload as { evaluationVersion: number }).evaluationVersion));
   const hudMessages = dispatchMsgs.filter((m) => (m.envelope.payload as { evaluationVersion: number }).evaluationVersion === lastVersion);
+  // A device receipt can be simulated for the latest action messages AND for status notifications.
+  const receivable = [...hudMessages, ...current.filter((m) => m.type === "station.reassessment")];
   const openRetest = activeCase?.retests.find((r) => r.status !== "result-received") ?? activeCase?.retests.at(-1);
   const btn = "min-h-8 rounded-lg border border-[var(--mg-line-strong)] px-2 text-[12px] disabled:opacity-40";
 
@@ -65,7 +68,7 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               {"重复上一条（同 eventId）"}
             </button>
           </div>
-          <p className="text-[var(--mg-faint)]">{"① Trigger：注入模拟观测（每个按钮新建一个事件）"}</p>
+          <p className="text-[var(--mg-faint)]">{"① Trigger：注入标准化模拟测量（每个按钮新建一个事件）"}</p>
           <div className="flex flex-wrap gap-1.5">
             {(Object.keys(FIXTURES) as FixtureId[]).map((k) => (
               <button key={k} type="button" className={btn} disabled={!runId} onClick={() => runId && inject(inboundEnvelope("observation.submitted", { runId, caseId: FIXTURES[k].caseId, payload: FIXTURES[k].observation }))} data-testid={`dev-obs-${k}`}>
@@ -76,15 +79,15 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               {"上一轮迟到的观测"}
             </button>
           </div>
-          <p className="text-[var(--mg-faint)]">{`② HUD 回传（当前事件 ${caseId ?? "无"}；先在右栏批准）`}</p>
+          <p className="text-[var(--mg-faint)]">{`② HUD 回传（当前事件 ${caseId ?? "无"}；先在右栏批准；接收回执也适用于状态通知）`}</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
               className={btn}
-              disabled={!runId || !hudMessages.some((m) => !m.hudReceivedAt)}
+              disabled={!runId || !receivable.some((m) => !m.hudReceivedAt)}
               onClick={() => {
                 if (!runId || !caseId) return;
-                for (const m of hudMessages.filter((x) => !x.hudReceivedAt)) inject(inboundEnvelope("hud.received", { runId, caseId, payload: { messageId: m.eventId } }));
+                for (const m of receivable.filter((x) => !x.hudReceivedAt)) inject(inboundEnvelope("hud.received", { runId, caseId, payload: { messageId: m.eventId } }));
               }}
               data-testid="dev-hud-received"
             >

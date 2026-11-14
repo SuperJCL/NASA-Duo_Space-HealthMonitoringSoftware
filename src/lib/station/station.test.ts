@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { analyse } from "./analysis";
 import { inboundEnvelope } from "./adapter";
 import { DEMO_BASELINES, DEMO_START, FIXTURES, RETEST_FIXTURES } from "./fixtures";
-import { allowedDecisions, initialState, latest, step, stagesToReveal, workbenchStage, type Action, type Effect, type StationState } from "./station";
-import { comparisonView, flowSteps } from "./views";
+import { allowedDecisions, initialState, latest, messageKind, statusNoticeText, step, stagesToReveal, workbenchStage, type Action, type Effect, type StationState } from "./station";
+import { alertNote, caseStatus, comparisonView, evaluationStatus, flowSteps, summaryHeadline } from "./views";
 
 const T = "2026-11-14T10:00:00Z";
 const RUN = "run-1";
@@ -128,14 +128,14 @@ describe("station state machine", () => {
     expect(r2.effects).toHaveLength(0);
   });
 
-  it("rejecting or holding sends nothing", () => {
+  it("rejecting sends nothing; a separate 'hold' decision is not offered", () => {
     let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
     state = finish(state, "case-change");
-    for (const d of ["reject", "hold"] as const) {
-      const r = step(state, review("case-change", 1, d));
-      expect(sends(r.effects)).toHaveLength(0);
-      expect(r.state.cases["case-change"].phase).toBe(d === "reject" ? "rejected" : "on-hold");
-    }
+    expect(allowedDecisions(state.cases["case-change"])).toEqual(["approve", "reject"]);
+    const r = step(state, review("case-change", 1, "reject"));
+    expect(sends(r.effects)).toHaveLength(0);
+    expect(r.state.cases["case-change"].phase).toBe("rejected");
+    expect(statusNoticeText(state.cases["case-change"], "reject")).toBeNull();
   });
 
   it("closes the loop: HUD ack → retest result → receipt → v2 re-evaluation → human decision → reassessment", () => {
@@ -160,7 +160,7 @@ describe("station state machine", () => {
     // A single normal retest does not close the case or lower the alert by itself.
     expect(c.phase).toBe("awaiting-review");
     expect(c.alert.level).toBe("alert");
-    expect(allowedDecisions(c)).toEqual(["close", "keep-open", "hold"]);
+    expect(allowedDecisions(c)).toEqual(["close", "keep-open"]);
 
     // The same result again (same eventId, or a new eventId for the same retest) creates no new evaluation.
     const dupSame = step(state, inbound(result));
@@ -170,10 +170,12 @@ describe("station state machine", () => {
     expect(dupNew.state.cases["case-change"].evaluations).toHaveLength(2);
     expect(sends(dupNew.effects)[0].payload).toMatchObject({ status: "duplicate" });
 
+    const preview = statusNoticeText(state.cases["case-change"], "close");
     const closed = step(state, review("case-change", 2, "close", "复测正常，结合值班评估关闭"));
     const re = sends(closed.effects);
     expect(re.map((e) => e.type)).toEqual(["station.reassessment"]);
-    expect(re[0].payload).toMatchObject({ evaluationVersion: 2, reviewDecision: "close", caseStatus: "closed" });
+    expect(re[0].payload).toMatchObject({ evaluationVersion: 2, reviewDecision: "close", caseStatus: "closed", summary: preview });
+    expect(messageKind(re[0].type)).toBe("status");
     expect(closed.state.cases["case-change"].alert.level).toBe("none");
   });
 
@@ -275,7 +277,7 @@ describe("station state machine", () => {
     state = finish(state, "case-change");
     expect(workbenchStage(c())).toBe("reassessed");
     // Still changed at v2: a new dispatch may be approved, or the case closed / kept under watch.
-    expect(allowedDecisions(c())).toEqual(["approve", "close", "keep-open", "hold"]);
+    expect(allowedDecisions(c())).toEqual(["approve", "close", "keep-open"]);
     state = step(state, review("case-change", 2, "keep-open")).state;
     expect(workbenchStage(c())).toBe("decided");
     expect(allowedDecisions(c())).toEqual(["close"]);
@@ -342,6 +344,82 @@ describe("station state machine", () => {
     const rev = all.find((e) => e.type === "station.audit.review")!;
     expect(rev.payload).toMatchObject({ decision: "approve", reviewer: "基地值班员 A", caseStatus: "awaiting-hud" });
     expect((rev.payload as { dispatchedEventIds: string[] }).dispatchedEventIds).toEqual(sends(r.effects).map((e) => e.eventId));
+  });
+
+  it("close and keep-open publish a STATUS notification at any version (never an action), once per status", () => {
+    // v1 normal case: closed without ever dispatching → still one status notification for the HUD.
+    let n = finish(run(s0, [inbound(start()), inbound(observe("normal"))]).state, "case-normal");
+    const preview = statusNoticeText(n.cases["case-normal"], "close")!;
+    expect(preview).toMatch(/已由基地人员关闭/);
+    const closed = step(n, review("case-normal", 1, "close"));
+    expect(sends(closed.effects).map((e) => [e.type, messageKind(e.type)])).toEqual([["station.reassessment", "status"]]);
+    expect(sends(closed.effects)[0].payload).toMatchObject({ evaluationVersion: 1, reviewDecision: "close", caseStatus: "closed", summary: preview, simulated: true });
+    // Confirming again (double click, stale form) is refused and publishes nothing.
+    const again = step(closed.state, review("case-normal", 1, "close"));
+    expect(again.error).toBeTruthy();
+    expect(again.effects).toHaveLength(0);
+
+    // keep-open → monitoring status; keep-open again refused; close → a different (closed) status.
+    n = finish(run(s0, [inbound(start()), inbound(observe("normal"))]).state, "case-normal");
+    const kept = step(n, review("case-normal", 1, "keep-open"));
+    expect(sends(kept.effects).map((e) => (e.payload as { caseStatus: string }).caseStatus)).toEqual(["monitoring"]);
+    expect(kept.state.cases["case-normal"].alert.level).toBe("none");
+    expect(step(kept.state, review("case-normal", 1, "keep-open")).effects).toHaveLength(0);
+    const fin = step(kept.state, review("case-normal", 1, "close"));
+    expect(sends(fin.effects).map((e) => (e.payload as { caseStatus: string }).caseStatus)).toEqual(["closed"]);
+    const statuses = fin.state.outbox.filter((m) => messageKind(m.type) === "status").map((m) => (m.envelope.payload as { caseStatus: string }).caseStatus);
+    expect(statuses).toEqual(["monitoring", "closed"]);
+  });
+
+  it("a new run with the same demo caseId publishes its own status notification (no cross-run dedup)", () => {
+    let st = finish(run(s0, [inbound(start("run-a")), inbound(observe("normal", "obs-a", "run-a"))]).state, "case-normal");
+    st = step(st, review("case-normal", 1, "close")).state;
+    st = run(st, [inbound(start("run-b")), inbound(observe("normal", "obs-b", "run-b"))]).state;
+    st = finish(st, "case-normal");
+    const r = step(st, review("case-normal", 1, "close"));
+    expect(sends(r.effects).map((e) => [e.type, e.runId])).toEqual([["station.reassessment", "run-b"]]);
+  });
+
+  it("closing while dispatched tells the HUD the case is closed and the pending retest is no longer needed", () => {
+    let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
+    state = finish(state, "case-change");
+    state = step(state, review("case-change", 1, "approve")).state;
+    const r = step(state, review("case-change", 1, "close", "现场已另行处理（测试）"));
+    const out = sends(r.effects);
+    expect(out.map((e) => messageKind(e.type))).toEqual(["status"]);
+    expect((out[0].payload as { summary: string }).summary).toMatch(/之前安排的复测无需再做/);
+    expect(r.state.cases["case-change"].phase).toBe("closed");
+    // A late retest result for the closed case is only acknowledged as rejected, not re-evaluated.
+    const late = step(r.state, inbound(inboundEnvelope("retest.result", { runId: RUN, caseId: "case-change", retestId: "case-change-rt1", payload: { observation: RETEST_FIXTURES["retest-normal"].observation(1) } })));
+    expect(sends(late.effects).map((e) => [e.type, (e.payload as { status?: string }).status])).toEqual([["station.receipt", "rejected"]]);
+    expect(late.state.cases["case-change"].evaluations).toHaveLength(1);
+  });
+
+  it("classifies station messages: actions, status, receipts, audit", () => {
+    expect(messageKind("station.notice.approved")).toBe("action");
+    expect(messageKind("station.retest.requested")).toBe("action");
+    expect(messageKind("station.reassessment")).toBe("status");
+    expect(messageKind("station.receipt")).toBe("receipt");
+    expect(messageKind("station.audit.review")).toBe("audit");
+  });
+
+  it("shows case status and the latest evaluation separately (normal retest: open alert, result in range)", () => {
+    let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
+    state = finish(state, "case-change");
+    const c = () => state.cases["case-change"];
+    expect(caseStatus(c())).toMatchObject({ label: "告警未关闭 · 待审核", tone: "alert", alertOpen: true });
+    expect(evaluationStatus(latest(c()))).toMatchObject({ label: "最新评估 v1：超出个体基线波动", tone: "alert" });
+    state = step(state, review("case-change", 1, "approve")).state;
+    state = step(state, inbound(inboundEnvelope("retest.result", { runId: RUN, caseId: "case-change", retestId: "case-change-rt1", payload: { observation: RETEST_FIXTURES["retest-normal"].observation(1) } }))).state;
+    state = finish(state, "case-change");
+    expect(summaryHeadline(c())).toBe("复测在参考范围内，待人工处理");
+    expect(caseStatus(c())).toMatchObject({ label: "告警未关闭 · 待人工处理", tone: "alert" });
+    expect(evaluationStatus(latest(c()))).toMatchObject({ label: "最新评估 v2（复测）：在参考范围内", tone: "ok" });
+    expect(alertNote(c())).toMatch(/原告警尚未关闭/);
+    state = step(state, review("case-change", 2, "close")).state;
+    expect(caseStatus(c())).toMatchObject({ label: "事件已关闭", alertOpen: false });
+    expect(summaryHeadline(c())).toBe("复测在参考范围内，事件已关闭");
+    expect(alertNote(c())).toBeNull();
   });
 
   it("flow steps: waiting → analysing → review → dispatched → retest → done; unvisited steps are skipped, not done", () => {

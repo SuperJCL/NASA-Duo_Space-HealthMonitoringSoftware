@@ -3831,3 +3831,45 @@ unchanged, and `verify:terrain` still matches a fresh build.
   nothing.
 - **Scope:** standalone station with the mock adapter only. No three-end integration with the
   Trigger and HUD was performed.
+
+## MyoMars base station: acceptance fixes (status notifications, separate status, wording)
+
+- **Time (real, UTC):** 2026-11-14, after commit `7c7fce1` (pushed 21:33 UTC). Code changes and
+  checks ran between about 21:40 and 21:54 UTC (file times and test run logs). The exact start
+  time was not recorded.
+- **Scope:** acceptance fixes only, on `feat/myomars-station`. Same three columns and stage flow.
+  No new features, no teammate pages, no relay work.
+- **1. Final result reaches the HUD interface:** before, a decision at v1 published nothing. That
+  included closing while a notice and retest were still pending at the HUD. Now:
+  - `close` and `keep-open` publish a STATUS notification through the mock adapter at any version:
+    `station.reassessment` with `caseStatus` `closed` / `monitoring` and a readable `summary`;
+  - only `approve` sends ACTION messages; `reject` sends nothing;
+  - `messageKind()` classifies messages as action, status, receipt or audit;
+  - the same case status is never published twice (state guard plus the decision rules);
+  - the status text is shown before confirming and is sent unchanged.
+  - **Open question for the team:** `CONTRACTS.md` on main describes `station.reassessment` as
+    "version 2 or later". The schema already allows v1, so nothing breaks, but the wording needs a
+    team-reviewed clarification. Not changed here.
+- **Bug found and fixed:** the outbox keeps earlier runs' messages and the demo reuses case IDs.
+  Lookups by case (the duplicate-status guard, HUD receipt/feedback matching, dispatch views, dev
+  panel) could match a previous run. All of them now go through `caseMessages()`, scoped to the
+  current run. Regression test added.
+- **2. Case status vs latest evaluation:**
+  - two separate indicators: `事件状态：告警未关闭 · 待人工处理` and `最新评估 v2（复测）：在参考范围内`;
+  - summary line `复测在参考范围内，待人工处理`;
+  - an explicit note that the original alert is still open;
+  - the red alert badge that mixed both statuses is removed.
+- **3. 保留关注 vs 保留复核:** `hold` (保留复核) kept the event in the same pending state and had
+  no other effect, so it is no longer offered. `keep-open` (保留关注) keeps the event open with its
+  alert, publishes a `monitoring` status notification, and leaves only "close" as the next step.
+- **4. Wording:**
+  - the summary leads; numbers appear only in the comparison table;
+  - analysis step details open on demand, and the feature step points to the table;
+  - event types, IDs and adapter wording moved to a "技术详情" fold, and the timeline uses
+    readable labels;
+  - in mock mode the hand-off reads "仅本地模拟" without a success tick.
+- **5. Positioning:**
+  - the demo is "标准化模拟测量出现变化 → 人工审核 → 标准化复测 → 重评 → 人工处理";
+  - each input is one standardised simulated measurement, not continuous monitoring;
+  - grip force is labelled as an independent grip-meter reading, not derived from sEMG;
+  - "特征" became "指标" where grip force is included.
