@@ -3804,3 +3804,30 @@ unchanged, and `verify:terrain` still matches a fresh build.
 - **Proposed extensions:** `retest.completed` and `station.audit.*` are marked
   `proposed-extension` and are optional. `retest.result` alone is a complete retest submission, so
   teammates have nothing to migrate.
+
+## MyoMars base station: six-step flow completed and verified (standalone mock)
+
+- **Time (real, UTC):** 2026-11-14. Started after the merge of main into the station branch
+  (`fd4b288`, 21:24:46 UTC). Station smoke and screenshots ran at 21:32 UTC.
+- **Base:** `feat/myomars-station` with the contracts v1 migration, without F2 (relay stays paused
+  on `feat/myomars-foundation`). The existing three columns and stage interaction are kept; no new
+  page set, no map, no EVA route view.
+- **Changes:**
+  - right column: a six-step flow at the top of every stage (等待观测 → 分析中 → 待审核 →
+    已派发等待反馈 → 复测与重评 → 人工处理完成); steps an event never went through are shown as
+    skipped, not done (`flowSteps` in `views.ts`, unit-tested);
+  - waiting state: the right column says no action is needed; the centre says what is happening
+    and that input comes from the local mock adapter (no Trigger / HUD connected);
+  - closed state: decision history and "no pending review, nothing more is sent to the HUD"; no
+    candidate card or decision buttons remain;
+  - message log labels `station.audit.*` as audit records, not HUD actions;
+  - dev panel (`?dev=1` only): numbered groups and an optional `retest.completed` button (proposed
+    extension; `retest.result` alone still drives the re-evaluation);
+  - `nextOwner` texts for closed and monitoring events.
+- **Verification:** `npm run check` passed (28 test files, 341 tests, build OK). Station smoke
+  `scripts/smoke-station.mjs` against `next start` on port 3210: 90/90, including each of the six
+  steps, first-screen checks at 1440×900, the optional `retest.completed` path (no re-evaluation,
+  alert kept), no leftover prompt after closing, and a late HUD event after closing that sends
+  nothing.
+- **Scope:** standalone station with the mock adapter only. No three-end integration with the
+  Trigger and HUD was performed.

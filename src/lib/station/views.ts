@@ -1,7 +1,7 @@
 // Render-neutral view helpers for the base station workbench (pure, tested).
 
 import type { AnalysisResult, FeatureComparison } from "./analysis";
-import { latest, type Case, type Evaluation } from "./station";
+import { latest, workbenchStage, type Case, type Evaluation } from "./station";
 
 /** True when an evaluation passed the quality and comparability stages and compared features. */
 export const comparable = (ev: Evaluation) => ev.result.stages[0].status === "done" && ev.result.stages[1].status === "done" && ev.result.comparisons.length > 0;
@@ -32,4 +32,36 @@ export function comparisonView(c: Case): ComparisonView {
 /** Up to three key reasons for the summary: the stages that ran (not skipped, not the template). */
 export function keyBasis(r: AnalysisResult): string[] {
   return r.stages.filter((s) => s.id !== "recommendation" && s.status !== "skipped").map((s) => s.summary);
+}
+
+/** The six demo steps of a health event, for the station's flow indicator. */
+export const FLOW_STEPS = [
+  { id: "waiting", label: "等待观测" },
+  { id: "analysing", label: "分析中" },
+  { id: "review", label: "待审核" },
+  { id: "dispatched", label: "已派发等待反馈" },
+  { id: "retest", label: "复测与重评" },
+  { id: "done", label: "人工处理完成" },
+] as const;
+export type FlowStepState = "done" | "current" | "todo" | "skipped";
+
+/**
+ * Where an event is in the flow. `null` case: waiting for the first observation. Steps the event
+ * never went through (e.g. closed at v1 without a dispatch) are "skipped", not "done".
+ */
+export function flowSteps(c: Case | null): { id: (typeof FLOW_STEPS)[number]["id"]; label: string; state: FlowStepState }[] {
+  const order = FLOW_STEPS.map((s) => s.id);
+  if (!c) return FLOW_STEPS.map((s, i) => ({ ...s, state: i === 0 ? "current" : "todo" }));
+  const stage = workbenchStage(c);
+  const current = stage === "analysing" ? "analysing" : stage === "review" ? "review" : stage === "dispatched" ? "dispatched" : stage === "reassessing" || stage === "reassessed" ? "retest" : "done";
+  const dispatched = c.retests.length > 0;
+  const retested = c.evaluations.length > 1;
+  const ci = order.indexOf(current);
+  return FLOW_STEPS.map((s, i) => {
+    if (i === ci) return { ...s, state: current === "done" && stage === "closed" ? "done" : "current" };
+    if (i > ci) return { ...s, state: "todo" };
+    if (s.id === "dispatched" && !dispatched) return { ...s, state: "skipped" };
+    if (s.id === "retest" && !retested) return { ...s, state: "skipped" };
+    return { ...s, state: "done" };
+  });
 }

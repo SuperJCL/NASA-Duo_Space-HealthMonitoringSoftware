@@ -65,9 +65,15 @@ export function Station() {
           </>
         ) : (
           <>
-            <div className="mg-glass p-5 lg:col-start-2 lg:row-start-1" data-testid="station-empty">
-              <h2 className="text-[17px] font-semibold">{state.run ? "场景进行中，等待模拟观测" : "等待场景开始"}</h2>
-              <p className="mt-1 text-[14px] text-[var(--mg-dim)]">{state.run ? `运行 ${state.run.runId} · 尚无观测事件` : "基站尚未收到场景开始事件。Trigger 接入前，可在地址后加 ?dev=1 打开开发测试入口注入模拟事件。"}</p>
+            <div className="mg-glass flex flex-col gap-1 p-5 lg:col-start-2 lg:row-start-1" data-testid="station-empty">
+              <p className="text-[12px] text-[var(--mg-faint)]">{"发生了什么"}</p>
+              <h2 className="text-[19px] font-semibold">{state.run ? "场景进行中，等待模拟观测" : "等待场景开始"}</h2>
+              <p className="text-[14px] text-[var(--mg-dim)]">
+                {state.run
+                  ? `运行 ${state.run.runId}：${state.run.astronaut.callsign} · ${state.run.task.title}。尚未收到观测；收到后基站自动进行模拟分析并生成待审候选。`
+                  : "基站尚未收到场景开始事件。Trigger 接入前，可在地址后加 ?dev=1 打开开发测试入口注入模拟事件。"}
+              </p>
+              <p className="text-[12px] text-[var(--mg-faint)]">{`输入来源：${adapter.mode === "standalone-mock" ? "本地 mock 适配层（未连接 Trigger / HUD）" : adapter.label}`}</p>
             </div>
             <section aria-label="当前处理" className="mg-glass min-h-0 overflow-y-auto lg:col-start-3 lg:row-span-2 lg:row-start-1">
               <ActionPanel c={null} state={state} api={api} />

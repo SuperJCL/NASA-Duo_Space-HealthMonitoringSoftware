@@ -139,7 +139,9 @@ export function nextOwner(c: Case): string {
     case "awaiting-retest":
       return "宇航员：等待复测结果";
     case "closed":
-      return "无：事件已由人工关闭";
+      return "无需处理：事件已由人工关闭";
+    case "monitoring":
+      return "基地人员：事件保留关注，可随时关闭";
     case "deferred":
       return "基地人员：宇航员已暂缓，需决定后续";
     default:

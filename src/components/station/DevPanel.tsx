@@ -65,7 +65,7 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               {"重复上一条（同 eventId）"}
             </button>
           </div>
-          <p className="text-[var(--mg-faint)]">{"Trigger：注入模拟观测"}</p>
+          <p className="text-[var(--mg-faint)]">{"① Trigger：注入模拟观测（每个按钮新建一个事件）"}</p>
           <div className="flex flex-wrap gap-1.5">
             {(Object.keys(FIXTURES) as FixtureId[]).map((k) => (
               <button key={k} type="button" className={btn} disabled={!runId} onClick={() => runId && inject(inboundEnvelope("observation.submitted", { runId, caseId: FIXTURES[k].caseId, payload: FIXTURES[k].observation }))} data-testid={`dev-obs-${k}`}>
@@ -76,7 +76,7 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               {"上一轮迟到的观测"}
             </button>
           </div>
-          <p className="text-[var(--mg-faint)]">{`HUD：回传（当前事件 ${caseId ?? "无"}）`}</p>
+          <p className="text-[var(--mg-faint)]">{`② HUD 回传（当前事件 ${caseId ?? "无"}；先在右栏批准）`}</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -104,6 +104,19 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
             </button>
             <button type="button" className={btn} disabled={!runId || !latestHudMessage()} onClick={() => runId && caseId && inject(inboundEnvelope("hud.defer", { runId, caseId, payload: { messageId: latestHudMessage()!.eventId, reason: "正在作业，稍后处理（模拟）" } }))} data-testid="dev-hud-defer">
               {"宇航员暂缓"}
+            </button>
+          </div>
+          <p className="text-[var(--mg-faint)]">{`③ 复测回传${openRetest ? `（${openRetest.retestId}）` : "（批准复测后可用）"}`}</p>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              className={btn}
+              disabled={!runId || !openRetest || openRetest.status === "result-received"}
+              onClick={() => runId && caseId && openRetest && inject(inboundEnvelope("retest.completed", { runId, caseId, retestId: openRetest.retestId, payload: { completedAt: new Date().toISOString() } }))}
+              data-testid="dev-retest-completed"
+              title="提议中的扩展（可选）：宇航员报告已完成复测；数据另由 retest.result 提交"
+            >
+              {"宇航员完成复测（可选）"}
             </button>
             {(Object.keys(RETEST_FIXTURES) as RetestFixtureId[]).map((k) => (
               <button

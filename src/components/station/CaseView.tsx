@@ -229,8 +229,10 @@ export function CaseDetails({ c, state }: { c: Case; state: StationState }) {
           {msgs.length ? (
             <ul className="space-y-1 text-[12px]" data-testid="station-outbox">
               {msgs.map((m) => (
-                <li key={m.eventId} className="text-[var(--mg-dim)]" data-type={m.type} data-delivery={m.delivery} data-hud-received={m.hudReceivedAt ? "yes" : "no"} data-feedback={m.feedback}>
-                  {`${time(m.envelope.sentAt)} · ${OUT_TEXT[m.type]} · ${m.eventId} · 适配层：${{ queued: "发送中", sent: "已交给", failed: "失败" }[m.delivery]} · HUD 接收：${m.hudReceivedAt ? time(m.hudReceivedAt) : "未收到回执"}${m.type === "station.notice.approved" || m.type === "station.retest.requested" ? ` · 宇航员：${{ none: "未反馈", acknowledged: "已确认", deferred: "暂缓" }[m.feedback]}` : ""}`}
+                <li key={m.eventId} className={m.type.startsWith("station.audit.") ? "text-[var(--mg-faint)]" : "text-[var(--mg-dim)]"} data-type={m.type} data-delivery={m.delivery} data-hud-received={m.hudReceivedAt ? "yes" : "no"} data-feedback={m.feedback}>
+                  {m.type.startsWith("station.audit.")
+                    ? `${time(m.envelope.sentAt)} · ${OUT_TEXT[m.type]}（审计记录，不是给 HUD 的行动） · ${m.eventId}`
+                    : `${time(m.envelope.sentAt)} · ${OUT_TEXT[m.type]} · ${m.eventId} · 适配层：${{ queued: "发送中", sent: "已交给", failed: "失败" }[m.delivery]} · HUD 接收：${m.hudReceivedAt ? time(m.hudReceivedAt) : "未收到回执"}${m.type === "station.notice.approved" || m.type === "station.retest.requested" ? ` · 宇航员：${{ none: "未反馈", acknowledged: "已确认", deferred: "暂缓" }[m.feedback]}` : ""}`}
                 </li>
               ))}
             </ul>

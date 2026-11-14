@@ -3,8 +3,29 @@
 import { useState } from "react";
 import { allowedDecisions, latest, nextOwner, stageView, workbenchStage, type Case, type Decision, type OutMessage, type StationState } from "@/lib/station/station";
 import type { NoticePayload, RetestRequestPayload } from "@/lib/station/protocol";
-import { DECISION_TEXT, Label, OUT_TEXT, STAGE_TEXT, time } from "./ui";
+import { flowSteps } from "@/lib/station/views";
 import type { StationApi } from "./useStation";
+import { DECISION_TEXT, Label, OUT_TEXT, STAGE_TEXT, time } from "./ui";
+
+const STEP_STYLE = {
+  done: "border-[var(--mg-ok)] text-[var(--mg-ok)]",
+  current: "border-[var(--mg-coral)] bg-[var(--mg-coral-soft)] font-semibold text-[var(--mg-text)]",
+  todo: "border-[var(--mg-line)] text-[var(--mg-faint)]",
+  skipped: "border-dashed border-[var(--mg-line)] text-[var(--mg-faint)] line-through",
+} as const;
+
+/** The six demo steps of the selected event (or "waiting for an observation"). */
+function FlowStepper({ c }: { c: Case | null }) {
+  return (
+    <ol className="flex flex-wrap gap-1" aria-label="处理流程" data-testid="station-flow">
+      {flowSteps(c).map((s, i) => (
+        <li key={s.id} aria-current={s.state === "current" ? "step" : undefined} className={`rounded-md border px-1.5 py-0.5 text-[11px] ${STEP_STYLE[s.state]}`} data-step={s.id} data-state={s.state} title={s.state === "skipped" ? "此事件未经过这一步" : undefined}>
+          {`${s.state === "done" ? "✓" : i + 1} ${s.label}`}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 /**
  * Right column: only what the base staff must handle NOW for the selected event, switched by its
@@ -13,9 +34,15 @@ import type { StationApi } from "./useStation";
 export function ActionPanel({ c, state, api }: { c: Case | null; state: StationState; api: StationApi }) {
   if (!c) {
     return (
-      <div className="p-4" data-testid="station-action" data-stage="none">
-        <Label>{"当前处理"}</Label>
-        <p className="mt-1 text-[14px] text-[var(--mg-dim)]">{state.run ? "暂无需要处理的事件。" : "等待场景开始。Trigger 接入前，可在地址后加 ?dev=1 打开开发测试入口。"}</p>
+      <div className="flex flex-col gap-3 p-4" data-testid="station-action" data-stage="none">
+        <FlowStepper c={null} />
+        <div>
+          <Label>{"当前处理"}</Label>
+          <p className="text-[17px] font-semibold" data-testid="station-stage-title">
+            {state.run ? "等待观测" : "等待场景开始"}
+          </p>
+          <p className="mt-1 text-[13px] text-[var(--mg-dim)]">{state.run ? "此阶段无需操作。收到模拟观测后，基站会自动开始模拟分析。" : "此阶段无需操作。Trigger 接入前，可在地址后加 ?dev=1 打开开发测试入口。"}</p>
+        </div>
       </div>
     );
   }
@@ -23,6 +50,7 @@ export function ActionPanel({ c, state, api }: { c: Case | null; state: StationS
   const ev = latest(c);
   return (
     <div className="flex flex-col gap-3 p-4" data-testid="station-action" data-stage={stage}>
+      <FlowStepper c={c} />
       <div>
         <Label>{"当前处理"}</Label>
         <p className="text-[17px] font-semibold" data-testid="station-stage-title">
@@ -228,10 +256,18 @@ function Closed({ c }: { c: Case }) {
   const ev = latest(c);
   return (
     <div className="flex flex-col gap-2" data-testid="station-closed">
-      <p className="text-[13px]" data-testid="station-decision">{last ? `由 ${last.reviewer} 于 ${time(last.at)} 关闭（v${last.version}）` : "已关闭"}</p>
+      <p className="text-[13px] font-medium" data-testid="station-decision">{last ? `由 ${last.reviewer} 于 ${time(last.at)} 关闭（v${last.version}）` : "已关闭"}</p>
       {last ? <p className="text-[13px]">{`理由：${last.reason}`}</p> : null}
       <p className="text-[12px] text-[var(--mg-dim)]">{`最终评估 v${ev.version}：${ev.result.headline}`}</p>
-      <p className="text-[12px] text-[var(--mg-dim)]">{`处理记录：${c.reviews.length} 次审核，${c.retests.length} 个复测任务。`}</p>
+      <div>
+        <p className="text-[12px] text-[var(--mg-faint)]">{`处理记录（${c.reviews.length} 次人工决定，${c.retests.length} 个复测任务）`}</p>
+        <ol className="mt-0.5 space-y-0.5 text-[12px] text-[var(--mg-dim)]" data-testid="station-review-history">
+          {c.reviews.map((r, i) => (
+            <li key={i}>{`v${r.version} · ${DECISION_TEXT[r.decision]} · ${r.reviewer} · ${time(r.at)}：${r.reason}`}</li>
+          ))}
+        </ol>
+      </div>
+      <p className="text-[11px] text-[var(--mg-faint)]">{"事件已关闭：没有待审核的内容，也不会再向 HUD 发送消息。"}</p>
     </div>
   );
 }

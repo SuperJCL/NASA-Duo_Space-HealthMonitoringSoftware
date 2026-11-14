@@ -3,7 +3,7 @@ import { analyse } from "./analysis";
 import { inboundEnvelope } from "./adapter";
 import { DEMO_BASELINES, DEMO_START, FIXTURES, RETEST_FIXTURES } from "./fixtures";
 import { allowedDecisions, initialState, latest, step, stagesToReveal, workbenchStage, type Action, type Effect, type StationState } from "./station";
-import { comparisonView } from "./views";
+import { comparisonView, flowSteps } from "./views";
 
 const T = "2026-11-14T10:00:00Z";
 const RUN = "run-1";
@@ -342,5 +342,27 @@ describe("station state machine", () => {
     const rev = all.find((e) => e.type === "station.audit.review")!;
     expect(rev.payload).toMatchObject({ decision: "approve", reviewer: "基地值班员 A", caseStatus: "awaiting-hud" });
     expect((rev.payload as { dispatchedEventIds: string[] }).dispatchedEventIds).toEqual(sends(r.effects).map((e) => e.eventId));
+  });
+
+  it("flow steps: waiting → analysing → review → dispatched → retest → done; unvisited steps are skipped, not done", () => {
+    const states = (c: Parameters<typeof flowSteps>[0]) => flowSteps(c).map((x) => `${x.id}:${x.state}`).join(" ");
+    expect(states(null)).toBe("waiting:current analysing:todo review:todo dispatched:todo retest:todo done:todo");
+    let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
+    const c = () => state.cases["case-change"];
+    expect(states(c())).toBe("waiting:done analysing:current review:todo dispatched:todo retest:todo done:todo");
+    state = finish(state, "case-change");
+    expect(states(c())).toBe("waiting:done analysing:done review:current dispatched:todo retest:todo done:todo");
+    state = step(state, review("case-change", 1, "approve")).state;
+    expect(states(c())).toBe("waiting:done analysing:done review:done dispatched:current retest:todo done:todo");
+    state = step(state, inbound(inboundEnvelope("retest.result", { runId: RUN, caseId: "case-change", retestId: "case-change-rt1", payload: { observation: RETEST_FIXTURES["retest-normal"].observation(1) } }))).state;
+    expect(states(c())).toBe("waiting:done analysing:done review:done dispatched:done retest:current done:todo");
+    state = finish(state, "case-change");
+    state = step(state, review("case-change", 2, "close")).state;
+    expect(states(c())).toBe("waiting:done analysing:done review:done dispatched:done retest:done done:done");
+    // Normal case closed at v1: no dispatch, no retest.
+    let n = run(s0, [inbound(start()), inbound(observe("normal"))]).state;
+    n = finish(n, "case-normal");
+    n = step(n, review("case-normal", 1, "close")).state;
+    expect(states(n.cases["case-normal"])).toBe("waiting:done analysing:done review:done dispatched:skipped retest:skipped done:done");
   });
 });
