@@ -1,0 +1,52 @@
+Mars Discovery Intelligence (MDI) — third-party notices
+
+This file covers third-party material only. It does not set a licence for the rest of MDI.
+
+Sol Atlas
+---------
+Parts of the EVA route & scouting feature (src/lib/eva-route/) are derived from Sol Atlas by
+The SOL Explorers, https://github.com/saracen66/the-sol-explorers
+(commit 9e1b2e0dc9ea8835b1edde0d1af73e551a72b231), licensed under the Apache License,
+Version 2.0. A copy of that licence, copied unchanged from the upstream repository, is in
+LICENSES/Apache-2.0-Sol-Atlas.txt. The upstream repository has no NOTICE file and its source
+files carry no copyright headers; its README states the Apache-2.0 licence.
+
+Files derived from Sol Atlas (each file's header states the changes):
+  src/lib/eva-route/sol-atlas-eva.ts   from src/terrain/eva.js (EVA O2 / time model, Pandolf
+                                       metabolic rate). Modified 2026-11-14: TypeScript port;
+                                       the unpressurised-rover option, the per-sample timeline,
+                                       the radiation-dose helper and the daylight checks removed.
+                                       Equations, constants and defaults unchanged.
+  src/lib/eva-route/pathfind.ts        from src/terrain/pathfinding.js (8-neighbour A*), by way of
+                                       the MarsScout prototype. Modified 2026-11-14: hard no-go
+                                       cells and slope limit, caller-supplied passability, no
+                                       diagonal corner cutting, cell-index API, TypeScript port.
+
+No Sol Atlas data files, images, sound, user interface, deployment configuration or branding
+are included. MDI uses its own verified CTX terrain crop and traverse data (src/data/).
+
+MarsScout prototype
+-------------------
+The other src/lib/eva-route/ modules (grid, knowledge, traversal, truth, planner, budget,
+assumptions, scouting, options, mission, world) are adapted from the MarsScout prototype
+written for this project on 2026-11-14 (a separate, unpublished working copy that itself
+derives from Sol Atlas as listed above). docs/EVA_ROUTE_SCOUTING.md lists every file and change.
+
+Data
+----
+Real data used by the feature (sources as recorded in src/data/sources.json):
+  - MRO CTX Jezero DEM (20 m) and CTX Jezero mosaic (controlled), NASA Solar System Treks
+    (Mars Trek), JPL: ids trek-jezero-ctx-dtm and trek-jezero-ctx-ortho; bounded crop built by
+    scripts/build-ctx-terrain.mjs (docs/TERRAIN_3D.md).
+  - Perseverance (Mars 2020) Path, NASA Solar System Treks (Mars Trek), JPL: id
+    trek-perseverance-traverse (historical positions; docs/GEO_DATA.md).
+  - Sample site positions: Mars 2020 Initial Reports Volume 4 (Sample Dossier), NASA Planetary
+    Data System, Geosciences Node: id pds-m2020-initial-reports-vol4.
+Everything else in the EVA route view is SIMULATED: the habitat, the surveyed areas, the scout
+rover and its model, the hidden ground hazards, the crew surface rules and the decision weights
+(src/data/prototype/eva-scouting.json, src/lib/eva-route/).
+
+AI assistance
+-------------
+The code and documentation of this feature were written with an AI coding assistant (Claude
+Code, Anthropic) under the project owner's direction.

@@ -3529,3 +3529,86 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `verify:geo`: 0 problems;
   - `verify:briefing`: 35 checks, 0 problems;
   - `verify:terrain`: the assets match a fresh build.
+
+## EVA route & scouting: Sol Atlas / MarsScout capabilities integrated into Mission Glass
+
+- **Started:** 2026-11-14T16:06:33Z, on branch `eva-route-scouting` from `main` at
+  `c31704b`. `main` is untouched.
+- **Completed:** 2026-11-14T16:39:01Z, at this commit. Not pushed, not merged, not deployed.
+- **Goal:** keep MDI as the single main project and bring in only what it needs. The sources were:
+  - Sol Atlas (`saracen66/the-sol-explorers` at `9e1b2e0`, Apache-2.0): the EVA O₂/time model and A*;
+  - the MarsScout prototype (`/home/user/marsscout/app` at `3e1fccb`), built earlier the same
+    day: the observed map vs hidden truth, rover scouting, map update, re-planning and resource
+    checks.
+- **Inventory before the work:**
+  - MDI was the only Mars repository locally and on the account, and the only one with this
+    project's history.
+  - MarsScout was a standalone Vite app with no remote.
+  - The Sol Atlas reference copy was unmodified.
+  - The Sol Atlas HiRISE tile (77.390–77.497° E) does not overlap MDI's CTX crop
+    (77.312–77.366° E). MDI therefore keeps its own verified CTX DTM, and no HiRISE data was
+    imported.
+- **What was added (see `docs/EVA_ROUTE_SCOUTING.md`):**
+  - `src/lib/eva-route/`: pure TypeScript modules for the grid, knowledge, traversal rules,
+    simulator truth, A*, planner, budgets, assumptions, scouting, options, mission controller,
+    scenario loader, overlay, and an agent tool entry point (`tools.ts`).
+  - `src/components/route/` and a third Mission Glass tab, **EVA route**. It has:
+    - the 3D terrain with a route overlay, plus a 2D plan and fallback;
+    - target selection;
+    - routes and budgets;
+    - the scouting loop;
+    - a simulator-only truth toggle;
+    - editable assumptions and EVA window.
+  - The EVA HUD shows the approved route's budget in one line.
+  - `TerrainViewer` gains the optional props `routeOverlay`, `showProfile` and `followSelection`.
+    Its default behaviour is unchanged.
+  - `src/data/prototype/eva-scouting.json`, all simulated: habitat, surveyed areas, rover and
+    hazards for variants A/B/C, positioned as offsets from the verified Lefroy Bay site.
+  - Provenance:
+    - `NOTICE`;
+    - `LICENSES/Apache-2.0-Sol-Atlas.txt` (copied unchanged; `cmp` identical);
+    - change headers in `sol-atlas-eva.ts` and `pathfind.ts`;
+    - a provenance table in the doc;
+    - a separation of real data, simulated items and model assumptions.
+- **Rule change, flagged:** the earlier rules said "no route optimisation, travel-time claims" for
+  the terrain view. The new request asks for route planning and EVA budgets, so:
+  - `CLAUDE.md` now allows exactly one clearly labelled simulated planning layer, the EVA route view;
+  - the terrain itself is still described as not a traversability model;
+  - the profile line and MAP-2 sequence lines are unchanged ("not a navigable route");
+  - `docs/TERRAIN_3D.md` notes the reuse.
+- **Computed results** (same map, knowledge and budget in each variant; not scripted):
+  - A: scout 6.51 > known 6.07. The shortcut is confirmed after 5 posts and a 21 min wait;
+    continue scores 7.14.
+  - B: the same first decision. 7 posts and a 36 min wait; ripples are crew-blocked but
+    rover-drivable. Detour 6.67 > known 5.38 > switch 2.48.
+  - C: scouting is feasible but scores 5.68 < known 6.07, so the known route is kept.
+- **Unchanged:**
+  - The scored data, registry (50 pending), sources, geo, terrain assets, engine and loaders:
+    `git diff main` on those paths is empty.
+  - The ranks, scores and plan are not affected by the route view. Its decision values attach to
+    target roles and are labelled as demo points, not science scores.
+- **Verification (this branch, production build):**
+  - `npm run check` passes: 304/304 tests (289 before, plus 15 new route tests); lint, typecheck and build pass.
+  - `smoke:eva-route`: 50/50. It covers:
+    - terrain and overlay;
+    - target selection by select and by 3D click;
+    - routes and budgets;
+    - the full B loop: scout → rover drives → 7 observations → re-tint → detour recommended →
+      approved with a return route;
+    - the 2D plan and the truth toggle;
+    - the HUD line;
+    - variant C and the 1 h EVA window;
+    - phone 390×844 with no horizontal scroll.
+  - Prototype smoke: 228/228 (unchanged). Research smoke: 120/120 with `SMOKE_LIVE=1`.
+  - The data checks all report 0 problems:
+    - `verify:terrain`: the assets match a fresh build;
+    - `verify:geo`;
+    - `verify:briefing`: 35 checks;
+    - `verify:sci1`: 27 quotes;
+    - `verify:citations`: 156 quotes.
+- **Not done / known limits:**
+  - No agent or model call is wired in; `tools.ts` is the entry point for one.
+  - Slope comes from the 20 m DTM, so it is a lower bound.
+  - The rover sensor has no line-of-sight model.
+  - The traverse corridor counts as surveyed ground by assumption.
+  - The demo weights, rover model and crew surface rules are simulated, not validated.

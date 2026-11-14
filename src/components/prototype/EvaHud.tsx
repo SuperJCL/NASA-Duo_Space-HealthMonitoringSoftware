@@ -37,6 +37,7 @@ export function EvaHud({
   consumed,
   map,
   replan,
+  routeStatus,
   onStart,
   onCompleteStep,
   onSkipStep,
@@ -59,6 +60,8 @@ export function EvaHud({
   viewById: ReadonlyMap<string, TaskView>;
   consumed: number;
   map: ReactNode;
+  /** EVA route & scouting: the approved simulated route's budget (one line), if any. */
+  routeStatus?: ReactNode;
   /** Replanning dialog (MG-3), a fixed modal rendered when a proposal exists. */
   replan?: ReactNode;
   onStart: () => void;
@@ -152,6 +155,7 @@ export function EvaHud({
         <div className="mg-glass mg-rise max-w-md p-6 text-center" data-testid="mg-eva-empty">
           <h2 className="text-2xl font-semibold">{"No mission plan yet"}</h2>
           <p className="mt-2 text-[var(--mg-dim)]">{"Create a simulated plan in Planning, then run it here."}</p>
+          {routeStatus ? <p className="mt-2">{routeStatus}</p> : null}
           <button type="button" onClick={onBackToPlanning} className="mt-5 min-h-12 rounded-xl bg-[var(--mg-coral)] px-6 text-lg font-semibold text-[#1a0f0c]">
             {"Go to planning"}
           </button>
@@ -221,6 +225,7 @@ export function EvaHud({
                 ...(items.some((i) => i.dropped?.by === "replan") ? [`${items.filter((i) => i.status === "skipped" && i.dropped?.by === "replan").length} dropped by replan`] : []),
               ].join(", ")}`}
         </span>
+        {routeStatus}
         <button type="button" onClick={onBackToPlanning} className="ml-auto min-h-10 rounded-xl border border-[var(--mg-line)] px-4 text-[15px]" data-testid="mg-back-planning">
           {"← Planning"}
         </button>

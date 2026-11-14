@@ -8,6 +8,7 @@ import { loadJezeroGeo } from "@/lib/geo/repository";
 import { latestRecordDate, loadMission, missionContext, selectGeoFeatures } from "@/lib/mission/mode";
 import { loadCandidateCompare } from "@/lib/prototype/candidate-compare-data";
 import { parseScenario, simulatedTargets } from "@/lib/prototype/mission-glass";
+import { loadEvaScouting } from "@/lib/eva-route/repository";
 
 export const metadata: Metadata = {
   title: "Mission Glass · MDI 2.0",
@@ -37,6 +38,7 @@ export default function MissionGlassPage() {
       asOf={asOf}
       briefing={lefroy ? briefingView(lefroy, geo, sources) : null}
       compare={loadCandidateCompare({ asOf, sources, actionTaskIds: s.actions.map((a) => a.taskId) })}
+      routeScenario={loadEvaScouting(geo)}
     />
   );
 }

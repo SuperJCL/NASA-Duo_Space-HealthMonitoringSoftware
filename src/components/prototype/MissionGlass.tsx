@@ -38,6 +38,9 @@ import { TaskCard } from "./TaskCard";
 import { CandidateCompare } from "./CandidateCompare";
 import type { CompareView } from "@/lib/prototype/candidate-compare";
 import { SegmentSummary, SequenceList } from "./SequenceViews";
+import type { ResolvedScouting } from "@/lib/eva-route/scenario";
+import { RouteWorkspace } from "@/components/route/RouteWorkspace";
+import { useEvaRoute } from "@/components/route/useEvaRoute";
 
 type Props = {
   scenario: Scenario;
@@ -50,6 +53,8 @@ type Props = {
   briefing: BriefingView | null;
   /** Candidate comparison science rows (SCI-1 draft summaries), or null when not available at this evidence date. */
   compare: CompareView | null;
+  /** EVA route & scouting: the simulated scenario (src/data/prototype/eva-scouting.json), resolved server-side. */
+  routeScenario: ResolvedScouting;
 };
 
 const LABEL_KINDS = ["sample-site"] as const;
@@ -69,7 +74,7 @@ const subscribeWide = (cb: () => void) => {
  * state (src/lib/prototype/mission-glass.ts). Ranks and feasibility come from
  * the existing engine; this component only renders and dispatches.
  */
-export function MissionGlass({ scenario, registry, sources, s, targets, features, asOf, briefing, compare }: Props) {
+export function MissionGlass({ scenario, registry, sources, s, targets, features, asOf, briefing, compare, routeScenario }: Props) {
   const { snapshot } = useMemo(() => selectEvidenceAsOf(scenario, asOf), [scenario, asOf]);
   const defaultBudget = snapshot.resources[0]?.budget ?? 100;
   const [state, dispatch] = useReducer(missionReducer, defaultBudget, initialMissionState);
@@ -121,6 +126,24 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const traverseLines = useMemo(
     () => features.flatMap((f) => (f.kind === "traverse-segment" && f.geometry.type === "MultiLineString" ? f.geometry.coordinates.map((l) => l.map((p) => [p[0], p[1]] as const)) : [])),
     [features],
+  );
+  // EVA route & scouting (simulated): a third screen next to Planning and the EVA HUD. Its state lives
+  // here, so an approved route stays available in the HUD.
+  const [screen, setScreen] = useState<"mission" | "route">("mission");
+  const [routeOpened, setRouteOpened] = useState(false);
+  const routeTargets = useMemo(() => targets.map((t) => ({ id: t.id, name: t.name, position: t.position })), [targets]);
+  const route = useEvaRoute({ scenario: routeScenario, targets: routeTargets, traverse: traverseLines, enabled: routeOpened });
+  const verifiedSites = useMemo(
+    () => features.flatMap((f) => (f.kind === "sample-site" && f.geometry.type === "Point" ? [{ id: f.id, name: f.name, position: [f.geometry.coordinates[0], f.geometry.coordinates[1]] as const }] : [])),
+    [features],
+  );
+  const approvedRoute = route.mission?.routes.approved ?? null;
+  const routeStatus = (
+    <span className="text-[14px] text-[var(--mg-dim)]" data-testid="mg-eva-route-status">
+      {approvedRoute
+        ? `Route (simulated): ${approvedRoute.option} → ${routeTargets.find((t) => t.id === approvedRoute.targetId)?.name ?? approvedRoute.targetId} · walk ${(approvedRoute.sortie.distanceM / 1000).toFixed(2)} km · EVA ${(approvedRoute.sortie.totalS / 3600).toFixed(2)} h · O₂ margin ${Math.round(approvedRoute.sortie.marginPct)} %`
+        : "No EVA route approved yet (EVA route tab)"}
+    </span>
   );
   const mapTargets = useMemo(() => targets.map((t) => ({ ...t, badge: markerById.get(t.id)?.badge, status: markerById.get(t.id)?.status, tone: markerById.get(t.id)?.tone })), [targets, markers]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedMarker = markers.find((m) => m.taskId === state.selectedTaskId);
@@ -288,19 +311,30 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           <span className="text-sm text-[var(--mg-dim)]">{"Mission Glass · interaction prototype"}</span>
         </div>
         <div role="tablist" aria-label="Mode" className="flex rounded-xl border border-[var(--mg-line)] p-1 text-sm">
-          {(["planning", "eva"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="tab"
-              aria-selected={state.mode === m}
-              onClick={() => dispatch({ type: "set-mode", mode: m })}
-              data-testid={`mg-mode-${m}`}
-              className={`rounded-lg px-4 py-1.5 transition-colors duration-150 ${state.mode === m ? "bg-[var(--mg-surface)] text-[var(--mg-text)]" : "text-[var(--mg-dim)] hover:text-[var(--mg-text)]"}`}
-            >
-              {m === "planning" ? "Mission planning" : "EVA HUD"}
-            </button>
-          ))}
+          {(["planning", "route", "eva"] as const).map((m) => {
+            const selected = m === "route" ? screen === "route" : screen === "mission" && state.mode === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => {
+                  if (m === "route") {
+                    setRouteOpened(true);
+                    setScreen("route");
+                  } else {
+                    setScreen("mission");
+                    dispatch({ type: "set-mode", mode: m });
+                  }
+                }}
+                data-testid={`mg-mode-${m}`}
+                className={`rounded-lg px-4 py-1.5 transition-colors duration-150 ${selected ? "bg-[var(--mg-surface)] text-[var(--mg-text)]" : "text-[var(--mg-dim)] hover:text-[var(--mg-text)]"}`}
+              >
+                {m === "planning" ? "Mission planning" : m === "route" ? "EVA route" : "EVA HUD"}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-[var(--mg-coral)] px-3 py-1 text-[13px] font-medium text-[var(--mg-coral)]" title={s.label} data-testid="mg-sim-pill">
@@ -322,7 +356,9 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
         </div>
       </header>
 
-      {state.mode === "planning" ? (
+      {screen === "route" ? (
+        <RouteWorkspace r={route} scenario={routeScenario} targets={routeTargets} verifiedSites={verifiedSites} traverse={traverseLines} />
+      ) : state.mode === "planning" ? (
         <main className="relative flex flex-1 flex-col lg:min-h-0 lg:block">
           <section aria-label="Investigation map" className={`relative shrink-0 lg:absolute lg:inset-0 lg:h-auto ${mapView === "3d" ? "h-[66dvh]" : "h-[42dvh]"}`}>
             {map("minimal")}
@@ -630,6 +666,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           viewById={viewById}
           consumed={consumed}
           map={map("minimal", "selected")}
+          routeStatus={routeStatus}
           onStart={() => dispatch({ type: "start-task" })}
           onCompleteStep={(index) => dispatch({ type: "complete-step", stepsByTask, index })}
           onSkipStep={(reason, index) => dispatch({ type: "skip-step", stepsByTask, index, reason })}

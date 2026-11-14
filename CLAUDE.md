@@ -86,7 +86,24 @@
   and never present the view as a route or traversability model. Elevation
   profiles are straight sampling lines and must say so; state the real relief
   rather than implying more (`docs/TERRAIN_3D.md`). Terrain never affects
-  scores.
+  scores. The only route layer on this terrain is the EVA route view below;
+  the terrain itself is still not a traversability model.
+- `src/lib/eva-route/`, `src/components/route/`, `src/data/prototype/eva-scouting.json`
+  — EVA route & scouting, a clearly labelled SIMULATED planning layer
+  (`docs/EVA_ROUTE_SCOUTING.md`). It plans A* routes on the OBSERVED map of
+  the verified CTX crop and budgets crew time/O₂ with the Sol Atlas EVA model
+  (Apache-2.0; see `NOTICE`). Rules: unobserved ground is never safe and a
+  crew route never crosses it; only the rover `Sensor` reads the hidden truth
+  (`truth.ts` is never imported by planner-side modules or `tools.ts`); a
+  departure needs a safe outbound AND return crew route on observed ground;
+  every simulated item (habitat, surveyed areas, rover, hazards, rules,
+  decision weights) stays labelled simulated; DTM slope is derived and is a
+  lower bound, never a ground observation; decision values attach to target
+  roles, are not science scores, and never feed or read the decision engine.
+  Future agents use `tools.ts` only: they choose among computed options with
+  the current `stateVersion` and never change numbers. Keep the provenance
+  headers of the files derived from Sol Atlas. MAP-2 sequence lines stay
+  conceptual and are not replaced by these routes.
 - `src/data/` — curated JSON evidence records (validated at build time);
   `src/data/geo/` (geographic records, traverse) and `src/data/missions/`.
 

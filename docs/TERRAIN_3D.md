@@ -194,3 +194,17 @@ posts, and every number shown is read from them.
 No routes, path optimisation, travel times, safety or traversability. The
 straight profile line is a sampling line only. MAP-2 (simulated
 mission-sequence lines) is separate and has not started.
+
+### Later: EVA route view (2026-11-14)
+
+The EVA route tab of Mission Glass reuses this viewer with three optional props:
+
+- `routeOverlay` adds a per-post tint and simulated route lines and points;
+- `showProfile={false}` turns off the profile panel and line;
+- `followSelection={false}` keeps the whole crop in view.
+
+The terrain data, the default 1× scale and the caveats are unchanged. In that view the note reads
+"The terrain is not a traversability model; route lines are a simulated planning layer". Routes,
+time budgets and the scouting simulation are documented separately in `docs/EVA_ROUTE_SCOUTING.md`.
+They live in `src/lib/eva-route/`, never in this viewer. The "out of scope" statement above still
+holds for the terrain view itself (Planning tab and profile).

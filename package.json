@@ -18,7 +18,8 @@
     "verify:sci1": "node scripts/verify-sci1.mjs",
     "build:terrain": "node scripts/build-ctx-terrain.mjs",
     "verify:terrain": "node scripts/build-ctx-terrain.mjs --verify",
-    "smoke:mission-glass": "node scripts/smoke-mission-glass.mjs"
+    "smoke:mission-glass": "node scripts/smoke-mission-glass.mjs",
+    "smoke:eva-route": "node scripts/smoke-eva-route.mjs"
   },
   "dependencies": {
     "next": "16.4.5",
