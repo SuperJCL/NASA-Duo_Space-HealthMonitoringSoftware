@@ -13,6 +13,10 @@
 import type { DeliveryResult, StationAdapter } from "./adapter";
 import type { Envelope } from "./protocol";
 
+/** Live subscriptions per window id in this page (see the release in subscribe()). */
+const LIVE = new Map<string, number>();
+const RELEASE_DELAY_MS = 1000;
+
 export type RelayConn = "connecting" | "online" | "reconnecting" | "offline";
 export type RelayStatus = {
   baseUrl: string;
@@ -64,6 +68,8 @@ export class RelayStationAdapter implements StationAdapter {
 
   subscribe(onInbound: (raw: unknown) => void, onHistory?: (raws: unknown[]) => void) {
     this.running = true;
+    const id = this.status.clientId;
+    LIVE.set(id, (LIVE.get(id) ?? 0) + 1);
     void this.lease();
     this.leaseTimer = setInterval(() => void this.lease(), 5000);
     void this.connect(onInbound, onHistory ?? ((raws) => raws.forEach(onInbound)));
@@ -72,7 +78,13 @@ export class RelayStationAdapter implements StationAdapter {
       this.abort?.abort();
       if (this.retryTimer) clearTimeout(this.retryTimer);
       if (this.leaseTimer) clearInterval(this.leaseTimer);
-      void this.fetchImpl(this.url(`/station-lease?clientId=${encodeURIComponent(this.status.clientId)}`), { method: "DELETE" }).catch(() => undefined);
+      LIVE.set(id, Math.max(0, (LIVE.get(id) ?? 1) - 1));
+      // Release the lease only if this page no longer has a live subscription for this window id.
+      // React development mode unsubscribes and resubscribes at once; an immediate release could reach
+      // the relay after the renewed claim and hand the lease to another station window.
+      setTimeout(() => {
+        if (!LIVE.get(id)) void this.fetchImpl(this.url(`/station-lease?clientId=${encodeURIComponent(id)}`), { method: "DELETE" }).catch(() => undefined);
+      }, RELEASE_DELAY_MS);
     };
   }
 

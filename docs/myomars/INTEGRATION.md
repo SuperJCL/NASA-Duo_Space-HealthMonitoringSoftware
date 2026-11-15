@@ -1,6 +1,14 @@
 # MyoMars integration: two-end run (Mars Station ↔ HUD)
 
-**Status (2026-11-15):** the two-end closed loop runs on the real pages through the local relay.
+**Status (2026-11-15):** the user ran one main flow by hand and accepted this branch as the
+**baseline for the two-end run (station ↔ HUD) on shared simulated data**. The three manual
+acceptance steps below are still pending. PR #2 stays open until they are done.
+
+- **Acceptance target:** the exact `integration/myomars` commit named in PR #2's description. A
+  later change must be stated there, and the affected checks re-run.
+- **Not claimed:** the health-data teammate's data, and multi-device LAN access. Both are follow-up
+  tasks, see the end of this document.
+- **HUD changes for the HUD teammate:** [HUD-INTEGRATION-MODE.md](HUD-INTEGRATION-MODE.md).
 
 - **Product interfaces:** there are two, the Mars Station and the astronaut HUD.
 - **Trigger:** there is no Trigger page. The former Trigger teammate now provides health data, which
@@ -144,15 +152,41 @@ and `hud-page-test` 46/46.
 - Labels say "数据回放（模拟样例）", not "Trigger". The banner says two-end run, simulated samples,
   not the teammate's data.
 
-### Lint
+### Lint and the HUD's own tests
 
-`myomars-hud/**` is excluded from the station's ESLint. It is the teammate's sub-project, tested by
-its own suites; three warnings come from their client code.
+`myomars-hud/**` is excluded from the station's ESLint. It is the teammate's sub-project; three
+warnings come from their client code. Its own suites are the check for that folder, and they are
+part of the integration verification: `npm run test:hud` (`scripts/hud-tests.mjs`). This runs
+`joint-test` and `hud-page-test` in standalone mode, then restores their committed result files.
+
+### Closing round (after the user's first hands-on run)
+
+These are fixes, not new features. Each one re-ran the affected checks.
+
+- **HUD, integration mode only:**
+  - once the base has reassessed or closed a case, the earlier notice is "Earlier notice · history"
+    and the decision is "Base decision";
+  - a finished retest is "done (history)";
+  - a task the base closed before any result is "not needed (history)", with no Start / View /
+    Submit / Defer buttons and no highlight;
+  - a retest task without a notice (for example after an incomplete result) shows "Base task ·
+    retest requested" instead of "no base messages".
+- **Station lease (bug):** in React development mode the station page mounts twice. The release
+  from the first mount could reach the relay after the renewed claim, and hand the lease to another
+  open station window. The reloaded window then became read-only a few seconds later. Nothing was
+  ever processed twice, but the window lost control. The adapter now releases only if the page has
+  no live subscription for that window id after one second. The regression test simulates the late
+  release: it fails on the previous adapter and passes now.
+- **Replay wording:** `std-grip-40` is labelled "当前集成样例协议（不是未来数据的唯一协议）". Other
+  protocols are explained as "no station baseline yet", not as "non-standard".
+- **`npm run test:hud`:** added, see above.
+- **Two-end acceptance:** extended from 30 to 40 checks, see below.
 
 ## Acceptance (this round): Mars Station ↔ HUD
 
 `npm run e2e:two-end` (`scripts/e2e-two-end.mjs`) drives the real station page and the real HUD
-page through the relay. **30/30 passed** against the dev server and against the production build.
+page through the relay. **40/40 passed** against the dev server and against the production build
+(see PR #2 for the commit).
 
 **Main flow**
 
@@ -187,15 +221,34 @@ page through the relay. **30/30 passed** against the dev server and against the 
   - a late `hud.ack` for the ended run gets `409 stale-run`;
   - the HUD shows the new run without the old case;
   - the station's card for the new run has no events.
-- **Missing grip:** the sample `grip-missing` is published with `gripForceN: null`, and the station
-  shows "结果不完整：缺少握力".
+- **Missing grip:**
+  - the sample `grip-missing` is published with `gripForceN: null`;
+  - the station shows "结果不完整：缺少握力" and says nothing was invented or zero-filled;
+  - 15 s later the case is still open and nothing has gone to the HUD.
+- **Refresh both ends with a pending task:** the relay's `lastSeq` is unchanged; the HUD still shows
+  the task; the station shows the same step and still evaluation v1.
+- **Keep watching, then close (same case):**
+  - exactly one status notice each (`monitoring`, then `closed`);
+  - HUD "Case closed by base" and CASE CLOSED; the station shows "事件已关闭".
+- **HUD after the close:** the earlier notice and the retest instructions are history, and no task
+  buttons are shown.
+- **Refresh both ends after the close:** the same final state, and nothing re-sent.
+- **Retest task without a notice, then closed before a result:**
+  - the HUD shows "Base task";
+  - after the close, the task is "not needed (history)".
+- **No status notice published twice** in the whole run.
 - **No errors:** no relay rejections or invalid deliveries on the HUD side, and no page errors.
 
-**Other checks**
+**Integration verification (run all of these after any change):**
 
-- `npm run check`: lint, typecheck, 33 test files / 375 tests, build.
-- Standalone station smoke: `smoke:crew` 63/63 and `smoke:station` 121/121.
-- HUD suites in standalone mode: 49/49 and 46/46.
+| Command | What it covers |
+|---|---|
+| `npm run check` | Station and relay: lint, typecheck, unit tests (including the lease regression and the relay end-to-end test), build |
+| `npm run test:hud` | HUD teammate's suites, standalone mode: `joint-test` 49, `hud-page-test` 46 |
+| `npm run e2e:two-end` | Real station page and real HUD page in integration mode, through the relay: 40 checks |
+| `npm run smoke:crew`, `npm run smoke:station` | Standalone station (fallback entry): 63 and 121 checks |
+
+The last results are stated in PR #2 with the commit they ran on.
 - Replay command line exercised: `start`, `send grip-missing`, and `check` on a non-contract file
   (stops at "format").
 
@@ -203,6 +256,41 @@ page through the relay. **30/30 passed** against the dev server and against the 
 
 - Multi-device LAN access: addresses are printed, but no second device was tested.
 - The health-data teammate's data. This is the next acceptance and is reported separately.
+
+## Manual acceptance (three steps)
+
+Start as below (one station window, one HUD window). Optionally keep
+`http://localhost:8787/v1/health` open: its `lastSeq` is the relay's message count.
+
+1. **Missing grip stays missing; the result is incomplete; the case is not closed.**
+   1. Start a run in "开发入口（数据回放）", then click "Enter HUD" on the HUD page.
+   2. Choose the sample "握力计未读数（缺失值演示）", then click "回放并打开面板".
+   3. Expect, after about 10 s:
+      - "最新评估 v1：结果不完整";
+      - "为什么停在这里" names 握力 as missing and says "未补造、未填零";
+      - click the "指标比较" node, then "查看证据": 握力 reads "缺失（未提供）", never 0;
+      - the case stays "关注未关闭 · 待审核" however long you wait;
+      - the HUD still says "no base messages yet".
+2. **Keep watching, then close: HUD and station agree; no notice twice.**
+   1. Open the HUD as `http://localhost:8787/hud.html?mode=integration&retestSample=retest-changed`
+      (so the retest still differs).
+   2. Replay "可比变化（完整流程）", approve, and on the HUD do Acknowledge → View task → Start
+      retest → Submit.
+   3. When v2 is ready, click "保留关注" with a reason. The HUD shows "Base update · …此事件保留关注…"
+      and the case stays open.
+   4. Then click "关闭事件" with a reason. The HUD shows "Case closed by base" and CASE CLOSED; the
+      station shows "事件已关闭".
+   5. In the station's 通信记录 for that case, each status notice appears exactly once (保留关注,
+      then 关闭).
+   6. The HUD's earlier notice reads "Earlier notice · history", the retest card reads "done
+      (history)", and there are no task buttons.
+3. **Refresh both ends: tasks and results restored; nothing sent or processed twice.**
+   1. Right after an approval (the HUD shows the retest task), note `lastSeq`.
+   2. Refresh the station page and the HUD page (click "Enter HUD" again).
+   3. The HUD shows the same task; the station shows the same step and the same evaluation version.
+      `lastSeq` is unchanged.
+   4. Repeat after the case is closed: both pages show the same final state, and `lastSeq` is
+      unchanged.
 
 ## Start (one machine; PowerShell or bash)
 
@@ -253,8 +341,10 @@ Each item gives the concrete difference and a recommendation. Nothing below was 
      - The station has no baseline for those protocols, so they are "not comparable".
    - Today's choice: the integration run uses the shared `std-grip-40`, and the HUD hides its
      thigh-specific visuals.
-   - Recommendation: keep `std-grip-40` for the demo. If the team wants walking or knee-bend data,
-     add that protocol with its own baseline as a separate, reviewed change.
+   - `std-grip-40` is **only the current integration sample**. It is not the protocol future data
+     must use. Teammate data keeps its own protocol id and conditions. The station compares data
+     only against a baseline for the same protocol, so a new protocol needs its own baseline (a
+     separate, reviewed change), never a relabel to `std-grip-40`.
 2. **Body site and device are not in the contract.**
    - Protocol has no body-site field, and `deviceId` is optional.
    - Recommendation: an additive optional `protocol.bodySite` and a required device id in the
@@ -333,3 +423,16 @@ When the health-data teammate pushes:
 - Relay hand-off, HUD receipt and astronaut confirmation are separate statuses.
 
 **Limits:** no authentication, so this is for local / LAN development only.
+
+## Merge plan and follow-up tasks
+
+- **PR #2** stays open until the user finishes the three manual steps.
+- When it is merged into `main`, it is named "MyoMars 模拟数据双端联调基线" (two-end run on shared
+  simulated data). It does not claim the teammate's health data or multi-device LAN access.
+- **Follow-up 1, health-data intake:** when the teammate pushes, read their branch, run
+  `npm run replay -- check <file>`, then follow "Next acceptance" above. This is reported
+  separately.
+- **Follow-up 2, multi-device LAN:**
+  - the station on one machine, the HUD on another device, through `http://<LAN-IP>:8787/`;
+  - firewall and allowed origins (`--origins`) checked;
+  - reported separately.
