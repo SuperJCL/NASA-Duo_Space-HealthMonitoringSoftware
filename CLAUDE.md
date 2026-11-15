@@ -149,6 +149,14 @@
   team protocol, and the station is standalone until a real adapter is
   tested. Do not build the Trigger or HUD here (`?dev=1` is a dev-only
   injector).
+- MyoMars two-end integration (`integration/myomars` only; `docs/myomars/INTEGRATION.md`):
+  two product interfaces (station, HUD), no Trigger / simulator page. `myomars-hud/` is the HUD
+  teammate's code at a LOCKED commit; change it only through small compatibility patches behind
+  `hud.html?mode=integration`, and keep its standalone suites passing. `relay/` is the local relay
+  (never analyses or approves). Data input is the replay module (`src/lib/replay/`, `replay/cli.ts`,
+  the station's relay-mode dev entry): role `trigger` = data producer, SIMULATED samples labelled as
+  such, every demo assumption listed by `intakeCheck`; teammate data is checked on their branch first,
+  raw signals are never written into feature fields, and a missing value stays null.
 - `src/contracts/`, `contracts/`, `tools/myomars/` — MyoMars shared message
   contracts v1 (Trigger / HUD / Mars Station), a team PROPOSAL
   (`docs/myomars/CONTRACTS.md`). Zod sources in erasable TypeScript that Node

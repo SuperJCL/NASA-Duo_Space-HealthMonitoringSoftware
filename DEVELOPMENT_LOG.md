@@ -4011,3 +4011,53 @@ unchanged, and `verify:terrain` still matches a fresh build.
     chain, reload without re-send, read-only second window, HUD reload restore, no errors;
   - standalone mode smoke 63/63.
   - Details and interface differences: `docs/myomars/INTEGRATION.md`.
+
+## MyoMars two-end run: locked HUD 239d253, data replay, closed loop on the real pages
+
+- **Time (real, UTC):** 2026-11-15, about 00:50 to 01:25.
+- **Scope change (user, 2026-11-15):**
+  - there are two product interfaces, the Mars Station and the HUD;
+  - there is no Trigger page; the former Trigger teammate provides health data, which is not on any
+    branch yet;
+  - data input is a replay module without a product UI;
+  - the contract role `trigger` is kept as the data-producer role.
+- **HUD lock:** `feat/myomars-hud` at `239d253048a594c2debb4d0021011465b1478bc6` (PR #1, open). It was
+  merged unchanged into `integration/myomars` (`43e606d`, `--no-ff`). The teammate branch was not
+  modified. Their suites pass on the merge: 49/49 and 46/46.
+- **Compared with `a76c0e8`:**
+  - added: the Scenario 2 recovery / symptom / medical-review flow, the proposed `hud.symptoms`
+    extension, and faster pacing;
+  - resolved by the teammate, so kept: the "returning to the habitat" text;
+  - still open: the HUD starts runs and publishes its own observations; it infers the notice kind
+    from IDs; it shows `reviewReason`; it splits the label into body site and action; its retest
+    sample is a knee-bend placeholder.
+- **Compatibility changes (all HUD changes only with `?mode=integration`):**
+  - HUD client option `integration`: hud-role only, no inferred kind, no `reviewReason`;
+  - HUD page:
+    - joins the replay's run;
+    - local simulation off;
+    - status lines from station facts;
+    - recovery and symptom steps off;
+    - protocol label instead of an invented body site;
+    - retest values from the shared contract fixture with a matching protocol (never relabelled);
+  - relay: `/` redirects to the HUD in integration mode;
+  - station:
+    - the `result-incomplete` outcome (missing grip-meter reading: listed, not invented, not
+      zero-filled, not compared);
+    - the notice `basis` without the internal workflow line;
+    - labels updated for the new scope;
+  - data replay: `src/lib/replay/replay.ts` with an intake checklist; `replay/cli.ts`
+    (`npm run replay`); the station dev entry uses the same module; `relay-dev.ts` was removed;
+  - `myomars-hud/**` is excluded from the station's ESLint.
+- **Verification:**
+  - `npm run e2e:two-end` 30/30 on the real pages, against both the dev server and the production
+    build: the main flow, close and keep-watching paths, duplicates, station and HUD reload, a
+    read-only second station window, old-run isolation, the single data producer, missing grip,
+    and no page errors;
+  - `npm run check` passes;
+  - `smoke:crew` 63/63 and `smoke:station` 121/121.
+- **Not done:**
+  - LAN multi-device check;
+  - the health-data teammate's data (next acceptance, reported separately);
+  - team decisions listed in `docs/myomars/INTEGRATION.md`: demo protocol and body site, the notice
+    category field, `hud.symptoms`, the missing-grip policy, and the retest data source.
