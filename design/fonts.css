@@ -1,5 +1,5 @@
 /*
- * MyoMars fonts for the pages without next/font (HUD, patch showcase). Geist and Geist Mono,
+ * MyoMars fonts for the page without next/font (the HUD). Geist and Geist Mono,
  * variable weight 100–900, Latin subset (woff2 from the Geist release used by Next.js 16.4.5).
  * Licence: SIL Open Font License 1.1, LICENSES/OFL-1.1-Geist.txt. Copied next to each page by
  * `npm run design:sync`; the url() paths are relative to this file.

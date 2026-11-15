@@ -1,7 +1,8 @@
 """Accelerated recorded-time replay of the summary fixtures in a temporary database.
 
-Shared by `python -m astra_patch replay` and `python -m astra_patch showcase build`, so the
-showcase data file comes from exactly the same code path as the command-line demo.
+Used by `python -m astra_patch showcase build`. It repeats, step for step, the `replay` command
+in `__main__.py` (the original ASTRA code, kept unchanged there); tests/test_showcase.py checks that
+the showcase data equals that command's output for every scenario.
 Does not contact a relay or publish messages.
 """
 import os

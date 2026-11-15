@@ -55,6 +55,11 @@ public-base message. Scenario labels are separate from measured fixture values.
 
 ## Showcase page
 
+> Added on the MyoMars unified-experience branch (2026-11-15). It is **not** part of the original
+> ASTRA patch demo, which has no visual page (its upstream React product UI was not ported; see
+> `SOURCE.json`). The page only displays the output of the commands above. It keeps its own look:
+> it is not bound to the Mars Base / HUD design rules.
+
 A small visual page that explains the same demo: the patch and where it sits, what the
 sEMG and IMU sensors record, the three replay scenarios with their indicators and signal
 quality, and one plain sentence per scenario. Synthetic data, standalone demo.
@@ -114,7 +119,7 @@ Four optional target-contract integration cases skip when parent contracts are a
 
 ## Boundaries and limitations
 
-This is a headless Python demo, an API explorer and a standalone showcase page, not a graphical HUD. Synthetic
+This is a headless Python demo and API explorer, not a graphical HUD. Synthetic
 summary scenarios are not raw waveform recordings or validated fatigue evidence.
 Signal-quality faults remain separate from physiological indicators. Existing
 walking, three-squat and automatic demonstration trigger rules remain unchanged.

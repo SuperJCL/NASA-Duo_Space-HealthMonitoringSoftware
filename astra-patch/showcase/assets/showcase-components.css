@@ -1,3 +1,5 @@
+/* Patch showcase: the page's own copy (not synced, not checked against design/). The patch demo is
+   independent of the Base/HUD design rules; edit freely for this page. */
 /*
  * MyoMars shared component classes for the plain-HTML pages (HUD, patch showcase). The Mars Base
  * builds the same components from Tailwind utilities on the same tokens (design/DESIGN.md §4).

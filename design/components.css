@@ -1,5 +1,5 @@
 /*
- * MyoMars shared component classes for the plain-HTML pages (HUD, patch showcase). The Mars Base
+ * MyoMars shared component classes for the plain-HTML page (the HUD). The Mars Base
  * builds the same components from Tailwind utilities on the same tokens (design/DESIGN.md §4).
  * Requires tokens.css. Copied next to each page by `npm run design:sync`.
  */

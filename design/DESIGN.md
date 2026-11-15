@@ -1,15 +1,27 @@
 # MyoMars design language
 
-One product, three interfaces:
+One product, two interfaces that share this language:
 
 | Interface | Layout | Where |
 |---|---|---|
 | **Mars Base** | Operations console: map background, docked panels, a fixed decision area | Next.js app, `/` |
 | **Astronaut HUD** | Immersive: a 3D Mars scene behind a helmet visor, few large readable panels | `myomars-hud/hud.html` |
-| **Patch showcase** | Explanatory: one story per screen, a diagram, scenario switch, charts | `astra-patch/showcase/` |
 
-They share tokens, type, colour meaning, components and motion rules. They do not share code
-or runtime files: each module carries its own copy of the design resources.
+They share tokens, type, colour meaning, buttons, panels, spacing and status wording. They do not
+share code or runtime files: each module carries its own copy of the design resources.
+
+**What the shared language does NOT do** (owner decision, 2026-11-15):
+- It does not replace or simplify a module's own animations and effects. The Base keeps its
+  event-chain markers, data-flow canvas, dispatch flashes and Mission Glass rise. The HUD keeps:
+  - its cyan text glow;
+  - the status-badge glow and red blink;
+  - the base-marker ping;
+  - the queued-packet blink;
+  - the edge hint;
+  - the mini-map, position and speed readouts;
+  - the panorama waypoints in fallback mode.
+- It does not cover the ASTRA patch demo (`astra-patch/`, including its showcase page). That
+  program keeps its own look and is not synced or checked against `design/`.
 
 ## 1. Resources
 
@@ -19,8 +31,7 @@ or runtime files: each module carries its own copy of the design resources.
 | `design/fonts.css`, `design/fonts/` | Geist and Geist Mono, variable 100–900, Latin. SIL OFL 1.1 (`LICENSES/OFL-1.1-Geist.txt`). |
 | `design/components.css` | `.mm-panel`, `.mm-btn`, `.mm-chip`, `.mm-input`, `.mm-dialog`, `.mm-label`, `.mm-num` for the plain-HTML pages. |
 
-- `npm run design:sync` copies them to `myomars-hud/assets/` and `astra-patch/showcase/assets/`
-  (as `myomars-*.css`).
+- `npm run design:sync` copies them to `myomars-hud/assets/` (as `myomars-*.css`).
 - `npm run design:check` (part of `npm run check`) fails if a copy differs.
 - Edit only `design/`, then sync.
 - The Base imports `design/tokens.css` in `src/app/globals.css`. The Mission Glass names
@@ -132,9 +143,11 @@ It shows on `:focus-visible` only.
 | `--mm-dur` | 200 ms | Open or close; a state change |
 | `--mm-dur-slow` | 420 ms | A one-off event marker (data arrived, message sent, receipt) |
 
-- Motion follows a **real recorded event** or a user action, once.
-- No idle loops, flowing borders or pulsing panels.
-- A "waiting" state is still: it shows who is awaited and since when.
+- The tokens time **new** motion only. Animations a module already had keep their own timing and
+  behaviour. Examples: Mission Glass rise 220 ms; HUD ping, blink and glow.
+- New motion follows a **real recorded event** or a user action, once.
+- No new idle loops, flowing borders or pulsing panels.
+- A "waiting" state in new UI is still: it shows who is awaited and since when.
 - **Reduced motion:** `prefers-reduced-motion` or `<html data-motion="reduced">` sets every
   duration to 0. One-off markers and scene easing are skipped, and the result is the same.
 - **3D scenes:** they do not rotate on their own. The camera moves only when the user drags, and
@@ -156,11 +169,6 @@ It shows on `:focus-visible` only.
 - the first layer is the base text plus the current action;
 - the scene never sits behind text without a panel;
 - drag-to-look works only on empty scene area.
-
-**Patch showcase (explanatory):**
-- one header with "Synthetic data · Standalone demo";
-- the patch diagram, then the scenario switch, then indicators and quality, then waveforms
-  (when the program generates them), then one plain sentence explaining the scenario.
 
 ## 7. Words
 

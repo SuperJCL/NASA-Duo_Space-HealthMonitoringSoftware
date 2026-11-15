@@ -1,7 +1,8 @@
 # MyoMars: two separate demos
 
-MyoMars is shown with **two independent programs** and three interfaces. They share one visual
-language (`design/DESIGN.md`) but no runtime files or messages. They share a theme (muscle monitoring for an
+MyoMars is shown with **two independent programs** and three interfaces. The Mars Base and the HUD
+share one visual language (`design/DESIGN.md`). The patch demo keeps its own look. No runtime files or
+messages are shared. They share a theme (muscle monitoring for an
 astronaut on EVA) but have **no communication link**: separate processes, separate data, started
 separately. Neither the interface nor the project introduction claims they are connected.
 

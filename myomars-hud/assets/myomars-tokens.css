@@ -1,15 +1,15 @@
 /*
- * MyoMars design tokens v1 — the ONE source of the shared visual language of the three demo
- * interfaces (Mars Base, astronaut HUD, patch showcase). Rules: design/DESIGN.md.
+ * MyoMars design tokens v1 — the ONE source of the shared visual language of the Mars Base and
+ * the astronaut HUD. Rules: design/DESIGN.md. (The patch showcase is not bound to it.)
  *
  * Canonical file: design/tokens.css. Copies (byte-identical, made by `npm run design:sync`,
  * checked by `npm run design:check`):
  *   myomars-hud/assets/myomars-tokens.css         (HUD, served by the relay as a static file)
- *   astra-patch/showcase/assets/myomars-tokens.css (patch showcase, served by Python)
  * The Mars Base imports this file directly (src/app/globals.css). No module loads another
  * module's files at run time.
  *
  * Variables only. Fonts: design/fonts.css (the Base uses next/font with the same Geist family).
+ * Tokens restyle; they never retime or remove a module's own animations (DESIGN.md §5).
  */
 :root {
   /* ---- type ---- */

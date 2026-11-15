@@ -17,7 +17,9 @@ const SOURCES = {
   "fonts/geist-latin.woff2": "design/fonts/geist-latin.woff2",
   "fonts/geist-mono-latin.woff2": "design/fonts/geist-mono-latin.woff2",
 };
-const TARGETS = ["myomars-hud/assets", "astra-patch/showcase/assets"];
+// The shared language covers the Mars Base and the HUD only. The patch showcase keeps its own
+// copy (astra-patch/showcase/assets/showcase-*.css) and is not synced or checked.
+const TARGETS = ["myomars-hud/assets"];
 const check = process.argv.includes("--check");
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 

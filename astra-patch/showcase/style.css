@@ -1,7 +1,8 @@
 /*
  * ASTRA patch showcase: explanatory layout (design/DESIGN.md §6, "Patch showcase").
- * Uses only the shared tokens (assets/myomars-tokens.css) and components
- * (assets/myomars-components.css); no colour outside the token set.
+ * Uses the page's own variables (assets/showcase-tokens.css) and components
+ * (assets/showcase-components.css). They started as a copy of the Base/HUD tokens and are
+ * owned by this page now: the patch demo is not bound to the Base/HUD design rules.
  */
 *,
 *::before,
