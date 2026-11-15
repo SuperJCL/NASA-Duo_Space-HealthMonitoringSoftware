@@ -17,6 +17,7 @@ def test_source_intake_never_invents_v1_measurements(client,scenario):
         assert 'expected_classification' not in json.dumps(report)
         if source['signal_quality']['status']=='unsuitable':assert report['possible_feature_mapping']['medianFreqHz'] is None
 
+@pytest.mark.skipif(not CONTRACTS.is_dir(), reason='Optional parent contract integration artifacts absent')
 @pytest.mark.parametrize('kind',['scenario.start','scenario.reset','observation.submitted'])
 def test_official_examples_validate_without_modifying_contract(kind):
     pytest.importorskip('jsonschema')
@@ -24,6 +25,7 @@ def test_official_examples_validate_without_modifying_contract(kind):
     assert validate_envelope(example)['valid']
     assert validate_envelope(example)['external_submission']=='disabled'
 
+@pytest.mark.skipif(not CONTRACTS.is_dir(), reason='Optional parent contract integration artifacts absent')
 def test_invalid_and_forbidden_messages_rejected():
     pytest.importorskip('jsonschema')
     example=json.loads((CONTRACTS.parent/'examples'/'observation.submitted.json').read_text())
@@ -38,3 +40,15 @@ def test_invalid_and_forbidden_messages_rejected():
     for kind in ('retest.result','station.notice.approved','hud.ack'):
         message=json.loads((CONTRACTS.parent/'examples'/f'{kind}.json').read_text())
         assert not validate_envelope(message)['valid']
+
+
+def test_missing_contracts_fail_closed_but_local_report_works(monkeypatch,tmp_path):
+    from astra_patch import handoff
+    monkeypatch.setattr(handoff,'CONTRACTS',tmp_path/'absent')
+    result=handoff.validate_envelope({'type':'observation.submitted'})
+    assert result['valid'] is False and result['errors']
+    assert result['external_submission']=='disabled'
+    report=handoff.review_astra_observation({})
+    assert report['contract_sha256'] is None
+    assert report['contract_validation']=='not_performed'
+    assert report['publishable'] is False and report['message'] is None

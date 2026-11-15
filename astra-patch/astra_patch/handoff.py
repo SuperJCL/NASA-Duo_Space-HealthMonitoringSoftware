@@ -46,6 +46,11 @@ def validate_envelope(message):
 
 def review_astra_observation(observation):
     """An intake report, not a v1 payload. Explicitly preserves missing evidence."""
+    # A local report must not require the optional parent integration artifacts.
+    try:
+        contract_hash=hashlib.sha256((CONTRACTS/'payload.observation.submitted.schema.json').read_bytes()).hexdigest()
+    except OSError:
+        contract_hash=None
     reported=observation.get('reported_summary_features',{})
     quality=observation.get('signal_quality',{})
     return {
@@ -63,5 +68,6 @@ def review_astra_observation(observation):
             'No independently measured grip force; no walking/quadriceps Station baseline',
             'Source flags and quality score cannot substitute for impedance or artifact/dropout percentages',
             'Production authentication and approved transport configuration are unavailable'],
-        'contract_sha256':hashlib.sha256((CONTRACTS/'payload.observation.submitted.schema.json').read_bytes()).hexdigest(),
+        'contract_sha256':contract_hash,
+        'contract_validation':'not_performed',
         'note':'Review report only. Nulls and missing data are not zero-filled; no outgoing message is generated.'}

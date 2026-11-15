@@ -1,51 +1,50 @@
-# ASTRA Patch data-producer integration (offline review)
+# Standalone ASTRA and optional contract integration
 
-Source: `leonardoTT-debug/ASTRA-MyoMars`, commit `91a464b87afa32c000b75c5a4dfeacc13871e2cb`. Target preparation base: `integration/myomars` at `0d0427681c7aefd8277cb69714a9e774af7e52d1`. This addition is for the existing `feat/myomars-patch-trigger` branch. It does not replace its README.
+ASTRA lives exclusively in `astra-patch/` and starts with Python dependencies only.
+Acquisition, MuscleSense, synthetic scenarios, trigger rules, SQLite persistence
+and console controls do not import the parent application. See `README.md` for
+Demo Day setup. No Next.js, HUD, Relay or Station process is required.
 
-## Scope
+The original ASTRA port came from `91a464b`; the standalone extension preserves
+its acquisition, processing, quality, baseline, trigger and round-isolation logic.
+It does not port the original React UI, raw WFDB datasets or prototype transport.
 
-An isolated Python package under `astra-patch/astra_patch/` ports acquisition, synchronized synthetic sEMG/IMU, signal-quality-first MuscleSense processing, individual baseline checks, walking/three-squat/automatic-indicator rules, local SQLite audit/observations, and Trigger Console controls. There is no third product page. CLI and authenticated local FastAPI controls expose the headless console; Station and HUD stay the two existing interfaces. No station analysis, HUD behavior, shared contracts, root dependencies, routes or source data are edited.
+## Independent replay
 
-The original ASTRA public-prototype sender, WFDB datasets and UI application are not copied. The old engine's network/template transport is removed. Queue attempts fail closed; stale-round queue attempts return 409. There is no live sending toggle or automatic retest/result publication. SQLite uses a separate `ASTRA_PATCH_DB` path, never the Station's state or original ASTRA database.
+`python -m astra_patch replay --scenario <name>` emits local internal observations
+without calling the target handoff reviewer. It labels external submission disabled
+and contract validation not performed. This output is not a wire contract.
+Summary fixtures retain their values, provenance and quality flags. Missing raw
+signals, sampling metadata or calibrated physiological evidence are not fabricated.
 
-## Run locally
+## Optional offline handoff review
 
-Use Python 3.12+; dependencies require installation in your authenticated/dependency-enabled environment:
+`handoff.py` alone references the parent's generated `contracts/schema/` directory.
+`review_astra_observation` remains a blocked local intake report. Its optional
+schema hash is null when unavailable; a hash is provenance, never validation.
+`contract_validation` is always `not_performed` for these reports.
 
-```sh
-cd astra-patch
-python3 -m venv .venv
-.venv/bin/python3 -m pip install -r requirements.txt
-PYTHONPATH=. .venv/bin/python3 -m pytest -q tests
-PYTHONPATH=. .venv/bin/python3 -m astra_patch replay --scenario normal
-PYTHONPATH=. .venv/bin/python3 -m astra_patch replay --scenario fatigue_suspected
-PYTHONPATH=. .venv/bin/python3 -m astra_patch replay --scenario sensor_fault
-PYTHONPATH=. .venv/bin/python3 -m astra_patch check ../contracts/examples/observation.submitted.json
-```
+Explicit `python -m astra_patch check <file>` retains strict schema and publisher
+checks against the existing authoritative v1 artifacts. Missing or invalid
+artifacts fail closed. Neither a successful check nor a local report authorizes
+transmission. No replacement schemas are generated or bundled. The authoritative
+TypeScript contracts remain owned by the parent project and unchanged.
 
-Replay is accelerated recorded-time playback: observations retain elapsed times 6/12/18/24 seconds; this CLI is not a six-second wall-clock network sender. The inherited trigger stream evaluates every accepted window, schedules walking at six recorded seconds, counts three completed synthetic IMU squat cycles, and emits held non-clinical indicators independently. The test suite verifies those behaviors separately from incomplete summary fixtures.
+The Python suite includes optional parent-contract integration tests; four cases
+skip when the parent contract directory is absent. Standalone acceptance tests and
+missing-contract failure checks still run in a detached copy. With parent artifacts
+present, those integration tests must pass too.
 
-Optional private control API: set `MYOMARS_ACQUISITION_TOKEN` through your approved local secret mechanism, set `ASTRA_PATCH_DB` to a dedicated ignored path, then run `.venv/bin/python3 -m uvicorn astra_patch.service:app --host 127.0.0.1 --port 8142` from this directory. Do not expose it on the LAN or treat it as production authentication. Paths remain `/api/myomars/v1/sessions`, `/console`, `/trigger-streams` to preserve the internal controller interfaces. Start requires explicit acquisition/replay approval; this never authorizes an EVA. All controls use their existing run IDs and transaction isolation. See runtime `/docs` for these local APIs; they are not the shared message contract.
+## Safety and data gaps
 
-## Contract boundary
+External delivery remains disabled, with no network transport or enabling switch.
+Patch does not publish HUD messages, retest results, medical decisions or mission
+instructions. FastAPI bearer authentication is local demo access control only.
+The local database defaults to `astra-patch.sqlite3`, configurable through
+`ASTRA_PATCH_DB`; it must not point to a teammate's database.
 
-The target's `src/contracts/` and generated `contracts/schema/` remain authoritative and unchanged. `handoff.py` reads their generated JSON schemas and publishing rules directly. It validates supplied v1 messages offline; validation is not authorization to transmit. Only scenario.start/reset and observation.submitted are in this adapter's scope; retest results, HUD events and Station actions are rejected even where the broad shared contract permits a trigger role. JSON Schema validation fails closed if the validator is unavailable. The TypeScript Zod contract remains the authority if validation semantics differ.
-
-`review_astra_observation` emits a local intake report, never a wire message. It retains source observation and round references, supplied summary values and quality flags, identifies missing target measurements, and hashes the target observation schema. It does not use expected classification labels as evidence. Poor-quality median-frequency values are not offered as usable features.
-
-A full data handoff remains blocked on specific data gaps:
-
-- microvolt RMS has no compatible MVC calibration, so it cannot become `rmsPctMvc`;
-- summary fixtures do not contain required sampling rate, electrode impedance, saturation/dropout/artifact percentages, captured UTC, person or structured protocol conditions;
-- grip force is independent and cannot be derived from EMG;
-- walking/quadriceps protocols must not be relabelled as the Station's standard grip protocol or compared with its baseline;
-- raw acquisition has more metadata but still lacks a reviewed target protocol, channel-selection/MVC mapping and electrode impedance;
-- live transport/authentication are not approved; target relay role headers are not production authentication.
-
-No null-for-required fields, fabricated zeroes or relabelled participants are sent. Future work must provide actual compatible metadata or separately reviewed contract/protocol changes. This PR does not claim a successful Patch → Station → HUD round trip.
-
-## Tests and limits
-
-Ported tests preserve meaningful acquisition, quality, baseline, trigger, round, duplicate and safety behavior. New tests exercise target intake and the authoritative target example/schema files. No tests publish to a server. The original ASTRA source and its tests remain untouched. The source pipeline uses explicitly non-clinical demonstration thresholds, never diagnoses atrophy or clinically validated fatigue.
-
-During preparation: Python tests ran in the existing local Python 3 environment. The separate JSON Schema dependency was not available, so its four conformance cases are explicitly skipped (not passes). Full target `npm run check` was attempted and stopped at missing `eslint` because this checkout has no node_modules. Install dependencies and run all checks in the teammate development environment before treating this draft as integration-ready. No network-based end-to-end verification is claimed.
+Microvolt RMS cannot become percent MVC without compatible calibration; grip force
+cannot be derived from EMG. Summary fixtures lack required target sampling,
+impedance, artifact/dropout percentages, person and acquisition/protocol mapping.
+Walking/quadriceps observations must not be relabelled as grip-protocol measurements
+or compared to its baseline. Thus no live Patch-to-base handoff is claimed.
