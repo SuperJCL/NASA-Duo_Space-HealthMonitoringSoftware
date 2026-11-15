@@ -27,7 +27,7 @@ const evs = async () => (await history()).events;
 const byRole = (list, role) => list.filter((e) => e.sender.role === role);
 
 const b = await chromium.launch();
-const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
+const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: D ? 2 : 1 });
 const errs = [];
 const watch = (n, pg) => {
   pg.on("pageerror", (e) => errs.push(`${n}: ${e}`));
