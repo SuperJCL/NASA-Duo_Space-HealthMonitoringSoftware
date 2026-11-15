@@ -4263,3 +4263,32 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
 - `origin/main` re-checked after the run: still `a9f9646`. The patch PRs #3 / #4 are still open.
 - Commits after `ec0283b` are documentation only.
 - **Not verified:** patch data link (not connected); teammate data; LAN multi-device.
+
+## Patch standalone demo merged into main (#4); main synced into PR #5
+
+- **Time (UTC):** 2026-11-15, about 07:15 to 08:00. PR #4 was merged at 07:31:58Z.
+- **Owner's direction:** close PR #3 (superseded by the standalone demo in #4), keep its branch,
+  retarget #4 to `main`, verify it, merge it normally. Connecting the data to the relay, base and HUD
+  is follow-up work.
+- **Diff check after the retarget:**
+  - 6 commits, 34 files, +2299 / −0: `astra-patch/` (33 files) and a 4-line patch entry in
+    `DEVELOPMENT_LOG.md`.
+  - The two merge commits only re-merge `integration/myomars` history that `main` already had, and
+    change no files. No old integration code came in, so no replacement PR was needed.
+- **Verification of the merge result** (`main` `a9f9646` + #4, merged locally first; the tree is
+  identical to the final `d518aca`):
+  - patch replay (3 scenarios) exits 0;
+  - `pytest` 84 passed (Python 3.12.3);
+  - local API: `/docs` 200, 401 without a token, a console created with a token;
+  - `npm run check` (382 tests and build), `contracts:check`, `test:hud` 49 + 46.
+  - Repository startup, dependencies and shared files are unchanged.
+- **GitHub actions:**
+  - #3 closed with a "superseded by #4" note; branch `feat/myomars-patch-trigger` kept (`c50c453`).
+  - #4 retargeted, marked ready, merged with a merge commit: **`main` = `d518aca`**. Branch
+    `feat/astra-standalone-demo` kept.
+- **PR #5:**
+  - `main` merged in without conflicts (`ffd0d6d`); docs updated (`3762faf`).
+  - Patch demo inside the PR #5 tree: 84 passed, replay ×3 exit 0, `.venv` untracked.
+  - Production build `3762faf`: `npm run check` 386 tests; `e2e:mission` 29/29; `e2e:two-end` 48/48;
+    `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
+    `smoke` 118; `test:hud` 49 + 46.
