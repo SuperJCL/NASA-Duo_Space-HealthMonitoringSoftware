@@ -1,15 +1,20 @@
 # ASTRA patch demo: integration audit (read-only)
 
-**Date:** 2026-11-15. **Audited source:** `origin/feat/astra-standalone-demo` at `18f8cd6`.
-**Status:** the patch demo is **not merged into `main`**. On 2026-11-15 `origin/main` was still `a9f9646`.
-- It reaches `main` only through two open PRs:
-  - [#4](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/4) merges it into `feat/myomars-patch-trigger`;
-  - [#3](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/3) merges that into `integration/myomars`.
-- It is not part of PR #5 (`feat/myomars-english-overlay`).
+**Date:** 2026-11-15. **Audited source:** `feat/astra-standalone-demo` at `18f8cd6`.
 
-**Conclusion:** the patch data link is **not connected** to the relay, the Mars Base or the HUD.
-- Once merged, the patch demo is integrated as an independent tool; the data link is still not
-  connected.
+**Status (updated 2026-11-15T07:32Z):** the standalone patch demo is **merged into `main`**.
+- PR [#4](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/4) was retargeted from
+  `feat/myomars-patch-trigger` to `main` and merged as `d518aca`.
+- The merged tree is `astra-patch/` (33 files) plus a 4-line `DEVELOPMENT_LOG.md` entry. No app,
+  relay, station, HUD, contract, script, dependency or config files changed.
+- PR [#3](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/3) (the earlier
+  integration approach) is closed as superseded by #4, without merging. Its branch
+  `feat/myomars-patch-trigger` is kept.
+- `main` was then merged into PR #5 (`feat/myomars-english-overlay`).
+
+**Conclusion:** the patch demo is integrated as an independent tool; the data link is not connected
+yet. Nothing in it reaches the relay, the Mars Base analysis or the HUD.
+- Connecting it is follow-up work and needs the decisions at the end of this document.
 - No station or HUD page claims a patch connection. In integration mode the HUD's data-link panel
   reads "simulated sample → HUD → Base (patch not connected)".
 
@@ -21,7 +26,7 @@
 | Entry, without a service | `python -m astra_patch replay --scenario normal \| fatigue_suspected \| sensor_fault`. It prints four observations as JSON, then deletes its temporary database. |
 | Entry, local API | `uvicorn astra_patch.service:app --host 127.0.0.1 --port 8142`, with a bearer token in `MYOMARS_ACQUISITION_TOKEN`. Swagger is at `/docs`. Endpoints cover sessions and state transitions, capture, recordings, processing, queueing, a trigger console and trigger streams. |
 | Checks | `python -m astra_patch check <message.json>` validates an envelope against the parent `contracts/schema/` when present. Missing schemas fail with exit code 2. |
-| Tests | Run here in a separate worktree: `pytest -q tests` gave **84 passed**. `replay --scenario sensor_fault` exits 0. |
+| Tests | On the `main` + #4 merge result: `pytest -q tests` gave **84 passed** (Python 3.12.3). `replay` exits 0 for all three scenarios, with 4 observations each. The local API answered `/docs` with 200 and showed 20 endpoints under `/api/myomars/v1`; it returned 401 without a token, and a console was created with a token. |
 | Transport | External transmission is **disabled**: no network client, no relay publisher, no enabling switch. The handoff review is a blocked local intake report (`contract_validation: not_performed`). |
 
 ## Data

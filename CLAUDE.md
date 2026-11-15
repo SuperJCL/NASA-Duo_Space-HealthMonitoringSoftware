@@ -178,7 +178,7 @@
   `npm run test:hud` (the HUD's own suites; the HUD folder is outside the station's ESLint),
   `npm run e2e:two-end`, and the standalone smoke tests; HUD changes are listed for the teammate in
   `docs/myomars/HUD-INTEGRATION-MODE.md`.
-  The ASTRA patch demo (`astra-patch/`, separate branch, PRs #3/#4) is NOT connected to the relay or
+  The ASTRA patch demo (`astra-patch/`, standalone Python, merged via #4; #3 closed) is NOT connected to the relay or
   the station (`docs/myomars/PATCH-AUDIT.md`): never relabel its walking/quadriceps µV data as
   `std-grip-40`, never fill its missing fields, and wait for the team decisions listed there.
 - `src/contracts/`, `contracts/`, `tools/myomars/` — MyoMars shared message
