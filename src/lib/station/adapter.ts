@@ -8,14 +8,19 @@
 import { SCHEMA, type Envelope, type InboundType } from "./protocol";
 import type { LinkMode } from "./station";
 
-export type DeliveryResult = { ok: true; note: string } | { ok: false; note: string };
+/** `discard`: this window must not send at all (read-only window); the message is dropped, not marked failed. */
+export type DeliveryResult = { ok: true; note: string } | { ok: false; note: string; discard?: boolean };
 
 export interface StationAdapter {
   readonly mode: LinkMode;
   /** Short label for the station header, e.g. "独立演示 · 本地 mock". */
   readonly label: string;
-  /** Receive inbound messages (unvalidated: the station validates them). Returns an unsubscribe function. */
-  subscribe(onInbound: (raw: unknown) => void): () => void;
+  /**
+   * Receive inbound messages (unvalidated: the station validates them). `onHistory` receives a batch
+   * of already delivered messages (relay: first connection and every reconnection). Returns an
+   * unsubscribe function.
+   */
+  subscribe(onInbound: (raw: unknown) => void, onHistory?: (raws: unknown[]) => void): () => void;
   /** Send one outbound envelope. Must be safe to call again with the same envelope (same eventId). */
   send(envelope: Envelope): Promise<DeliveryResult>;
 }

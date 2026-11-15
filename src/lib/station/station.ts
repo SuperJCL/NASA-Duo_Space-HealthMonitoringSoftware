@@ -15,6 +15,7 @@
 import { analyse, analyseReport, STAGES, type AnalysisResult, type Baseline, type Candidate } from "./analysis";
 import { isLocalType, parseLocal, type CrewMemberPayload, type HudReport } from "./local-protocol";
 import {
+  parseIncoming,
   parseInbound,
   SCHEMA,
   type Envelope,
@@ -28,9 +29,10 @@ import {
   type ScenarioStart,
 } from "./protocol";
 
-export type LinkMode = "standalone-mock" | "same-browser" | "cross-device";
+export type LinkMode = "standalone-mock" | "same-browser" | "cross-device" | "relay";
 
 export type Phase = "analysing" | "awaiting-review" | "awaiting-hud" | "awaiting-retest" | "deferred" | "rejected" | "monitoring" | "closed";
+const PHASES: readonly Phase[] = ["analysing", "awaiting-review", "awaiting-hud", "awaiting-retest", "deferred", "rejected", "monitoring", "closed"];
 /**
  * Human decisions offered in this version. ("hold" from the v0 draft is not offered: it left the
  * event in the same pending state with no other effect, so it duplicated simply not deciding.)
@@ -163,7 +165,15 @@ export type StationState = {
 };
 
 export type Action =
-  | { type: "inbound"; raw: unknown; at: string }
+  /** `adopt`: receipts already published earlier (history replay), keyed by the event they answer. */
+  | { type: "inbound"; raw: unknown; at: string; adopt?: Map<string, unknown> }
+  /**
+   * Relay history (first connection, reload, reconnection): processed in order. The station's own
+   * earlier messages in it are restored, never sent again.
+   */
+  | { type: "history"; raws: unknown[]; at: string }
+  /** A send this window must not make (read-only window): drop it from the outbox. */
+  | { type: "discard"; eventId: string; at: string }
   | { type: "stage-tick"; runId: string; caseId: string; version: number; at: string }
   | { type: "review"; caseId: string; version: number; decision: Decision; reason: string; reviewer: string; at: string }
   | { type: "delivery"; eventId: string; ok: boolean; note: string | null; at: string }
@@ -340,7 +350,85 @@ export function step(state: StationState, action: Action): StepResult {
     effects.push({ kind: "schedule-tick", runId: s.run!.runId, caseId: c.caseId, version });
   };
 
+  /** An evaluation's stages are all revealed: the case waits for a human (shared by ticks and history restore). */
+  const completeEvaluation = (at: string, c: Case, ev: Evaluation) => {
+    ev.revealed = ev.result.stages.length;
+    ev.completedAt = at;
+    c.phase = "awaiting-review";
+    if (LEVEL[ev.result.alert] > LEVEL[c.alert.level]) c.alert = { level: ev.result.alert, reason: ev.result.headline, since: at };
+    log(at, "system", `第 ${ev.version} 版模拟分析完成：${ev.result.headline}；生成待审候选`, c.caseId);
+  };
+
+  /**
+   * A station message this window did not send (published before a reload, or by the station window
+   * holding the relay lease): restore it into the outbox and the case, never send it again.
+   */
+  const restoreOwn = (raw: unknown, at: string): StepResult => {
+    const parsed = parseIncoming(raw);
+    if (!parsed.ok) {
+      log(at, "ignored", `拒收无效的基站消息记录：${parsed.message.split("\n")[0]}`, null, parsed.eventId);
+      return { state: s, effects, error: null };
+    }
+    const env = parsed.value;
+    if (env.sessionId !== s.sessionId || !s.run || env.runId !== s.run.runId || s.seen[env.eventId]) return { state: s, effects, error: null };
+    s.seen[env.eventId] = true;
+    const n = new RegExp(`^stn-${s.run.runId}-(\\d+)$`).exec(env.eventId);
+    if (n) s.outSeq = Math.max(s.outSeq, Number(n[1]));
+    const when = env.receivedAt ?? at;
+    const seq = env.seq;
+    const plain: Record<string, unknown> = { ...env };
+    delete plain.seq;
+    delete plain.receivedAt;
+    delete plain.sender;
+    const type = env.type as OutboundType;
+    s.outbox.push({ eventId: env.eventId, type, caseId: env.caseId, retestId: env.retestId ?? null, envelope: plain as Envelope, delivery: "sent", deliveryNote: "通信服务记录（本窗口重载前或另一基站窗口发出）", adapterAt: when, relaySeq: seq ?? null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
+    if (!type.startsWith("station.audit.")) log(when, "out", `发出${OUT_LABEL[type]}（恢复自通信服务记录）`, env.caseId, env.eventId);
+    const c = env.caseId ? s.cases[env.caseId] : undefined;
+    const p = parsed.payload as Record<string, unknown>;
+    if (c && type === "station.audit.assessment") {
+      const ev = c.evaluations.find((e) => e.version === p.evaluationVersion);
+      if (ev && ev.completedAt === null) completeEvaluation(when, c, ev);
+    } else if (c && type === "station.audit.review") {
+      const decision = p.decision as Decision;
+      if (!c.reviews.some((r) => r.version === p.evaluationVersion && r.at === p.decidedAt && r.decision === decision)) {
+        c.reviews.push({ version: p.evaluationVersion as number, decision, reason: String(p.reason), reviewer: String(p.reviewer), at: String(p.decidedAt) });
+        log(String(p.decidedAt), "review", `${p.reviewer} ${decision}（第 ${p.evaluationVersion} 版，恢复自通信服务记录）：${p.reason}`, c.caseId);
+      }
+      if (PHASES.includes(p.caseStatus as Phase)) c.phase = p.caseStatus as Phase;
+      if (decision === "close") c.alert = { level: "none", reason: `由 ${p.reviewer} 人工关闭`, since: String(p.decidedAt) };
+    } else if (c && type === "station.retest.requested" && !c.retests.some((r) => r.retestId === p.retestId)) {
+      c.retests.push({ retestId: String(p.retestId), requestEventId: env.eventId, requestedFromVersion: p.evaluationVersion as number, status: "requested", completedAt: null, resultEventId: null, resultVersion: null });
+    }
+    return { state: s, effects, error: null };
+  };
+
   switch (action.type) {
+    case "history": {
+      // Receipts already published for a retest result are adopted, not sent again.
+      const adopt = new Map<string, unknown>();
+      for (const raw of action.raws) {
+        const r = raw as { type?: unknown; payload?: { receivedEventId?: unknown } };
+        if (r && r.type === "station.receipt" && typeof r.payload?.receivedEventId === "string") adopt.set(r.payload.receivedEventId, raw);
+      }
+      let cur = state;
+      const all: Effect[] = [];
+      for (const raw of action.raws) {
+        const at = (raw as { receivedAt?: unknown })?.receivedAt;
+        const r = step(cur, { type: "inbound", raw, at: typeof at === "string" ? at : action.at, adopt });
+        cur = r.state;
+        all.push(...r.effects);
+      }
+      return { state: cur, effects: all, error: null };
+    }
+
+    case "discard": {
+      const i = s.outbox.findIndex((m) => m.eventId === action.eventId && m.delivery === "queued");
+      if (i < 0) return { state, effects: [], error: null };
+      s.outbox.splice(i, 1);
+      s.timeline = s.timeline.filter((t) => !(t.kind === "out" && t.eventId === action.eventId));
+      return { state: s, effects, error: null };
+    }
+
     case "inbound": {
       const at = action.at;
       const meta = (action.raw && typeof action.raw === "object" ? action.raw : {}) as { seq?: unknown; type?: unknown; eventId?: unknown; sessionId?: unknown };
@@ -349,11 +437,15 @@ export function step(state: StationState, action: Action): StepResult {
         if (meta.seq <= s.cursor) return { state, effects: [], error: null };
         s.cursor = meta.seq;
       }
-      // The station's own messages come back through the relay: record the relay's sequence number only.
+      // The station's own messages come back through the relay: this window's ones only get the relay's
+      // sequence number; others (earlier session, other window) are restored, never re-sent.
       if (typeof meta.type === "string" && meta.type.startsWith("station.")) {
         const own = s.outbox.find((m) => m.eventId === meta.eventId);
-        if (own && typeof meta.seq === "number") own.relaySeq = meta.seq;
-        return { state: s, effects, error: null };
+        if (own) {
+          if (typeof meta.seq === "number") own.relaySeq = meta.seq;
+          return { state: s, effects, error: null };
+        }
+        return restoreOwn(action.raw, at);
       }
       if (typeof meta.sessionId === "string" && meta.sessionId !== s.sessionId) {
         log(at, "ignored", `来自其他演示会话 ${meta.sessionId}，已忽略`, null, typeof meta.eventId === "string" ? meta.eventId : null);
@@ -490,7 +582,11 @@ export function step(state: StationState, action: Action): StepResult {
       const c = s.cases[caseId];
       if (!c) {
         log(at, "ignored", `${type} 已忽略：未知案例 ${caseId}`, caseId, env.eventId);
-        if (type === "retest.result") send(at, "station.receipt", caseId, env.retestId ?? null, { receivedEventId: env.eventId, receivedType: type, status: "rejected", reason: "unknown case" } satisfies ReceiptPayload);
+        if (type === "retest.result") {
+          const prior = action.adopt?.get(env.eventId);
+          if (prior) restoreOwn(prior, at);
+          else send(at, "station.receipt", caseId, env.retestId ?? null, { receivedEventId: env.eventId, receivedType: type, status: "rejected", reason: "unknown case" } satisfies ReceiptPayload);
+        }
         return { state: s, effects, error: null };
       }
 
@@ -545,7 +641,15 @@ export function step(state: StationState, action: Action): StepResult {
       // retest.result
       const retestId = env.retestId!;
       const rt = c.retests.find((r) => r.retestId === retestId);
-      const receipt = (status: ReceiptPayload["status"], reason: string | null) => send(at, "station.receipt", caseId, retestId, { receivedEventId: env.eventId, receivedType: type, status, reason } satisfies ReceiptPayload);
+      // History replay: a receipt published before (reload / other window) is adopted, never sent twice.
+      const receipt = (status: ReceiptPayload["status"], reason: string | null) => {
+        const prior = action.adopt?.get(env.eventId);
+        if (prior) {
+          restoreOwn(prior, at);
+          return null;
+        }
+        return send(at, "station.receipt", caseId, retestId, { receivedEventId: env.eventId, receivedType: type, status, reason } satisfies ReceiptPayload);
+      };
       if (!rt) {
         log(at, "ignored", `复测结果已拒收：未知复测任务 ${retestId}`, caseId, env.eventId);
         receipt("rejected", "unknown retestId for this case");
@@ -586,11 +690,7 @@ export function step(state: StationState, action: Action): StepResult {
         effects.push({ kind: "schedule-tick", runId: action.runId, caseId: c.caseId, version: ev.version });
         return { state: s, effects, error: null };
       }
-      ev.revealed = ev.result.stages.length;
-      ev.completedAt = action.at;
-      c.phase = "awaiting-review";
-      if (LEVEL[ev.result.alert] > LEVEL[c.alert.level]) c.alert = { level: ev.result.alert, reason: ev.result.headline, since: action.at };
-      log(action.at, "system", `第 ${ev.version} 版模拟分析完成：${ev.result.headline}；生成待审候选`, c.caseId);
+      completeEvaluation(action.at, c, ev);
       // Traceability record of the completed assessment (NOT an action: the HUD ignores station.audit.*).
       // A report check has no contract representation (AuditAssessment.trigger has no "report"): timeline only.
       if (ev.trigger !== "report") send(action.at, "station.audit.assessment", c.caseId, null, {

@@ -3974,3 +3974,40 @@ unchanged, and `verify:terrain` still matches a fresh build.
     stop, the quality branch with skipped edges, and replay pause with no business change;
   - two screen recordings (normal path, quality-failure path), checked frame by frame for marker
     motion.
+
+## MyoMars integration prep: local relay and station relay mode (no HUD code yet)
+
+- **Time (real, UTC):** 2026-11-14 to 2026-11-15, after the canvas baseline `7638421`. The browser
+  pre-check ran at about 00:15 UTC on 2026-11-15; this entry was written just after it.
+- **Branch:** `integration/myomars` from `7638421`. A local merge of `feat/myomars-hud` (`a76c0e8`)
+  was made, then removed (unpushed, local only) when the user said the HUD teammate is updating the
+  branch. The HUD will be merged only after the team sends the locked commit. PR #1 stays open and
+  unmerged. No Trigger branch exists on the remote yet.
+- **Relay** (`relay/relay.ts`, `npm run relay`):
+  - HTTP publish plus SSE, with the routes and responses the HUD client calls;
+  - validation against the shared contracts, publisher-role check, eventId de-duplication and
+    conflict, run gating, history plus SSE resume;
+  - a station lease, same-host CORS for development, optional static serving and persistence.
+  - Selective reuse of F2 ideas only.
+- **Station:**
+  - `RelayStationAdapter` with explicit connection and lease status;
+  - history batch replay that **restores** the station's own earlier messages (decisions, tasks,
+    completed analyses, receipts are adopted) and never re-sends them;
+  - read-only mirror windows; relay mode via `?relay=…`;
+  - the dev entry publishes the simulated Trigger observation into the HUD's run;
+  - mock HUD feedback off in relay mode.
+- **State changes:** `history` and `discard` actions; own-message restore; receipt adoption;
+  `outSeq` restore; event times from the relay's `receivedAt`; a simulated baseline for the HUD's
+  demo astronaut A-02.
+- **Fixes found:**
+  - a reloaded tab must keep its lease, and React calls state initialisers twice in development,
+    so the client id is now computed once per page load;
+  - test mistakes (wrong session, non-identical "duplicate", `networkidle` with an open SSE stream).
+- **Verification:**
+  - relay tests 5/5;
+  - an end-to-end test against a real HTTP relay: two station windows, a simulated HUD, reload
+    restore, and a receipt adopted on a second reload;
+  - a Node probe and a browser pre-check with the reference HUD `a76c0e8` (not merged): full step-1
+    chain, reload without re-send, read-only second window, HUD reload restore, no errors;
+  - standalone mode smoke 63/63.
+  - Details and interface differences: `docs/myomars/INTEGRATION.md`.

@@ -35,4 +35,4 @@ export function parseInbound(raw: unknown): InboundParse {
 }
 
 export const isInboundType = (t: string): t is InboundType => (INBOUND_TYPES as readonly string[]).includes(t);
-export { EVENT_RULES };
+export { EVENT_RULES, parseIncoming };

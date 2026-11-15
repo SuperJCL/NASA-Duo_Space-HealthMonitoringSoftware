@@ -22,6 +22,8 @@ const OFFSETS: Record<string, Record<FeatureKey, number>> = {
   ev1: { medianFreqHz: 0, rmsPctMvc: 0, gripForceN: 0 },
   ev2: { medianFreqHz: -4, rmsPctMvc: -2, gripForceN: 12 },
   ev3: { medianFreqHz: 3, rmsPctMvc: 1, gripForceN: -10 },
+  // The HUD's demo astronaut (A-02 on feat/myomars-hud, reference only): simulated, same values as EV1.
+  "a-02": { medianFreqHz: 0, rmsPctMvc: 0, gripForceN: 0 },
 };
 const baseline = (astronautId: string): Baseline => {
   const o = OFFSETS[astronautId];
@@ -33,7 +35,7 @@ const baseline = (astronautId: string): Baseline => {
     features: { medianFreqHz: { mean: EV1_MEANS.medianFreqHz + o.medianFreqHz, sd: 4 }, rmsPctMvc: { mean: EV1_MEANS.rmsPctMvc + o.rmsPctMvc, sd: 3 }, gripForceN: { mean: EV1_MEANS.gripForceN + o.gripForceN, sd: 8 } },
   };
 };
-export const DEMO_BASELINES: readonly Baseline[] = [baseline("ev1"), baseline("ev2"), baseline("ev3")];
+export const DEMO_BASELINES: readonly Baseline[] = [baseline("ev1"), baseline("ev2"), baseline("ev3"), baseline("a-02")];
 
 /** The simulated crew of the local demo (local roster extension). Times are relative to the demo start. */
 export const DEMO_CREW: readonly { astronautId: string; callsign: string; task: { id: string; title: string }; minutesIntoEva: number; deviceId: string }[] = [

@@ -22,14 +22,23 @@ export class StationController {
     private readonly adapter: StationAdapter,
     private readonly stageDelayMs = 1100,
     baselines: readonly Baseline[] = DEMO_BASELINES,
+    sessionId = "local",
   ) {
-    this.snapshot = { state: initialState(baselines), lastError: null };
+    this.snapshot = { state: initialState(baselines, sessionId), lastError: null };
   }
 
   /** Start receiving from the adapter; returns the matching detach (also clears timers). */
   attach = () => {
     this.detachAdapter?.();
-    this.detachAdapter = this.adapter.subscribe((raw) => this.dispatch({ type: "inbound", raw, at: now() }));
+    // Delivered messages carry the relay's receive time; mock messages are stamped now.
+    const at = (raw: unknown) => {
+      const r = (raw as { receivedAt?: unknown } | null)?.receivedAt;
+      return typeof r === "string" ? r : now();
+    };
+    this.detachAdapter = this.adapter.subscribe(
+      (raw) => this.dispatch({ type: "inbound", raw, at: at(raw) }),
+      (raws) => this.dispatch({ type: "history", raws, at: now() }),
+    );
     return () => {
       this.detachAdapter?.();
       this.detachAdapter = null;
@@ -50,7 +59,7 @@ export class StationController {
 
   dispatch = (action: Action): string | null => {
     const r = step(this.snapshot.state, action);
-    const lastError = action.type === "stage-tick" || action.type === "delivery" || action.type === "view" ? this.snapshot.lastError : r.error;
+    const lastError = action.type === "stage-tick" || action.type === "delivery" || action.type === "view" || action.type === "discard" || action.type === "history" ? this.snapshot.lastError : r.error;
     this.snapshot = { state: r.state, lastError };
     for (const e of r.effects) {
       if (e.kind === "cancel-ticks") this.cancelTimers();
@@ -63,7 +72,7 @@ export class StationController {
       } else {
         const eventId = e.envelope.eventId;
         this.adapter.send(e.envelope).then(
-          (res) => this.dispatch({ type: "delivery", eventId, ok: res.ok, note: res.note, at: now() }),
+          (res) => this.dispatch(!res.ok && res.discard ? { type: "discard", eventId, at: now() } : { type: "delivery", eventId, ok: res.ok, note: res.note, at: now() }),
           (err: unknown) => this.dispatch({ type: "delivery", eventId, ok: false, note: err instanceof Error ? err.message : String(err), at: now() }),
         );
       }
