@@ -255,7 +255,7 @@ body.int #rcard.hist h4,body.int #rcard.hist h4 .tag{color:var(--hud-dim)!import
    red = explicit alert, green = done, amber = degraded. Text sits on glass; one keyboard focus ring; no glowing panels. */
 body.int{--hud:var(--mm-data);--hud-dim:var(--mm-dim);--hud-faint:var(--mm-line-strong);--panel:var(--mm-glass);
   --ok:var(--mm-ok);--warn:var(--mm-caution);--amber:var(--mm-action);--bad:var(--mm-alert);--mars:var(--mm-mars);
-  --glow:0 1px 2px rgba(0,0,0,.55);color:var(--mm-text);font-family:var(--mm-font-sans)}
+  color:var(--mm-text);font-family:var(--mm-font-sans)}   /* --glow kept: the HUD's own cyan text glow (restored) */
 body.int .mono{font-family:var(--mm-font-mono)}
 body.int #topL .sub,body.int #topR,body.int #heading{font-family:var(--mm-font-sans);font-variant-numeric:tabular-nums}
 body.int .panel{background:var(--mm-glass);border-color:var(--mm-line);border-radius:var(--mm-radius-lg);padding:14px 16px;
@@ -268,13 +268,12 @@ body.int .card.alert.v2{border-color:var(--mm-ok)}body.int .card.alert.v2 h5{col
 body.int .itext{color:var(--mm-text)}
 body.int .inow.todo{color:var(--mm-action)}
 body.int .inote .tag{color:var(--mm-sim)!important;border-style:dashed}   /* SIMULATED: dashed violet */
-body.int #status{border-color:var(--mm-line-strong);border-radius:var(--mm-radius);text-shadow:none}
-body.int .lvl{box-shadow:none!important;text-shadow:none;animation:none}
+body.int #status{border-color:var(--mm-line-strong);border-radius:var(--mm-radius)}
 body.int .lvl.amber{color:var(--mm-action-ink)}
 body.int .lvl.green{color:#0b2416}
 body.int #rcard{border-color:var(--mm-action);box-shadow:var(--mm-shadow)}
 body.int button{font-family:inherit;font-size:var(--mm-text-sm);font-weight:var(--mm-weight-strong);color:var(--mm-text);background:var(--mm-surface);
-  border:1px solid var(--mm-line-strong);border-radius:var(--mm-radius);text-shadow:none;min-height:36px;padding:0 14px;
+  border:1px solid var(--mm-line-strong);border-radius:var(--mm-radius);min-height:36px;padding:0 14px;
   transition:background-color var(--mm-dur-fast) var(--mm-ease),border-color var(--mm-dur-fast) var(--mm-ease)}
 body.int button:hover:not(:disabled){background:var(--mm-surface-2);border-color:var(--mm-dim)}
 body.int button.go,body.int #bAck{background:var(--mm-action);border-color:var(--mm-action);color:var(--mm-action-ink)}
@@ -286,32 +285,28 @@ body.int .scn button{padding:10px 16px}
 body.int .scn button small{color:inherit;opacity:.8}
 body.int select{background:var(--mm-bg);color:var(--mm-text);border:1px solid var(--mm-line-strong);border-radius:var(--mm-radius-sm);min-height:36px}
 body.int button:focus-visible,body.int select:focus-visible,body.int summary:focus-visible,body.int [tabindex]:focus-visible{outline:none;box-shadow:var(--mm-focus-ring)}
-body.int #intro .in{background:var(--mm-glass-strong);border-color:var(--mm-line-strong);border-radius:var(--mm-radius-lg);text-shadow:none}
+body.int #intro .in{background:var(--mm-glass-strong);border-color:var(--mm-line-strong);border-radius:var(--mm-radius-lg)}
 body.int #intro h1{letter-spacing:.04em;font-weight:600}
 body.int #intro p{color:var(--mm-dim)}
 /* the top bars sit on glass (text never directly on the scene); the mini-map and walking position are standalone only */
 body.int #topL,body.int #topR{background:var(--mm-glass);border:1px solid var(--mm-line);border-radius:var(--mm-radius-lg);padding:10px 14px;
-  backdrop-filter:blur(var(--mm-blur));-webkit-backdrop-filter:blur(var(--mm-blur));pointer-events:auto;text-shadow:none}
+  backdrop-filter:blur(var(--mm-blur));-webkit-backdrop-filter:blur(var(--mm-blur));pointer-events:auto}
 body.int #topL b{letter-spacing:.08em}
+/* the top-right block (telemetry + restored mini-map) sits on glass and is taller than before: start the base messages below it */
+body.int #right{top:calc(3.2vh + 236px);max-height:min(52vh,calc(100vh - 3.2vh - 236px - 150px))}
 body.int #topL .sub{color:var(--mm-dim)}
-body.int #radar,body.int #posVal{display:none}
 body.int #compass{background:var(--mm-glass);border-radius:var(--mm-radius-pill)}
-body.int #heading{top:calc(3vh + 40px);padding:2px 10px;background:var(--mm-glass);border-radius:var(--mm-radius-pill);text-shadow:none;color:var(--mm-text)}
-body.int #heading #speed{display:none}
-body.int .edge{background:var(--mm-glass);text-shadow:none;animation:none}
+body.int #heading{top:calc(3vh + 40px);padding:2px 10px;background:var(--mm-glass);border-radius:var(--mm-radius-pill);color:var(--mm-text)}
 body.int #guideOverlay:not(:empty){padding:12px 18px;background:var(--mm-glass);border:1px solid var(--mm-line);border-radius:var(--mm-radius-lg);
   backdrop-filter:blur(var(--mm-blur));-webkit-backdrop-filter:blur(var(--mm-blur))}
-body.int #guideOverlay .big{text-shadow:none;letter-spacing:.02em;font-size:var(--mm-text-xl)}
+body.int #guideOverlay .big{letter-spacing:.02em;font-size:var(--mm-text-xl)}
 body.int #guideOverlay .sm{color:var(--mm-dim)}
 body.int #stab{padding:2px 10px;background:var(--mm-glass);border-radius:var(--mm-radius-pill)}
-body.int .wm .box{background:var(--mm-glass);border-color:var(--mm-line-strong);border-radius:var(--mm-radius-sm);text-shadow:none;color:var(--mm-text);font-size:var(--mm-text-xs)}
+body.int .wm .box{background:var(--mm-glass);border-color:var(--mm-line-strong);border-radius:var(--mm-radius-sm);color:var(--mm-text);font-size:var(--mm-text-xs)}
 body.int .wm small{color:var(--mm-dim)}
-body.int .wm.base .box{border-color:var(--mm-mars);color:var(--mm-text)}
-body.int #wmRidge,body.int #wmPoint,body.int #wmRover{display:none}   /* standalone waypoints with invented distances */
-/* motion follows a recorded event once (design/DESIGN.md §5): the base marker pings twice when a task arrives or the
-   base starts reassessing, then stays still; a queued result waits without blinking */
-body.int .wm.base.busy .ring,body.int .wm.base.amber .ring{animation-iteration-count:2}
-body.int .pk.cached{animation:none}
+body.int .wm.base:not(.amber) .box{border-color:var(--mm-mars);color:var(--mm-text)}   /* the amber (task / reassessing) state keeps its own colours */
+html[data-scene="webgl"] body.int #wmRidge,html[data-scene="webgl"] body.int #wmPoint,html[data-scene="webgl"] body.int #wmRover{display:none}   /* panorama waypoints: shown on the panorama (fallback); no original 3D placement exists */
+/* the HUD keeps its own motion (base-marker ping, status blink, queued-packet blink, edge hint); reduced motion stops it */
 @media (prefers-reduced-motion:reduce){body.int *,body.int *::before,body.int *::after{animation:none!important;transition:none!important}}
 html[data-motion="reduced"] body.int *,html[data-motion="reduced"] body.int *::before,html[data-motion="reduced"] body.int *::after{animation:none!important;transition:none!important}
 
@@ -691,7 +686,8 @@ function drawMsg(){
 const BASE_BRG=bearingT(MK.base.t,MK.base.u)*Math.PI/180;
 const BASE_XY=[Math.sin(BASE_BRG)*BASE_KM*1000,Math.cos(BASE_BRG)*BASE_KM*1000];
 function baseDistKm(){return Math.hypot(BASE_XY[0]-v.px,BASE_XY[1]-v.py)/1000}
-function baseSub(){return INTEGRATION?S.baseLabel:baseDistKm().toFixed(2)+' km · '+S.baseLabel}   // integration: no invented distance
+// the panorama (standalone, and the integration fallback) keeps the original distance; the 3D scene's base is not at that distance
+function baseSub(){return INTEGRATION&&SC.webgl?S.baseLabel:baseDistKm().toFixed(2)+' km · '+S.baseLabel}
 let radarAcc=0;
 function drawRadar(hd){
   const c=$('radar');if(!c)return;const g=c.getContext('2d'),w=c.width,R=w/2-4,cx=w/2,cy=w/2,sc=R/60,h=hd*Math.PI/180;

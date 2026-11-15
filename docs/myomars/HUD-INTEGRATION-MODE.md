@@ -139,9 +139,29 @@ human action and the primary button (Acknowledge, View task, Start, Submit, Ente
 alert, green `--mm-ok` = done, amber `--mm-caution` = degraded, dashed violet `--mm-sim` = SIMULATED. Panels use
 `--mm-glass`, buttons are at least 36 px (40 px for the card actions), keyboard focus shows the shared 2 px cyan ring,
 fonts are Geist (Geist Mono for identifiers). States keep their words and icons. Element ids and test hooks are
-unchanged. Also in integration mode only, because nothing in the contract reports them: suit power and O₂ read "Not
-reported", the mini-map and walking position are hidden, the base marker shows no distance, and the standalone
-waypoint markers (with distances) are hidden.
+unchanged.
+
+**The HUD's own effects are kept** (owner decision after the Windows check, 2026-11-15): the shared tokens restyle
+colours, fonts, buttons, panels and spacing, but never remove or retime the HUD's animations. In integration mode:
+- the cyan text glow;
+- the status-badge glow and the red blink;
+- the continuous base-marker ping;
+- the queued-packet blink;
+- the edge hint;
+- the mini-map (base pip turns with the view), the position readout and the speed readout ("Still" while
+  standing);
+- on the panorama fallback (`?scene=off`, or no WebGL), the original waypoint markers (Dune C-1, Waypoint B-3,
+  Return route) and the base distance.
+
+Under reduced motion the animations stop. Base messages start below the top-right block so the mini-map stays
+visible. `node scripts/hud-effects-check.mjs` checks all of this.
+
+Still different from the panorama, by design or for lack of a reference:
+- In the 3D scene the waypoints and the base distance are not shown. They exist only as panorama positions and
+  walking-model distances; there is no original 3D placement for them, so none was invented.
+- Suit power and O₂ read "Not reported" (nothing in the contract reports them). The previous values were fixed
+  placeholders (82 %, 6.1 h); restore them only if the owner wants placeholders shown.
+- Walking (W/S/A/D) is off in integration mode: the requested fixed standing viewpoint.
 
 ## Client option (`hud/base-client.js`)
 
