@@ -29,7 +29,7 @@ state never mixes with your standalone demo's.
 |---|---|---|
 | Run start | Intro: choose Scenario 1 / 2 / 3; the HUD publishes `scenario.start` (role `trigger`) | Intro: "Enter HUD" joins the run that the **data replay** started. The HUD publishes no `scenario.start` or `scenario.reset` (`ensureRun` returns the current run). |
 | Observations | Walking segments every 3 s, plus patch-reconnect captures (`observation.submitted`, role `trigger`) | None: `submitObservation` returns `integration-mode`. The replay module is the single data producer. |
-| Local patch panel | Left thigh, live sEMG/IMU traces, contact estimate, local sensor-fault (RED) | Marked "Local patch · not used in integration mode"; traces and contact hidden; no local fault inference |
+| Local patch panel | Left thigh, live sEMG/IMU traces, contact estimate, local sensor-fault (RED) | Hidden. It belongs to this page's standalone scenarios; in the Base/HUD demo the data come from the base's data replay. |
 | Notice category | From the noticeId suffix (`-sensor`, `-ok`, otherwise "review" = AMBER "Muscle fatigue suspected") | Never inferred. Every station notice is kind `notice`; the level reads BASE NOTICE / BASE TASK / CASE CLOSED. |
 | Notice title / finding | `notice.reviewReason` | "Base notice" and the station's astronaut-facing `text`, verbatim. `reviewReason` (the base's internal reason) is never shown. |
 | Status line | Scenario wording (AMBER / RED / GREEN, fatigue, medical review) | A short headline from recorded state only ("Base notice · retest requested · <protocol label>", "Base update · case still open", "Case closed by base"). The station's full text is the first line of the card below, not repeated here. |
@@ -73,7 +73,7 @@ Everything else is your code as you wrote it:
 - the reconnect handling;
 - the 3D scene.
 
-- **Data-link panel:** in integration mode it reads "Retest result link · simulated sample → HUD → Base (patch not connected)", and its first node is "Sample (sim.)". The page's own patch demo is not used there, so the panel never suggests a patch link.
+- **Data-link panel:** in integration mode it reads "Retest result link · stored simulated sample → HUD → Base", and its first node is "Sample (sim.)". The page's own standalone patch scenario is not part of the Base/HUD demo. The separate ASTRA patch demo (`astra-patch/`) is an independent program ([DEMOS.md](DEMOS.md)).
 
 ## Client option (`hud/base-client.js`)
 

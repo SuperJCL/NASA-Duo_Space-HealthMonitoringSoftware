@@ -1192,10 +1192,11 @@ if(INTEGRATION){   // integration: no scenario choice; join the run the data rep
   document.body.classList.add('int');   // integration-only styles (progressive disclosure, no body map)
   const dr=document.querySelector('#demo .btns');if(dr)dr.style.display='none';
   // the local patch panel (left thigh, live sEMG/IMU traces, contact estimate) is this page's own simulation: not used here
-  const lp=$('left');if(lp){lp.querySelector('h4').textContent='Local patch · not used in integration mode';
+  // this page's own standalone patch panel is not part of the Base/HUD demo: hidden (data come from the base's data replay)
+  const lp=$('left');if(lp){lp.style.display='none';
     for(const id of ['emgVal','imuVal','contact']){const r=$(id)&&$(id).closest('.row');if(r)r.style.display='none'}for(const id of ['cvEmg','cvImu'])if($(id))$(id).style.display='none'}
-  // the data-link panel describes this page's own patch demo; here the retest result is a stored simulated sample (no patch link)
-  const dl=$('bottom');if(dl){dl.querySelector('h4').textContent='Retest result link · simulated sample → HUD → Base (patch not connected)';const pn=dl.querySelector('.cn');if(pn)pn.lastChild.textContent='Sample (sim.)'}
+  // the data-link panel describes this page's own standalone patch scenario; in the Base/HUD demo the retest result is a stored simulated sample
+  const dl=$('bottom');if(dl){dl.querySelector('h4').textContent='Retest result link · stored simulated sample → HUD → Base';const pn=dl.querySelector('.cn');if(pn)pn.lastChild.textContent='Sample (sim.)'}
   const bm=document.querySelector('svg.body');if(bm)bm.setAttribute('aria-label','Body map');
   const ii=document.querySelector('#intro .in');
   if(ii)ii.innerHTML='<h1>MyoMars HUD · Integration mode</h1><p>Two-end run with the Mars Station. You are astronaut A-02.<br><b>Drag</b> to look around, <b>W / S</b> to move, <b>A / D</b> to step sideways.</p>'
