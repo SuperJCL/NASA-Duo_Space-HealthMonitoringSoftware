@@ -17,7 +17,13 @@
   }
 
   function createBaseClient({ baseUrl, sessionId = 'demo', hudClientId = 'hud-a02', deviceClientId = 'patch-sim-01',
-    storage = memoryStorage(), onChange = () => {}, log = () => {}, fetchImpl = (...a) => globalThis.fetch(...a), key = 'myomars.hud.v1.' }) {
+    storage = memoryStorage(), onChange = () => {}, log = () => {}, fetchImpl = (...a) => globalThis.fetch(...a), key = 'myomars.hud.v1.',
+    integration = false }) {
+    // [integration/myomars compat] integration = true (hud.html?mode=integration, two-end run with the Mars Station):
+    //   - this client publishes ONLY hud-role events: no scenario.start / reset, no observation.submitted
+    //     (the data replay module is the single data producer, role "trigger");
+    //   - no notice category is inferred from the noticeId suffix (gap V1-11): every station notice is kind "notice";
+    //   - the astronaut sees the station's notice text, never notice.reviewReason (the base's internal review reason).
 
     const K = key + sessionId;
     const empty = () => ({ conn: 'idle', lastSync: null, lastSeq: 0, events: [], outbox: [], rejected: [], publishAcks: {}, invalid: 0, duplicates: 0, stale: false });
@@ -93,16 +99,17 @@
       if (notice || lastR) {
         const latest = lastR || notice, closed = !!lastR && lastR.payload.caseStatus === 'closed';
         // notice kind by noticeId suffix (contracts v1 has no category field — gap V1-11)
-        const kind = !notice ? 'review' : /-sensor\d+$/.test(notice.payload.noticeId) ? 'sensor' : /-ok\d+$/.test(notice.payload.noticeId) ? 'ok' : 'review';
+        const kind = integration ? 'notice' : !notice ? 'review' : /-sensor\d+$/.test(notice.payload.noticeId) ? 'sensor' : /-ok\d+$/.test(notice.payload.noticeId) ? 'ok' : 'review';
+        const noticeLine = notice ? (integration ? notice.payload.text : notice.payload.reviewReason) : null;   // integration: astronaut-facing text only
         alert = { alertId: caseId, caseId, kind, noticeId: notice ? notice.payload.noticeId : null, noticeMessageId: notice ? notice.eventId : null, messageId: latest.eventId, version: latest.payload.evaluationVersion,
           status: closed ? 'closed' : lastR ? 'reassessed' : 'published', levelLabel: lastR ? 'Reassessment' : 'Notice',
-          title: lastR ? lastR.payload.summary : notice.payload.reviewReason,
+          title: lastR ? lastR.payload.summary : integration ? 'Base notice' : noticeLine,
           reason: notice ? notice.payload.text : lastR.payload.summary,
           nextAction: lastR ? 'Decision: ' + lastR.payload.reviewDecision + ' · case ' + lastR.payload.caseStatus : (req ? req.payload.instructions : '—'),
           basis: notice ? notice.payload.basis : [], reviewedBy: notice ? notice.payload.reviewedBy : null,
           dataTime: (notice && notice.occurredAt) || latest.sentAt, issuedAt: latest.sentAt, disposition: lastR ? lastR.payload.summary : null,
-          finding: lastR ? lastR.payload.summary : notice.payload.reviewReason,
-          history: [notice && { version: notice.payload.evaluationVersion, finding: notice.payload.reviewReason }, ...reass.map(r => ({ version: r.payload.evaluationVersion, finding: r.payload.summary }))].filter(Boolean) };
+          finding: lastR ? lastR.payload.summary : noticeLine,
+          history: [notice && { version: notice.payload.evaluationVersion, finding: noticeLine }, ...reass.map(r => ({ version: r.payload.evaluationVersion, finding: r.payload.summary }))].filter(Boolean) };
       }
       let retest = null;
       if (req) {
@@ -240,6 +247,7 @@
     /* ---------- actions ---------- */
     function ensureRun({ scenarioId = 'myomars-patrol', astronaut = { id: 'a-02', callsign: 'A-02' }, task = { id: 'eva-patrol', title: 'EVA patrol', targetId: null } } = {}) {
       const run = currentRun();
+      if (integration) return run ? run.runId : null;               // integration: the data replay starts runs, never the HUD
       if (run && run.scenarioId === scenarioId) return run.runId;
       if (run && !run.pending) enqueue(envelope('trigger', 'scenario.reset', {}, { runId: run.runId }), 'trigger');   // switching scenario ends the old run
       const runId = 'run-' + Date.now().toString(36);
@@ -247,6 +255,7 @@
       log('Local device started run ' + runId); return runId;
     }
     function submitObservation(seg, sample) {                     // walking segment → observation.submitted (Trigger role)
+      if (integration) return { ok: false, error: 'integration-mode' };   // integration: observations come only from the data replay
       const run = currentRun(); if (!run) return { ok: false, error: 'no-run' };
       if (!sample || !sample.protocol || !sample.signal) return { ok: false, error: 'sample-missing' };
       const obsId = 'obs-' + String(seg.segmentId || uid()).toLowerCase();
