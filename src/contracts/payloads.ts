@@ -151,6 +151,20 @@ export const ReassessmentPayload = z
   .strict();
 export type ReassessmentPayload = z.infer<typeof ReassessmentPayload>;
 
+/**
+ * PROPOSED EXTENSION (pending team confirmation): base staff ended the SIMULATED EVA of this run.
+ * It changes the mission phase only. The run stays open, open health events stay open and can still
+ * be handled, nothing is deleted, and it says nothing about the astronaut's health.
+ */
+export const EvaEnded = z
+  .object({
+    endedBy: z.string().min(1).max(100),
+    endedAt: Iso,
+    simulated: z.literal(true),
+  })
+  .strict();
+export type EvaEnded = z.infer<typeof EvaEnded>;
+
 /** Audit record of a completed simulated assessment (traceability only; NOT an action for the HUD). */
 export const AuditAssessment = z
   .object({

@@ -464,3 +464,75 @@ describe("station state machine", () => {
     expect(states(n.cases["case-normal"])).toBe("waiting:done analysing:done review:done dispatched:skipped retest:skipped done:done");
   });
 });
+
+describe("mission: start and end the simulated EVA", () => {
+  const s0 = initialState(DEMO_BASELINES);
+  const A02 = { id: "a-02", callsign: "A-02" };
+  const TASK = { id: "task-standoff-survey", title: "Survey the outcrops", targetId: "sim-target-a" };
+  const startEva = (runId = "run-eva-1"): Action => ({ type: "start-eva", runId, scenarioId: "mission-glass-lefroy", astronaut: A02, task: TASK, by: "基地值班员", at: T });
+  /** The relay's echo of the station's own scenario.start (sender role station). */
+  const echo = (state: StationState, seq = 1) => {
+    const env = state.outbox.find((m) => m.type === "scenario.start")!.envelope;
+    return inbound({ ...env, seq, receivedAt: T, sender: { role: "station", clientId: "win-A" } });
+  };
+
+  it("publishes one scenario.start; the run begins only with the relay's echo; no second start", () => {
+    const a = step(s0, startEva());
+    expect(a.error).toBeNull();
+    expect(allSends(a.effects).map((e) => [e.type, e.source, e.eventId])).toEqual([["scenario.start", "station", "stn-run-eva-1-start"]]);
+    expect(a.state.run).toBeNull();
+    expect(step(a.state, startEva("run-eva-2")).error).toMatch(/等待通信服务确认/);
+    const b = step(a.state, echo(a.state));
+    expect(b.state.run).toMatchObject({ runId: "run-eva-1", startedBy: "station", evaEndedAt: null, task: TASK, astronaut: A02 });
+    expect(b.state.pendingStart).toBeNull();
+    expect(b.effects).toHaveLength(0);
+    expect(step(b.state, startEva("run-eva-2")).error).toMatch(/已有进行中的 EVA/);
+  });
+
+  it("ending the EVA closes nothing: open events stay open and can still be handled", () => {
+    let st = step(s0, startEva()).state;
+    st = step(st, echo(st)).state;
+    st = step(st, inbound(inboundEnvelope("observation.submitted", { runId: "run-eva-1", caseId: "c1", payload: { ...FIXTURES.change.observation, astronautId: "a-02" }, eventId: "o1" }))).state;
+    st = finish(st, "c1");
+    const phaseBefore = st.cases.c1.phase;
+    const e = step(st, { type: "end-eva", by: "基地值班员", at: T });
+    expect(e.error).toBeNull();
+    expect(allSends(e.effects).map((x) => x.type)).toEqual(["station.eva.ended"]);
+    expect(e.state.run?.evaEndedAt).toBe(T);
+    expect(e.state.cases.c1.phase).toBe(phaseBefore);
+    expect(e.state.cases.c1.alert.level).not.toBe("none");
+    expect(step(e.state, { type: "end-eva", by: "x", at: T }).error).toMatch(/已结束/);
+    // still handled after the EVA ended
+    const r = step(e.state, review("c1", 1, "approve"));
+    expect(r.error).toBeNull();
+    expect(sends(r.effects).map((x) => x.type)).toEqual(["station.notice.approved", "station.retest.requested"]);
+    // a new EVA is refused while a health event of the ended one is open
+    expect(step(r.state, startEva("run-eva-2")).error).toMatch(/未关闭的健康事件/);
+  });
+
+  it("a reload restores the EVA start and end from relay history, sending nothing", () => {
+    let st = step(s0, startEva()).state;
+    st = step(st, echo(st)).state;
+    const ended = step(st, { type: "end-eva", by: "基地值班员", at: T });
+    const history = [
+      { ...st.outbox.find((m) => m.type === "scenario.start")!.envelope, seq: 1, receivedAt: T, sender: { role: "station", clientId: "win-A" } },
+      { ...ended.state.outbox.find((m) => m.type === "station.eva.ended")!.envelope, seq: 2, receivedAt: T, sender: { role: "station", clientId: "win-A" } },
+    ];
+    const fresh = step(s0, { type: "history", raws: history, at: T });
+    expect(fresh.state.run).toMatchObject({ runId: "run-eva-1", startedBy: "station", evaEndedBy: "基地值班员" });
+    expect(fresh.state.run?.evaEndedAt).toBe(T);
+    expect(fresh.effects.filter((x) => x.kind === "send")).toHaveLength(0);
+  });
+
+  it("a start or end refused by the relay (read-only window) leaves no phase change", () => {
+    const a = step(s0, startEva());
+    const d = step(a.state, { type: "discard", eventId: "stn-run-eva-1-start", at: T });
+    expect(d.state.pendingStart).toBeNull();
+    expect(d.state.run).toBeNull();
+    let st = step(s0, startEva()).state;
+    st = step(st, echo(st)).state;
+    const e = step(st, { type: "end-eva", by: "x", at: T }).state;
+    const back = step(e, { type: "discard", eventId: "stn-run-eva-1-eva-ended", at: T });
+    expect(back.state.run?.evaEndedAt).toBeNull();
+  });
+});

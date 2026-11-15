@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.station.eva.ended.schema.json",
+  "title": "payload.station.eva.ended",
+  "type": "object",
+  "properties": {
+    "endedBy": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "endedAt": {
+      "type": "string"
+    },
+    "simulated": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "required": [
+    "endedBy",
+    "endedAt",
+    "simulated"
+  ],
+  "additionalProperties": false
+}

@@ -76,7 +76,8 @@
         "station.receipt",
         "station.reassessment",
         "station.audit.assessment",
-        "station.audit.review"
+        "station.audit.review",
+        "station.eva.ended"
       ]
     },
     "payload": {}

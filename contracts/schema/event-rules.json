@@ -1,7 +1,8 @@
 {
   "scenario.start": {
     "publishers": [
-      "trigger"
+      "trigger",
+      "station"
     ],
     "needsCaseId": false,
     "needsRetestId": false,
@@ -125,5 +126,14 @@
     "needsRetestId": false,
     "status": "proposed-extension",
     "payloadSchema": "payload.station.audit.review.schema.json"
+  },
+  "station.eva.ended": {
+    "publishers": [
+      "station"
+    ],
+    "needsCaseId": false,
+    "needsRetestId": false,
+    "status": "proposed-extension",
+    "payloadSchema": "payload.station.eva.ended.schema.json"
   }
 }

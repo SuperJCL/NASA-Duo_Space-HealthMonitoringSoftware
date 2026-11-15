@@ -83,6 +83,10 @@ export class StationController {
 
   review = (caseId: string, version: number, decision: Decision, reason: string, reviewer: string) => this.dispatch({ type: "review", caseId, version, decision, reason, reviewer, at: now() });
   resend = (eventId: string) => this.dispatch({ type: "resend", eventId, at: now() });
+  /** Base staff start the simulated EVA (one scenario.start; the run begins with the relay's echo). */
+  startEva = (p: { runId: string; scenarioId: string; astronaut: { id: string; callsign: string }; task: { id: string; title: string; targetId: string | null }; by: string }) => this.dispatch({ type: "start-eva", ...p, at: now() });
+  /** Base staff end the simulated EVA (mission phase only; open health events stay open). */
+  endEva = (by: string) => this.dispatch({ type: "end-eva", by, at: now() });
   /** Base staff viewed a case (unread counts only; never a confirmation or a close). */
   view = (caseId: string) => this.dispatch({ type: "view", caseId, at: now() });
 

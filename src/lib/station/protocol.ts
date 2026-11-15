@@ -9,12 +9,13 @@
 // station.audit.assessment, station.audit.review; optional Observation.deviceId / imu.
 
 import { EVENT_RULES, parseIncoming, SCHEMA, type Envelope as SharedEnvelope, type EventType } from "@/contracts/envelope.ts";
-export { HudAck, HudDefer, HudReceived, Observation, Protocol, RetestCompleted, RetestResult, ScenarioStart } from "@/contracts/payloads.ts";
+export { EvaEnded, HudAck, HudDefer, HudReceived, Observation, Protocol, RetestCompleted, RetestResult, ScenarioStart } from "@/contracts/payloads.ts";
 export type { NoticePayload, ReassessmentPayload, ReceiptPayload, RetestRequestPayload } from "@/contracts/payloads.ts";
 export { SCHEMA };
 
 export const INBOUND_TYPES = ["scenario.start", "scenario.reset", "observation.submitted", "hud.received", "hud.ack", "hud.defer", "retest.completed", "retest.result"] as const satisfies readonly EventType[];
-export const OUTBOUND_TYPES = ["station.notice.approved", "station.retest.requested", "station.receipt", "station.reassessment", "station.audit.assessment", "station.audit.review"] as const satisfies readonly EventType[];
+// scenario.start: base staff explicitly start the (simulated) EVA; station.eva.ended: they end it (mission phase only).
+export const OUTBOUND_TYPES = ["station.notice.approved", "station.retest.requested", "station.receipt", "station.reassessment", "station.audit.assessment", "station.audit.review", "scenario.start", "station.eva.ended"] as const satisfies readonly EventType[];
 export type InboundType = (typeof INBOUND_TYPES)[number];
 export type OutboundType = (typeof OUTBOUND_TYPES)[number];
 

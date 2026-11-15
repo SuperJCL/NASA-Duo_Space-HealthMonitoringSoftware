@@ -85,7 +85,7 @@ export type OutMessage = {
 export type MessageKind = "action" | "status" | "receipt" | "audit";
 export function messageKind(type: string): MessageKind {
   if (type === "station.notice.approved" || type === "station.retest.requested") return "action";
-  if (type === "station.reassessment") return "status";
+  if (type === "station.reassessment" || type === "scenario.start" || type === "station.eva.ended") return "status";
   if (type === "station.receipt") return "receipt";
   return "audit";
 }
@@ -104,6 +104,8 @@ export const OUT_LABEL: Record<OutboundType, string> = {
   "station.reassessment": "状态通知",
   "station.audit.assessment": "审计：评估记录",
   "station.audit.review": "审计：审核记录",
+  "scenario.start": "EVA 开始（模拟）",
+  "station.eva.ended": "EVA 结束（模拟，任务阶段）",
 };
 
 export type Retest = {
@@ -151,7 +153,14 @@ export type StationState = {
   sessionId: string;
   /** Last relay sequence number applied (0 in mock mode). Events at or below it are already in this state. */
   cursor: number;
-  run: { runId: string; scenarioId: string; astronaut: ScenarioStart["astronaut"]; task: ScenarioStart["task"]; startedAt: string } | null;
+  /**
+   * The run = one (simulated) EVA. `startedBy`: "station" when base staff started it ("开始EVA"),
+   * "trigger" when a data producer did (development entry). `evaEndedAt`: base staff ended the EVA;
+   * the run, its cases and their messages stay open and usable (ending is not closing events).
+   */
+  run: { runId: string; scenarioId: string; astronaut: ScenarioStart["astronaut"]; task: ScenarioStart["task"]; startedAt: string; startedBy: "station" | "trigger"; evaEndedAt: string | null; evaEndedBy: string | null } | null;
+  /** A start this window sent and the relay has not echoed yet (the run begins only with the echo). */
+  pendingStart: { eventId: string; runId: string; at: string } | null;
   /** Crew of the current run: the scenario's astronaut, plus the local roster when one was sent. */
   crew: Record<string, CrewMember>;
   endedRuns: string[];
@@ -179,14 +188,21 @@ export type Action =
   | { type: "delivery"; eventId: string; ok: boolean; note: string | null; at: string }
   | { type: "resend"; eventId: string; at: string }
   /** Base staff opened the case: recorded for unread counts only (no message, no status change). */
-  | { type: "view"; caseId: string; at: string };
+  | { type: "view"; caseId: string; at: string }
+  /** Base staff explicitly start the simulated EVA (publishes scenario.start once; the run begins with the relay's echo). */
+  | { type: "start-eva"; runId: string; scenarioId: string; astronaut: ScenarioStart["astronaut"]; task: ScenarioStart["task"]; by: string; at: string }
+  /** Base staff end the simulated EVA: mission phase only; no case is closed, nothing is deleted. */
+  | { type: "end-eva"; by: string; at: string };
 
 export type Effect = { kind: "send"; envelope: Envelope } | { kind: "schedule-tick"; runId: string; caseId: string; version: number } | { kind: "cancel-ticks" };
 
 export type StepResult = { state: StationState; effects: Effect[]; error: string | null };
 
+/** Health events of the current run that base staff have not closed (ending an EVA never closes them). */
+export const openCases = (s: Pick<StationState, "cases" | "caseOrder">): Case[] => s.caseOrder.map((id) => s.cases[id]).filter((c) => c && c.phase !== "closed");
+
 export function initialState(baselines: readonly Baseline[], sessionId = "local"): StationState {
-  return { sessionId, cursor: 0, run: null, crew: {}, endedRuns: [], seen: {}, cases: {}, caseOrder: [], outbox: [], outSeq: 0, timeline: [], baselines };
+  return { sessionId, cursor: 0, run: null, pendingStart: null, crew: {}, endedRuns: [], seen: {}, cases: {}, caseOrder: [], outbox: [], outSeq: 0, timeline: [], baselines };
 }
 
 const LEVEL: Record<AlertLevel, number> = { none: 0, watch: 1, alert: 2 };
@@ -396,6 +412,9 @@ export function step(state: StationState, action: Action): StepResult {
       }
       if (PHASES.includes(p.caseStatus as Phase)) c.phase = p.caseStatus as Phase;
       if (decision === "close") c.alert = { level: "none", reason: `由 ${p.reviewer} 人工关闭`, since: String(p.decidedAt) };
+    } else if (type === "station.eva.ended" && s.run && !s.run.evaEndedAt) {
+      s.run.evaEndedAt = String(p.endedAt);
+      s.run.evaEndedBy = String(p.endedBy);
     } else if (c && type === "station.retest.requested" && !c.retests.some((r) => r.retestId === p.retestId)) {
       c.retests.push({ retestId: String(p.retestId), requestEventId: env.eventId, requestedFromVersion: p.evaluationVersion as number, status: "requested", completedAt: null, resultEventId: null, resultVersion: null });
     }
@@ -424,8 +443,13 @@ export function step(state: StationState, action: Action): StepResult {
     case "discard": {
       const i = s.outbox.findIndex((m) => m.eventId === action.eventId && m.delivery === "queued");
       if (i < 0) return { state, effects: [], error: null };
-      s.outbox.splice(i, 1);
+      const [gone] = s.outbox.splice(i, 1);
       s.timeline = s.timeline.filter((t) => !(t.kind === "out" && t.eventId === action.eventId));
+      if (gone.type === "scenario.start" && s.pendingStart?.eventId === gone.eventId) s.pendingStart = null;
+      if (gone.type === "station.eva.ended" && s.run && s.run.runId === gone.envelope.runId) {
+        s.run.evaEndedAt = null;
+        s.run.evaEndedBy = null;
+      }
       return { state: s, effects, error: null };
     }
 
@@ -535,11 +559,16 @@ export function step(state: StationState, action: Action): StepResult {
           log(at, "system", "新场景开始，结束上一轮");
         }
         const p = parsed.payload as ScenarioStart;
-        s.run = { runId: env.runId, scenarioId: p.scenarioId, astronaut: p.astronaut, task: p.task, startedAt: at };
+        const senderRole = (action.raw as { sender?: { role?: unknown } }).sender?.role;
+        const startedBy = senderRole === "station" || s.pendingStart?.eventId === env.eventId ? "station" : "trigger";
+        s.run = { runId: env.runId, scenarioId: p.scenarioId, astronaut: p.astronaut, task: p.task, startedAt: at, startedBy, evaEndedAt: null, evaEndedBy: null };
+        if (s.pendingStart?.eventId === env.eventId) s.pendingStart = null;
+        const ownStart = s.outbox.find((m) => m.eventId === env.eventId);
+        if (ownStart && typeof meta.seq === "number") ownStart.relaySeq = meta.seq;
         s.crew = { [p.astronaut.id]: { astronautId: p.astronaut.id, callsign: p.astronaut.callsign, task: { id: p.task.id, title: p.task.title }, evaStartedAt: null, deviceId: null, connection: "unknown", connectionAt: null } };
         s.cases = {};
         s.caseOrder = [];
-        log(at, "in", `场景开始：${p.astronaut.callsign} · ${p.task.title}`, null, env.eventId);
+        log(at, "in", startedBy === "station" ? `EVA 开始（模拟，基地人员确认）：${p.astronaut.callsign} · ${p.task.title}` : `场景开始：${p.astronaut.callsign} · ${p.task.title}`, null, env.eventId);
         return { state: s, effects, error: null };
       }
 
@@ -703,6 +732,38 @@ export function step(state: StationState, action: Action): StepResult {
         candidateKind: ev.result.candidate?.kind ?? null,
         simulated: true,
       });
+      return { state: s, effects, error: null };
+    }
+
+    case "start-eva": {
+      if (s.pendingStart) return fail("正在开始 EVA，等待通信服务确认");
+      if (s.run && !s.run.evaEndedAt) return fail("已有进行中的 EVA，不能重复开始");
+      const open = openCases(s);
+      if (s.run && open.length) return fail(`上一 EVA 还有 ${open.length} 个未关闭的健康事件，请先处理后再开始新的 EVA`);
+      if (!action.runId || s.endedRuns.includes(action.runId)) return fail("运行编号无效");
+      const eventId = `stn-${action.runId}-start`;
+      const payload: ScenarioStart = { scenarioId: action.scenarioId, astronaut: action.astronaut, task: action.task };
+      const envelope: Envelope = { schema: SCHEMA, eventId, sessionId: s.sessionId, runId: action.runId, caseId: null, retestId: null, sentAt: action.at, source: "station", type: "scenario.start", payload };
+      s.outbox.push({ eventId, type: "scenario.start", caseId: null, retestId: null, envelope, delivery: "queued", deliveryNote: null, adapterAt: null, relaySeq: null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
+      s.pendingStart = { eventId, runId: action.runId, at: action.at };
+      effects.push({ kind: "send", envelope });
+      log(action.at, "out", `${action.by} 确认开始 EVA（模拟）：${action.astronaut.callsign} · ${action.task.title}；等待通信服务确认`, null, eventId);
+      return { state: s, effects, error: null };
+    }
+
+    case "end-eva": {
+      if (!s.run) return fail("没有进行中的 EVA");
+      if (s.run.evaEndedAt) return fail("EVA 已结束");
+      const run = s.run;
+      run.evaEndedAt = action.at;
+      run.evaEndedBy = action.by;
+      const eventId = `stn-${run.runId}-eva-ended`;
+      const envelope: Envelope = { schema: SCHEMA, eventId, sessionId: s.sessionId, runId: run.runId, caseId: null, retestId: null, sentAt: action.at, source: "station", type: "station.eva.ended", payload: { endedBy: action.by, endedAt: action.at, simulated: true } };
+      s.outbox.push({ eventId, type: "station.eva.ended", caseId: null, retestId: null, envelope, delivery: "queued", deliveryNote: null, adapterAt: null, relaySeq: null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
+      s.seen[eventId] = true;
+      effects.push({ kind: "send", envelope });
+      const open = openCases(s).length;
+      log(action.at, "out", `${action.by} 结束 EVA（模拟）。${open ? `${open} 个健康事件仍未关闭，未自动关闭。` : "没有未关闭的健康事件。"}`, null, eventId);
       return { state: s, effects, error: null };
     }
 

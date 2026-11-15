@@ -107,6 +107,11 @@ export function intakeCheck(sample: ReplaySample, run: RunInfo | null, replayTim
   items.push({ item: "单位", status: "ok", detail: "按契约字段固定：Hz、%MVC、N、kΩ、%" });
   items.push({ item: "采样率与时长", status: "ok", detail: `${o.signal.sampleRateHz} Hz · ${o.signal.durationS} s` });
   items.push({ item: "时间", status: "assumed", detail: `原始采集时间 ${o.capturedAt}；回放时按演示假设记为回放时刻${replayTimeIso ? ` ${replayTimeIso}` : ""}` });
+  if (run) {
+    const same = o.context.taskId === run.task.id;
+    items.push({ item: "任务情境", status: same ? "ok" : "assumed", detail: same ? `${run.task.title}（${run.task.id}）` : `样例记录于任务 ${o.context.taskId ?? "未注明"}，按演示假设归属本次 EVA 任务「${run.task.title}」；任务不提供负荷、姿势或设备条件` });
+    items.push({ item: "EVA 时间点", status: o.context.minutesIntoEva === null ? "ok" : "missing", detail: o.context.minutesIntoEva === null ? "样例未注明" : `样例为 EVA 第 ${o.context.minutesIntoEva} 分钟；本次 EVA 中的时间点未知，回放记为未知（不套用）` });
+  }
   const missing = o.features ? (Object.keys(FEATURE_TEXT) as (keyof typeof FEATURE_TEXT)[]).filter((k) => o.features![k] === null) : [];
   items.push({
     item: "缺失值",
@@ -126,13 +131,15 @@ export function startEnvelope(sessionId: string, nowMs: number, astronaut = { id
 }
 
 /**
- * observation.submitted for one sample in the current run. Only the person and the time change, and
- * both are listed as assumptions by intakeCheck; every measured value is published as stored.
+ * observation.submitted for one sample in the current run. Only the person, the time and the task
+ * context change (all listed as assumptions by intakeCheck); every measured value is published as stored.
  */
 export function observationEnvelope(sessionId: string, run: RunInfo, sample: ReplaySample, nowMs: number): Envelope {
   const at = new Date(nowMs).toISOString();
   const caseId = `${run.runId}-rp-${nowMs.toString(36)}`;
   const o = sample.observation;
-  const payload: Observation = { ...o, observationId: `${o.observationId}-${nowMs.toString(36)}`, astronautId: run.astronaut.id, capturedAt: at };
+  // Person, time and task are re-assigned to this run (each listed as an assumption by intakeCheck); the
+  // minute into the EVA of the original recording does not apply here, so it becomes unknown.
+  const payload: Observation = { ...o, observationId: `${o.observationId}-${nowMs.toString(36)}`, astronautId: run.astronaut.id, capturedAt: at, context: { ...o.context, taskId: run.task.id, minutesIntoEva: null } };
   return { schema: SCHEMA, eventId: `${caseId}-obs`, sessionId, runId: run.runId, caseId, sentAt: at, occurredAt: at, source: "trigger", type: "observation.submitted", payload } as Envelope;
 }

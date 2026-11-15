@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   AuditAssessment,
   AuditReview,
+  EvaEnded,
   HudAck,
   HudDefer,
   HudReceived,
@@ -44,7 +45,8 @@ type Rule = { roles: readonly PublisherRole[]; caseId: boolean; retestId: boolea
  * against the envelope's `source`), whether it needs a caseId / retestId, and its payload schema.
  */
 export const EVENT_RULES = {
-  "scenario.start": { roles: ["trigger"], caseId: false, retestId: false, status: "core", payload: ScenarioStart },
+  // v1.1 (additive): the station may also start a run, when base staff explicitly start the (simulated) EVA.
+  "scenario.start": { roles: ["trigger", "station"], caseId: false, retestId: false, status: "core", payload: ScenarioStart },
   "scenario.reset": { roles: ["trigger"], caseId: false, retestId: false, status: "core", payload: ScenarioReset },
   "observation.submitted": { roles: ["trigger"], caseId: true, retestId: false, status: "core", payload: Observation },
   "hud.received": { roles: ["hud"], caseId: true, retestId: false, status: "core", payload: HudReceived },
@@ -60,6 +62,8 @@ export const EVENT_RULES = {
   // Station traceability records: HUD and Trigger simply ignore them.
   "station.audit.assessment": { roles: ["station"], caseId: true, retestId: false, status: "proposed-extension", payload: AuditAssessment },
   "station.audit.review": { roles: ["station"], caseId: true, retestId: false, status: "proposed-extension", payload: AuditReview },
+  // Mission phase: the EVA ended; the run and its health events stay open (HUD and Trigger may ignore it).
+  "station.eva.ended": { roles: ["station"], caseId: false, retestId: false, status: "proposed-extension", payload: EvaEnded },
 } as const satisfies Record<string, Rule>;
 export type EventType = keyof typeof EVENT_RULES;
 export const EVENT_TYPES = Object.keys(EVENT_RULES) as EventType[];

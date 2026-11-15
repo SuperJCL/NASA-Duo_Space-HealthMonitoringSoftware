@@ -26,12 +26,14 @@ describe("data replay module (simulated samples, data producer role)", () => {
     expect(p.signal).toEqual(s.observation.signal);
     expect(p.protocol).toEqual(s.observation.protocol);
     expect(p.astronautId).toBe("a-02");
+    expect(p.context).toEqual({ ...s.observation.context, taskId: run.task.id, minutesIntoEva: null });
     const { items, publishable } = intakeCheck(s, run, "t");
     expect(publishable).toBe(true);
     expect(items.find((i) => i.item === "人员")).toMatchObject({ status: "assumed" });
     expect(items.find((i) => i.item === "时间")).toMatchObject({ status: "assumed" });
     expect(items.find((i) => i.item === "测量部位")).toMatchObject({ status: "assumed" });
     expect(items.find((i) => i.item === "设备")).toMatchObject({ status: "missing" });
+    expect(items.find((i) => i.item === "EVA 时间点")).toMatchObject({ status: "missing" });
   });
   it("a missing grip-meter reading stays null (never zero) and is reported as missing", () => {
     const s = sampleById("grip-missing")!;
