@@ -12,10 +12,14 @@ import { unreadEntries, type CrewCardView, type Notice } from "@/lib/station/cre
 import { buildFlow, hhmmss, type FlowNode, type FlowView } from "@/lib/station/flow";
 import { allowedDecisions, latest, type Case, type Decision, type OutMessage, type StationState } from "@/lib/station/station";
 import { alertNote, caseStatus, evaluationStatus, keyBasis, type Tone } from "@/lib/station/views";
-import { PHASE_LABEL, runTask, type MissionDef, type MissionPhase } from "@/lib/station/mission";
+import { type MissionDef, type MissionPhase } from "@/lib/station/mission";
 import type { StationApi } from "../useStation";
 import { duration, elapsed, prefersReducedMotion, useNow, useOnceAnimation, usePageVisible } from "./motion";
 import { CanvasSection, CommList, CONDITIONS, DECIDED, DECISION_WORD, IndicatorChart, NodeDetail, outgoingFor, primaryLabel, ReviewForm, STATE_ICON } from "./FlowParts";
+import { CHAIN_IDS, eventChain, type ChainId, type EventChain } from "@/lib/station/event-chain";
+import { CHAIN_WORD, EventChainPanel } from "./EventChainPanel";
+
+const CHAIN_LABEL: Record<ChainId, string> = { source: "Data source", analysis: "Base analysis", review: "Base review", hud: "HUD", crew: "Crew response", retest: "Retest", reassessment: "Reassessment" };
 
 export const TONE_TEXT: Record<Tone, string> = { alert: "text-[#ff9f8a]", caution: "text-[var(--mg-caution)]", ok: "text-[var(--mg-ok)]", neutral: "text-[var(--mg-dim)]" };
 export const TONE_BORDER: Record<Tone, string> = { alert: "border-[var(--mg-coral)]", caution: "border-[var(--mg-caution)]", ok: "border-[var(--mg-ok)]", neutral: "border-[var(--mg-line-strong)]" };
@@ -61,6 +65,10 @@ export function HealthOverlay(p: Props) {
   const card = p.cards.find((x) => x.astronautId === p.personId) ?? null;
   const c = p.caseId ? (state.cases[p.caseId] ?? null) : null;
   const flow = c ? buildFlow(state, c, { mock }) : null;
+  const chain = c ? eventChain(state, c, { mock }) : null;
+  // The step shown in the detail panel: the user's pick for this case, else the current step (follows it).
+  const [steps, setSteps] = useState<Record<string, ChainId>>({});
+  const step: ChainId | null = c && chain ? (steps[c.caseId] ?? chain.current ?? (chain.nodes.find((n) => n.id === "reassessment" && n.state !== "skipped" && n.state !== "todo") ? "reassessment" : "review")) : null;
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   // Mark the shown case as viewed (only while the overlay is open and the page visible). Never an acknowledgement or a close.
@@ -89,7 +97,6 @@ export function HealthOverlay(p: Props) {
   }, [open, collapsible, onCollapse]);
 
   const run = state.run;
-  const task = runTask(p.def, state);
   const others = p.notes.filter((n) => n.astronautId !== p.personId);
   const onDecide = (d: Decision) => c && p.setReviewing(c.caseId, d);
 
@@ -110,7 +117,7 @@ export function HealthOverlay(p: Props) {
               {"Health Monitoring"}
             </h2>
             <p className="text-[12px] text-[var(--mg-dim)]" data-testid="overlay-mission">
-              {run ? `${run.task.title}${task ? ` → ${task.targetName}` : ""} · ${PHASE_LABEL[p.phase]} · EVA time ${duration(card?.evaStartedAt ?? run.startedAt, now)}` : "No EVA running"}
+              {run ? `${run.task.title} · EVA time ${duration(card?.evaStartedAt ?? run.startedAt, now)}${p.phase === "eva-ended" ? " · EVA ended" : ""}` : "No EVA running"}
             </p>
           </div>
           {p.cards.length ? (
@@ -132,16 +139,17 @@ export function HealthOverlay(p: Props) {
                 ))}
               </div>
             ) : null}
-            <span className={`rounded-full border px-2.5 py-0.5 ${TONE_BORDER[p.link.tone]} ${TONE_TEXT[p.link.tone]}`} title={p.link.title} data-testid="overlay-link">
-              {p.link.text}
-            </span>
+            {p.link.tone !== "ok" ? (
+              <span className={`rounded-full border px-2.5 py-0.5 ${TONE_BORDER[p.link.tone]} ${TONE_TEXT[p.link.tone]}`} title={p.link.title} data-testid="overlay-link">
+                {p.link.text}
+              </span>
+            ) : null}
             {card ? (
               <span className="flex items-center gap-1.5 rounded-full border border-[var(--mg-line)] px-2.5 py-0.5 text-[var(--mg-dim)]" title={card.connection.text} data-testid="panel-connection" data-connection={card.connection.state}>
                 <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${DEVICE[card.connection.state].dot}`} />
                 {DEVICE[card.connection.state].text}
               </span>
             ) : null}
-            <span className="rounded-full border border-[var(--mg-coral)] px-2.5 py-0.5 font-semibold text-[var(--mg-coral)]">{"Simulated Data · Simulated Analysis"}</span>
             {collapsible ? (
               <button type="button" onClick={p.onCollapse} className="min-h-9 rounded-lg border border-[var(--mg-line-strong)] bg-[var(--mg-bg)] px-3 text-[13px]" data-testid="panel-close" title="Collapse to the Mission Map. The case, drafts and communication are kept; nothing is closed or ended.">
                 {"Collapse (Esc)"}
@@ -156,7 +164,7 @@ export function HealthOverlay(p: Props) {
             {p.footnotes}
           </div>
         ) : (
-          <div className={`grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:overflow-hidden ${p.fullFlow && c ? "" : "lg:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)]"}`}>
+          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_minmax(21rem,23rem)] lg:overflow-hidden">
             <div className="order-2 flex min-h-0 flex-col gap-3 p-3 lg:order-1 lg:overflow-y-auto" data-testid="overlay-left">
               {card.cases.length > 1 ? (
                 <nav aria-label="Cases of this crew member" className="flex flex-wrap gap-1.5" data-testid="panel-case-switch">
@@ -167,68 +175,77 @@ export function HealthOverlay(p: Props) {
                   ))}
                 </nav>
               ) : null}
-              {c && flow && p.fullFlow ? (
-                <Panel
-                  title={`Full flow · ${card.callsign}`}
-                  testid="full-flow"
-                  aside={
-                    <button type="button" onClick={() => p.setFullFlow(false)} className="min-h-8 rounded-lg border border-[var(--mg-line-strong)] px-3 text-[12px]" data-testid="full-flow-back">
-                      {"← Back to overview and decision"}
-                    </button>
-                  }
-                >
-                  <p className="mb-2 text-[12px] text-[var(--mg-dim)]" data-testid="full-flow-state">
-                    {`Now: ${flow.where} · next: ${flow.who === "None" ? "nobody (done)" : flow.who}. Opening the full flow changes nothing: communication continues, the review state is kept and nothing is resent.`}
-                  </p>
-                  {open ? (
-                    <CanvasSection
-                      c={c}
-                      flow={flow}
-                      callsign={card.callsign}
-                      now={now}
-                      onDecide={(d) => {
-                        onDecide(d);
-                        p.setFullFlow(false);
-                      }}
-                      onResend={p.api.resend}
-                    />
-                  ) : null}
-                </Panel>
-              ) : c && flow ? (
+              {c && flow && chain ? (
                 <>
-                  <ObservationPanel c={c} card={card} />
-                  <IndicatorPanel c={c} flow={flow} />
-                  <ChainPanel key={`${c.caseId}:v${latest(c).version}`} c={c} flow={flow} now={now} onDecide={onDecide} onResend={p.api.resend} onFull={() => p.setFullFlow(true)} />
-                  <Panel title={`Communications (${commStream(state, c, { mock }).length})`} testid="panel-comms" aside={<span className="text-[11px] text-[var(--mg-faint)]">{"Internal analysis is never sent to the HUD"}</span>}>
-                    <div className="flex max-h-56 min-h-0 flex-col">
-                      <CommList items={commStream(state, c, { mock })} />
-                    </div>
-                  </Panel>
+                  <EventChainPanel
+                    key={c.caseId}
+                    chain={chain}
+                    caseKey={c.caseId}
+                    now={now}
+                    selected={p.fullFlow ? null : step}
+                    onSelect={(id) => {
+                      p.setFullFlow(false);
+                      setSteps((m) => ({ ...m, [c.caseId]: id }));
+                    }}
+                    aside={
+                      p.fullFlow ? (
+                        <button type="button" onClick={() => p.setFullFlow(false)} className="min-h-8 rounded-lg border border-[var(--mg-line-strong)] px-3 text-[12px]" data-testid="full-flow-back">
+                          {"← Back to steps"}
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => p.setFullFlow(true)} className="min-h-8 rounded-lg border border-[var(--mg-line-strong)] px-3 text-[12px]" data-testid="full-flow-open">
+                          {"Full flow ⤢"}
+                        </button>
+                      )
+                    }
+                  />
+                  {p.fullFlow ? (
+                    <Panel title="Full analysis flow" testid="full-flow">
+                      <p className="mb-2 text-[12px] text-[var(--mg-dim)]" data-testid="full-flow-state">
+                        {"Opening the full flow changes nothing: communication continues, the review state is kept and nothing is resent. The decision area stays on the right."}
+                      </p>
+                      {open ? <CanvasSection c={c} flow={flow} callsign={card.callsign} now={now} onDecide={onDecide} onResend={p.api.resend} /> : null}
+                    </Panel>
+                  ) : (
+                    <>
+                      <StepDetail c={c} flow={flow} chain={chain} step={step!} following={!steps[c.caseId]} onFollow={() => setSteps((m) => { const next = { ...m }; delete next[c.caseId]; return next; })} state={state} mock={mock} now={now} onDecide={onDecide} onResend={p.api.resend} />
+                      <MeasurementPanel c={c} flow={flow} card={card} />
+                      <details className="rounded-xl border border-[var(--mg-line)] bg-[var(--mg-bg)] p-3" data-testid="panel-comms">
+                        <summary className="cursor-pointer text-[13px] font-semibold">
+                          {`Communications (${commStream(state, c, { mock }).length})`}
+                          <span className="ml-2 text-[11px] font-normal text-[var(--mg-faint)]">{"internal analysis is never sent to the HUD"}</span>
+                        </summary>
+                        <div className="mt-2 flex max-h-56 min-h-0 flex-col">
+                          <CommList items={commStream(state, c, { mock })} />
+                        </div>
+                      </details>
+                    </>
+                  )}
                 </>
               ) : (
                 <>
-                  <Panel title="Observation" testid="panel-waiting">
-                    <p className="text-[13px] text-[var(--mg-dim)]">{`No case for ${card.callsign} yet. When the data replay sends an observation, the simulated analysis starts automatically; nothing is shown before data arrives.`}</p>
-                    <p className="mt-1 text-[12px] text-[var(--mg-faint)]">{`Latest data: ${card.data.text} · ${card.data.summary}`}</p>
-                  </Panel>
-                  <Panel title="Analysis" testid="compact-chain">
-                    <ol className="grid grid-cols-5 gap-1.5" data-testid="chain-nodes">
-                      {["Data Received", "Signal Quality", "Comparability", "Comparison", "Base Review"].map((label, i) => (
-                        <li key={label} className={`rounded-lg border px-2 py-1.5 ${CHAIN_STYLE.todo}`} data-testid={`chain-${i}`} data-state="todo">
-                          <p className="text-[12px] font-semibold leading-tight">{`○ ${label}`}</p>
+                  <section className="rounded-xl border border-[var(--mg-line)] bg-[var(--mg-bg)] p-3" aria-label="Case event chain" data-testid="event-chain" data-current="">
+                    <ol className="grid grid-cols-7 gap-1.5">
+                      {CHAIN_IDS.map((id, i) => (
+                        <li key={id} className="rounded-lg border border-dashed border-[var(--mg-line)] px-2 py-1.5 text-[var(--mg-faint)]" data-testid={`step-${id}`} data-state="todo">
+                          <p className="truncate text-[12px] font-semibold leading-tight">{`○ ${CHAIN_LABEL[id]}`}</p>
                           <p className="mt-0.5 text-[11px]">{i === 0 ? "Waiting for data…" : "Not reached"}</p>
                         </li>
                       ))}
                     </ol>
+                  </section>
+                  <Panel title="Observation" testid="panel-waiting">
+                    <p className="text-[13px] text-[var(--mg-dim)]">{`No case for ${card.callsign} yet. When the data replay sends an observation, the simulated analysis starts automatically; nothing is shown before data arrives.`}</p>
+                    <p className="mt-1 text-[12px] text-[var(--mg-faint)]">{`Latest data: ${card.data.text} · ${card.data.summary}`}</p>
                   </Panel>
                 </>
               )}
               {p.footnotes}
             </div>
-            {p.fullFlow && c ? null : (
             <DecisionPanel
               c={c}
               flow={flow}
+              chain={chain}
               card={card}
               state={state}
               mock={mock}
@@ -240,7 +257,6 @@ export function HealthOverlay(p: Props) {
               api={p.api}
               reviewer={p.reviewer}
             />
-            )}
           </div>
         )}
       </section>
@@ -287,56 +303,80 @@ function CrewChip({ card, selected, onSelect }: { card: CrewCardView; selected: 
   );
 }
 
-/** The observation behind the case: one simulated sample (or the astronaut's report). No invented history. */
-function ObservationPanel({ c, card }: { c: Case; card: CrewCardView }) {
+/**
+ * The measurement behind the case: one line about the simulated sample (no invented history or
+ * trend), then the summary indicators of the latest measured round against the individual baseline
+ * (v1 → v2 side by side only when both are comparable). The current comparison chart is unchanged.
+ */
+function MeasurementPanel({ c, flow, card }: { c: Case; flow: FlowView; card: CrewCardView }) {
   const measured = c.evaluations.filter((e) => e.observation);
   const ev = measured.at(-1);
   const report = c.evaluations.find((e) => e.trigger === "report")?.report ?? null;
   const o = ev?.observation;
+  const features = ev ? (flow.rows.find((r) => r.id === `v${ev.version}:analysis`)?.nodes.find((n) => n.id === `v${ev.version}:features`) ?? null) : null;
+  const items = features?.indicators ?? [];
+  let note: string | null = null;
+  if (ev && !items.length) note = !features || features.state === "todo" || features.state === "running" ? "Indicators appear when the Comparison step is reached." : features.state === "skipped" ? "Not compared: an earlier step stopped (no values are shown or invented)." : features.summary;
   return (
-    <Panel title="Observation" testid="obs-summary" aside={<span className="rounded-full border border-dashed border-[var(--mg-caution)] px-2 py-0.5 text-[11px] text-[var(--mg-caution)]">{"Simulated sample · data replay"}</span>}>
-      {o && ev ? (
-        <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px]">
-          <dt className="text-[var(--mg-faint)]">{"Data time"}</dt>
-          <dd data-testid="obs-time">{`${hhmmss(o.capturedAt)}${ev.trigger === "retest" ? " · retest" : ""}`}</dd>
-          <dt className="text-[var(--mg-faint)]">{"Protocol"}</dt>
-          <dd>{`${o.protocol.label} · ${o.protocol.targetPctMvc}% MVC · ${o.protocol.posture} · ${o.protocol.glove === "eva-glove" ? "EVA glove" : "no glove"}`}</dd>
-          <dt className="text-[var(--mg-faint)]">{"Data"}</dt>
-          <dd>{card.data.text}</dd>
-          <dt className="text-[var(--mg-faint)]">{"History"}</dt>
-          <dd className="text-[var(--mg-dim)]" data-testid="obs-history">
-            {measured.length === 1 ? "Single observation · no earlier data, no trend" : `${measured.length} observations in this case: ${measured.map((e) => `v${e.version} ${e.trigger === "retest" ? "retest" : "measurement"}`).join(", ")}`}
-          </dd>
-        </dl>
-      ) : report ? (
-        <p className="text-[13px]">{`Astronaut report: "${report.text}"${report.request ? ` · request: ${report.request}` : ""}`}</p>
-      ) : (
-        <p className="text-[13px] text-[var(--mg-dim)]">{"No measurement in this case."}</p>
-      )}
-    </Panel>
+    <section className="rounded-xl border border-[var(--mg-line)] bg-[var(--mg-bg)] p-3" aria-label="Measurement" data-testid="obs-indicators">
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1" data-testid="obs-summary">
+        <h3 className="text-[13px] font-semibold">{o ? "Indicators vs individual baseline" : "Astronaut report"}</h3>
+        <span className="rounded-full border border-dashed border-[var(--mg-caution)] px-2 py-0.5 text-[11px] text-[var(--mg-caution)]">{o ? "Simulated sample · data replay" : "Local simulated extension"}</span>
+        {o && ev ? (
+          <span className="text-[12px] text-[var(--mg-dim)]">
+            <span data-testid="obs-time">{`${hhmmss(o.capturedAt).slice(0, 8)} UTC${ev.trigger === "retest" ? " · retest" : ""}`}</span>
+            {` · ${o.protocol.label} · ${card.data.text.split(" · ").at(-1)} · `}
+            <span data-testid="obs-history">{measured.length === 1 ? "Single observation · no earlier data, no trend" : `${measured.length} observations: ${measured.map((e) => `v${e.version} ${e.trigger === "retest" ? "retest" : "measurement"}`).join(", ")}`}</span>
+          </span>
+        ) : null}
+      </div>
+      {o ? items.length ? <IndicatorChart items={items} compact /> : <p className="text-[12px] text-[var(--mg-dim)]">{note}</p> : report ? <p className="text-[13px]">{`"${report.text}"${report.request ? ` · request: ${report.request}` : ""}`}</p> : <p className="text-[13px] text-[var(--mg-dim)]">{"No measurement in this case."}</p>}
+    </section>
   );
 }
 
-/** Summary indicators of the latest measured round against the individual baseline (v1 → v2 only when both are comparable). */
-function IndicatorPanel({ c, flow }: { c: Case; flow: FlowView }) {
-  const ev = c.evaluations.filter((e) => e.observation).at(-1);
-  if (!ev) return null;
-  const features = flow.rows.find((r) => r.id === `v${ev.version}:analysis`)?.nodes.find((n) => n.id === `v${ev.version}:features`) ?? null;
-  const items = features?.indicators ?? [];
-  let note: string | null = null;
-  if (!items.length) note = !features || features.state === "todo" || features.state === "running" ? "Indicators appear when the Comparison step is reached." : features.state === "skipped" ? "Not compared: an earlier step stopped (no values are shown or invented)." : features.summary;
+/** Evidence and communication records of one step of the event chain (never covers the decision area). */
+function StepDetail({ c, flow, chain, step, following, onFollow, state, mock, now, onDecide, onResend }: { c: Case; flow: FlowView; chain: EventChain; step: ChainId; following: boolean; onFollow: () => void; state: StationState; mock: boolean; now: number; onDecide: (d: Decision) => void; onResend: (eventId: string) => void }) {
+  const n = chain.nodes.find((x) => x.id === step) ?? chain.nodes[0];
+  const round = n.id === "analysis" ? 1 : n.id === "reassessment" ? n.round : n.id === "review" ? 1 : null;
+  const showSteps = round !== null && (n.id !== "review" || n.state !== "todo") && !!c.evaluations.find((e) => e.version === round);
+  const comm = n.messages.length ? commStream(state, c, { mock }).filter((it) => n.messages.some((m) => it.id === m.eventId || it.id.startsWith(`${m.eventId}:`))) : [];
   return (
-    <Panel title="Indicators vs individual baseline" testid="obs-indicators" aside={<span className="text-[11px] text-[var(--mg-faint)]">{"Summary features only"}</span>}>
-      {items.length ? <IndicatorChart items={items} compact /> : <p className="text-[12px] text-[var(--mg-dim)]">{note}</p>}
-    </Panel>
+    <section className="rounded-xl border border-[var(--mg-line)] bg-[var(--mg-bg)] p-3" aria-label={`${n.label} details`} data-testid="step-detail" data-step={n.id} data-state={n.state}>
+      <div className="mb-2 flex flex-wrap items-baseline gap-2">
+        <h3 className="text-[13px] font-semibold">{`${n.label} · ${CHAIN_WORD[n.state]}`}</h3>
+        {n.at ? <span className="text-[11px] text-[var(--mg-faint)]">{hhmmss(n.at).slice(0, 8)}</span> : null}
+        {following ? <span className="ml-auto text-[11px] text-[var(--mg-faint)]">{"following the current step"}</span> : (
+          <button type="button" onClick={onFollow} className="ml-auto text-[11px] text-[var(--mg-dim)] underline" data-testid="step-follow">
+            {"Follow the current step"}
+          </button>
+        )}
+      </div>
+      {showSteps ? <AnalysisSteps c={c} flow={flow} version={round!} now={now} onDecide={onDecide} onResend={onResend} /> : null}
+      {n.detail.length ? (
+        <ul className="mt-2 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-4 text-[12px] text-[var(--mg-dim)]" data-testid="step-evidence">
+          {n.detail.map((d, i) => (
+            <li key={`${i}:${d}`}>{d}</li>
+          ))}
+        </ul>
+      ) : !showSteps ? (
+        <p className="text-[12px] text-[var(--mg-faint)]">{n.state === "skipped" ? "Not needed for this case." : "Nothing recorded yet."}</p>
+      ) : null}
+      {comm.length ? (
+        <div className="mt-2 flex max-h-48 min-h-0 flex-col" data-testid="step-messages">
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--mg-faint)]">{"Messages"}</p>
+          <CommList items={comm} />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
 type ChainItem = { id: string; label: string; node: FlowNode | null; state: FlowNode["state"]; summary: string };
 
-/** The five steps of the latest round, from the station's own flow (never ahead of it). */
-function chainItems(c: Case, flow: FlowView): ChainItem[] {
-  const ev = latest(c);
+/** The five internal steps of one analysis round, from the station's own flow (never ahead of it). */
+function chainItems(c: Case, flow: FlowView, version: number): ChainItem[] {
+  const ev = c.evaluations.find((e) => e.version === version) ?? latest(c);
   const row = flow.rows.find((r) => r.id === `v${ev.version}:analysis`);
   const nodes = row?.nodes ?? [];
   const items: ChainItem[] = nodes.slice(0, 4).map((n) => ({ id: n.id, label: n.label, node: n, state: n.state, summary: n.summary }));
@@ -365,13 +405,13 @@ const CHAIN_STYLE: Record<FlowNode["state"], string> = {
 const hopsShown = new Set<string>();
 
 /**
- * Compact analysis chain: Data Received → Signal Quality → Comparability → Comparison → Base Review.
+ * Inside the analysis: Data Received → Signal Quality → Comparability → Comparison → Base Review.
  * A data marker moves briefly along the path the data actually took, one hop per step the station
  * revealed; it stops at a human or waiting step. No looping, no replay on ordinary updates.
  */
-function ChainPanel({ c, flow, now, onDecide, onResend, onFull }: { c: Case; flow: FlowView; now: number; onDecide: (d: Decision) => void; onResend: (eventId: string) => void; onFull: () => void }) {
-  const items = chainItems(c, flow);
-  const ev = latest(c);
+function AnalysisSteps({ c, flow, version, now, onDecide, onResend }: { c: Case; flow: FlowView; version: number; now: number; onDecide: (d: Decision) => void; onResend: (eventId: string) => void }) {
+  const items = chainItems(c, flow, version);
+  const ev = c.evaluations.find((e) => e.version === version) ?? latest(c);
   const reached = items.reduce((at, it, i) => (it.state === "done" || it.state === "stopped" || it.state === "human" || it.state === "waiting" || it.state === "running" ? i : at), -1);
   const stoppedAt = items.findIndex((it) => it.state === "stopped");
   const [open, setOpen] = useState<string | null>(null);
@@ -400,18 +440,9 @@ function ChainPanel({ c, flow, now, onDecide, onResend, onFull }: { c: Case; flo
     return () => a.cancel();
   }, [reached, c.caseId, ev.version, ev.startedAt, items.length]);
   const openItem = items.find((it) => it.id === open) ?? null;
-  const current = flow.current;
-  const waiting = current && (current.node.state === "waiting" || current.node.state === "human") && !flow.finished ? current.node : null;
   return (
-    <Panel
-      title={`Analysis · round ${ev.version}${ev.trigger === "retest" ? " (retest)" : ""}`}
-      testid="compact-chain"
-      aside={
-        <button type="button" onClick={onFull} className="min-h-8 rounded-lg border border-[var(--mg-line-strong)] px-3 text-[12px]" data-testid="full-flow-open">
-          {"Full flow ⤢"}
-        </button>
-      }
-    >
+    <div data-testid="compact-chain" data-round={ev.version}>
+      <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[var(--mg-faint)]">{`Inside the analysis · round ${ev.version}${ev.trigger === "retest" ? " (retest)" : ""}`}</p>
       <div className="relative">
         <ol className="grid grid-cols-5 gap-1.5" data-testid="chain-nodes">
           {items.map((it, i) => (
@@ -438,11 +469,8 @@ function ChainPanel({ c, flow, now, onDecide, onResend, onFull }: { c: Case; flo
         <span ref={markerRef} aria-hidden className="pointer-events-none absolute -top-1 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-[var(--mg-cyan)] opacity-0 shadow-[0_0_8px_var(--mg-cyan)]" data-testid="chain-marker" />
       </div>
       {stoppedAt >= 0 ? <p className="mt-1.5 text-[12px] text-[var(--mg-caution)]" data-testid="chain-branch">{`↳ Branch at ${items[stoppedAt].label}: check device / remeasure → Base Review (later steps not run)`}</p> : null}
-      {waiting ? (
-        <p className="mt-1.5 text-[12px] text-[var(--mg-dim)]" data-testid="chain-waiting">{`Transfer paused · waiting for ${party(waiting.owner)} since ${hhmmss(waiting.since).slice(0, 8)} · ${elapsed(waiting.since, now)}`}</p>
-      ) : null}
       {openItem?.node ? <NodeDetail c={c} n={openItem.node} isCurrent={false} now={now} onDecide={onDecide} onResend={onResend} onBack={() => setOpen(null)} /> : null}
-    </Panel>
+    </div>
   );
 }
 
@@ -466,9 +494,28 @@ function decisionPhase(c: Case | null, flow: FlowView | null): DecisionPhase {
  * Fixed decision area: conclusion, key evidence, the actual content to be sent, and the main
  * actions, by phase. Results show at once; delivery is shown only from real receipts.
  */
-function DecisionPanel({ c, flow, card, state, mock, now, reviewing, setReviewing, draft, setDraft, api, reviewer }: {
+/** The next step in one line: who acts and what, from the event chain and the allowed decisions. */
+function nextLine(chain: EventChain | null, phase: DecisionPhase, options: Decision[]): string {
+  if (!chain) return "Waiting for data from the data replay (no action needed)";
+  const n = chain.nodes.find((x) => x.id === chain.current);
+  if (n?.state === "human") {
+    if (phase === "decided") return "Base staff: close the case or Continue Monitoring";
+    if (options.includes("approve") && options.includes("reject")) return "Base staff: approve or reject the candidate";
+    if (options.includes("approve")) return "Base staff: close, Continue Monitoring or approve another retest";
+    return "Base staff: close the case or Continue Monitoring";
+  }
+  if (n?.state === "running") return `The system: ${n.summary.toLowerCase()} (no action needed)`;
+  if (n?.state === "waiting") return `Waiting for ${n.waitingFor}: ${n.summary.charAt(0).toLowerCase()}${n.summary.slice(1)} (no action needed)`;
+  if (n?.state === "stopped") return "The crew deferred: wait for a new reply, or close the case early";
+  if (n?.state === "failed") return "Base staff: resend the same message";
+  if (chain.closure.caseClosed) return chain.closure.notice.state === "received" ? "Nothing: handling complete" : "Waiting for the HUD receipt of the closing notice (no action needed)";
+  return phase === "monitoring" ? "Continue Monitoring: no action needed; the case can be closed at any time" : "Nothing is waiting";
+}
+
+function DecisionPanel({ c, flow, chain, card, state, mock, now, reviewing, setReviewing, draft, setDraft, api, reviewer }: {
   c: Case | null;
   flow: FlowView | null;
+  chain: EventChain | null;
   card: CrewCardView;
   state: StationState;
   mock: boolean;
@@ -627,17 +674,16 @@ function DecisionPanel({ c, flow, card, state, mock, now, reviewing, setReviewin
           </h3>
           <span className="ml-auto text-[11px] text-[var(--mg-faint)]">{c ? `${card.callsign} · ${c.caseId.slice(-6)}` : card.callsign}</span>
         </div>
-        {st && flow ? (
+        {st ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
             <span className={`rounded-md border px-1.5 py-0.5 ${TONE_BORDER[st.tone]} ${TONE_TEXT[st.tone]}`} data-testid="panel-case-status">{st.label}</span>
-            <span className="text-[var(--mg-dim)]">
-              {"Next action: "}
-              <b className={flow.who === "Base staff" ? "text-[var(--mg-coral)]" : "text-[var(--mg-text)]"} data-testid="panel-fact-who">
-                {flow.who === "None" ? "nobody (done)" : flow.who}
-              </b>
-            </span>
+            <span className="rounded-md border border-dashed border-[var(--mg-coral)] px-1.5 py-0.5 text-[var(--mg-coral)]">{"Simulated analysis · demo rules"}</span>
           </div>
         ) : null}
+        <p className={`mt-1.5 text-[13px] font-medium leading-snug ${flow?.who === "Base staff" ? "text-[var(--mg-coral)]" : "text-[var(--mg-text)]"}`} data-testid="decision-next">
+          <span className="text-[var(--mg-faint)]">{"Next: "}</span>
+          {nextLine(chain, phase, options)}
+        </p>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3" data-testid="decision-body">
         {body}

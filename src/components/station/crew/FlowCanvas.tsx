@@ -173,7 +173,7 @@ export function FlowCanvas({
       {behind ? <p className="text-[11px] text-[var(--mg-dim)]" data-testid="canvas-behind">{"The animation is catching up at display pace and runs slightly behind the base's actual progress (the actual progress is shown above)."}</p> : null}
 
       <div className="overflow-x-auto">
-        <div className="relative min-w-[860px] rounded-2xl border border-[var(--mg-line)] bg-[rgba(8,13,22,0.6)]" style={{ aspectRatio: `${CANVAS_W} / ${CANVAS_H}` }} data-testid="canvas-area">
+        <div className="@container relative min-w-[700px] rounded-2xl border border-[var(--mg-line)] bg-[rgba(8,13,22,0.6)]" style={{ aspectRatio: `${CANVAS_W} / ${CANVAS_H}` }} data-testid="canvas-area">
           <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} className="absolute inset-0 h-full w-full" aria-hidden>
             <defs>
               {(["todo", "active", "done", "skipped"] as EdgeView[]).map((v) => (
@@ -245,9 +245,9 @@ export function FlowCanvas({
                   <span className="w-full text-center text-[11px] leading-tight">{sourceLabel}</span>
                 ) : (
                   <>
-                    <span className="text-[13px] font-semibold leading-tight">{n.label}</span>
-                    <span className={`text-[11px] leading-tight ${v === "processing" || v === "incoming" ? "text-[var(--mg-cyan)]" : v === "stopped" ? "text-[var(--mg-caution)]" : v === "human" ? "text-[var(--mg-coral)]" : ""}`}>{NODE_WORD[v]}</span>
-                    {result ? <span className="line-clamp-2 text-[11px] leading-snug text-[var(--mg-dim)]">{result}</span> : null}
+                    <span className="text-[12px] font-semibold leading-tight @[880px]:text-[13px]">{n.label}</span>
+                    <span className={`text-[10px] leading-tight @[880px]:text-[11px] ${v === "processing" || v === "incoming" ? "text-[var(--mg-cyan)]" : v === "stopped" ? "text-[var(--mg-caution)]" : v === "human" ? "text-[var(--mg-coral)]" : ""}`}>{NODE_WORD[v]}</span>
+                    {result ? <span className="hidden text-[11px] leading-snug text-[var(--mg-dim)] @[880px]:line-clamp-2">{result}</span> : null}
                     {v === "processing" ? (
                       <span className="mt-0.5 h-1 w-full overflow-hidden rounded bg-[var(--mg-line)]">
                         <span

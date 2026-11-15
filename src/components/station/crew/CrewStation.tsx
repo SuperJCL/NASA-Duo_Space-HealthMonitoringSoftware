@@ -302,9 +302,18 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
               {"Local simulation · no real HUD or data source"}
             </span>
           )}
-          <span className="rounded border border-[var(--mg-line)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--mg-faint)]" title="Build id: commit and time of the server start / build" data-testid="build-id">
-            {`Build ${BUILD}`}
-          </span>
+          {/* Technical details on demand: build id, transport, identity (kept out of the main header). */}
+          <details className="group relative" data-testid="about-build">
+            <summary className="cursor-pointer list-none rounded-full border border-[var(--mg-line)] px-2.5 py-0.5 text-[12px] text-[var(--mg-dim)] marker:hidden" aria-label="About this build">
+              {"ⓘ About"}
+            </summary>
+            <div className="absolute right-0 top-8 z-[70] w-[22rem] rounded-xl border border-[var(--mg-line-strong)] bg-[var(--mg-bg-2)] p-3 text-[12px] shadow-2xl">
+              <p className="font-mono text-[12px] text-[var(--mg-text)]" data-testid="build-id">{`Build ${BUILD}`}</p>
+              <p className="mt-1 text-[var(--mg-dim)]">{`Transport: ${adapter.label}`}</p>
+              <p className="mt-1 text-[var(--mg-dim)]">{`Signed in as ${REVIEWER} (demo identity)`}</p>
+              <p className="mt-1 text-[var(--mg-faint)]">{"All data and analysis are simulated (deterministic demo rules, no model, no diagnosis)."}</p>
+            </div>
+          </details>
           <button type="button" onClick={() => setDrawerMode((d) => (d === "open" ? "hidden" : "open"))} aria-expanded={drawer === "open"} className="rounded-full border border-dashed border-[#d678ff] px-2.5 py-0.5 text-[12px] text-[#e3a6ff]" data-testid="demo-toggle">
             {relay ? (drawer === "open" ? "Hide dev entry" : "Dev entry (data replay)") : drawer === "open" ? "Hide local demo" : "Local simulated demo"}
           </button>
@@ -312,7 +321,7 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
       </header>
       {relay ? (
         <p className="border-b border-[var(--mg-line)] bg-[rgba(214,120,255,0.08)] px-5 py-0.5 text-[12px] text-[#e3a6ff]" data-testid="integration-banner">
-          {"Two-end run: the HUD is the real page, connected through the local relay · observations are simulated samples from the data replay, not teammate health data · no auto-simulated HUD feedback"}
+          {"Two-end demo: the HUD is the real page, linked through the local relay · data: simulated replay samples, not teammate health data"}
         </p>
       ) : null}
       {mission ? <MissionBar def={def} state={state} phase={phase} view={view} onView={(v) => (v === "map" ? collapse() : chooseView(v))} cards={cards} onJump={jump} onEndEva={() => (setDialogError(null), setDialog("end"))} canAct={canAct} toggleRef={toggleRef} /> : null}
