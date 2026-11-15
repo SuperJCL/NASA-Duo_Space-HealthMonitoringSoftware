@@ -4242,3 +4242,20 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - The communication list now appears twice (step detail and log) → script counts are scoped to
     the log.
 - **Verification on the production build:** see the next entry.
+
+### Round 2 verification (production build `ec0283b`, 2026-11-15T06:52Z build; regression 06:53–07:03Z)
+
+- `npm run check`: lint, typecheck, 35 files / 386 tests, build.
+- Suites, each two-end suite on a fresh relay:
+  - `e2e:mission` 29/29;
+  - `e2e:two-end` 48/48 (HUD offline: no false delivery; review with the full flow open; separate
+    closure facts; English-only on both pages and every station message);
+  - `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
+    `smoke` 118;
+  - `test:hud` 49/49 + 46/46.
+- Recordings (07:04–07:06Z), same build, one clean relay session:
+  - station alone at 1440×900 (125 s; "About" shows build `ec0283b`);
+  - station + HUD side by side.
+- `origin/main` re-checked after the run: still `a9f9646`. The patch PRs #3 / #4 are still open.
+- Commits after `ec0283b` are documentation only.
+- **Not verified:** patch data link (not connected); teammate data; LAN multi-device.
