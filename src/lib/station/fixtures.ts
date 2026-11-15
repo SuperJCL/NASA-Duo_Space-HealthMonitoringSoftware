@@ -39,9 +39,9 @@ export const DEMO_BASELINES: readonly Baseline[] = [baseline("ev1"), baseline("e
 
 /** The simulated crew of the local demo (local roster extension). Times are relative to the demo start. */
 export const DEMO_CREW: readonly { astronautId: string; callsign: string; task: { id: string; title: string }; minutesIntoEva: number; deviceId: string }[] = [
-  { astronautId: "ev1", callsign: "EV1（模拟宇航员）", task: { id: "eva-sampling", title: "EVA 采样作业" }, minutesIntoEva: 95, deviceId: "semg-ev1" },
-  { astronautId: "ev2", callsign: "EV2（模拟宇航员）", task: { id: "eva-inspection", title: "EVA 设备巡检" }, minutesIntoEva: 62, deviceId: "semg-ev2" },
-  { astronautId: "ev3", callsign: "EV3（模拟宇航员）", task: { id: "eva-transfer", title: "EVA 样本转运" }, minutesIntoEva: 38, deviceId: "semg-ev3" },
+  { astronautId: "ev1", callsign: "EV1 (simulated)", task: { id: "eva-sampling", title: "EVA sampling" }, minutesIntoEva: 95, deviceId: "semg-ev1" },
+  { astronautId: "ev2", callsign: "EV2 (simulated)", task: { id: "eva-inspection", title: "EVA equipment inspection" }, minutesIntoEva: 62, deviceId: "semg-ev2" },
+  { astronautId: "ev3", callsign: "EV3 (simulated)", task: { id: "eva-transfer", title: "EVA sample transfer" }, minutesIntoEva: 38, deviceId: "semg-ev3" },
 ];
 
 export const rosterMembers = (nowMs: number): CrewMemberPayload[] =>
@@ -72,7 +72,7 @@ export function crewObservation(o: Observation, astronautId: string, observation
 export const demoReport = (astronautId: string, reportId: string, reportedAt: string): HudReport => ({
   reportId,
   astronautId,
-  text: "右前臂持续酸胀，握工具时比平时吃力。",
-  request: "请基地评估是否需要做一次测量",
+  text: "Persistent ache in the right forearm; gripping tools feels harder than usual.",
+  request: "Please assess whether a measurement is needed",
   reportedAt,
 });

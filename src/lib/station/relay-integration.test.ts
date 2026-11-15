@@ -83,11 +83,11 @@ describe("station ↔ relay (two windows, reload, simulated HUD replies)", () =>
     expect(latest(A.st().cases[caseId]).result.outcome).toBe("change-beyond-baseline");
 
     // Human approval in window A → notice + retest task through the relay. B mirrors, never sends.
-    expect(A.ctl.review(caseId, 1, "approve", "多项指标同向偏离，按标准协议复测确认", "基地值班员")).toBeNull();
+    expect(A.ctl.review(caseId, 1, "approve", "Several indicators deviate in the same direction; retest with the standard protocol to confirm", "Base duty officer")).toBeNull();
     await waitFor(() => stationSent().some((e) => e.type === "station.retest.requested"));
     await waitFor(() => B.st().cases[caseId]?.phase === "awaiting-hud" && B.st().cases[caseId].reviews.length === 1);
     expect(new Set(stationSent().map((e) => e.sender.clientId))).toEqual(new Set(["win-A"]));
-    expect(B.ctl.review(caseId, 1, "approve", "第二个窗口试图再批准", "x")).toBeTruthy(); // not allowed any more
+    expect(B.ctl.review(caseId, 1, "approve", "A second window tries to approve again", "x")).toBeTruthy(); // not allowed any more
 
     // HUD: device receipt for both messages, then the astronaut confirms both.
     const actions = stationSent().filter((e) => e.type === "station.notice.approved" || e.type === "station.retest.requested");
@@ -109,7 +109,7 @@ describe("station ↔ relay (two windows, reload, simulated HUD replies)", () =>
     expect(C.st().outbox.filter((m) => m.feedback === "acknowledged")).toHaveLength(2);
     await new Promise((r) => setTimeout(r, 200));
     expect(stationSent()).toHaveLength(sentBefore);
-    expect(C.ctl.review(caseId, 1, "approve", "重载后再批准", "x")).toBeTruthy();
+    expect(C.ctl.review(caseId, 1, "approve", "Approve again after the reload", "x")).toBeTruthy();
 
     // Step 2 preview: a retest result → one receipt; a further reload adopts it instead of re-sending.
     const o = crewObservation(RETEST_FIXTURES["retest-normal"].observation(1), "a-02", "rt-obs-1", new Date().toISOString(), null);

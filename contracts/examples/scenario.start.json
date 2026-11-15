@@ -11,11 +11,11 @@
     "scenarioId": "myomars-demo",
     "astronaut": {
       "id": "ev1",
-      "callsign": "EV1（模拟宇航员）"
+      "callsign": "EV1 (simulated astronaut)"
     },
     "task": {
       "id": "eva-sampling",
-      "title": "EVA 采样作业",
+      "title": "EVA sampling",
       "targetId": null
     }
   }

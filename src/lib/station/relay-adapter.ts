@@ -48,7 +48,7 @@ export class RelayStationAdapter implements StationAdapter {
     this.fetchImpl = fetchImpl ?? ((...a: Parameters<Fetch>) => fetch(...a));
     const id = clientId ?? `station-${Math.random().toString(36).slice(2, 8)}`;
     this.status = { baseUrl: baseUrl.replace(/\/$/, ""), sessionId, clientId: id, conn: "connecting", lease: "pending", leaseHolder: null, lastSeq: 0, lastError: null, since: null };
-    this.label = `通信服务 ${this.status.baseUrl} · 会话 ${sessionId}`;
+    this.label = `Relay ${this.status.baseUrl} · session ${sessionId}`;
   }
 
   subscribeStatus = (l: () => void) => {
@@ -95,7 +95,7 @@ export class RelayStationAdapter implements StationAdapter {
       const h = await this.fetchImpl(this.url(`/events?after=${this.status.lastSeq}`), { cache: "no-store" });
       if (!h.ok) throw new Error(`history ${h.status}`);
       const body = (await h.json()) as { events: { seq: number }[]; lastSeq: number };
-      if (body.lastSeq < this.status.lastSeq) this.set({ lastError: "通信服务的历史比本窗口记录的更短（服务已重启或清空），请刷新页面" });
+      if (body.lastSeq < this.status.lastSeq) this.set({ lastError: "The relay history is shorter than this window's record (the relay was restarted or cleared): reload the page" });
       if (body.events.length) {
         this.set({ lastSeq: Math.max(this.status.lastSeq, ...body.events.map((e) => e.seq)) });
         onHistory(body.events);
@@ -127,7 +127,7 @@ export class RelayStationAdapter implements StationAdapter {
             if (typeof d.seq === "number") this.set({ lastSeq: Math.max(this.status.lastSeq, d.seq) });
             onInbound(d);
           } catch {
-            this.set({ lastError: "收到无法解析的消息（已忽略）" });
+            this.set({ lastError: "Received a message that could not be parsed (ignored)" });
           }
         }
       }
@@ -162,15 +162,15 @@ export class RelayStationAdapter implements StationAdapter {
   }
 
   async send(envelope: Envelope): Promise<DeliveryResult> {
-    if (this.status.lease === "readonly") return { ok: false, discard: true, note: "只读窗口：另一个基站窗口负责发送" };
+    if (this.status.lease === "readonly") return { ok: false, discard: true, note: "Read-only window: another base window sends" };
     const r = await this.post("station", this.status.clientId, envelope);
-    if (r.ok) return { ok: true, note: `通信服务已接收（seq ${r.body.seq}${r.body.duplicate ? "，重复提交，未再次投递" : ""}）；不代表 HUD 已收到` };
-    if (r.status === 0) return { ok: false, note: "未连接通信服务（可重发）" };
+    if (r.ok) return { ok: true, note: `Accepted by the relay (seq ${r.body.seq}${r.body.duplicate ? ", duplicate, not delivered again" : ""}); not a HUD receipt` };
+    if (r.status === 0) return { ok: false, note: "Not connected to the relay (can be resent)" };
     if (r.body.error === "not-lease-holder") {
       this.set({ lease: "readonly", leaseHolder: String(r.body.holder ?? "") || null });
-      return { ok: false, discard: true, note: "只读窗口：另一个基站窗口负责发送" };
+      return { ok: false, discard: true, note: "Read-only window: another base window sends" };
     }
-    return { ok: false, note: `通信服务拒收：${String(r.body.error ?? r.status)}${r.body.detail ? `（${String(r.body.detail)}）` : ""}` };
+    return { ok: false, note: `Refused by the relay: ${String(r.body.error ?? r.status)}${r.body.detail ? ` (${String(r.body.detail)})` : ""}` };
   }
 
   /**
@@ -179,6 +179,6 @@ export class RelayStationAdapter implements StationAdapter {
    */
   async publishAsReplay(envelope: Envelope): Promise<{ ok: boolean; note: string; seq?: number }> {
     const r = await this.post("trigger", `${this.status.clientId}-replay`, envelope);
-    return r.ok ? { ok: true, seq: Number(r.body.seq), note: `通信服务已接收（seq ${r.body.seq}${r.body.duplicate ? "，重复，未再次投递" : ""}）· 模拟样例` } : { ok: false, note: r.status === 0 ? "未连接通信服务" : `通信服务拒收：${String(r.body.error ?? r.status)}${r.body.detail ? `（${String(r.body.detail)}）` : ""}` };
+    return r.ok ? { ok: true, seq: Number(r.body.seq), note: `Accepted by the relay (seq ${r.body.seq}${r.body.duplicate ? ", duplicate, not delivered again" : ""}) · simulated sample` } : { ok: false, note: r.status === 0 ? "Not connected to the relay" : `Refused by the relay: ${String(r.body.error ?? r.status)}${r.body.detail ? ` (${String(r.body.detail)})` : ""}` };
   }
 }

@@ -15,7 +15,7 @@
       "capturedAt": "2026-11-14T10:40:00Z",
       "protocol": {
         "id": "std-grip-40",
-        "label": "标准握持 40% MVC · 30 s",
+        "label": "Standard grip 40% MVC · 30 s",
         "targetPctMvc": 40,
         "posture": "standing",
         "glove": "eva-glove"

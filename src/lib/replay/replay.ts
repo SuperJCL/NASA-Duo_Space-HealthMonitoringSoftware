@@ -41,31 +41,32 @@ export type ReplaySample = {
   meta: { bodySite: MetaItem; device: MetaItem };
 };
 
-const SHARED: SampleSource = { label: "模拟样例 · 共享契约 demo fixtures（main 58b5a08）", teammateData: false, kind: "features" };
+const SHARED: SampleSource = { label: "Simulated sample · shared contract demo fixtures (main 58b5a08)", teammateData: false, kind: "features" };
 /** The standard grip protocol does not name a body site; the station's notice text speaks of the forearm. */
-const GRIP_SITE: MetaItem = { value: "前臂（握持肌群）", assumed: true, note: "契约没有测量部位字段；按标准握持协议与基站提示文字推定（演示假设）" };
-const NO_DEVICE: MetaItem = { value: "未注明", assumed: false, note: "样例没有设备信息；契约中 deviceId 可选，回放不补写" };
+const GRIP_SITE: MetaItem = { value: "Forearm (grip muscles)", assumed: true, note: "The contract has no body-site field; inferred from the standard grip protocol and the base notice text (demo assumption)" };
+export const NOT_STATED = "Not stated";
+const NO_DEVICE: MetaItem = { value: NOT_STATED, assumed: false, note: "The sample has no device information; deviceId is optional in the contract and the replay does not add one" };
 
 const shared = (id: keyof typeof FIXTURES, label: string): ReplaySample => ({
   id,
   label,
   source: SHARED,
   observation: FIXTURES[id].observation,
-  meta: { bodySite: id === "not-comparable" ? { value: "前臂（握持肌群）", assumed: true, note: "岩芯钻取持续握持，部位按协议推定（演示假设）" } : GRIP_SITE, device: NO_DEVICE },
+  meta: { bodySite: id === "not-comparable" ? { value: "Forearm (grip muscles)", assumed: true, note: "Sustained grip during core drilling; site inferred from the protocol (demo assumption)" } : GRIP_SITE, device: NO_DEVICE },
 });
 
 /** The samples the replay can send today. All simulated. */
 export const REPLAY_SAMPLES: readonly ReplaySample[] = [
-  shared("change", "可比变化（完整流程）"),
-  shared("normal", "正常"),
-  shared("acquisition", "采集质量异常"),
-  shared("not-comparable", "条件不可比"),
+  shared("change", "Comparable change (full flow)"),
+  shared("normal", "Within Reference Range"),
+  shared("acquisition", "Signal quality failed"),
+  shared("not-comparable", "Conditions Not Comparable"),
   {
     // Derived from the shared "change" fixture by REMOVING one value (never by adding one): shows how a
     // result without the grip-meter reading is handled. The missing value stays null.
     id: "grip-missing",
-    label: "握力计未读数（缺失值演示）",
-    source: { ...SHARED, label: "模拟样例 · 由共享 fixture「change」去掉握力读数派生" },
+    label: "Grip meter not read (missing-value demo)",
+    source: { ...SHARED, label: "Simulated sample · derived from the shared fixture \"change\" by removing the grip reading" },
     observation: { ...FIXTURES.change.observation, observationId: "obs-grip-missing-1", features: { ...FIXTURES.change.observation.features!, gripForceN: null } },
     meta: { bodySite: GRIP_SITE, device: NO_DEVICE },
   },
@@ -77,7 +78,7 @@ export type RunInfo = { runId: string; astronaut: { id: string; callsign: string
 export type CheckStatus = "ok" | "assumed" | "missing" | "blocked";
 export type CheckItem = { item: string; status: CheckStatus; detail: string };
 
-const FEATURE_TEXT = { medianFreqHz: "肌电中位频率（Hz）", rmsPctMvc: "肌电幅值 RMS（%MVC）", gripForceN: "握力（N，握力计独立读数）" } as const;
+const FEATURE_TEXT = { medianFreqHz: "sEMG median frequency (Hz)", rmsPctMvc: "sEMG RMS amplitude (%MVC)", gripForceN: "grip force (N, independent grip-meter reading)" } as const;
 
 /**
  * Intake checklist for one sample against the run it would join. "blocked" items stop publishing.
@@ -88,35 +89,35 @@ export function intakeCheck(sample: ReplaySample, run: RunInfo | null, replayTim
   const o = sample.observation;
   const items: CheckItem[] = [];
   const parsed = Observation.safeParse(o);
-  items.push({ item: "格式", status: parsed.success ? "ok" : "blocked", detail: parsed.success ? "符合共享契约 Observation（myomars/v1）" : `不符合契约 Observation，需先确定字段映射；缺失或不符：${[...new Set(parsed.error.issues.map((i) => i.path.join(".") || "(根)"))].join("、")}` });
-  items.push({ item: "来源", status: "ok", detail: `${sample.source.label}${sample.source.teammateData ? "" : "（不是队友数据）"}` });
+  items.push({ item: "Format", status: parsed.success ? "ok" : "blocked", detail: parsed.success ? "Matches the shared contract Observation (myomars/v1)" : `Does not match the contract Observation; a field mapping is needed first. Missing or invalid: ${[...new Set(parsed.error.issues.map((i) => i.path.join(".") || "(root)"))].join(", ")}` });
+  items.push({ item: "Source", status: "ok", detail: `${sample.source.label}${sample.source.teammateData ? "" : " (not teammate data)"}` });
   if (!parsed.success) return { items, publishable: false };   // nothing else can be read reliably
   items.push({
-    item: "数据类型",
+    item: "Data type",
     status: sample.source.kind === "features" ? "ok" : "blocked",
-    detail: sample.source.kind === "features" ? "已计算的汇总特征（基站当前只接收汇总指标）" : "原始 sEMG/IMU：需要先定义并验证特征提取，不能直接写入 features 字段",
+    detail: sample.source.kind === "features" ? "Computed summary features (the base accepts summary indicators only)" : "Raw sEMG/IMU: feature extraction must be defined and validated first; it cannot go into the features field directly",
   });
-  if (!run) items.push({ item: "人员", status: "blocked", detail: "没有进行中的运行" });
-  else if (o.astronautId === run.astronaut.id) items.push({ item: "人员", status: "ok", detail: `${o.astronautId}` });
-  else if (!sample.source.teammateData) items.push({ item: "人员", status: "assumed", detail: `样例记录于 ${o.astronautId}，本次按演示假设归属 ${run.astronaut.callsign}（${run.astronaut.id}）` });
-  else items.push({ item: "人员", status: "blocked", detail: `数据属于 ${o.astronautId}，与本次运行 ${run.astronaut.id} 不同：不套用他人基线` });
-  items.push({ item: "测量部位", status: sample.meta.bodySite.assumed ? "assumed" : "ok", detail: `${sample.meta.bodySite.value} · ${sample.meta.bodySite.note}` });
-  items.push({ item: "设备", status: sample.meta.device.value === "未注明" ? "missing" : sample.meta.device.assumed ? "assumed" : "ok", detail: sample.meta.device.note });
+  if (!run) items.push({ item: "Person", status: "blocked", detail: "No run in progress" });
+  else if (o.astronautId === run.astronaut.id) items.push({ item: "Person", status: "ok", detail: `${o.astronautId}` });
+  else if (!sample.source.teammateData) items.push({ item: "Person", status: "assumed", detail: `Sample recorded for ${o.astronautId}; attributed to ${run.astronaut.callsign} (${run.astronaut.id}) as a demo assumption` });
+  else items.push({ item: "Person", status: "blocked", detail: `The data belongs to ${o.astronautId}, not to this run's ${run.astronaut.id}: another person's baseline is never used` });
+  items.push({ item: "Body site", status: sample.meta.bodySite.assumed ? "assumed" : "ok", detail: `${sample.meta.bodySite.value} · ${sample.meta.bodySite.note}` });
+  items.push({ item: "Device", status: sample.meta.device.value === NOT_STATED ? "missing" : sample.meta.device.assumed ? "assumed" : "ok", detail: sample.meta.device.note });
   const p = o.protocol;
-  items.push({ item: "协议条件", status: "ok", detail: `${p.label}（${p.id}）· ${p.targetPctMvc}% MVC · ${p.posture} · ${p.glove}${p.id === INTEGRATION_SAMPLE_PROTOCOL.id ? " · 当前集成样例协议（不是未来数据的唯一协议）" : ` · 基站目前只有 ${INTEGRATION_SAMPLE_PROTOCOL.id} 的个体基线，此协议会判为条件不可比，直到为它建立基线`}` });
-  items.push({ item: "单位", status: "ok", detail: "按契约字段固定：Hz、%MVC、N、kΩ、%" });
-  items.push({ item: "采样率与时长", status: "ok", detail: `${o.signal.sampleRateHz} Hz · ${o.signal.durationS} s` });
-  items.push({ item: "时间", status: "assumed", detail: `原始采集时间 ${o.capturedAt}；回放时按演示假设记为回放时刻${replayTimeIso ? ` ${replayTimeIso}` : ""}` });
+  items.push({ item: "Protocol conditions", status: "ok", detail: `${p.label} (${p.id}) · ${p.targetPctMvc}% MVC · ${p.posture} · ${p.glove}${p.id === INTEGRATION_SAMPLE_PROTOCOL.id ? " · current integration sample protocol (not the only protocol for future data)" : ` · the base has an individual baseline for ${INTEGRATION_SAMPLE_PROTOCOL.id} only; this protocol is judged Not Comparable until a baseline exists for it`}` });
+  items.push({ item: "Units", status: "ok", detail: "Fixed by the contract fields: Hz, %MVC, N, kΩ, %" });
+  items.push({ item: "Sample rate and duration", status: "ok", detail: `${o.signal.sampleRateHz} Hz · ${o.signal.durationS} s` });
+  items.push({ item: "Time", status: "assumed", detail: `Original capture time ${o.capturedAt}; on replay it is recorded as the replay time (demo assumption)${replayTimeIso ? ` ${replayTimeIso}` : ""}` });
   if (run) {
     const same = o.context.taskId === run.task.id;
-    items.push({ item: "任务情境", status: same ? "ok" : "assumed", detail: same ? `${run.task.title}（${run.task.id}）` : `样例记录于任务 ${o.context.taskId ?? "未注明"}，按演示假设归属本次 EVA 任务「${run.task.title}」；任务不提供负荷、姿势或设备条件` });
-    items.push({ item: "EVA 时间点", status: o.context.minutesIntoEva === null ? "ok" : "missing", detail: o.context.minutesIntoEva === null ? "样例未注明" : `样例为 EVA 第 ${o.context.minutesIntoEva} 分钟；本次 EVA 中的时间点未知，回放记为未知（不套用）` });
+    items.push({ item: "Task context", status: same ? "ok" : "assumed", detail: same ? `${run.task.title} (${run.task.id})` : `Sample recorded for task ${o.context.taskId ?? "not stated"}; attributed to this EVA task "${run.task.title}" as a demo assumption. The task states no load, posture or device conditions` });
+    items.push({ item: "EVA time point", status: o.context.minutesIntoEva === null ? "ok" : "missing", detail: o.context.minutesIntoEva === null ? "Not stated in the sample" : `The sample is at EVA minute ${o.context.minutesIntoEva}; the time point in this EVA is unknown and recorded as unknown (not carried over)` });
   }
   const missing = o.features ? (Object.keys(FEATURE_TEXT) as (keyof typeof FEATURE_TEXT)[]).filter((k) => o.features![k] === null) : [];
   items.push({
-    item: "缺失值",
+    item: "Missing values",
     status: !o.features || missing.length ? "missing" : "ok",
-    detail: !o.features ? "特征整体缺失（保持 null）" : missing.length ? `缺少 ${missing.map((k) => FEATURE_TEXT[k]).join("、")}：保持 null，不补造、不填零` : "协议要求的三项特征齐全",
+    detail: !o.features ? "All features missing (kept null)" : missing.length ? `Missing ${missing.map((k) => FEATURE_TEXT[k]).join(", ")}: kept null, never invented or set to zero` : "All three features the protocol needs are present",
   });
   return { items, publishable: !items.some((i) => i.status === "blocked") };
 }
@@ -126,7 +127,7 @@ export function startEnvelope(sessionId: string, nowMs: number, astronaut = { id
   const runId = `run-rp-${nowMs.toString(36)}`;
   const at = new Date(nowMs).toISOString();
   // Task matches the shared fixtures' context (taskId "eva-sampling"), so run and observations agree.
-  const payload: ScenarioStart = { scenarioId: "myomars-integration-replay", astronaut, task: { id: "eva-sampling", title: "EVA 采样作业", targetId: null } };
+  const payload: ScenarioStart = { scenarioId: "myomars-integration-replay", astronaut, task: { id: "eva-sampling", title: "EVA sampling", targetId: null } };
   return { schema: SCHEMA, eventId: `${runId}-start`, sessionId, runId, caseId: null, sentAt: at, source: "trigger", type: "scenario.start", payload } as Envelope;
 }
 

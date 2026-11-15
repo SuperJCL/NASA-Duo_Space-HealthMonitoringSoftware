@@ -8,11 +8,11 @@
     "scenarioId": "myomars-demo",
     "astronaut": {
       "id": "ev1",
-      "callsign": "EV1（模拟宇航员）"
+      "callsign": "EV1 (simulated astronaut)"
     },
     "task": {
       "id": "eva-sampling",
-      "title": "EVA 采样作业",
+      "title": "EVA sampling",
       "targetId": null
     }
   },
@@ -23,7 +23,7 @@
     "capturedAt": "2026-11-14T10:00:00Z",
     "protocol": {
       "id": "std-grip-40",
-      "label": "标准握持 40% MVC · 30 s",
+      "label": "Standard grip 40% MVC · 30 s",
       "targetPctMvc": 40,
       "posture": "standing",
       "glove": "eva-glove"
@@ -49,14 +49,14 @@
   },
   "retestResults": {
     "retest-normal": {
-      "label": "复测：回到基线范围",
+      "label": "Retest: Within Reference Range",
       "observation": {
         "observationId": "obs-retest-normal-1",
         "astronautId": "ev1",
         "capturedAt": "2026-11-14T10:40:00Z",
         "protocol": {
           "id": "std-grip-40",
-          "label": "标准握持 40% MVC · 30 s",
+          "label": "Standard grip 40% MVC · 30 s",
           "targetPctMvc": 40,
           "posture": "standing",
           "glove": "eva-glove"
@@ -82,14 +82,14 @@
       }
     },
     "retest-changed": {
-      "label": "复测：仍有变化",
+      "label": "Retest: still changed",
       "observation": {
         "observationId": "obs-retest-changed-1",
         "astronautId": "ev1",
         "capturedAt": "2026-11-14T10:40:00Z",
         "protocol": {
           "id": "std-grip-40",
-          "label": "标准握持 40% MVC · 30 s",
+          "label": "Standard grip 40% MVC · 30 s",
           "targetPctMvc": 40,
           "posture": "standing",
           "glove": "eva-glove"
@@ -115,14 +115,14 @@
       }
     },
     "retest-invalid": {
-      "label": "复测：质量无效",
+      "label": "Retest: signal quality failed",
       "observation": {
         "observationId": "obs-retest-invalid-1",
         "astronautId": "ev1",
         "capturedAt": "2026-11-14T10:40:00Z",
         "protocol": {
           "id": "std-grip-40",
-          "label": "标准握持 40% MVC · 30 s",
+          "label": "Standard grip 40% MVC · 30 s",
           "targetPctMvc": 40,
           "posture": "standing",
           "glove": "eva-glove"

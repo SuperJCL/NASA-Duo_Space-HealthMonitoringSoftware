@@ -35,25 +35,25 @@ describe("crew demo: device observation change → analysis → approve retest �
     // Run started immediately: three simulated crew members, devices connected, no data yet.
     let cards = crewCards(st(), { mock: true });
     expect(cards.map((c) => [c.callsign, c.connection.state, c.data.validity])).toEqual([
-      ["EV1（模拟宇航员）", "connected", "none"],
-      ["EV2（模拟宇航员）", "connected", "none"],
-      ["EV3（模拟宇航员）", "connected", "none"],
+      ["EV1 (simulated)", "connected", "none"],
+      ["EV2 (simulated)", "connected", "none"],
+      ["EV3 (simulated)", "connected", "none"],
     ]);
-    expect(cards[1].data.summary).toBe("无法评估（没有有效数据）");
+    expect(cards[1].data.summary).toBe("Unable to Assess (no valid data)");
     await tick(1500);
     const id = caseOf("ev1");
-    expect(at(flow(id))).toBe("v1:quality:running:系统");
+    expect(at(flow(id))).toBe("v1:quality:running:System");
     cards = crewCards(st(), { mock: true });
-    expect(cards[0]).toMatchObject({ unread: 1, openCases: 1, event: { text: "收到设备观测，正在核查", source: "设备观测" } });
+    expect(cards[0]).toMatchObject({ unread: 1, openCases: 1, event: { text: "Device observation received, being checked", source: "Device observation" } });
     expect(cards[1]).toMatchObject({ unread: 0, openCases: 0, event: null });
-    expect(notifications(st(), { mock: true }).map((n) => [n.astronautId, n.text, n.count])).toEqual([["ev1", "收到设备观测，正在核查", 1]]);
+    expect(notifications(st(), { mock: true }).map((n) => [n.astronautId, n.text, n.count])).toEqual([["ev1", "Device observation received, being checked", 1]]);
     await tick(ANALYSIS);
 
     // Stops for the base staff; auto feedback never approves, however long we wait.
-    expect(at(flow(id))).toBe("v1:pending-0:human:基地人员");
-    expect(crewCards(st(), { mock: true })[0].event).toMatchObject({ text: "需要基地审核", needsBase: true });
+    expect(at(flow(id))).toBe("v1:pending-0:human:Base staff");
+    expect(crewCards(st(), { mock: true })[0].event).toMatchObject({ text: "Awaiting Base Review", needsBase: true });
     await tick(60_000);
-    expect(at(flow(id))).toBe("v1:pending-0:human:基地人员");
+    expect(at(flow(id))).toBe("v1:pending-0:human:Base staff");
     expect(st().outbox.filter((m) => m.type === "station.notice.approved")).toHaveLength(0);
 
     // Viewing marks the case as seen (unread 0) but changes nothing else.
@@ -63,7 +63,7 @@ describe("crew demo: device observation change → analysis → approve retest �
     expect(st().cases[id].phase).toBe(before);
     expect(st().outbox.filter((m) => !m.type.startsWith("station.audit."))).toHaveLength(0);
 
-    ctl.review(id, 1, "approve", "多项指标同向偏离，按标准协议复测确认", "基地值班员");
+    ctl.review(id, 1, "approve", "Several indicators deviate in the same direction; retest with the standard protocol to confirm", "Base duty officer");
     await tick(0);
     let f = flow(id);
     expect(at(f)).toBe("v1:hud:waiting:HUD");
@@ -71,28 +71,28 @@ describe("crew demo: device observation change → analysis → approve retest �
     await tick(1500);
     expect(at(flow(id))).toBe("v1:hud:waiting:HUD"); // nothing inferred from time
     await tick(200);
-    expect(at(flow(id))).toBe("v1:crew:waiting:宇航员");
+    expect(at(flow(id))).toBe("v1:crew:waiting:Crew");
     await tick(2300);
-    expect(at(flow(id))).toBe("v1:result:waiting:宇航员");
+    expect(at(flow(id))).toBe("v1:result:waiting:Crew");
     await tick(3100 + ANALYSIS);
     f = flow(id);
     expect(f.rows.map((r) => r.id)).toEqual(["v1:analysis", "v1:dispatch", "v2:analysis", "v2:handling"]);
-    expect(f.current!.node).toMatchObject({ label: "等待人工处理", state: "human" });
+    expect(f.current!.node).toMatchObject({ label: "Awaiting base decision", state: "human" });
     expect(f.current!.node.indicators.map((i) => [i.before?.value, i.after.value])).toEqual([
       [80, 89],
       [44, 39.5],
       [142, 156],
     ]);
-    expect(crewCards(st(), { mock: true })[0].event?.text).toBe("复测已回，待人工处理");
+    expect(crewCards(st(), { mock: true })[0].event?.text).toBe("Retest returned, awaiting base decision");
 
-    ctl.review(id, 2, "close", "复测回到参考范围，结合值班评估关闭", "基地值班员");
+    ctl.review(id, 2, "close", "Retest back within the reference range; closed after the duty assessment", "Base duty officer");
     await tick(0);
     f = flow(id);
     expect(f.finished).toBe(true);
-    expect(f.noticePending).toBe("状态通知已发出，等待 HUD 接收回执");
+    expect(f.noticePending).toBe("Status notice sent; awaiting the HUD receipt");
     await tick(1700);
     expect(flow(id).noticePending).toBeNull();
-    expect(crewCards(st(), { mock: true })[0]).toMatchObject({ openCases: 0, event: { text: "已处理（事件关闭）", closed: true } });
+    expect(crewCards(st(), { mock: true })[0]).toMatchObject({ openCases: 0, event: { text: "Handled (Case Closed)", closed: true } });
 
     // The message stream keeps kinds apart and never shows analysis as sent.
     const kinds = commStream(st(), st().cases[id], { mock: true }).map((i) => i.kind);
@@ -100,7 +100,7 @@ describe("crew demo: device observation change → analysis → approve retest �
     expect(kinds).toContain("status");
     expect(kinds).toContain("feedback");
     expect(kinds).toContain("receipt");
-    expect(commStream(st(), st().cases[id], { mock: true }).filter((i) => i.kind === "analysis").every((i) => !/已发出/.test(i.text))).toBe(true);
+    expect(commStream(st(), st().cases[id], { mock: true }).filter((i) => i.kind === "analysis").every((i) => !/(?<!not )\bsent\b/i.test(i.text))).toBe(true);
   });
 
   it("without auto feedback the flow waits; manual simulated inputs only apply to what was sent", async () => {
@@ -110,13 +110,13 @@ describe("crew demo: device observation change → analysis → approve retest �
     const id = caseOf("ev1");
     expect(hudInput(st(), id, "received", Date.now())).toBeNull(); // nothing sent yet: no receipt to fake
     expect(director.hud(id, "ack")).toBe(false);
-    ctl.review(id, 1, "approve", "复测", "基地值班员");
+    ctl.review(id, 1, "approve", "Retest", "Base duty officer");
     await tick(120_000);
     expect(at(flow(id))).toBe("v1:hud:waiting:HUD");
     expect(director.getSnapshot().pending).toBeNull();
     expect(director.hud(id, "received")).toBe(true);
     expect(director.hud(id, "received")).toBe(false); // already received: nothing to repeat
-    expect(at(flow(id))).toBe("v1:crew:waiting:宇航员");
+    expect(at(flow(id))).toBe("v1:crew:waiting:Crew");
   });
 
   it("another astronaut's event stays with that astronaut (no cross-person data)", async () => {
@@ -132,7 +132,7 @@ describe("crew demo: device observation change → analysis → approve retest �
     expect(b.evaluations[0].observation!.features).toEqual({ medianFreqHz: 86, rmsPctMvc: 37, gripForceN: 170 }); // EV2's own values
     expect(b.evaluations[0].result.outcome).toBe("within-baseline");
     const cards = crewCards(st(), { mock: true });
-    expect(cards[1]).toMatchObject({ openCases: 1, data: { validity: "valid", summary: "最近测量在参考范围内" } });
+    expect(cards[1]).toMatchObject({ openCases: 1, data: { validity: "valid", summary: "Latest measurement Within Reference Range" } });
     expect(cards[0].cases.map((c) => c.caseId)).toEqual([a.caseId]);
     expect(cards[2]).toMatchObject({ openCases: 0, unread: 0 });
   });
@@ -183,16 +183,16 @@ describe("HUD report entry (local mock extension)", () => {
     const id = caseOf("ev2");
     const f = flow(id);
     expect(f.rows[0].nodes.map((n) => [n.label, n.state])).toEqual([
-      ["报告接收", "done"],
-      ["报告核查", "done"],
-      ["传感器数据", "stopped"],
-      ["指标比较", "skipped"],
-      ["建议候选", "done"],
+      ["Report Received", "done"],
+      ["Report check", "done"],
+      ["Sensor data", "stopped"],
+      ["Comparison", "skipped"],
+      ["Recommendation", "done"],
     ]);
-    expect(f.rows[0].nodes[2].reason).toMatch(/不作肌电分析/);
-    expect(f.current!.node).toMatchObject({ label: "等待基地批准", state: "human" });
-    expect(crewCards(st(), { mock: true })[1].event).toMatchObject({ source: "HUD 报告", text: "需要基地审核" });
-    expect(commStream(st(), st().cases[id], { mock: true })[0]).toMatchObject({ kind: "report", title: "宇航员主动报告" });
+    expect(f.rows[0].nodes[2].reason).toMatch(/no sEMG analysis/);
+    expect(f.current!.node).toMatchObject({ label: "Awaiting Base Review", state: "human" });
+    expect(crewCards(st(), { mock: true })[1].event).toMatchObject({ source: "HUD report", text: "Awaiting Base Review" });
+    expect(commStream(st(), st().cases[id], { mock: true })[0]).toMatchObject({ kind: "report", title: "Astronaut report" });
     expect(st().outbox.filter((m) => m.type === "station.audit.assessment")).toHaveLength(0); // no contract form for a report check
   });
 });
@@ -206,49 +206,49 @@ describe("flow view stops where the business state stops", () => {
     return t;
   }
 
-  it("quality failure: stops at 信号质量 with the reason; later steps are not executed", async () => {
+  it("quality failure: stops at Signal Quality with the reason; later steps are not executed", async () => {
     const { flow } = await analysed("acquisition");
     const f = flow(FIXTURES.acquisition.caseId);
     expect(f.rows[0].nodes.map((n) => n.state)).toEqual(["done", "stopped", "skipped", "skipped", "skipped"]);
-    expect(f.rows[0].nodes[1].reason).toMatch(/信号质量不合格/);
-    expect(f.current!.node.reason).toMatch(/信号质量不合格.*需要基地人员审核建议/);
+    expect(f.rows[0].nodes[1].reason).toMatch(/Signal quality failed/);
+    expect(f.current!.node.reason).toMatch(/Signal quality failed.*Base staff review the candidate/);
   });
 
-  it("not comparable: stops at 情境与可比性", async () => {
+  it("not comparable: stops at Comparability", async () => {
     const { flow } = await analysed("not-comparable");
     const f = flow(FIXTURES["not-comparable"].caseId);
     expect(f.rows[0].nodes.map((n) => n.state)).toEqual(["done", "done", "stopped", "skipped", "skipped"]);
-    expect(f.rows[0].nodes[2].summary).toMatch(/^不可比/);
+    expect(f.rows[0].nodes[2].summary).toMatch(/^Not comparable/);
   });
 
-  it("send failure stops at 复测已发出 with a resend action; a deferral stops at 宇航员确认 with the reason", async () => {
+  it("send failure stops at Retest sent with a resend action; a deferral stops at Acknowledged by Crew with the reason", async () => {
     const { ctl, adapter, flow, at } = await analysed("change");
     adapter.failNextSends(1);
-    ctl.review("case-change", 1, "approve", "复测（测试）", "基地值班员");
+    ctl.review("case-change", 1, "approve", "Retest (test)", "Base duty officer");
     await tick(0);
     let f = flow("case-change");
-    expect(at(f)).toBe("v1:send:stopped:基地人员");
+    expect(at(f)).toBe("v1:send:stopped:Base staff");
     expect(f.current!.node.action).toMatchObject({ kind: "resend" });
     ctl.resend((f.current!.node.action as { eventIds: string[] }).eventIds[0]);
     await tick(0);
     expect(at(flow("case-change"))).toBe("v1:hud:waiting:HUD");
     const msg = ctl.getSnapshot().state.outbox.find((m) => m.type === "station.retest.requested")!;
-    adapter.inject(inboundEnvelope("hud.defer", { runId: "run-x", caseId: "case-change", payload: { messageId: msg.eventId, reason: "正在作业" }, eventId: "defer-1" }));
+    adapter.inject(inboundEnvelope("hud.defer", { runId: "run-x", caseId: "case-change", payload: { messageId: msg.eventId, reason: "Busy with the task" }, eventId: "defer-1" }));
     f = flow("case-change");
-    const crew = f.rows[1].nodes.find((n) => n.label === "宇航员确认")!;
-    expect(crew).toMatchObject({ state: "stopped", owner: "基地人员" });
-    expect(crew.reason).toMatch(/宇航员暂缓：正在作业/);
-    expect(f.rows[1].nodes.find((n) => n.label === "等待复测结果")!.state).toBe("todo");
+    const crew = f.rows[1].nodes.find((n) => n.label === "Acknowledged by Crew")!;
+    expect(crew).toMatchObject({ state: "stopped", owner: "Base staff" });
+    expect(crew.reason).toMatch(/Deferred by the crew: Busy with the task/);
+    expect(f.rows[1].nodes.find((n) => n.label === "Awaiting retest result")!.state).toBe("todo");
   });
 
-  it("继续关注 is not the end: the case stays open with a pending human node", async () => {
+  it("Continue Monitoring is not the end: the case stays open with a pending human node", async () => {
     const { ctl, flow } = await analysed("normal");
-    ctl.review("case-normal", 1, "keep-open", "继续关注（测试）", "基地值班员");
+    ctl.review("case-normal", 1, "keep-open", "Continue Monitoring (test)", "Base duty officer");
     await tick(0);
     const f = flow("case-normal");
     expect(f.finished).toBe(false);
-    expect(f.current!.node).toMatchObject({ label: "继续关注中", state: "human" });
+    expect(f.current!.node).toMatchObject({ label: "Continue Monitoring", state: "human" });
     expect(f.current!.node.action).toMatchObject({ options: ["close"], primary: "close" });
-    expect(f.rows.find((r) => r.id === "v1:handling")!.nodes.at(-1)).toMatchObject({ label: "处理完成", state: "todo" });
+    expect(f.rows.find((r) => r.id === "v1:handling")!.nodes.at(-1)).toMatchObject({ label: "Handling complete", state: "todo" });
   });
 });

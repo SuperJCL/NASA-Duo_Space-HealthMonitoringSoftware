@@ -49,7 +49,7 @@ describe("station controller (adapter + timers)", () => {
     adapter.inject(inboundEnvelope("observation.submitted", { runId: "r1", caseId: "case-change", payload: FIXTURES.change.observation }));
     await vi.advanceTimersByTimeAsync(4000);
     adapter.failNextSends(1);
-    expect(ctl.review("case-change", 1, "approve", "证据一致，安排复测", "值班员 A")).toBeNull();
+    expect(ctl.review("case-change", 1, "approve", "Evidence consistent; schedule a retest", "Duty officer A")).toBeNull();
     await vi.advanceTimersByTimeAsync(0);
     const [notice, retest] = s().outbox.filter((m) => !m.type.startsWith("station.audit."));
     expect(notice.delivery).toBe("failed");
