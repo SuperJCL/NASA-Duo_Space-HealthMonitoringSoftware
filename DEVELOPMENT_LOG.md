@@ -4147,3 +4147,60 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `test:hud` 49 + 46;
   - a 88 s side-by-side recording of the whole flow.
 - **Not verified:** the health-data teammate's data; multi-device LAN.
+
+## MyoMars English demo + Health Monitoring overlay (branch `feat/myomars-english-overlay`)
+
+- **Started:** 2026-11-15T04:26:58Z (branch created from `main` `a9f9646`).
+- **Status:** draft PR SuperJCL/NASA-11-Mars-Discovery-Intelligence#5, **not merged**. It waits for
+  the owner to approve the English video material and the interaction.
+- **Request:**
+  - all demo-visible text in English (single language, no i18n framework);
+  - Health Monitoring as an overlay on the Mission Map, with interaction improvements.
+- **Commits:**
+  1. `ddd94be` English station library, data replay and contract samples.
+     - Contracts regenerated; `contracts:check` passes.
+     - Event types, protocol ids, field keys, numbers and rules unchanged.
+  2. `b618d59` Health Monitoring overlay; simulated crew marker; English station UI.
+  3. `654ff7b` Decision-area wording for every phase; no repeated reasons.
+  4. `2b4721b` English legacy workbench and dev panel; `smoke-station` asserts the English text.
+  5. `e0c7bc0` Acceptance scripts for the overlay and English UI:
+     - `e2e-two-end` 44 checks, including the English-only check of both pages and every station
+       message;
+     - `e2e-mission` 29 checks;
+     - `smoke-crew` rewritten, 62 checks.
+  6. `e38d904`, then the docs commit: lint clean-up; `docs/myomars/ENGLISH-DEMO.md` (clean English
+     demo session, video walkthrough); English labels in `INTEGRATION.md`.
+- **Phase 1 preview:** sent at about 05:00Z.
+  - A 67 s recording of the real station page: start → collapse → replay → chain animation →
+    review → approve → HUD acknowledgement → full flow.
+  - Screenshots.
+- **Design decisions:**
+  - Overlay = the old "health" view: the per-run choice is kept in `sessionStorage`; it auto-opens
+    once per run.
+  - The map is always mounted, and `inert` while the overlay is open.
+  - Review form, drafts, selected case and full-flow state live in the station shell. They
+    survive collapse and person switch.
+  - Crew marker: a separate OpenLayers layer with an explicit "simulated position · not tracked"
+    label and a legend row, placed about 90 m east of the task target. There is no position
+    source.
+  - Compact chain: built from the station's own flow nodes. A one-shot marker per revealed step
+    (module-level "shown" set, so a remount never replays it).
+  - Dispatch tracker: driven only by `delivery`, `hudReceivedAt` and `feedback` on the outbox
+    messages.
+  - The decision area exposes `data-phase`, `data-where` and `data-who` for the scripts.
+- **Found and fixed while testing:**
+  - full-flow canvas clipped by the decision column → full flow now uses the whole overlay width;
+  - the review form hid the text to be sent → the form is compact and the preview stays above it;
+  - the header and mission bar wrapped → one row each;
+  - the crew label overlapped the "Lefroy Bay" label → marker moved east of the target;
+  - repeated statuses in the decision header;
+  - "sEMG" lower-cased to "semg" in sentences;
+  - the standalone demo bar covered the decision buttons.
+- **Verification on the production build** (fresh relay per two-end suite):
+  - `npm run check`: lint, typecheck, 34 files / 382 tests, build;
+  - `e2e:mission` 29/29; `e2e:two-end` 44/44 (47 relay events);
+  - `smoke:crew` 62/62; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
+    `smoke` 118;
+  - `test:hud` 49/49 + 46/46.
+- **Not verified:** the health-data teammate's data (none yet); multi-device LAN; the 3D terrain view
+  shows no crew marker (2D map only).

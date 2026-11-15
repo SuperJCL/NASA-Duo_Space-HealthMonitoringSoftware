@@ -90,7 +90,7 @@ export function RelayDevDrawer({ relay, state, onClose, onOpenPerson }: { relay:
       </ul>
       <div className="flex flex-wrap gap-1.5">
         <button type="button" disabled={!run || busy || !check.publishable} onClick={() => void inject(true)} className={`${btn} border-[#d678ff] text-[#e3a6ff]`} data-testid="relay-dev-inject-open">
-          {"Replay and open panel"}
+          {"Replay and open Health Monitoring"}
         </button>
         <button type="button" disabled={!run || busy || !check.publishable} onClick={() => void inject(false)} className={`${btn} border-[var(--mg-line-strong)]`} data-testid="relay-dev-inject">
           {"Replay only"}

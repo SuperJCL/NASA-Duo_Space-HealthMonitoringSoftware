@@ -39,7 +39,12 @@ state never mixes with your standalone demo's.
 | Case reassessed or closed | Unchanged | The earlier notice is shown as "Earlier notice · history"; "Next" becomes "Base decision"; the button reads "Acknowledge update". A finished retest is "done (history)" with "Instructions (done)". A task the base closed before any result is "not needed (history)", with no Start / View / Submit / Defer buttons and no highlight. |
 | Retest task without a notice | (not produced by your mock base) | Status line "Base task · retest requested · …", level BASE TASK |
 | Waiting | — | Before the EVA: "Connected · waiting for the base to start the EVA (base staff confirm it on the station)". During it: "Connected · no base messages yet. … appear here only after base staff approve" |
-| Who starts the run | Your intro / mock base (`scenario.start`, role `trigger`) | Base staff on the station ("确认开始 EVA"): `scenario.start` from role `station` (contracts v1.1). Your client reads it like any start, so nothing changed in `base-client.js` for this. `station.eva.ended` (proposed extension) is ignored by your client; the run stays open after it. |
+| Who starts the run | Your intro / mock base (`scenario.start`, role `trigger`) | Base staff on the station ("Confirm Start EVA"): `scenario.start` from role `station` (contracts v1.1). Your client reads it like any start, so nothing changed in `base-client.js` for this. `station.eva.ended` (proposed extension) is ignored by your client; the run stays open after it. |
+
+**Station texts are English now** (branch `feat/myomars-english-overlay`): the notice, retest
+instructions, protocol label ("Standard grip 40% MVC · 30 s") and status notices your page shows come
+from the station unchanged. Your vendored `contracts-v1/` copy still has the old Chinese sample
+labels; your page never displays them (it uses the protocol the station sends), so it was left as is.
 
 Everything else is your code as you wrote it:
 
