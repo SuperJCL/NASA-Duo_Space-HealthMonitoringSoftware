@@ -4377,3 +4377,47 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - UI-only actions (overlay, 2D/3D, Advanced planning) published 0 relay events.
 - **Not verified:** the owner's Windows PC, real GPUs or integrated graphics, LAN multi-device.
   Performance numbers are from software rendering in a Linux container.
+
+## Restore round: original effects kept, shared design for Base and HUD only, patch unbound
+
+- **Time (UTC):** 2026-11-15, about 18:20 to 19:10.
+- **Owner check on Windows:** the Base/HUD loop works, but some original animations and display
+  effects had changed.
+- **Decision:**
+  - the shared design covers the Mars Base and the HUD only;
+  - modules keep their own animations;
+  - the patch demo keeps its own look;
+  - restore only what has a code reference.
+- **Audit:** `docs/myomars/RESTORE-AUDIT.md` compares `main` `d52b463`, `feat/astra-standalone-demo`
+  and this branch.
+- **Restored:**
+  - `f54d2d9` **HUD (integration mode):**
+    - cyan text glow;
+    - status-badge glow and red blink;
+    - continuous base-marker ping (was 2 pulses);
+    - queued-packet blink;
+    - edge hint;
+    - mini-map, position and speed readouts;
+    - on the panorama fallback: the waypoints and the base distance;
+    - the amber base-marker colours.
+  - `d7803c9` **Base:** Mission Glass rise back to 220 ms ease-out. The event-chain, data-flow and
+    dispatch animations were never touched.
+  - `a9f3ecc` **Patch:**
+    - `design:sync` / `design:check` no longer bind `astra-patch`;
+    - the showcase keeps its look with its own `showcase-*.css`;
+    - the teammate's inline `replay` code in `__main__.py` and their README sentence are restored.
+- **Not restorable or not restored:**
+  - **Patch:** the teammate's branch has no visual page (Python only, identical to `main`). The
+    showcase page is new on this branch, not a restoration. The upstream React product UI was never
+    in this repository. The separate 45-second package on `origin/feature/myomars-45s-demo` was not
+    touched.
+  - **HUD:** waypoints and base distance in the 3D scene (no original 3D placement); suit power and
+    O₂ placeholders (decision for the owner); walking (the fixed viewpoint was requested).
+- **Checks on the production build of `a9f3ecc`** (Linux container, headless Chromium, software WebGL):
+  - `npm run check`: 397 unit tests and build;
+  - `hud-effects-check` 10/10; `hud-scene-check` 27/27;
+  - `e2e:two-end` 48/48, default and HUD image fallback; `e2e:mission` 29/29;
+  - `smoke:crew` 72/72; `smoke:mission-glass` 228; `test:hud` 49 + 46;
+  - patch `pytest` 96, replay output unchanged, `showcase/check.mjs` 98/98.
+  - The patch page looks the same before and after (mean frame difference ≈ 1/255).
+- **Not verified:** the Windows acceptance of this version (owner and teammates, after the merge).

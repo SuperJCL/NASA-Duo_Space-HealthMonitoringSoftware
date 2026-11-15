@@ -297,7 +297,7 @@ $env:MYOMARS_ACQUISITION_TOKEN
 
 | Item | Status |
 |---|---|
-| Automated checks on the merged code (Linux CI-style run, production build) | **Passed**: `npm run check` (386 unit tests and build); `e2e:two-end` 48/48; `e2e:mission` 29/29; `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50; `smoke` 118; `test:hud` 49 + 46; patch `pytest` 84 passed; patch replay of all 3 scenarios exits 0 |
+| Automated checks (Linux container, headless Chromium with software WebGL, production build; unified-experience round incl. the restore fixes) | **Passed**: `npm run check` (397 unit tests and build); `e2e:two-end` 48/48 (default, HUD image fallback, reduced motion); `e2e:mission` 29/29; `hud-scene-check` 27/27; `hud-effects-check` 10/10; `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50; `smoke` 118; `test:hud` 49 + 46; patch `pytest` 96 passed; patch `showcase/check.mjs` 98/98 |
 | Owner's manual acceptance on Windows (this guide, final `main`) | **Pending** |
 
 **Not verified, and not part of this round's development:**
