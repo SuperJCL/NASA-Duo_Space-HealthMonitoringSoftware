@@ -35,6 +35,34 @@ function station(clientId: string) {
 }
 const stationSent = () => relay.events(SID).filter((e) => e.sender.role === "station");
 
+describe("station lease", () => {
+  it("an immediate unsubscribe + resubscribe (React development mode) keeps the lease against another window", async () => {
+    const sid = "lease-strict";
+    // In a browser the release request can reach the relay AFTER the renewed claim; simulate that order.
+    const lateRelease: typeof fetch = async (input, init) => {
+      if (init?.method === "DELETE") await new Promise((r) => setTimeout(r, 400));
+      return fetch(input, init);
+    };
+    const mk = (clientId: string) => new RelayStationAdapter({ baseUrl: base, sessionId: sid, clientId, fetchImpl: lateRelease });
+    const A1 = mk("win-strict");
+    const un1 = A1.subscribe(() => undefined);
+    await waitFor(() => A1.getStatus().lease === "holder");
+    const B = mk("win-other");
+    const unB = B.subscribe(() => undefined);
+    await waitFor(() => B.getStatus().lease === "readonly");
+    // the double mount: release, then the same window id claims again at once
+    un1();
+    const A2 = mk("win-strict");
+    const un2 = A2.subscribe(() => undefined);
+    await waitFor(() => A2.getStatus().lease === "holder");
+    await new Promise((r) => setTimeout(r, 6500)); // past the release delay and one heartbeat of B
+    expect(A2.getStatus().lease).toBe("holder");
+    expect(B.getStatus().lease).toBe("readonly");
+    un2();
+    unB();
+  }, 20_000);
+});
+
 describe("station ↔ relay (two windows, reload, simulated HUD replies)", () => {
   it("runs the minimal real chain and never sends twice", async () => {
     const runId = "run-hud-1";

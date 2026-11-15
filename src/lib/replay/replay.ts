@@ -8,10 +8,14 @@
 // their branch when it is pushed and goes through intakeCheck() first (format, source, person,
 // body site, device, units, sample rate, time, protocol conditions, missing values, raw vs features).
 //
+// PROTOCOL: the grip protocol of the shared fixtures (std-grip-40) is only the CURRENT INTEGRATION
+// SAMPLE. It is not the protocol future data must use: teammate data keeps its own protocol id and
+// conditions, and the station needs a baseline for that protocol before it can compare anything.
+//
 // Pure module, relative ".ts" imports only, so Node 22 runs it directly (CLI) and Next.js bundles it.
 
 import { SCHEMA, type Envelope } from "../../contracts/envelope.ts";
-import { FIXTURES, STANDARD_PROTOCOL } from "../../contracts/demo-fixtures.ts";
+import { FIXTURES, STANDARD_PROTOCOL as INTEGRATION_SAMPLE_PROTOCOL } from "../../contracts/demo-fixtures.ts";
 import { Observation, type ScenarioStart } from "../../contracts/payloads.ts";
 
 export const REPLAY_CLIENT_SUFFIX = "replay";
@@ -99,7 +103,7 @@ export function intakeCheck(sample: ReplaySample, run: RunInfo | null, replayTim
   items.push({ item: "测量部位", status: sample.meta.bodySite.assumed ? "assumed" : "ok", detail: `${sample.meta.bodySite.value} · ${sample.meta.bodySite.note}` });
   items.push({ item: "设备", status: sample.meta.device.value === "未注明" ? "missing" : sample.meta.device.assumed ? "assumed" : "ok", detail: sample.meta.device.note });
   const p = o.protocol;
-  items.push({ item: "协议条件", status: "ok", detail: `${p.label}（${p.id}）· ${p.targetPctMvc}% MVC · ${p.posture} · ${p.glove}${p.id === STANDARD_PROTOCOL.id ? "" : " · 非标准协议：基站会判为条件不可比"}` });
+  items.push({ item: "协议条件", status: "ok", detail: `${p.label}（${p.id}）· ${p.targetPctMvc}% MVC · ${p.posture} · ${p.glove}${p.id === INTEGRATION_SAMPLE_PROTOCOL.id ? " · 当前集成样例协议（不是未来数据的唯一协议）" : ` · 基站目前只有 ${INTEGRATION_SAMPLE_PROTOCOL.id} 的个体基线，此协议会判为条件不可比，直到为它建立基线`}` });
   items.push({ item: "单位", status: "ok", detail: "按契约字段固定：Hz、%MVC、N、kΩ、%" });
   items.push({ item: "采样率与时长", status: "ok", detail: `${o.signal.sampleRateHz} Hz · ${o.signal.durationS} s` });
   items.push({ item: "时间", status: "assumed", detail: `原始采集时间 ${o.capturedAt}；回放时按演示假设记为回放时刻${replayTimeIso ? ` ${replayTimeIso}` : ""}` });

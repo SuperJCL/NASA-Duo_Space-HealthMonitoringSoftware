@@ -854,14 +854,14 @@ function statusLineInt(st,alert,rt,res,loc){
   if(st.conn==='connecting'&&!alert)return ['Connecting to base…','run'];
   if(!run)return ['Connected · waiting for the base to start a run (station dev entry or npm run replay -- start)','run'];
   if(alert&&!open)return ['Case closed by base · '+(alert.disposition||'')+sync,'ok'];
-  if(open&&rt){
+  if(rt){                                   // a retest task may come without a notice (e.g. after an incomplete result)
     const what=rt.protocol.label;
     if(S.phase==='collecting')return ['Retest capturing · '+what,'amber'];
     if(res==='rejected')return ['Retest result rejected by base · see task','bad'];
     if(res==='pending')return ['Result sent · waiting for base receipt','amber'];
     if(res==='reassessing')return ['Result received by base · awaiting base review','amber'];
-    if(res==='completed')return ['Base update · '+(alert.disposition||''),'amber'];
-    if(rt.status==='requested')return ['Base notice · retest requested · '+what,'amber',true];
+    if(res==='completed')return ['Base update · '+(alert&&alert.disposition||''),'amber'];
+    if(rt.status==='requested')return [(alert?'Base notice':'Base task')+' · retest requested · '+what,'amber',true];
     if(rt.status==='accepted'&&loc&&loc.phase==='collected')return ['Retest captured · result ready to submit','amber'];
     if(rt.status==='deferred')return ['Retest deferred · synced with base','amber',true];
     if(rt.status==='aborted')return ['Retest aborted · can restart','amber',true];
@@ -918,17 +918,19 @@ function render(){
   $('linkChip').innerHTML='Base link '+ct+'<div style="font-size:10px;color:var(--hud-dim)">Last sync '+fmtT(st.lastSync)+(st.stale?' · cached':'')+'</div>'
     +(!online&&FILE_MODE?'<div style="font-size:10px;color:var(--warn)">Start the base: npm start (127.0.0.1:8787)</div>':'');
   $('wire2').className='wire'+(online?'':' down');$('wire2').innerHTML=online?'':'<span class="x">✕</span>';
-  S.baseLabel=!online?'Link down':res==='reassessing'?'Reassessing':(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])?'Retest task sent':'Link OK';
+  const mootRt=INTEGRATION&&alert&&alert.status==='closed';   // integration: a closed case has no current task
+  if(mootRt)S.flagBase=false;
+  S.baseLabel=!online?'Link down':res==='reassessing'?'Reassessing':(rt&&!mootRt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])?'Retest task sent':'Link OK';
   S.baseCls=res==='reassessing'?'busy':S.flagBase?'amber':'';
   $('wmBase').className='wm base '+S.baseCls;$('wmBaseSub').textContent=baseDistKm().toFixed(2)+' km · '+S.baseLabel;
   $('cacheVal').textContent=client.monitorState().uploaded+' · '+st.outbox.length;
   $('stab').style.display=S.phase==='collecting'?'block':'none';
-  $('visor').classList.toggle('focus',S.phase==='collecting'||(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)]));
+  $('visor').classList.toggle('focus',S.phase==='collecting'||(rt&&!mootRt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)]));
   $('bLink').textContent=st.conn==='offline'?'Reconnect base':'Disconnect base';
   const cv=client.activeCase();S.flow=flowStep(cv);
   const lv=levelOf(alert),le=$('level');
   le.className='lvl'+(lv?' '+lv:'');le.textContent=lv?'● '+lv.toUpperCase():'● MONITORING';
-  if(INTEGRATION)le.textContent=lv?(alert.status==='closed'?'● CASE CLOSED':'● BASE NOTICE'):'● CONNECTED';
+  if(INTEGRATION){le.textContent=lv?(alert.status==='closed'?'● CASE CLOSED':'● BASE NOTICE'):rt?'● BASE TASK':'● CONNECTED';if(!lv&&rt)le.className='lvl amber'}
   const run0=cv.run;
   $('scnName').textContent=INTEGRATION?(run0?'Integration run · '+run0.task.title+' · '+run0.astronaut.callsign:'Integration · waiting for base run'):started?SCN[scenarioKey()].name:'—';
   const ce=$('contact');if(liveFault()){ce.textContent='● Fault';ce.className='t-bad'}else{ce.textContent='● Good';ce.className='t-ok'}
@@ -962,11 +964,11 @@ function render(){
     const ak=client.ackState(alert),rc=client.receiptState(alert.messageId),done=alert.status!=='published';
     let ackHtml;
     if(ak&&ak.status==='confirmed')ackHtml='<span class="t-ok" style="font-size:12px">✓ Acknowledged v'+alert.version+' (not task completion)</span>';
-    else ackHtml='<button id="bAck"'+(ak&&ak.status==='pending'?' disabled':'')+'>'+(ak&&ak.status==='pending'?'Acknowledging…':'Acknowledge')+'</button>'
+    else ackHtml='<button id="bAck"'+(ak&&ak.status==='pending'?' disabled':'')+'>'+(ak&&ak.status==='pending'?'Acknowledging…':INTEGRATION&&done?'Acknowledge update':'Acknowledge')+'</button>'
       +(ak&&ak.status==='failed'?'<span class="t-bad" style="font-size:11px">No base receipt; acknowledgement not applied</span>':'');
     $('alert').innerHTML='<div class="card alert'+(alert.kind==='sensor'&&alert.status!=='closed'?' red':(done||alert.kind==='ok')?' v2':'')+(S.alertFlash?' updated':'')+'"><h5>'+((done&&alert.kind!=='sensor')||alert.kind==='ok'||(alert.kind==='sensor'&&alert.status==='closed')?'✓ ':'▲ ')+esc(alert.levelLabel)+' · '+esc(alert.title)+'</h5>'
-      +(alert.kind==='sensor'?'':'<p><span class="lab">Reason</span>'+esc(alert.reason)+'</p>')   // sensor text is already in the fault card
-      +(alert.nextAction&&alert.nextAction!=='—'?'<p><span class="lab">Next</span>'+esc(alert.nextAction)+'</p>':'')
+      +(alert.kind==='sensor'?'':INTEGRATION&&done?'<p class="ver"><span class="lab">Earlier notice · history</span>'+esc(alert.reason)+'</p>':'<p><span class="lab">Reason</span>'+esc(alert.reason)+'</p>')   // sensor text is already in the fault card
+      +(alert.nextAction&&alert.nextAction!=='—'?'<p><span class="lab">'+(INTEGRATION&&done?'Base decision':'Next')+'</span>'+esc(alert.nextAction)+'</p>':'')
       +'<p class="ver">'+esc(alert.alertId)+' · v'+alert.version+' · '+(AL_LABEL[alert.status]||alert.status)+' · Data time '+fmtT(alert.dataTime)+'</p>'
       +'<p class="ver">Device receipt: '+({confirmed:'sent ✓',sending:'sending…',failed:'unconfirmed · retrying'}[rc]||'—')+'</p>'
       +'<div class="btns">'+ackHtml+'</div></div>';
@@ -1009,17 +1011,20 @@ function render(){
     for(const [id] of [...SYMPTOMS,['none']]){const cb=$('sy-'+id);if(cb)cb.onchange=()=>actSymToggle(id)}
   }else if(fs==='RETEST'&&!rt){$('rcTitle').textContent='📡 Base retest';$('rcBody').innerHTML='<p style="margin:0;color:#cfefff">Checks complete · waiting for the base retest task.</p>';}
   else if(rt){
-    $('rcTitle').textContent='📡 Base retest · Round '+rt.round;
+    const caseClosed=!!(alert&&alert.status==='closed'),moot=INTEGRATION&&caseClosed&&res!=='completed';   // integration: closed before a result → task no longer needed
+    $('rcTitle').textContent='📡 Base retest · Round '+rt.round+(INTEGRATION&&res==='completed'?' · done (history)':moot?' · not needed (history)':'');
     const dl=INTEGRATION
-      ?'<dl><dt>Status</dt><dd>'+esc(RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.label)+'</dd><dt>Conditions</dt><dd>'+esc(rt.protocol.targetPctMvc)+'% MVC · '+esc(rt.protocol.posture)+' · '+esc(rt.protocol.glove)+'</dd><dt>Instructions</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>'
+      ?'<dl><dt>Status</dt><dd>'+esc(moot?'Not needed · case closed by base':RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.label)+'</dd><dt>Conditions</dt><dd>'+esc(rt.protocol.targetPctMvc)+'% MVC · '+esc(rt.protocol.posture)+' · '+esc(rt.protocol.glove)+'</dd><dt>'+(res==='completed'?'Instructions (done)':moot?'Instructions (not needed)':'Instructions')+'</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>'
       :'<dl><dt>Status</dt><dd>'+esc(RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.id)+' · '+esc(rt.protocol.posture)+'</dd><dt>Site</dt><dd>'+esc(rt.bodySite)+'</dd><dt>Action</dt><dd>'+esc(rt.action)+'</dd><dt>Instructions</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>';
     let h;
-    if(rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])
+    if(moot)h=dl+'<p class="ver" style="margin-top:4px">The base closed the case before a result was submitted. This task is history: nothing to do.</p>';
+    else if(rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])
       h=(INTEGRATION?'<p style="margin:0 0 4px;color:#ffe0a8">The base requests one standardized retest: <b>'+esc(rt.protocol.label)+'</b>. '+esc(rt.instructions)+'</p>'
         :'<p style="margin:0 0 4px;color:#ffe0a8">The base requests one standardized retest of <b>'+esc(rt.bodySite)+'</b>: '+esc(rt.instructions)+' Auto-monitoring keeps running.</p>')+'<div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>';
     else if(res==='completed'){
       h=dl+'<p style="margin:4px 0 0;color:#cfefff"><span class="lab">Final</span>'+esc(alert&&alert.disposition||'Reassessed')+'</p>'
-        +'<p class="ver">'+(alert&&alert.status==='closed'?'Case closed by base':INTEGRATION?'Submitting a result does not close the case · base staff decide':'Submitting a result does not close the case · pending medical review')+'</p>';
+        +'<p class="ver">'+(INTEGRATION?(caseClosed?'Case closed by base · this task is history':alert&&alert.status==='reassessed'?'Retest done · the base keeps watching the case (see Base messages) · nothing to do now':'Submitting a result does not close the case · base staff decide')
+          :alert&&alert.status==='closed'?'Case closed by base':'Submitting a result does not close the case · pending medical review')+'</p>';
     }else if(res==='reassessing')h=dl+'<p class="ver" style="margin-top:4px">◔ Awaiting base reassessment…</p>';
     else if(res==='persisted'||res==='received')h=dl+'<p class="ver" style="margin-top:4px">✓ Result received by base '+fmtT(up&&up.ackAt)+'</p>';
     else if(res==='pending')h=dl+'<p class="ver" style="margin-top:4px">Result pending · '+(online?'waiting for base receipt…':'offline, will submit when reconnected')+'</p>';
