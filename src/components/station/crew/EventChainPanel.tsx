@@ -121,14 +121,13 @@ function ChainButton({ n, selected, current, onClick }: { n: ChainNode; selected
       data-testid={`step-${n.id}`}
       data-state={n.state}
     >
-      <span className="flex w-full items-baseline gap-1 text-[12px] font-semibold leading-tight">
-        <span aria-hidden className={ICON_TONE[n.state]}>
+      {/* Label on its own line (no icon beside it), so "Reassessment" never breaks inside the word. */}
+      <span className="w-full text-[12px] font-semibold leading-tight">{n.label}</span>
+      <span className="mt-0.5 line-clamp-2 text-[11px] leading-snug opacity-90">
+        <span aria-hidden className={`mr-1 font-semibold ${ICON_TONE[n.state]}`}>
           {CHAIN_ICON[n.state]}
         </span>
-        <span className="min-w-0 break-words">{n.label}</span>
-      </span>
-      <span className="mt-0.5 line-clamp-2 text-[11px] leading-snug opacity-90" data-testid={`step-${n.id}-summary`}>
-        {n.summary}
+        <span data-testid={`step-${n.id}-summary`}>{n.summary}</span>
       </span>
     </button>
   );
