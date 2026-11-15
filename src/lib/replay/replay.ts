@@ -102,7 +102,7 @@ export function intakeCheck(sample: ReplaySample, run: RunInfo | null, replayTim
   items.push({ item: "协议条件", status: "ok", detail: `${p.label}（${p.id}）· ${p.targetPctMvc}% MVC · ${p.posture} · ${p.glove}${p.id === STANDARD_PROTOCOL.id ? "" : " · 非标准协议：基站会判为条件不可比"}` });
   items.push({ item: "单位", status: "ok", detail: "按契约字段固定：Hz、%MVC、N、kΩ、%" });
   items.push({ item: "采样率与时长", status: "ok", detail: `${o.signal.sampleRateHz} Hz · ${o.signal.durationS} s` });
-  items.push({ item: "时间", status: "assumed", detail: `原始采集时间 ${o.capturedAt}；回放时按演示假设记为回放时刻 ${replayTimeIso}` });
+  items.push({ item: "时间", status: "assumed", detail: `原始采集时间 ${o.capturedAt}；回放时按演示假设记为回放时刻${replayTimeIso ? ` ${replayTimeIso}` : ""}` });
   const missing = o.features ? (Object.keys(FEATURE_TEXT) as (keyof typeof FEATURE_TEXT)[]).filter((k) => o.features![k] === null) : [];
   items.push({
     item: "缺失值",
