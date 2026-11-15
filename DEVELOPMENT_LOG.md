@@ -4292,3 +4292,31 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - Production build `3762faf`: `npm run check` 386 tests; `e2e:mission` 29/29; `e2e:two-end` 48/48;
     `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
     `smoke` 118; `test:hud` 49 + 46.
+
+## Final round before merging PR #5: patch positioning, task status, Windows guide
+
+- **Time (UTC):** 2026-11-15, about 08:05 to 08:40.
+- **Owner:** the English UI and interaction were accepted by hand. PR #5 may be merged.
+  - The patch is an **independent explanatory demo by design**: no adapters, protocols, baselines
+    or mappings, and no runtime dependency in either direction.
+- **Remote check:** `main` = `d518aca`, PR #5 head = `72d1008` (the verified version); nothing new.
+- **Changes:**
+  - `9cebbd1` HUD integration mode: the page's own patch panel is hidden. The data-link panel reads
+    "stored simulated sample → HUD → Base", so there is no patch wording in the Base/HUD demo.
+  - `36fe678` Docs: `PATCH-AUDIT.md` (scope of the independent demo), `DEMOS.md` (two demos, data
+    sources, ~3 min introduction), `WINDOWS-ACCEPTANCE.md` (PowerShell guide), `INTEGRATION.md`
+    (data scope, task status), `CLAUDE.md`, `ENGLISH-DEMO.md`.
+  - The F2 archive branch `feat/myomars-foundation` (`8f13fdf`) existed only in this container. It
+    was pushed to origin so it is kept; no credentials in it.
+- **Task status:**
+  - F2 superseded and archived.
+  - S1 done: contracts migration, relay adapter, lease, read-only window, page-refresh recovery.
+    Login not done. Relay-restart recovery with `--data` has no automated test.
+  - S2: two-end E2E done; static export, Windows one-click start, packaging and deploy templates
+    are optional later.
+- **Checks for the HUD change, on the Windows guide's exact startup:**
+  - `node relay/server.ts --static myomars-hud --host 127.0.0.1` and
+    `npx next start -H 127.0.0.1 -p 3000` on a fresh production build; pages at `127.0.0.1`.
+  - `e2e:two-end` 48/48; `test:hud` 49/49 + 46/46; `npm run build` OK; lint clean.
+  - The other suites were not re-run: the app code is unchanged since `3762faf`, where they passed.
+- **Pending:** the owner's Windows acceptance. LAN multi-device is not verified (not developed).
