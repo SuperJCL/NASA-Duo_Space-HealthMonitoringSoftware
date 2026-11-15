@@ -29,21 +29,21 @@ export function Station() {
   const count = (stages: string[]) => cases.filter((c) => stages.includes(workbenchStage(c))).length;
 
   return (
-    <div lang="zh-CN" className="mission-glass flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden" data-testid="station" data-link-mode={adapter.mode}>
+    <div lang="en" className="mission-glass flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden" data-testid="station" data-link-mode={adapter.mode}>
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--mg-line)] px-5 py-3">
         <div className="flex items-baseline gap-3">
           <span className="text-lg font-semibold tracking-tight">{"MyoMars"}</span>
-          <span className="text-sm text-[var(--mg-dim)]">{"火星基站 · 健康事件工作台"}</span>
+          <span className="text-sm text-[var(--mg-dim)]">{"Mars Base · Health case workbench"}</span>
         </div>
         <p className="text-[13px] text-[var(--mg-dim)]" data-testid="station-counts">
-          {`待审核/处理 ${count(["review", "reassessed"])} · 等待宇航员 ${count(["dispatched"])} · 分析中 ${count(["analysing", "reassessing"])}`}
+          {`Awaiting base ${count(["review", "reassessed"])} · Awaiting crew ${count(["dispatched"])} · Analysing ${count(["analysing", "reassessing"])}`}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full border border-[var(--mg-coral)] px-3 py-1 text-[13px] font-semibold text-[var(--mg-coral)]" data-testid="station-sim-pill">
-            {"模拟数据 / 模拟分析"}
+            {"Simulated Data / Simulated Analysis"}
           </span>
           <span className="rounded-full border border-[var(--mg-line-strong)] px-3 py-1 text-[12px] text-[var(--mg-dim)]" title={adapter.label} data-testid="station-link">
-            {"独立演示 · 未连接 Trigger / HUD"}
+            {"Standalone demo · not connected to Trigger / HUD"}
           </span>
         </div>
       </header>
@@ -57,32 +57,32 @@ export function Station() {
             <div className="lg:col-start-2 lg:row-start-1" data-testid="station-case" data-case={current.caseId} data-phase={current.phase} data-stage={workbenchStage(current)} data-alert={current.alert.level} data-version={current.evaluations.at(-1)?.version}>
               <CaseSummary c={current} />
             </div>
-            <section aria-label="当前处理" className="mg-glass flex min-h-0 flex-col overflow-y-auto lg:col-start-3 lg:row-span-2 lg:row-start-1">
+            <section aria-label="Current action" className="mg-glass flex min-h-0 flex-col overflow-y-auto lg:col-start-3 lg:row-span-2 lg:row-start-1">
               <ActionPanel c={current} state={state} api={api} mock={mock} />
             </section>
-            <section aria-label="分析与证据" className="mg-glass min-h-0 overflow-y-auto p-4 lg:col-start-2 lg:row-start-2">
+            <section aria-label="Analysis and evidence" className="mg-glass min-h-0 overflow-y-auto p-4 lg:col-start-2 lg:row-start-2">
               <CaseDetails c={current} state={state} mock={mock} />
             </section>
           </>
         ) : (
           <>
             <div className="mg-glass flex flex-col gap-1 p-5 lg:col-start-2 lg:row-start-1" data-testid="station-empty">
-              <p className="text-[12px] text-[var(--mg-faint)]">{"发生了什么"}</p>
-              <h2 className="text-[19px] font-semibold">{state.run ? "场景进行中，等待标准化模拟测量" : "等待场景开始"}</h2>
+              <p className="text-[12px] text-[var(--mg-faint)]">{"What happened"}</p>
+              <h2 className="text-[19px] font-semibold">{state.run ? "Scenario running, awaiting a standardised simulated measurement" : "Awaiting scenario start"}</h2>
               <p className="text-[14px] text-[var(--mg-dim)]">
                 {state.run
-                  ? `${state.run.astronaut.callsign} · ${state.run.task.title}。尚未收到测量；收到后基站自动进行模拟分析并生成待审候选。`
-                  : "基站尚未收到场景开始事件。Trigger 接入前，可在地址后加 ?dev=1 打开开发测试入口注入模拟事件。"}
+                  ? `${state.run.astronaut.callsign} · ${state.run.task.title}. No measurement received yet; when one arrives, the base runs the simulated analysis automatically and prepares a candidate for base review.`
+                  : "The base has not received a scenario start event yet. Until the Trigger is connected, add ?dev=1 to the address to open the development test entry and inject simulated events."}
               </p>
               <p className="text-[13px] text-[var(--mg-dim)]" data-testid="station-demo-flow">
-                {"演示流程：标准化模拟测量出现变化 → 人工审核 → 标准化复测 → 重评 → 人工处理。每次输入是按固定协议的单次模拟测量，不是自由活动中的连续肌电监测。"}
+                {"Demo flow: a standardised simulated measurement shows a change → base review → standardised retest → re-evaluation → base handling. Each input is one simulated measurement under a fixed protocol, not continuous sEMG monitoring during free activity."}
               </p>
-              <p className="text-[12px] text-[var(--mg-faint)]">{`输入来源：${mock ? "本地模拟（独立演示，未连接 Trigger / HUD）" : adapter.label}`}</p>
+              <p className="text-[12px] text-[var(--mg-faint)]">{`Input source: ${mock ? "local simulation (standalone demo, not connected to Trigger / HUD)" : adapter.label}`}</p>
             </div>
-            <section aria-label="当前处理" className="mg-glass min-h-0 overflow-y-auto lg:col-start-3 lg:row-span-2 lg:row-start-1">
+            <section aria-label="Current action" className="mg-glass min-h-0 overflow-y-auto lg:col-start-3 lg:row-span-2 lg:row-start-1">
               <ActionPanel c={null} state={state} api={api} mock={mock} />
             </section>
-            <section aria-label="事件时间线" className="mg-glass min-h-0 overflow-y-auto p-4 lg:col-start-2 lg:row-start-2">
+            <section aria-label="Case timeline" className="mg-glass min-h-0 overflow-y-auto p-4 lg:col-start-2 lg:row-start-2">
               <Timeline entries={state.timeline} />
             </section>
           </>
@@ -90,7 +90,7 @@ export function Station() {
       </main>
       {api.lastError && api.lastError.startsWith("invalid") ? (
         <p role="alert" className="fixed bottom-3 right-3 z-50 max-w-md rounded-lg bg-[rgba(11,17,28,0.95)] p-2 text-[12px] text-[var(--mg-caution)]">
-          {`拒收一条无效消息：${api.lastError.split("\n")[0]}`}
+          {`Rejected an invalid message: ${api.lastError.split("\n")[0]}`}
         </p>
       ) : null}
       {dev ? <DevPanel adapter={adapter} state={state} caseId={current?.caseId ?? null} /> : null}

@@ -35,9 +35,9 @@ function obs(id: string, phase: Observation["context"]["phase"], partial: Partia
 export type FixtureId = "normal" | "acquisition" | "not-comparable" | "change";
 
 export const FIXTURES: Record<FixtureId, { label: string; caseId: string; observation: Observation }> = {
-  normal: { label: "Normal", caseId: "case-normal", observation: obs("obs-normal-1", "eva", {}) },
+  normal: { label: "Within Reference Range", caseId: "case-normal", observation: obs("obs-normal-1", "eva", {}) },
   acquisition: {
-    label: "Acquisition problem",
+    label: "Signal quality failed",
     caseId: "case-acquisition",
     observation: obs("obs-acq-1", "eva", { signal: { ...goodSignal, electrodeImpedanceKOhm: 180, motionArtifactPct: 32 } }),
   },

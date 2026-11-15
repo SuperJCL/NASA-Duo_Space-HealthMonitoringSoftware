@@ -17,25 +17,25 @@ export function CrewColumn({ state, selectedId, onSelect }: { state: StationStat
       .at(-1)?.observation?.context.minutesIntoEva ?? null;
   const open = cases.filter((c) => c.phase !== "closed").length;
   return (
-    <nav aria-label="宇航员与事件" className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4" data-testid="station-left">
-      <Label>{"宇航员"}</Label>
+    <nav aria-label="Astronaut and cases" className="flex min-h-0 flex-col gap-3 overflow-y-auto p-4" data-testid="station-left">
+      <Label>{"Astronaut"}</Label>
       {run ? (
         <button type="button" aria-pressed="true" className="mg-glass flex flex-col items-start gap-0.5 p-3 text-left ring-1 ring-[var(--mg-coral)]" data-testid="station-crew">
           <span className="font-semibold">{run.astronaut.callsign}</span>
           <span className="text-[13px] text-[var(--mg-dim)]" data-testid="station-task">
-            {`${run.task.title}${minutes !== null ? ` · 第 ${minutes} 分钟` : ""}`}
+            {`${run.task.title}${minutes !== null ? ` · minute ${minutes}` : ""}`}
           </span>
-          <span className="text-[12px] text-[var(--mg-faint)]">{`${open} 个未关闭事件`}</span>
+          <span className="text-[12px] text-[var(--mg-faint)]">{`${open} open case${open === 1 ? "" : "s"}`}</span>
         </button>
       ) : (
         <p className="text-[13px] text-[var(--mg-dim)]" data-testid="station-crew-empty">
-          {"尚未收到场景开始事件"}
+          {"No scenario start event received yet"}
         </p>
       )}
 
-      <Label>{"事件"}</Label>
+      <Label>{"Cases"}</Label>
       {cases.length === 0 ? (
-        <p className="text-[13px] text-[var(--mg-dim)]">{run ? "暂无事件" : "–"}</p>
+        <p className="text-[13px] text-[var(--mg-dim)]">{run ? "No cases yet" : "–"}</p>
       ) : (
         <ul className="flex flex-col gap-1.5" data-testid="station-events">
           {[...cases].reverse().map((c) => {
@@ -52,7 +52,7 @@ export function CrewColumn({ state, selectedId, onSelect }: { state: StationStat
                   data-stage={workbenchStage(c)}
                 >
                   <StatusChip tone={caseStatus(c).tone}>{caseStatus(c).label}</StatusChip>
-                  <span className="text-[13px] font-medium leading-snug">{ev.completedAt ? ev.result.headline : "模拟分析中…"}</span>
+                  <span className="text-[13px] font-medium leading-snug">{ev.completedAt ? ev.result.headline : "Simulated Analysis in progress…"}</span>
                   <span className={`text-[12px] ${{ ok: "text-[var(--mg-ok)]", alert: "text-[#ff8f8f]", caution: "text-[var(--mg-caution)]", neutral: "text-[var(--mg-faint)]" }[evaluationStatus(ev).tone]}`}>{evaluationStatus(ev).label}</span>
                 </button>
               </li>

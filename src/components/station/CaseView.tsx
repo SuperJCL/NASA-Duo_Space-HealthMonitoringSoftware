@@ -7,15 +7,15 @@ import { alertNote, caseStatus, comparisonView, evaluationStatus, keyBasis, summ
 import { Fold, Label, StatusChip, time } from "./ui";
 
 const STAGE = {
-  waiting: { icon: "○", cls: "text-[var(--mg-faint)]", text: "等待" },
-  running: { icon: "◐", cls: "text-[var(--mg-cyan)]", text: "执行中" },
-  done: { icon: "✓", cls: "text-[var(--mg-ok)]", text: "完成" },
-  blocked: { icon: "■", cls: "text-[var(--mg-caution)]", text: "阻断" },
-  failed: { icon: "✕", cls: "text-[#ff8f8f]", text: "失败" },
-  skipped: { icon: "–", cls: "text-[var(--mg-faint)]", text: "未执行" },
+  waiting: { icon: "○", cls: "text-[var(--mg-faint)]", text: "Waiting" },
+  running: { icon: "◐", cls: "text-[var(--mg-cyan)]", text: "Running" },
+  done: { icon: "✓", cls: "text-[var(--mg-ok)]", text: "Done" },
+  blocked: { icon: "■", cls: "text-[var(--mg-caution)]", text: "Blocked" },
+  failed: { icon: "✕", cls: "text-[#ff8f8f]", text: "Failed" },
+  skipped: { icon: "–", cls: "text-[var(--mg-faint)]", text: "Not run" },
 } as const;
 const fmtZ = (z: number | null) => (z === null ? "–" : `${z > 0 ? "+" : ""}${z.toFixed(2)}`);
-const POSTURE = { standing: "站姿", kneeling: "跪姿", seated: "坐姿" } as const;
+const POSTURE = { standing: "standing", kneeling: "kneeling", seated: "seated" } as const;
 
 /**
  * Centre, top: case status and latest evaluation (two separate indicators), the one-line
@@ -30,11 +30,11 @@ export function CaseSummary({ c }: { c: Case }) {
   return (
     <section className="mg-glass flex flex-col gap-2 p-4" aria-labelledby="station-what" data-testid="station-headline">
       <div className="flex flex-wrap items-center gap-2">
-        <StatusChip tone={status.tone} testId="station-case-status">{`事件状态：${status.label}`}</StatusChip>
+        <StatusChip tone={status.tone} testId="station-case-status">{`Case status: ${status.label}`}</StatusChip>
         <StatusChip tone={result.tone} testId="station-eval-status">{result.label}</StatusChip>
       </div>
       <div>
-        <p className="text-[12px] text-[var(--mg-faint)]">{"发生了什么"}</p>
+        <p className="text-[12px] text-[var(--mg-faint)]">{"What happened"}</p>
         <h2 id="station-what" className="text-[19px] font-semibold leading-snug" data-testid="station-what">
           {summaryHeadline(c)}
         </h2>
@@ -45,7 +45,7 @@ export function CaseSummary({ c }: { c: Case }) {
         ) : null}
       </div>
       <div>
-        <p className="text-[12px] text-[var(--mg-faint)]">{"关键依据"}</p>
+        <p className="text-[12px] text-[var(--mg-faint)]">{"Key basis"}</p>
         {done ? (
           <ul className="list-disc space-y-0.5 pl-4 text-[13px] text-[var(--mg-dim)]" data-testid="station-basis">
             {keyBasis(ev.result).map((b) => (
@@ -53,11 +53,11 @@ export function CaseSummary({ c }: { c: Case }) {
             ))}
           </ul>
         ) : (
-          <p className="text-[13px] text-[var(--mg-dim)]">{"分析完成后显示。"}</p>
+          <p className="text-[13px] text-[var(--mg-dim)]">{"Shown once the analysis completes."}</p>
         )}
       </div>
       <p className="text-[13px]">
-        <span className="text-[var(--mg-faint)]">{"下一步："}</span>
+        <span className="text-[var(--mg-faint)]">{"Next: "}</span>
         <span className="font-medium text-[var(--mg-coral)]" data-testid="station-next">
           {nextOwner(c)}
         </span>
@@ -75,8 +75,8 @@ function StageBar({ ev }: { ev: Evaluation }) {
   return (
     <section aria-labelledby="station-analysis-title" data-testid="station-analysis">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 id="station-analysis-title" className="text-[13px] font-semibold">{`模拟分析步骤 · v${ev.version}`}</h3>
-        <span className="text-[11px] text-[var(--mg-faint)]">{"确定性规则模拟，未调用模型 · 点击步骤查看细节"}</span>
+        <h3 id="station-analysis-title" className="text-[13px] font-semibold">{`Simulated Analysis steps · v${ev.version}`}</h3>
+        <span className="text-[11px] text-[var(--mg-faint)]">{"Deterministic rule simulation, no model called · click a step for details"}</span>
       </div>
       <ol className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4" data-testid="station-stages">
         {stages.map((st, i) => (
@@ -99,11 +99,11 @@ function StageBar({ ev }: { ev: Evaluation }) {
         <div className="mt-2 rounded-lg bg-[rgba(255,255,255,0.03)] p-2.5 text-[12px]" data-testid="station-stage-detail">
           <p className="text-[13px]">{stages[shown].summary}</p>
           {result.id === "features" ? (
-            <p className="mt-1 text-[var(--mg-dim)]">{"各项数值见下方“测量与个体基线比较”表。"}</p>
+            <p className="mt-1 text-[var(--mg-dim)]">{"For the values, see the “Measurement vs individual baseline” table below."}</p>
           ) : result.evidence.length ? (
             <ul className="mt-1 grid gap-x-4 gap-y-0.5 text-[var(--mg-dim)] sm:grid-cols-2">
               {result.evidence.map((e) => (
-                <li key={e.label} className={e.ok === false ? "text-[var(--mg-caution)]" : ""}>{`${e.ok === null ? "·" : e.ok ? "✓" : "✕"} ${e.label}：${e.value}${e.note ? `（${e.note}）` : ""}`}</li>
+                <li key={e.label} className={e.ok === false ? "text-[var(--mg-caution)]" : ""}>{`${e.ok === null ? "·" : e.ok ? "✓" : "✕"} ${e.label}: ${e.value}${e.note ? ` (${e.note})` : ""}`}</li>
               ))}
             </ul>
           ) : null}
@@ -136,28 +136,28 @@ function Comparison({ c }: { c: Case }) {
   if (!o) {
     return (
       <section aria-labelledby="station-baseline-title" data-testid="station-baseline" data-view="report">
-        <h3 id="station-baseline-title" className="text-[13px] font-semibold">{"测量与个体基线比较"}</h3>
-        <p className="mt-0.5 text-[12px] text-[var(--mg-dim)]">{"本轮是宇航员报告核查，没有新的测量数据，不作指标比较。"}</p>
+        <h3 id="station-baseline-title" className="text-[13px] font-semibold">{"Measurement vs individual baseline"}</h3>
+        <p className="mt-0.5 text-[12px] text-[var(--mg-dim)]">{"This round is an astronaut-report check: there is no new measurement, so no indicators are compared."}</p>
       </section>
     );
   }
   const p = o.protocol;
   return (
     <section aria-labelledby="station-baseline-title" data-testid="station-baseline" data-view={view.kind}>
-      <h3 id="station-baseline-title" className="text-[13px] font-semibold">{"测量与个体基线比较"}</h3>
+      <h3 id="station-baseline-title" className="text-[13px] font-semibold">{"Measurement vs individual baseline"}</h3>
       <p className="mt-0.5 text-[12px] text-[var(--mg-dim)]" data-testid="station-observation-meta">
-        {`标准化模拟测量（单次，按固定协议）：${p.label} · ${POSTURE[p.posture]} · ${p.glove === "eva-glove" ? "EVA 手套" : "不戴手套"}${o.context.minutesIntoEva !== null ? ` · 测量时机：EVA 第 ${o.context.minutesIntoEva} 分钟` : ""} · 数据时间 ${time(o.capturedAt)} · ${ev.result.stages[0].status === "done" ? "信号质量合格" : ev.result.stages[0].status === "blocked" ? "信号质量不合格" : "质量未评估"}`}
+        {`Standardised simulated measurement (single, fixed protocol): ${p.label} · ${POSTURE[p.posture]} · ${p.glove === "eva-glove" ? "EVA glove" : "no glove"}${o.context.minutesIntoEva !== null ? ` · taken at EVA minute ${o.context.minutesIntoEva}` : ""} · data time ${time(o.capturedAt)} · ${ev.result.stages[0].status === "done" ? "signal quality passed" : ev.result.stages[0].status === "blocked" ? "signal quality failed" : "quality not assessed"}`}
       </p>
       {ev.completedAt === null ? (
-        <p className="mt-1 text-[12px] text-[var(--mg-faint)]">{"分析完成后显示比较。"}</p>
+        <p className="mt-1 text-[12px] text-[var(--mg-faint)]">{"The comparison is shown once the analysis completes."}</p>
       ) : view.kind === "single" ? (
         ev.result.comparisons.length ? (
           <table className="mt-1.5 w-full text-left text-[12px]" data-testid="station-baseline-table">
             <thead className="text-[var(--mg-faint)]">
               <tr>
-                <th className="font-normal">{"指标 · 来源"}</th>
-                <th className="font-normal">{"个体基线"}</th>
-                <th className="font-normal">{`本次 v${ev.version}`}</th>
+                <th className="font-normal">{"Indicator · source"}</th>
+                <th className="font-normal">{"Individual baseline"}</th>
+                <th className="font-normal">{`Current v${ev.version}`}</th>
                 <th className="font-normal" />
               </tr>
             </thead>
@@ -173,7 +173,7 @@ function Comparison({ c }: { c: Case }) {
           </table>
         ) : (
           <p className="mt-1 text-[12px] text-[var(--mg-caution)]" data-testid="station-comparability">
-            {`未比较：${ev.result.stages.find((s) => s.status === "blocked" || s.status === "failed")?.summary ?? ""}`}
+            {`Not compared: ${ev.result.stages.find((s) => s.status === "blocked" || s.status === "failed")?.summary ?? ""}`}
           </p>
         )
       ) : view.kind === "paired" ? (
@@ -181,11 +181,11 @@ function Comparison({ c }: { c: Case }) {
           <table className="mt-1.5 w-full text-left text-[12px]" data-testid="station-baseline-table">
             <thead className="text-[var(--mg-faint)]">
               <tr>
-                <th className="font-normal">{"指标 · 来源"}</th>
-                <th className="font-normal">{"个体基线"}</th>
-                <th className="font-normal">{`v${view.before.version} 原始`}</th>
+                <th className="font-normal">{"Indicator · source"}</th>
+                <th className="font-normal">{"Individual baseline"}</th>
+                <th className="font-normal">{`v${view.before.version} original`}</th>
                 <th className="font-normal" />
-                <th className="font-normal">{`v${view.after.version} 复测`}</th>
+                <th className="font-normal">{`v${view.after.version} retest`}</th>
                 <th className="font-normal" />
               </tr>
             </thead>
@@ -200,31 +200,31 @@ function Comparison({ c }: { c: Case }) {
               ))}
             </tbody>
           </table>
-          <p className="mt-1 text-[11px] text-[var(--mg-faint)]">{"两次测量都满足质量与可比条件，故并列显示；不计算“改善幅度”。"}</p>
+          <p className="mt-1 text-[11px] text-[var(--mg-faint)]">{"Both measurements meet the quality and comparability conditions, so they are shown side by side; no “improvement” is computed."}</p>
         </>
       ) : (
         <div className="mt-1.5 flex flex-col gap-1 text-[12px]" data-testid="station-separate">
-          <p>{`v${view.before.version} 原始测量：${view.before.result.headline}`}</p>
-          <p>{`v${view.after.version} 复测：${view.after.result.headline}`}</p>
+          <p>{`v${view.before.version} original measurement: ${view.before.result.headline}`}</p>
+          <p>{`v${view.after.version} retest: ${view.after.result.headline}`}</p>
           <p className="text-[var(--mg-caution)]">{view.why}</p>
         </div>
       )}
       <ul className="mt-1 space-y-0.5 text-[11px] text-[var(--mg-faint)]">
-        <li>{"参考范围 = 个体基线均值 ± 2 SD（演示阈值）；个体基线为同一宇航员、同一标准协议 6 次记录（模拟）。⚑ = 超出参考范围。"}</li>
-        <li data-testid="station-grip-note">{"握力来自同一协议下的握力计读数（独立模拟测量），不是由肌电推算。"}</li>
+        <li>{"Reference range = individual baseline mean ± 2 SD (demo threshold); the individual baseline is 6 recordings of the same astronaut with the same standard protocol (simulated). ⚑ = outside the reference range."}</li>
+        <li data-testid="station-grip-note">{"Grip force comes from a grip-meter reading under the same protocol (an independent simulated measurement); it is not derived from sEMG."}</li>
       </ul>
     </section>
   );
 }
 
 export function Timeline({ entries }: { entries: readonly TimelineEntry[] }) {
-  const KIND = { in: "收", out: "发", system: "系", review: "审", ignored: "略" } as const;
-  if (!entries.length) return <p className="text-[12px] text-[var(--mg-faint)]">{"暂无事件。"}</p>;
+  const KIND = { in: "In", out: "Out", system: "System", review: "Review", ignored: "Ignored" } as const;
+  if (!entries.length) return <p className="text-[12px] text-[var(--mg-faint)]">{"No entries yet."}</p>;
   return (
     <ol className="space-y-0.5 text-[12px] text-[var(--mg-dim)]" data-testid="station-timeline">
       {[...entries].reverse().map((t, i) => (
         <li key={i} className={t.kind === "ignored" ? "text-[var(--mg-faint)]" : ""} data-kind={t.kind}>
-          <span className="mr-1 inline-block w-4 text-center text-[var(--mg-faint)]">{KIND[t.kind]}</span>
+          <span className="mr-1 inline-block w-14 text-[var(--mg-faint)]">{KIND[t.kind]}</span>
           {`${time(t.at)} · ${t.text}`}
         </li>
       ))}
@@ -232,7 +232,7 @@ export function Timeline({ entries }: { entries: readonly TimelineEntry[] }) {
   );
 }
 
-const KIND_TEXT = { action: "行动消息", status: "状态通知", receipt: "接收回执", audit: "审计记录（不发给 HUD）" } as const;
+const KIND_TEXT = { action: "Action message", status: "Status notice", receipt: "Receipt", audit: "Audit record (not sent to the HUD)" } as const;
 
 /** Centre, below the summary: analysis steps, comparison, interpretation; history and technical detail folded. */
 export function CaseDetails({ c, state, mock }: { c: Case; state: StationState; mock: boolean }) {
@@ -244,7 +244,7 @@ export function CaseDetails({ c, state, mock }: { c: Case; state: StationState; 
       <Comparison c={c} />
       {ev.completedAt ? (
         <section aria-labelledby="station-conclusion-title" data-testid="station-conclusion">
-          <h3 id="station-conclusion-title" className="text-[13px] font-semibold">{"解读与局限"}</h3>
+          <h3 id="station-conclusion-title" className="text-[13px] font-semibold">{"Interpretation and limitations"}</h3>
           <p className="mt-0.5 text-[13px]" data-testid="station-conclusion-text">
             {ev.result.conclusion}
           </p>
@@ -256,23 +256,23 @@ export function CaseDetails({ c, state, mock }: { c: Case; state: StationState; 
         </section>
       ) : null}
       <div className="flex flex-col gap-2">
-        <Label>{"按需展开"}</Label>
-        <Fold title="处理记录与时间线" testId="station-timeline-section">
+        <Label>{"Details on demand"}</Label>
+        <Fold title="Handling record and timeline" testId="station-timeline-section">
           <Timeline entries={state.timeline.filter((t) => t.caseId === c.caseId || t.caseId === null)} />
         </Fold>
         {c.evaluations.length > 1 ? (
-          <Fold title={`评估版本（${c.evaluations.length}）`} testId="station-versions">
+          <Fold title={`Evaluation versions (${c.evaluations.length})`} testId="station-versions">
             <ol className="space-y-0.5 text-[12px] text-[var(--mg-dim)]">
               {c.evaluations.map((e) => (
-                <li key={e.version}>{`v${e.version} · ${e.trigger === "retest" ? "复测" : "测量"} · ${e.completedAt ? e.result.headline : "分析中"}`}</li>
+                <li key={e.version}>{`v${e.version} · ${e.trigger === "retest" ? "Retest" : "Measurement"} · ${e.completedAt ? e.result.headline : "analysing"}`}</li>
               ))}
             </ol>
           </Fold>
         ) : null}
-        <Fold title="技术详情（消息类型、编号、传输）" testId="station-tech">
+        <Fold title="Technical details (message types, IDs, transport)" testId="station-tech">
           <div className="flex flex-col gap-2 text-[12px] text-[var(--mg-dim)]">
-            <p data-testid="station-tech-ids">{`caseId ${c.caseId} · 运行 ${state.run?.runId ?? "–"} · 场景 ${state.run?.scenarioId ?? "–"} · 宇航员 ${c.astronautId} · 评估 ${c.evaluations.map((e) => `v${e.version}←${e.sourceEventId}${e.retestId ? `（${e.retestId}）` : ""}`).join("，")}`}</p>
-            <p>{`传输：${mock ? "本地 mock 适配层（独立演示，未经网络，未连接 Trigger / HUD）" : "适配层"}。“已交给适配层”只表示交出，不代表 HUD 已收到。`}</p>
+            <p data-testid="station-tech-ids">{`caseId ${c.caseId} · run ${state.run?.runId ?? "–"} · scenario ${state.run?.scenarioId ?? "–"} · astronaut ${c.astronautId} · evaluations ${c.evaluations.map((e) => `v${e.version}←${e.sourceEventId}${e.retestId ? ` (${e.retestId})` : ""}`).join(", ")}`}</p>
+            <p>{`Transport: ${mock ? "local mock adapter (standalone demo, no network, not connected to Trigger / HUD)" : "adapter"}. “Handed to the adapter” only means it was handed over; it does not mean the HUD received it.`}</p>
             {msgs.length ? (
               <ul className="space-y-1" data-testid="station-outbox">
                 {msgs.map((m) => (
@@ -280,15 +280,15 @@ export function CaseDetails({ c, state, mock }: { c: Case; state: StationState; 
                     {`${time(m.envelope.sentAt)} · ${KIND_TEXT[messageKind(m.type)]} · ${m.type} · ${m.eventId}${m.retestId ? ` · ${m.retestId}` : ""}`}
                     {messageKind(m.type) === "audit"
                       ? ""
-                      : ` · 适配层：${{ queued: "交出中", sent: "已交出", failed: "失败" }[m.delivery]} · HUD 接收：${m.hudReceivedAt ? time(m.hudReceivedAt) : "未收到回执"}${messageKind(m.type) === "action" ? ` · 宇航员：${{ none: "未反馈", acknowledged: "已确认", deferred: "暂缓" }[m.feedback]}` : ""}`}
+                      : ` · adapter: ${{ queued: "handing over", sent: "handed over", failed: "failed" }[m.delivery]} · HUD receipt: ${m.hudReceivedAt ? time(m.hudReceivedAt) : "none yet"}${messageKind(m.type) === "action" ? ` · crew: ${{ none: "no feedback yet", acknowledged: "acknowledged", deferred: "deferred" }[m.feedback]}` : ""}`}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-[var(--mg-faint)]">{"尚未发出消息。"}</p>
+              <p className="text-[var(--mg-faint)]">{"No messages sent yet."}</p>
             )}
             <details>
-              <summary className="cursor-pointer">{`v${ev.version} 测量原始字段`}</summary>
+              <summary className="cursor-pointer">{`v${ev.version} raw measurement fields`}</summary>
               <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap text-[11px]">{JSON.stringify({ observation: ev.observation, sourceEventId: ev.sourceEventId, inputKey: ev.result.inputKey }, null, 1)}</pre>
             </details>
           </div>
