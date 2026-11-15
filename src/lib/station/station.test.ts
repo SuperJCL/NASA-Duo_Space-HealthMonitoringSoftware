@@ -75,6 +75,21 @@ describe("simulated analysis (deterministic, demo rules)", () => {
     expect(r.candidate?.kind).toBe("notice-and-retest");
     expect(r.conclusion).toMatch(/不是诊断/);
   });
+  it("missing grip-meter reading: result incomplete by protocol, nothing invented, nothing compared", () => {
+    const o = { ...FIXTURES.change.observation, features: { ...FIXTURES.change.observation.features!, gripForceN: null } };
+    const r = analyse(o, b);
+    expect(r.outcome).toBe("result-incomplete");
+    expect(r.stages.map((s) => s.status)).toEqual(["done", "done", "blocked", "skipped"]);
+    expect(r.comparisons).toHaveLength(0);
+    expect(r.headline).toBe("结果不完整：缺少握力");
+    const ev = r.stages[2].evidence;
+    expect(ev.find((e) => e.label === "握力")).toMatchObject({ value: "缺失（未提供）", ok: false });
+    expect(ev.find((e) => e.label === "肌电中位频率")?.value).toBe("80 Hz");
+    expect(JSON.stringify(r)).not.toMatch(/握力[^"]*\b0 N/);
+    expect(r.stages[2].summary).toMatch(/未补造、未填零/);
+    expect(r.candidate?.kind).toBe("retest");
+    expect(evaluationStatus({ version: 2, trigger: "retest", completedAt: "x", result: r } as never).label).toMatch(/结果不完整/);
+  });
   it("missing features: analysis fails", () => {
     const r = analyse({ ...FIXTURES.normal.observation, features: null }, b);
     expect(r.outcome).toBe("analysis-failed");
@@ -187,6 +202,11 @@ describe("station state machine", () => {
     expect(sends(bad.effects)[0].payload).toMatchObject({ status: "rejected" });
     expect(bad.state.cases["case-change"].evaluations).toHaveLength(1);
     const notice = state.outbox.find((m) => m.type === "station.notice.approved")!;
+    // Astronaut-facing basis: analysis evidence only; the reviewer's reason is only in reviewReason (never shown by the HUD).
+    const np = notice.envelope.payload as { basis: string[]; text: string; reviewReason: string };
+    expect(np.basis.some((l) => /待审候选/.test(l))).toBe(false);
+    expect(np.basis.join(" ")).not.toContain(np.reviewReason);
+    expect(np.text).not.toContain(np.reviewReason);
     const deferred = step(state, inbound(inboundEnvelope("hud.defer", { runId: RUN, caseId: "case-change", payload: { messageId: notice.eventId, reason: "正在钻取，稍后" } }))).state;
     expect(deferred.cases["case-change"].phase).toBe("deferred");
   });

@@ -186,8 +186,14 @@ export function createRelay(opts: RelayOptions = {}) {
 
   function serveStatic(req: IncomingMessage, res: ServerResponse, path: string) {
     if (!opts.staticDir) return false;
+    // "/" opens the HUD in integration mode (two-end run: the HUD publishes hud-role events only).
+    if (path === "/") {
+      res.writeHead(302, { location: "/hud.html?mode=integration", "cache-control": "no-store" });
+      res.end();
+      return true;
+    }
     const root = resolve(opts.staticDir);
-    const rel = normalize(decodeURIComponent(path === "/" ? "/hud.html" : path)).replace(/^([/\\])+/, "");
+    const rel = normalize(decodeURIComponent(path)).replace(/^([/\\])+/, "");
     const file = resolve(root, rel);
     if (!(file === root || file.startsWith(root + sep)) || /(^|[/\\])(server|test|node_modules)([/\\]|$)/.test(rel)) return false;
     if (!existsSync(file) || !statSync(file).isFile()) return false;

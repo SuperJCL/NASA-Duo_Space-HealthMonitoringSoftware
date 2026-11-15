@@ -136,7 +136,7 @@ function StationShell({ link }: { link: LinkConfig }) {
               </>
             ) : (
               <span className="rounded-full border border-[var(--mg-line-strong)] px-3 py-1 text-[12px] text-[var(--mg-dim)]" title={adapter.label} data-testid="station-link">
-                {"未连接真实 Trigger / HUD · 本地模拟"}
+                {"未连接真实 HUD 与数据源 · 本地模拟"}
               </span>
             )}
             <span className="text-[12px] text-[var(--mg-dim)]">{`当前身份：${REVIEWER}（演示）`}</span>
@@ -144,13 +144,13 @@ function StationShell({ link }: { link: LinkConfig }) {
               {`构建 ${BUILD}`}
             </span>
             <button type="button" onClick={() => setDrawerMode((d) => (d === "open" ? "hidden" : "open"))} aria-expanded={drawer === "open"} className="rounded-full border border-dashed border-[#d678ff] px-3 py-1 text-[12px] text-[#e3a6ff]" data-testid="demo-toggle">
-              {relay ? (drawer === "open" ? "隐藏开发入口" : "开发入口（模拟 Trigger）") : drawer === "open" ? "隐藏本地模拟演示" : "本地模拟演示"}
+              {relay ? (drawer === "open" ? "隐藏开发入口" : "开发入口（数据回放）") : drawer === "open" ? "隐藏本地模拟演示" : "本地模拟演示"}
             </button>
           </div>
         </header>
         {relay ? (
           <p className="border-b border-[var(--mg-line)] bg-[rgba(214,120,255,0.08)] px-5 py-1.5 text-[12px] text-[#e3a6ff]" data-testid="integration-banner">
-            {"双端联调：HUD 为真实页面，经通信服务收发；观测仍由基站开发入口模拟注入（真实 Trigger 未接入），不是三端联调。自动模拟 HUD 反馈已关闭。"}
+            {"双端联调（基站 ↔ HUD）：HUD 为真实页面，经通信服务收发；观测来自数据回放模块的模拟样例，不是队友的健康数据。自动模拟 HUD 反馈已关闭。"}
           </p>
         ) : null}
 

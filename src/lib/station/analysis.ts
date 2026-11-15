@@ -49,7 +49,7 @@ export const DEMO_RULES = Object.freeze({
 export type Evidence = { label: string; value: string; ok: boolean | null; note?: string };
 export type StageResult = { id: StageId; status: StageStatus; summary: string; evidence: Evidence[] };
 
-export type Outcome = "within-baseline" | "single-feature" | "change-beyond-baseline" | "quality-blocked" | "not-comparable" | "analysis-failed" | "report-received";
+export type Outcome = "within-baseline" | "single-feature" | "change-beyond-baseline" | "quality-blocked" | "not-comparable" | "result-incomplete" | "analysis-failed" | "report-received";
 
 export type Candidate =
   | { kind: "record-only"; title: string; rationale: string }
@@ -206,8 +206,41 @@ export function analyse(o: Observation, b: Baseline, rules = DEMO_RULES): Analys
   }
   stages.push({ id: "context", status: "done", summary: "协议、负荷、姿势和手套与个体基线一致，可比较。", evidence: cEv });
 
-  // 3. Feature comparison (z-score against the individual baseline).
-  if (!o.features || Object.values(o.features).some((v) => v === null || !Number.isFinite(v))) {
+  // 3a. Result completeness by protocol. The standard protocol has three indicators: two sEMG
+  // features and the independent grip-meter reading. A missing value stays missing (never invented,
+  // never zero) and nothing is compared: comparing a subset would change the protocol, which is a
+  // team decision (docs/myomars/INTEGRATION.md).
+  const present = o.features ? (Object.keys(FEATURES) as FeatureKey[]).filter((k) => o.features![k] !== null && Number.isFinite(o.features![k])) : [];
+  const absent = (Object.keys(FEATURES) as FeatureKey[]).filter((k) => !present.includes(k));
+  if (o.features && present.length > 0 && absent.length > 0) {
+    const names = absent.map((k) => `${FEATURES[k].label}（${FEATURES[k].source.replace(/（.*）/, "")}）`).join("、");
+    const total = Object.keys(FEATURES).length;
+    stages.push({
+      id: "features",
+      status: "blocked",
+      summary: `结果不完整：缺少${names}。协议要求 ${total} 项，收到 ${present.length} 项；缺失项未补造、未填零，不比较特征。`,
+      evidence: (Object.keys(FEATURES) as FeatureKey[]).map((k) => ({
+        label: FEATURES[k].label,
+        value: present.includes(k) ? `${fmt(o.features![k] as number)} ${FEATURES[k].unit}` : "缺失（未提供）",
+        ok: present.includes(k) ? null : false,
+        note: present.includes(k) ? `${FEATURES[k].source} · 已收到，未比较` : `${FEATURES[k].source} · 协议要求`,
+      })),
+    });
+    skip(3, "因结果不完整而未执行");
+    return {
+      inputKey: key,
+      stages,
+      outcome: "result-incomplete",
+      alert: "watch",
+      headline: `结果不完整：缺少${absent.map((k) => FEATURES[k].label).join("、")}`,
+      conclusion: "本次测量缺少协议要求的指标，不作比较，也不对肌肉状态作推断；已有告警保持不变。",
+      limitations: ["不完整的结果不能说明正常或异常。", "只用部分指标比较需要团队先确定协议，目前不做。", ...COMMON_LIMITS],
+      comparisons: [],
+      candidate: { kind: "retest", title: "按协议补齐测量", rationale: `缺少${names}，需要一次完整的标准测量。`, retest: standardRetest(b, "") },
+    };
+  }
+  // 3b. Feature comparison (z-score against the individual baseline).
+  if (!o.features || absent.length > 0) {
     stages.push({ id: "features", status: "failed", summary: "特征提取失败（模拟），无法比较。已有告警保持不变。", evidence: [{ label: "特征", value: "缺失或无效", ok: false }] });
     skip(3, "因特征比较失败而未执行");
     return {

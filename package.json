@@ -22,7 +22,9 @@
     "smoke:eva-route": "node scripts/smoke-eva-route.mjs",
     "smoke:station": "node scripts/smoke-station.mjs",
     "smoke:crew": "node scripts/smoke-crew.mjs",
+    "e2e:two-end": "node scripts/e2e-two-end.mjs",
     "relay": "node relay/server.ts",
+    "replay": "node replay/cli.ts",
     "contracts:build": "node tools/myomars/build-contracts.ts",
     "contracts:check": "node tools/myomars/build-contracts.ts --check",
     "contracts:validate": "node tools/myomars/validate-message.ts"

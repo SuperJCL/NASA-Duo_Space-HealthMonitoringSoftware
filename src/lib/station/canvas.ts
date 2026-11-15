@@ -90,7 +90,7 @@ export function canvasPlan(ev: Evaluation, callsign: string, review: { label: st
     edge: "e-features",
     to: "features",
     packet: "3 项汇总指标（sEMG ×2 · 握力计）",
-    result: feat.status !== "done" ? "特征缺失，无法比较" : ev.result.outcome === "change-beyond-baseline" ? `${flagged.length} 项超出参考范围` : ev.result.outcome === "single-feature" ? `仅 ${flagged[0]} 超出参考范围` : "均在参考范围内",
+    result: ev.result.outcome === "result-incomplete" ? `${ev.result.headline}，未比较` : feat.status !== "done" ? "特征缺失，无法比较" : ev.result.outcome === "change-beyond-baseline" ? `${flagged.length} 项超出参考范围` : ev.result.outcome === "single-feature" ? `仅 ${flagged[0]} 超出参考范围` : "均在参考范围内",
     outcome: feat.status === "done" ? "done" : "stopped",
     needs: 3,
   });

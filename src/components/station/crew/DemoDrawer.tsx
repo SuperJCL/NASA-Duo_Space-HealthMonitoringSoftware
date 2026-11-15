@@ -23,7 +23,7 @@ export function DemoDrawer({ director, snap, state, now, onClose, onLaunched, on
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[14px] font-semibold text-[#e3a6ff]">{"本地模拟演示"}</p>
-          <p className="text-[11px] text-[var(--mg-dim)]">{"扮演 Trigger / HUD 发送模拟输入，仅用于本地演示；不是真实三端联通。基地决定仍需人工完成。"}</p>
+          <p className="text-[11px] text-[var(--mg-dim)]">{"扮演数据源 / HUD 发送模拟输入，仅用于本地演示；没有连接真实 HUD。基地决定仍需人工完成。"}</p>
         </div>
         <button type="button" onClick={onClose} className="underline" data-testid="demo-close">
           {"隐藏"}
@@ -40,7 +40,7 @@ export function DemoDrawer({ director, snap, state, now, onClose, onLaunched, on
             {"▶ 质量不合格路径：EV1 · 采集质量异常 → 检查设备/重新测量"}
           </button>
         </div>
-        <p className="text-[11px] text-[var(--mg-faint)]">{"先打开个人面板，再由模拟 Trigger 发送数据，所以能从第一步看到数据流动。"}</p>
+        <p className="text-[11px] text-[var(--mg-faint)]">{"先打开个人面板，再由模拟数据源发送数据，所以能从第一步看到数据流动。"}</p>
       </section>
 
       <section className="flex flex-col gap-2">

@@ -28,6 +28,10 @@ console.log(`MyoMars relay ${RELAY_VERSION} listening on ${host}:${actual}`);
 console.log(`  local: http://127.0.0.1:${actual}/v1/health`);
 for (const ip of lan) console.log(`  LAN:   http://${ip}:${actual}/v1/health`);
 console.log(`  static: ${staticDir || "(none)"} · persistence: ${dataDir || "(memory only)"}`);
+if (staticDir) {
+  console.log(`  HUD (integration mode): http://localhost:${actual}/hud.html?mode=integration`);
+  for (const ip of lan) console.log(`  HUD on the LAN:         http://${ip}:${actual}/hud.html?mode=integration`);
+}
 const stop = () => relay.close().then(() => process.exit(0));
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

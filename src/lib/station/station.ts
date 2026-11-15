@@ -728,7 +728,9 @@ export function step(state: StationState, action: Action): StepResult {
           send(at, "station.notice.approved", c.caseId, null, {
             noticeId: `${c.caseId}-n${ev.version}`,
             text: cand.notice.text,
-            basis: ev.result.stages.filter((x) => x.status === "done").map((x) => x.summary),
+            // Astronaut-facing evidence lines only: the internal workflow line ("生成待审候选…") and the
+            // reviewer's own reason stay in the station (reviewReason is a contract field the HUD must not show).
+            basis: ev.result.stages.filter((x) => x.status === "done" && x.id !== "recommendation").map((x) => x.summary),
             evaluationVersion: ev.version,
             reviewedBy: reviewer,
             reviewReason: reason,

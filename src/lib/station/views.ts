@@ -68,6 +68,7 @@ const OUTCOME: Record<AnalysisResult["outcome"], { text: string; tone: Tone }> =
   "change-beyond-baseline": { text: "超出个体基线波动", tone: "alert" },
   "quality-blocked": { text: "采集质量不合格", tone: "caution" },
   "not-comparable": { text: "条件不可比", tone: "caution" },
+  "result-incomplete": { text: "结果不完整", tone: "caution" },
   "analysis-failed": { text: "分析失败", tone: "caution" },
   "report-received": { text: "宇航员报告，待核查", tone: "caution" },
 };

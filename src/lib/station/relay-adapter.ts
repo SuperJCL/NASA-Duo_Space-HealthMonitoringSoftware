@@ -161,9 +161,12 @@ export class RelayStationAdapter implements StationAdapter {
     return { ok: false, note: `通信服务拒收：${String(r.body.error ?? r.status)}${r.body.detail ? `（${String(r.body.detail)}）` : ""}` };
   }
 
-  /** DEV ONLY: publish a simulated Trigger message (the real Trigger is not connected yet). */
-  async publishAsDevTrigger(envelope: Envelope): Promise<{ ok: boolean; note: string }> {
-    const r = await this.post("trigger", `${this.status.clientId}-dev-trigger`, envelope);
-    return r.ok ? { ok: true, note: `已作为模拟 Trigger 发布（seq ${r.body.seq}）` } : { ok: false, note: r.status === 0 ? "未连接通信服务" : `通信服务拒收：${String(r.body.error ?? r.status)}${r.body.detail ? `（${String(r.body.detail)}）` : ""}` };
+  /**
+   * DEV ONLY: the data replay module (src/lib/replay) publishing through this page, as the data
+   * producer (contract role "trigger", client "<station client>-replay"). Simulated samples only.
+   */
+  async publishAsReplay(envelope: Envelope): Promise<{ ok: boolean; note: string }> {
+    const r = await this.post("trigger", `${this.status.clientId}-replay`, envelope);
+    return r.ok ? { ok: true, note: `数据回放已发布（seq ${r.body.seq}${r.body.duplicate ? "，重复，未再次投递" : ""}）· 模拟样例` } : { ok: false, note: r.status === 0 ? "未连接通信服务" : `通信服务拒收：${String(r.body.error ?? r.status)}${r.body.detail ? `（${String(r.body.detail)}）` : ""}` };
   }
 }

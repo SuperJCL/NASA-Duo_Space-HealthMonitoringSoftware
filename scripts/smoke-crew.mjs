@@ -7,7 +7,7 @@
  *     1-home-alert, 2-analysis-running, 3-waiting-feedback, 4-complete
  *
  * It drives the page like a person (cards, panel, confirmation, the labelled local demo drawer).
- * It verifies the station alone; it does NOT verify any link with the real Trigger or HUD.
+ * It verifies the station alone (standalone mock); it does NOT verify any link with the real HUD or data source.
  */
 import { chromium } from "playwright";
 
@@ -75,7 +75,7 @@ try {
   // ---------- Entry ----------
   await p.goto(ORIGIN + "/", { waitUntil: "networkidle" });
   check((await p.title()) === "MyoMars · 火星基站", "/ is the MyoMars base station");
-  check((await text(tid(p, "station-sim-pill"))) === "模拟数据 / 模拟分析" && /未连接真实 Trigger \/ HUD/.test(await text(tid(p, "station-link"))), "header: 模拟数据 / 模拟分析 and 未连接真实 Trigger / HUD");
+  check((await text(tid(p, "station-sim-pill"))) === "模拟数据 / 模拟分析" && /未连接真实 HUD 与数据源/.test(await text(tid(p, "station-link"))), "header: 模拟数据 / 模拟分析 and 未连接真实 HUD 与数据源");
   check((await p.getByTestId("mars-map").count()) === 0 && (await p.getByTestId("mg-mode-route").count()) === 0, "no map and no EVA route entry on the home page");
   check((await tid(p, "crew-empty").count()) === 1 && (await tid(p, "station-dev").count()) === 0 && (await tid(p, "demo-drawer").count()) === 0, "empty overview; dev entry and demo drawer hidden by default");
   await tid(p, "demo-toggle").click();

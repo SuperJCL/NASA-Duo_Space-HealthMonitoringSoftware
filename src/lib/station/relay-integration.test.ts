@@ -3,7 +3,7 @@ import { createRelay } from "../../../relay/relay.ts";
 import { StationController } from "./controller";
 import { DEMO_BASELINES, RETEST_FIXTURES, crewObservation } from "./fixtures";
 import { RelayStationAdapter } from "./relay-adapter";
-import { devObservation } from "./relay-dev";
+import { observationEnvelope, sampleById } from "../replay/replay";
 import { latest, type StationState } from "./station";
 
 const SID = "demo";
@@ -46,9 +46,10 @@ describe("station ↔ relay (two windows, reload, simulated HUD replies)", () =>
     const B = station("win-B");
     await waitFor(() => B.adapter.getStatus().lease === "readonly" && B.st().run?.runId === runId);
 
-    // Dev entry: simulated Trigger observation into the HUD's run.
-    const obs = devObservation(A.st(), "change", Date.now())!;
-    expect((await A.adapter.publishAsDevTrigger(obs)).ok).toBe(true);
+    // Data replay (dev entry): a stored simulated sample into the current run, as the data producer.
+    const run = A.st().run!;
+    const obs = observationEnvelope(SID, { runId: run.runId, astronaut: run.astronaut, task: run.task }, sampleById("change")!, Date.now());
+    expect((await A.adapter.publishAsReplay(obs)).ok).toBe(true);
     const caseId = obs.caseId!;
     await waitFor(() => A.st().cases[caseId]?.phase === "awaiting-review");
     expect(latest(A.st().cases[caseId]).result.outcome).toBe("change-beyond-baseline");

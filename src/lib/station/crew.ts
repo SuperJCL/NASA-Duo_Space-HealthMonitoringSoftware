@@ -99,7 +99,7 @@ export function crewCards(s: StationState, { mock }: { mock: boolean }): CrewCar
     let data: CrewCardView["data"];
     if (!measured) data = { validity: "none", text: "无测量数据", summary: "无法评估（没有有效数据）" };
     else if (measured.completedAt === null) data = { validity: "checking", text: `${hhmmss(measured.observation!.capturedAt).slice(0, 5)} · 核查中`, summary: "收到数据，正在核查质量与可比性" };
-    else if (["quality-blocked", "not-comparable", "analysis-failed"].includes(measured.result.outcome))
+    else if (["quality-blocked", "not-comparable", "result-incomplete", "analysis-failed"].includes(measured.result.outcome))
       data = { validity: "invalid", text: `${hhmmss(measured.observation!.capturedAt).slice(0, 5)} · 数据不可用`, summary: `无法评估：${measured.result.headline}` };
     else data = { validity: "valid", text: `${hhmmss(measured.observation!.capturedAt).slice(0, 5)} · 有效`, summary: measured.result.outcome === "within-baseline" ? "最近测量在参考范围内" : measured.result.outcome === "single-feature" ? "单项指标超出参考范围（证据不足）" : `${measured.result.comparisons.filter((x) => x.flagged).length} 项指标超出参考范围` };
     const conn = m?.connection ?? "unknown";
