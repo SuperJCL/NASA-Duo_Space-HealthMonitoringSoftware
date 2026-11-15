@@ -4061,3 +4061,36 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - the health-data teammate's data (next acceptance, reported separately);
   - team decisions listed in `docs/myomars/INTEGRATION.md`: demo protocol and body site, the notice
     category field, `hud.symptoms`, the missing-grip policy, and the retest data source.
+
+## MyoMars two-end baseline: closing round (history display, lease fix, HUD tests, manual steps)
+
+- **Time (real, UTC):** 2026-11-15, about 01:50 to 02:35.
+- **Context:** the user ran one main flow by hand and accepted `integration/myomars` as the baseline
+  for the two-end run on shared simulated data. This round adds no protocol, medical or interface
+  features.
+- **Changes (fixes and documentation):**
+  - HUD, integration mode only:
+    - after a reassessment or a close, the earlier notice is "Earlier notice · history";
+    - a finished retest is "done (history)";
+    - a task closed before any result is "not needed (history)", with no task buttons or highlight;
+    - a retest task without a notice shows "Base task" (it previously said "no base messages").
+  - Station adapter: the lease release is delayed and skipped while the page still has a live
+    subscription for the same window id.
+    - Bug: React development mode mounts twice, and a late release could hand the lease to
+      another station window, so the reloaded window turned read-only a few seconds later.
+    - A regression test simulates the late release; it fails on the old adapter and passes now.
+  - Replay wording: `std-grip-40` is the current integration sample protocol, not the only protocol
+    for future data.
+  - `npm run test:hud` runs the HUD teammate's two suites and restores their result files.
+  - `scripts/e2e-two-end.mjs` grows from 30 to 40 checks:
+    - missing grip, not closed after 15 s;
+    - refresh of both ends mid-task and after the close;
+    - keep watching then close, with one status notice each;
+    - history display;
+    - a retest task without a notice, closed before a result.
+- **Docs:**
+  - `docs/myomars/HUD-INTEGRATION-MODE.md`, for the HUD teammate: every change, and standalone vs
+    integration mode;
+  - `INTEGRATION.md`: the three manual acceptance steps, the verification table (check, test:hud,
+    e2e, smoke), the protocol note, and the merge plan and follow-ups (health data, LAN).
+- **Verification:** see the PR #2 description for the commit and results.

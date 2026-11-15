@@ -156,7 +156,12 @@
   (never analyses or approves). Data input is the replay module (`src/lib/replay/`, `replay/cli.ts`,
   the station's relay-mode dev entry): role `trigger` = data producer, SIMULATED samples labelled as
   such, every demo assumption listed by `intakeCheck`; teammate data is checked on their branch first,
-  raw signals are never written into feature fields, and a missing value stays null.
+  raw signals are never written into feature fields, and a missing value stays null. `std-grip-40` is
+  only the current integration sample protocol, never the required protocol for future data (a new
+  protocol needs its own baseline, never a relabel). Integration verification = `npm run check`,
+  `npm run test:hud` (the HUD's own suites; the HUD folder is outside the station's ESLint),
+  `npm run e2e:two-end`, and the standalone smoke tests; HUD changes are listed for the teammate in
+  `docs/myomars/HUD-INTEGRATION-MODE.md`.
 - `src/contracts/`, `contracts/`, `tools/myomars/` — MyoMars shared message
   contracts v1 (Trigger / HUD / Mars Station), a team PROPOSAL
   (`docs/myomars/CONTRACTS.md`). Zod sources in erasable TypeScript that Node
