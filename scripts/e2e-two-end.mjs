@@ -75,7 +75,7 @@ check("station online and lease holder", true, await st.getByTestId("integration
 const hud = await ctx.newPage();
 watch("hud", hud);
 await hud.goto(`${RELAY}${HUD_HOME}`, { waitUntil: "load" });
-check("relay root opens the HUD in integration mode", hud.url().endsWith("/hud.html?mode=integration"), hud.url());
+check("relay root opens the HUD in integration mode", hud.url().endsWith(HUD_EXTRA ? `/hud.html?mode=integration&${HUD_EXTRA}` : "/hud.html?mode=integration"), hud.url());
 await hud.locator("#bJoin").click();
 await hud.waitForFunction(() => window.__hud?.client.state.conn === "online", null, { timeout: 15000 });
 const hudText = () => hud.evaluate(() => document.body.innerText);
