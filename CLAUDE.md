@@ -86,7 +86,10 @@
   default exaggeration (3× and 5× must stay labelled as not true scale),
   and never present the view as a route or traversability model. Elevation
   profiles are straight sampling lines and must say so; state the real relief
-  rather than implying more (`docs/TERRAIN_3D.md`). Terrain never affects
+  rather than implying more (`docs/TERRAIN_3D.md`). The station's map also has a HiRISE model of
+  the same area (`scripts/build-hirise-terrain.mjs`, `npm run build:terrain:hirise`): every 5th
+  post of the 1 m DTM copied unchanged (decimation, never averaging or smoothing), validated
+  against PDS and the CTX crop; the EVA route grid stays on CTX. Terrain never affects
   scores. The only route layer on this terrain is the EVA route view below;
   the terrain itself is still not a traversability model.
 - `src/lib/eva-route/`, `src/components/route/`, `src/data/prototype/eva-scouting.json`

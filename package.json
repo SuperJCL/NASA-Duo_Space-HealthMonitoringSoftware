@@ -20,6 +20,8 @@
     "verify:sci1": "node scripts/verify-sci1.mjs",
     "build:terrain": "node scripts/build-ctx-terrain.mjs",
     "verify:terrain": "node scripts/build-ctx-terrain.mjs --verify",
+    "build:terrain:hirise": "node scripts/build-hirise-terrain.mjs",
+    "verify:terrain:hirise": "node scripts/build-hirise-terrain.mjs --verify",
     "smoke:mission-glass": "node scripts/smoke-mission-glass.mjs",
     "smoke:eva-route": "node scripts/smoke-eva-route.mjs",
     "smoke:station": "node scripts/smoke-station.mjs",

@@ -18,6 +18,7 @@
  */
 import { z } from "zod";
 import meta from "@/data/terrain/ctx-lefroy-bay.json";
+import hiriseMeta from "@/data/terrain/hirise-lefroy-bay.json";
 
 export const MARS_RADIUS_M = 3396190;
 const DEG = 180 / Math.PI;
@@ -29,16 +30,22 @@ export const TerrainMeta = z.object({
   builtBy: z.string(),
   retrievedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dtm: z.object({
-    sourceId: z.literal("trek-jezero-ctx-dtm"),
+    sourceId: z.enum(["trek-jezero-ctx-dtm", "trek-jezero-hirise-dtm"]),
     productLabel: z.string(),
     downloadUrl: z.string().url(),
     metadataUrl: z.string().url(),
-    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    /** Whole-file checksum (CTX: downloaded whole). HiRISE is read with byte ranges: ETag + fetched-rows checksum instead. */
+    sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    etag: z.string().optional(),
+    fetchedRowsSha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    alsoServedAt: z.string().url().optional(),
+    doi: z.string().url().optional(),
     bytes: z.number().int(),
     format: z.string(),
     crs: z.string(),
     verticalDatum: z.string(),
-    postSpacingM: z.literal(20),
+    /** Post spacing of the SOURCE DTM (m). */
+    postSpacingM: z.union([z.literal(20), z.literal(1)]),
     scene: z.object({ cols: z.number().int(), rows: z.number().int(), tiePointM: z.tuple([z.number(), z.number()]), bboxDeg: Bbox }),
     noDataValue: z.number(),
   }),
@@ -47,13 +54,15 @@ export const TerrainMeta = z.object({
     row0: z.number().int(),
     cols: z.number().int().positive(),
     rows: z.number().int().positive(),
+    /** Keep every n-th source post (unchanged); output post k is source post col0 + n·k + ⌊n/2⌋. */
+    stride: z.number().int().positive().default(1),
     bboxDeg: Bbox,
     sizeM: z.object({ eastWest: z.number(), northSouth: z.number() }),
     rationale: z.string(),
   }),
   heights: z.object({ file: z.string().startsWith("/terrain/"), encoding: z.string(), minM: z.number(), maxM: z.number(), sha256: z.string().regex(/^[0-9a-f]{64}$/) }),
   imagery: z.object({
-    sourceId: z.literal("trek-jezero-ctx-ortho"),
+    sourceId: z.enum(["trek-jezero-ctx-ortho", "trek-jezero-hirise-ortho"]),
     layer: z.string(),
     tileUrlTemplate: z.string().url(),
     zoom: z.number().int(),
@@ -68,6 +77,7 @@ export const TerrainMeta = z.object({
   validation: z.object({
     catalogBboxMaxErrorDeg: z.number(),
     pdsSampleSites: z.array(z.object({ id: z.string(), pdsElevationM: z.number(), dtmElevationM: z.number(), differenceM: z.number() })),
+    versusCtxCrop: z.object({ posts: z.number().int(), meanM: z.number(), rmsM: z.number(), method: z.string() }).optional(),
     alignment: z.object({
       method: z.string(),
       fittedAzimuthDeg: z.number(),
@@ -81,8 +91,20 @@ export const TerrainMeta = z.object({
 });
 export type TerrainMeta = z.infer<typeof TerrainMeta>;
 
-/** The committed Lefroy Bay terrain metadata, validated at build time. */
+/**
+ * The committed Lefroy Bay CTX terrain (20 m), validated at build time. The EVA route grid and the
+ * plan-sequence profiles use it.
+ */
 export const LEFROY_TERRAIN: TerrainMeta = TerrainMeta.parse(meta);
+/**
+ * The same area from the HiRISE DTM mosaic (every 5th post of the 1 m DTM → 5 m mesh), built by
+ * scripts/build-hirise-terrain.mjs: the default model of the 3D view (sharper relief; closer to the
+ * PDS sample-site elevations). See docs/myomars/MAP-DATA-JMARS.md.
+ */
+export const LEFROY_HIRISE: TerrainMeta = TerrainMeta.parse(hiriseMeta);
+/** Spacing of the posts in the crop (m): source spacing × stride (CTX 20 m, HiRISE 5 m). */
+export const postSpacing = (m: TerrainMeta) => m.dtm.postSpacingM * m.crop.stride;
+export const isHirise = (m: TerrainMeta) => m.dtm.sourceId === "trek-jezero-hirise-dtm";
 
 export type LonLat = readonly [number, number];
 
@@ -90,9 +112,10 @@ export type LonLat = readonly [number, number];
 export function lonLatToGrid(m: TerrainMeta, [lon, lat]: LonLat): { col: number; row: number } {
   const [x0, y0] = m.dtm.scene.tiePointM;
   const s = m.dtm.postSpacingM;
+  const k = m.crop.stride;
   return {
-    col: ((lon / DEG) * MARS_RADIUS_M - x0) / s - m.crop.col0,
-    row: (y0 - (lat / DEG) * MARS_RADIUS_M) / s - m.crop.row0,
+    col: (((lon / DEG) * MARS_RADIUS_M - x0) / s - m.crop.col0) / k,
+    row: ((y0 - (lat / DEG) * MARS_RADIUS_M) / s - m.crop.row0) / k,
   };
 }
 
@@ -100,7 +123,8 @@ export function lonLatToGrid(m: TerrainMeta, [lon, lat]: LonLat): { col: number;
 export function gridToLonLat(m: TerrainMeta, col: number, row: number): [number, number] {
   const [x0, y0] = m.dtm.scene.tiePointM;
   const s = m.dtm.postSpacingM;
-  return [(((m.crop.col0 + col) * s + x0) / MARS_RADIUS_M) * DEG, ((y0 - (m.crop.row0 + row) * s) / MARS_RADIUS_M) * DEG];
+  const k = m.crop.stride;
+  return [(((m.crop.col0 + col * k) * s + x0) / MARS_RADIUS_M) * DEG, ((y0 - (m.crop.row0 + row * k) * s) / MARS_RADIUS_M) * DEG];
 }
 
 export function cropCentre(m: TerrainMeta): [number, number] {
@@ -150,7 +174,10 @@ export const DEFAULT_EXAGGERATION: Exaggeration = 1;
 
 /** Human-readable resolution and source line, shown with the 3D view. */
 export function sourceLine(m: TerrainMeta): string {
-  return `CTX DTM ${m.dtm.postSpacingM} m posts (${m.dtm.productLabel}), crop ${(m.crop.sizeM.eastWest / 1000).toFixed(1)} × ${(m.crop.sizeM.northSouth / 1000).toFixed(1)} km; imagery CTX orthomosaic 6 m (Mars Trek z${m.imagery.zoom})`;
+  const size = `crop ${(m.crop.sizeM.eastWest / 1000).toFixed(1)} × ${(m.crop.sizeM.northSouth / 1000).toFixed(1)} km`;
+  return isHirise(m)
+    ? `HiRISE DTM, every ${m.crop.stride}th post of the 1 m mosaic = ${postSpacing(m)} m mesh (${m.dtm.productLabel}), ${size}; imagery HiRISE orthomosaic (Mars Trek z${m.imagery.zoom}, ≈ 2.5 m/px)`
+    : `CTX DTM ${m.dtm.postSpacingM} m posts (${m.dtm.productLabel}), ${size}; imagery CTX orthomosaic 6 m (Mars Trek z${m.imagery.zoom})`;
 }
 
 // ── MAP-3A.1: readable relief from the real DTM (nothing here alters elevations) ──
@@ -238,8 +265,8 @@ export function reliefSummary(m: TerrainMeta, heights: Float32Array, reference: 
   const N = m.crop.cols;
   const rows = m.crop.rows;
   const [, s, , n] = m.crop.bboxDeg;
-  const ew = m.dtm.postSpacingM * Math.cos(((s + n) / 2) / DEG);
-  const ns = m.dtm.postSpacingM;
+  const ew = postSpacing(m) * Math.cos(((s + n) / 2) / DEG);
+  const ns = postSpacing(m);
   const at = (c: number, r: number) => heights[r * N + c];
   let min = Infinity;
   let max = -Infinity;
@@ -302,8 +329,8 @@ export function reliefHeadline(r: ReliefSummary, referenceName: string): string 
 export function localRange(m: TerrainMeta, heights: Float32Array, centre: LonLat, radiusM: number): { minM: number; maxM: number; reliefM: number } {
   const N = m.crop.cols;
   const [, s, , n] = m.crop.bboxDeg;
-  const ew = m.dtm.postSpacingM * Math.cos(((s + n) / 2) / DEG);
-  const ns = m.dtm.postSpacingM;
+  const ew = postSpacing(m) * Math.cos(((s + n) / 2) / DEG);
+  const ns = postSpacing(m);
   const g = lonLatToGrid(m, centre);
   let lo = Infinity;
   let hi = -Infinity;

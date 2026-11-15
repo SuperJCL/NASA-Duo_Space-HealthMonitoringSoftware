@@ -29,7 +29,7 @@ import type { CrewMarker } from "@/components/map/MarsMap";
 import { TerrainLoader } from "@/components/terrain/TerrainLoader";
 import type { TerrainMarker, TerrainSequence } from "@/components/terrain/TerrainViewer";
 import { useTerrainHeights } from "@/components/terrain/terrain-data";
-import { LEFROY_TERRAIN, profileAlong, segmentCoverage } from "@/lib/terrain/terrain";
+import { LEFROY_HIRISE, LEFROY_TERRAIN, profileAlong, segmentCoverage } from "@/lib/terrain/terrain";
 import { EvaHud } from "./EvaHud";
 import { EvidenceSheet } from "./EvidenceSheet";
 import { PlanReview } from "./PlanReview";
@@ -78,6 +78,16 @@ type Props = {
 };
 
 const LABEL_KINDS = ["sample-site"] as const;
+/** The committed HiRISE orthoimage crop of the mission area (scripts/build-hirise-terrain.mjs): the 2D map's offline fallback. */
+const LOCAL_IMAGERY = {
+  url: LEFROY_HIRISE.imagery.file,
+  extent: LEFROY_HIRISE.crop.bboxDeg,
+  attribution: "Mission area offline copy: HiRISE orthomosaic (NASA/JPL/UArizona via Mars Trek), z14 crop",
+} as const;
+const TERRAIN_MODELS = [
+  { id: "hirise", label: "HiRISE 5 m mesh (1 m DTM)" },
+  { id: "ctx", label: "CTX 20 m DTM" },
+] as const;
 const MAP_LABEL =
   "Map of the Lefroy Bay area, Jezero crater. Coral diamonds are simulated targets with their provisional priority; blue features are verified NASA/PDS data. Use the target buttons above the map to select a target with the keyboard.";
 
@@ -119,6 +129,9 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const [summaryFor, setSummaryFor] = useState<string | null>(null);
   // MAP-3A: 2D map or local 3D terrain (planning only). The 2D map stays mounted, so its view is kept.
   const [mapView, setMapView] = useState<"2d" | "3d">("2d");
+  // The station's map shows the HiRISE model (5 m mesh) by default; CTX 20 m stays selectable. The
+  // standalone page keeps CTX (its checks and statements are pinned to it).
+  const [terrainModel, setTerrainModel] = useState<"hirise" | "ctx">(embedded ? "hirise" : "ctx");
   const [terrainNotice, setTerrainNotice] = useState<string | null>(null);
   // MAP-2: the selected sequence connection (UI state; the sequence itself is derived from the mission state).
   const [segmentSel, setSegmentSel] = useState<string | null>(null);
@@ -337,6 +350,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
       highlightIds={state.mode === "planning" ? highlightIds : undefined}
       crewMarkers={embedded?.crewMarkers}
       onSelectCrew={embedded?.onSelectCrew}
+      localImagery={embedded ? LOCAL_IMAGERY : undefined}
     />
   );
 
@@ -421,7 +435,13 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
             {mapView === "3d" ? (
               <div className="absolute inset-0 z-[2] lg:right-[30rem]" data-testid="mg-terrain">
                 <TerrainLoader
-                  meta={LEFROY_TERRAIN}
+                  key={terrainModel}
+                  meta={terrainModel === "hirise" ? LEFROY_HIRISE : LEFROY_TERRAIN}
+                  defaultContours={!embedded}
+                  compact={!!embedded}
+                  models={embedded ? TERRAIN_MODELS : undefined}
+                  modelId={terrainModel}
+                  onModel={(id) => setTerrainModel(id === "ctx" ? "ctx" : "hirise")}
                   markers={terrainMarkers}
                   traverse={traverseLines}
                   selectedId={mapSelected}
