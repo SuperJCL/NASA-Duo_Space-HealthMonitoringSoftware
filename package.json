@@ -29,6 +29,7 @@
     "e2e:two-end": "node scripts/e2e-two-end.mjs",
     "e2e:mission": "node scripts/e2e-mission.mjs",
     "test:hud": "node scripts/hud-tests.mjs",
+    "hud:scene": "node scripts/build-hud-scene.mjs",
     "relay": "node relay/server.ts",
     "replay": "node replay/cli.ts",
     "contracts:build": "node tools/myomars/build-contracts.ts",

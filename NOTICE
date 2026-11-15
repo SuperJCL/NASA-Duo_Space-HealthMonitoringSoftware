@@ -61,3 +61,15 @@ the copy shipped in next@16.4.5 (next/dist/next-devtools/server/font/). They are
 the SIL Open Font License, Version 1.1; the licence text, copied from the upstream repository's
 OFL.txt on 2026-11-15, is in LICENSES/OFL-1.1-Geist.txt. The Mars Base loads the same family
 through next/font.
+
+three.js (astronaut HUD 3D scene)
+---------------------------------
+myomars-hud/scene/mars-scene.js, the illustrative 3D Mars scene of the astronaut HUD (integration mode),
+is a generated bundle that includes parts of three.js 0.186.1 (https://github.com/mrdoob/three.js),
+Copyright © 2010-2026 three.js authors, licensed under the MIT License; the licence text, copied
+unchanged from node_modules/three/LICENSE, is in LICENSES/MIT-three.js.txt. The bundle is built by
+scripts/build-hud-scene.mjs (`npm run hud:scene`) from myomars-hud/scene/mars-scene.src.js. Modified
+2026-11-15 at build time only: the three.js modules the scene never reaches (built-in material shader
+library, WebXR manager, PMREM generator) are replaced by small stubs; the code that is bundled is
+otherwise unchanged. The scene uses no external assets: terrain, rocks, habitat and textures are
+generated in code. The Mars Base uses the same npm package (three) from node_modules.
