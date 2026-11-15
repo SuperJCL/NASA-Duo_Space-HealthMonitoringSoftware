@@ -1,14 +1,89 @@
-# MyoMars integration: two-end run (Mars Station ↔ HUD)
+# MyoMars integration: one simulated EVA, from the task map to health monitoring (Mars Station ↔ HUD)
 
-**Status (2026-11-15):** the user ran one main flow by hand and accepted this branch as the
-**baseline for the two-end run (station ↔ HUD) on shared simulated data**. The three manual
-acceptance steps below are still pending. PR #2 stays open until they are done.
+**Status (2026-11-15):**
+
+- **Accepted baseline:** the user accepted the two-end run (station ↔ HUD) on shared simulated
+  data, after running one main flow by hand.
+- **Product update (same day):** the original 2D map, 3D terrain and task functions are no longer
+  a separate system. They are now the **preparation phase of the same mission** on the base station
+  (see "Mission integration" below).
+- **Merge:** the user authorised merging PR #2 into `main` once all checks pass. Its name is
+  "MyoMars 模拟数据双端联调基线（含任务准备到健康监测）".
 
 - **Acceptance target:** the exact `integration/myomars` commit named in PR #2's description. A
   later change must be stated there, and the affected checks re-run.
 - **Not claimed:** the health-data teammate's data, and multi-device LAN access. Both are follow-up
   tasks, see the end of this document.
 - **HUD changes for the HUD teammate:** [HUD-INTEGRATION-MODE.md](HUD-INTEGRATION-MODE.md).
+
+## Mission integration (任务准备 → 健康监测)
+
+**One station, two views of one mission:** "任务地图" and "健康监测", switched in the mission bar.
+The bar always shows the mission, the phase, the EVA task with the astronaut, and the pending
+health events.
+
+**Preparation** (default view: task map):
+
+1. The existing Mission Glass, embedded unchanged (`embedded` prop). It covers:
+   - 2D map and 3D terrain;
+   - task selection on the map, target list or cards;
+   - planning, EVA route and EVA steps.
+2. Choose the astronaut. A-02 is the HUD device, so the only choice.
+3. "查看任务摘要": the task, the simulated target, the astronaut, and the health-measurement
+   conditions (unknown unless the measurement states them; no terrain-to-health inference; not a
+   real EVA).
+4. **"确认开始 EVA"**: the only action that starts a run. The station publishes one
+   `scenario.start` (contracts v1.1: the station role may publish it).
+
+**During the EVA** (default view: health monitoring, once per run; after that the user's choice
+for the run wins, also across a refresh):
+
+- The crew card and the person panel: data-flow canvas, review, retest, status notices, all
+  unchanged.
+- The map stays one click away, and the mission context is shared.
+- Pending health events show on the map. Clicking one opens that person's case. Nothing is ever
+  switched automatically.
+- Switching views never ends the task, resets the run, or stops analysis or communication. The
+  health logic sits above both views; the map stays mounted (hidden), and both map renderers draw
+  on demand only.
+
+**Ending:**
+
+- "结束 EVA" publishes `station.eva.ended` (proposed extension). It changes the phase only: no
+  event is closed or deleted, and it is not a health statement.
+- Events stay viewable and can still be handled.
+- A new EVA is refused while events of the ended one are open.
+
+**Isolation:**
+
+- The map is loaded lazily on first use, behind an error boundary with a working retry.
+- A map code or asset failure shows a notice in the map view; health monitoring keeps working.
+
+**Data boundaries:**
+
+- One fixed mission (`mission-glass-lefroy`, 3 tasks, simulated targets) and the demo astronaut
+  A-02.
+- Run = EVA: `scenarioId` = mission, `task` = chosen task and `targetId`, `astronaut` = executor.
+  Cases, devices and protocols hang off the run as before.
+- Health data still come from the replay module's simulated samples. A replay is re-assigned to
+  the EVA's person, time and task as listed assumptions; the stored EVA minute becomes unknown.
+- The replay drawer no longer starts runs. `npm run replay -- start` needs `--dev-run`.
+
+**Kept as separate pages:**
+
+- `/legacy/mission-glass` (full Mission Glass, unchanged);
+- `/research`;
+- `/legacy/workbench`.
+
+**Preserved full map/EVA state:**
+
+- commit `76e2888` (branch `eva-route-scouting`, Mission Glass at `/` with EVA route & scouting);
+- checked on 2026-11-15 in a clean worktree: lint, typecheck, 304 tests, build;
+- the annotated tag `archive/mission-glass-complete-2026-11-14` exists only locally: this session
+  may push branches but not tags (HTTP 403). The command to create it is in the merge section
+  below.
+
+## Two-end baseline (earlier in this document)
 
 - **Product interfaces:** there are two, the Mars Station and the astronaut HUD.
 - **Trigger:** there is no Trigger page. The former Trigger teammate now provides health data, which
@@ -245,7 +320,9 @@ page through the relay. **40/40 passed** against the dev server and against the 
 |---|---|
 | `npm run check` | Station and relay: lint, typecheck, unit tests (including the lease regression and the relay end-to-end test), build |
 | `npm run test:hud` | HUD teammate's suites, standalone mode: `joint-test` 49, `hud-page-test` 46 |
-| `npm run e2e:two-end` | Real station page and real HUD page in integration mode, through the relay: 40 checks |
+| `npm run e2e:two-end` | Real station page and real HUD page in integration mode, through the relay: 40 checks. EVAs are started and ended through the mission map. |
+| `npm run e2e:mission` | Mission integration on the real pages: 2D/3D, task selection starts nothing, one human start, map ↔ health (drafts, events, relay log), events on the map with a jump, refresh, map failure, end EVA keeps events, read-only mirror, kept pages: 28 checks |
+| `npm run smoke:mission-glass`, `npm run smoke:eva-route`, `npm run smoke` | Original Mission Glass page, EVA route, research workspace |
 | `npm run smoke:crew`, `npm run smoke:station` | Standalone station (fallback entry): 63 and 121 checks |
 
 The last results are stated in PR #2 with the commit they ran on.
@@ -304,15 +381,18 @@ npm run dev                                 # station on 3000
 | Mars Station (relay mode) | `http://localhost:3000/?relay=auto` |
 | HUD (integration mode) | `http://localhost:8787/` (redirects to `/hud.html?mode=integration`) |
 
-**Start a run** in one of two ways:
+**Start the EVA** on the station:
 
-- in the station, open "开发入口（数据回放）" and click "开始运行（A-02）";
-- or run `npm run replay -- start`.
+1. In the "任务地图" view, choose a task: a target on the map, the target buttons, or a task card.
+2. Keep the astronaut A-02.
+3. Click "查看任务摘要，开始 EVA", then "确认开始 EVA".
+
+The station switches to "健康监测".
 
 Then:
 
-1. Click "Enter HUD" on the HUD page. The HUD now shows only "Connected · no base messages yet":
-   it gets content only after base staff approve something.
+1. Click "Enter HUD" on the HUD page. It joins the EVA and shows only "Connected · no base
+   messages yet": it gets content only after base staff approve something.
 2. Replay a sample with "回放并打开面板" or `npm run replay -- send change`. The station analyses it
    for about 10 s and stops at "等待基地审核".
 3. In the A-02 panel, click "等待基地审核", then approve with a reason. The HUD now shows the
@@ -321,8 +401,9 @@ Then:
 5. After the station's re-evaluation, close the case or keep watching. The HUD then shows the
    final status.
 
-The station's dev entry lists the same steps. Its note says which action happened: a new run
-clears A-02's earlier events; a replay starts an analysis.
+6. "结束 EVA" in the mission bar: open events stay open. A new EVA can start once they are closed.
+
+The station's dev entry lists the same steps. It only replays samples; it never starts a run.
 
 The standalone station demo stays available at `http://localhost:3000/` (without `?relay`), and the
 HUD's own standalone demo stays at `myomars-hud` → `npm start`.
@@ -426,9 +507,16 @@ When the health-data teammate pushes:
 
 ## Merge plan and follow-up tasks
 
-- **PR #2** stays open until the user finishes the three manual steps.
-- When it is merged into `main`, it is named "MyoMars 模拟数据双端联调基线" (two-end run on shared
-  simulated data). It does not claim the teammate's health data or multi-device LAN access.
+- **PR #2**, named "MyoMars 模拟数据双端联调基线（含任务准备到健康监测）", is merged into `main`
+  through the normal PR flow once every check above passes. The user authorised this on
+  2026-11-15. It does not claim the teammate's health data or multi-device LAN access.
+- **Roll back:**
+  - `main` before this merge is `58b5a08`;
+  - the merge commit can be reverted with `git revert -m 1 <merge>`;
+  - the complete standalone map/EVA state is commit `76e2888`.
+- **Preservation tag:** this session cannot push tags. Create it once from any clone:
+  `git tag -a archive/mission-glass-complete-2026-11-14 76e2888 -m "Complete Mission Glass map/EVA work before the MyoMars station integration"`,
+  then `git push origin archive/mission-glass-complete-2026-11-14`.
 - **Follow-up 1, health-data intake:** when the teammate pushes, read their branch, run
   `npm run replay -- check <file>`, then follow "Next acceptance" above. This is reported
   separately.

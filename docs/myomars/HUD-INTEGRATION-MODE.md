@@ -38,7 +38,8 @@ state never mixes with your standalone demo's.
 | Retest result values | `contract/samples/retest-result.sample.json` (knee-bend placeholder) under the station's protocol | The shared contract fixture `contracts-v1/scenarios/change-retest.json` (from `main` `58b5a08`), **only when its protocol equals the requested one**; otherwise the HUD refuses. A sample is never relabelled. Default `retest-normal`; `&retestSample=retest-changed / retest-invalid` for testing. The card says "Stored shared sample … demo assumption". |
 | Case reassessed or closed | Unchanged | The earlier notice is shown as "Earlier notice · history"; "Next" becomes "Base decision"; the button reads "Acknowledge update". A finished retest is "done (history)" with "Instructions (done)". A task the base closed before any result is "not needed (history)", with no Start / View / Submit / Defer buttons and no highlight. |
 | Retest task without a notice | (not produced by your mock base) | Status line "Base task · retest requested · …", level BASE TASK |
-| Waiting | — | "Connected · no base messages yet. … appear here only after base staff approve" |
+| Waiting | — | Before the EVA: "Connected · waiting for the base to start the EVA (base staff confirm it on the station)". During it: "Connected · no base messages yet. … appear here only after base staff approve" |
+| Who starts the run | Your intro / mock base (`scenario.start`, role `trigger`) | Base staff on the station ("确认开始 EVA"): `scenario.start` from role `station` (contracts v1.1). Your client reads it like any start, so nothing changed in `base-client.js` for this. `station.eva.ended` (proposed extension) is ignored by your client; the run stays open after it. |
 
 Everything else is your code as you wrote it:
 

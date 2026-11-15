@@ -23,6 +23,7 @@
     "smoke:station": "node scripts/smoke-station.mjs",
     "smoke:crew": "node scripts/smoke-crew.mjs",
     "e2e:two-end": "node scripts/e2e-two-end.mjs",
+    "e2e:mission": "node scripts/e2e-mission.mjs",
     "test:hud": "node scripts/hud-tests.mjs",
     "relay": "node relay/server.ts",
     "replay": "node replay/cli.ts",

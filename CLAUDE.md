@@ -123,8 +123,16 @@
   (`local-protocol.ts`, schema `myomars/v1-local`, proposals in
   `docs/myomars/STATION-LOCAL-PROPOSALS.md`), never added to the shared
   contracts without the team. The previous three-column workbench is kept at
-  `/legacy/workbench`. No map and no EVA route view on the station (they stay
-  in `/legacy/mission-glass`). A SIMULATED demo (`docs/myomars/CONTRACTS.md`; v0 history in `docs/station-integration.md`).
+  `/legacy/workbench`. Since the mission integration, `/` also has a "任务地图" view: the
+  existing Mission Glass embedded unchanged (`embedded` prop; lazy, error-bounded, kept mounted
+  but hidden), so map, terrain and EVA route code is reused, never reimplemented, and
+  `/legacy/mission-glass` stays the full standalone page. Mission context (`mission.ts`): one
+  simulated EVA = one run; only the human "开始EVA" (summary dialog) publishes `scenario.start`
+  (station role; selecting a task, opening the map or switching views never does); "结束EVA"
+  (`station.eva.ended`) changes the phase only and never closes, deletes or judges health events;
+  a new EVA waits until the ended one's events are closed. A task gives display context only:
+  unstated load / posture / device conditions stay unknown, and terrain or route scores are never
+  turned into health risk. A SIMULATED demo (`docs/myomars/CONTRACTS.md`; v0 history in `docs/station-integration.md`).
   Adapter hand-off, HUD receipt and astronaut confirmation are separate
   statuses and are never inferred from one another. Every view keeps the
   "模拟数据 / 模拟分析" label. The "LLM analysis" is a deterministic rule

@@ -4094,3 +4094,56 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `INTEGRATION.md`: the three manual acceptance steps, the verification table (check, test:hud,
     e2e, smoke), the protocol note, and the merge plan and follow-ups (health data, LAN).
 - **Verification:** see the PR #2 description for the commit and results.
+
+## MyoMars mission integration: task map and health monitoring in one station
+
+- **Time (real, UTC):** 2026-11-15, about 02:45 to 04:00.
+- **Request:** the original 2D map, 3D terrain and task functions become the preparation phase of
+  the same mission as MyoMars health monitoring. The user authorised implementation, verification
+  and the PR merge once every check passes.
+- **Branches checked:**
+  - `main` = `58b5a08`; PR #2 open; `integration/myomars` contains `main` and
+    `feat/myomars-station`;
+  - `eva-route-scouting` (`76e2888`) is the only map/EVA branch not in `main`, and it is contained
+    in the integration branch;
+  - new remote branch `feat/myomars-patch-trigger` = our `2038e79` + an `astra-patch/README.md`
+    placeholder by the data teammate; no data yet, not merged.
+- **Preserved state:**
+  - `76e2888` (complete Mission Glass at `/`, with EVA route & scouting), checked in a clean
+    worktree: lint, typecheck, 304 tests, build;
+  - annotated tag `archive/mission-glass-complete-2026-11-14` created locally;
+  - pushing tags is refused for this session (HTTP 403; branch pushes work). It was not worked
+    around; the command is in `docs/myomars/INTEGRATION.md`.
+- **Commits:**
+  1. Task context (`683cdee`):
+     - contracts v1.1: the station may publish `scenario.start`; new proposed extension
+       `station.eva.ended`;
+     - station start-eva / end-eva (one start, the run begins with the relay echo, no new EVA
+       while events are open, restore from history, refused sends leave no trace);
+     - replay re-assigns task context and drops the stored EVA minute.
+  2. View integration (`2bd769b`):
+     - `/` = base station with a 任务地图 / 健康监测 switch, a mission bar, and the preparation
+       strip (task → astronaut → summary → 确认开始 EVA);
+     - Mission Glass embedded (optional `embedded` prop only), lazy, error-bounded with a working
+       retry, kept mounted but hidden;
+     - pending events on the map with a jump;
+     - 结束 EVA keeps events;
+     - the drawer no longer starts runs; CLI start needs `--dev-run`; HUD waiting line updated.
+  3. Verification:
+     - `scripts/e2e-mission.mjs` (28 checks);
+     - `e2e-two-end` now starts and ends EVAs on the map (40 checks);
+     - SCI-1 guard: `/` is a Server Component rendering Mission Glass, so it joins the
+       `candidate-compare-data` allowlist (same display-only loader as `/legacy/mission-glass`);
+     - docs.
+- **Fixes found while testing:**
+  - `next/dynamic` caches a failed import, so "重试" did nothing; the map now uses a fresh
+    `React.lazy` per attempt;
+  - the SCI-1 loader guard flagged the new page (see above).
+- **Verification on the production build:**
+  - `npm run check`: 34 files / 382 tests and build;
+  - `e2e:mission` 28/28; `e2e:two-end` 40/40;
+  - `smoke:crew` 63; `smoke:station` 121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
+    `smoke` 118;
+  - `test:hud` 49 + 46;
+  - a 88 s side-by-side recording of the whole flow.
+- **Not verified:** the health-data teammate's data; multi-device LAN.

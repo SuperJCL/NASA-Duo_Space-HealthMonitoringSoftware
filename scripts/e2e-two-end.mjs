@@ -24,6 +24,23 @@ const check = (name, ok, detail = "") => {
 const log = (m) => console.log(`      ${m}`);
 const history = async () => (await (await fetch(`${RELAY}/v1/sessions/demo/events?after=0`)).json());
 const openDrawer = async (pg) => { if (await pg.getByTestId("person-panel").isVisible().catch(() => false)) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); } if (!(await pg.getByTestId("relay-dev-drawer").isVisible().catch(() => false))) await pg.getByTestId("demo-toggle").click(); };
+/** Task preparation on the mission map → summary → human confirmation (the only way an EVA run starts). */
+const startEva = async (pg, targetId) => {
+  if (await pg.getByTestId("person-panel").isVisible().catch(() => false)) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
+  if (await pg.getByTestId("relay-dev-drawer").isVisible().catch(() => false)) await pg.getByTestId("relay-dev-close").click();
+  await pg.getByTestId("view-map").click();
+  await pg.waitForSelector(`[data-testid="mg-target-${targetId}"]`, { timeout: 60000 });
+  await pg.getByTestId(`mg-target-${targetId}`).click();
+  await pg.getByTestId("prep-summary").click();
+  await pg.getByTestId("eva-start-confirm").click();
+  await pg.waitForFunction(() => document.querySelector('[data-testid="crew-station"]')?.dataset.phase === "eva-active", null, { timeout: 15000 });
+};
+const endEva = async (pg) => {
+  if (await pg.getByTestId("person-panel").isVisible().catch(() => false)) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
+  await pg.getByTestId("eva-end-open").click();
+  await pg.getByTestId("eva-end-confirm").click();
+  await pg.waitForFunction(() => document.querySelector('[data-testid="crew-station"]')?.dataset.phase === "eva-ended", null, { timeout: 15000 });
+};
 const evs = async () => (await history()).events;
 const byRole = (list, role) => list.filter((e) => e.sender.role === role);
 
@@ -52,12 +69,12 @@ await hud.waitForFunction(() => window.__hud?.client.state.conn === "online", nu
 const hudText = () => hud.evaluate(() => document.body.innerText);
 const hudStatus = () => hud.evaluate(() => document.getElementById("status").innerText + " | " + document.getElementById("level").innerText);
 
-// ---------- run started by the data replay (station dev entry) ----------
-await openDrawer(st);
-await st.getByTestId("relay-dev-start").click();
+// ---------- EVA started by base staff on the mission map (the HUD joins that run) ----------
+await startEva(st, "sim-target-a");
 await hud.waitForFunction(() => !!window.__hud.client.activeCase().run, null, { timeout: 15000 });
 const run1 = await hud.evaluate(() => window.__hud.client.activeCase().run.runId);
-check("HUD joined the run started by the data replay", /^run-rp-/.test(run1), `${run1} · ${await hud.evaluate(() => document.getElementById("scnName").innerText)}`);
+check("HUD joined the EVA run that base staff started", /^eva-/.test(run1), `${run1} · ${await hud.evaluate(() => document.getElementById("scnName").innerText)}`);
+await openDrawer(st);
 log(`station drawer checklist: ${(await st.getByTestId("relay-dev-check").innerText()).replace(/\n/g, " / ").slice(0, 300)}…`);
 if (D) await st.screenshot({ path: `${D}/1-station-replay-drawer.png` });
 
@@ -153,13 +170,14 @@ check("HUD reload restores the final status and sends nothing new", byRole(await
 
 // ---------- single observation source ----------
 list = await evs();
-const producers = new Set(list.filter((e) => e.type === "observation.submitted" || e.type === "scenario.start").map((e) => e.sender.clientId));
-check("one data producer: every run start and observation came from the replay", [...producers].every((c) => c.endsWith("-replay")), [...producers].join(", "));
+const producers = new Set(list.filter((e) => e.type === "observation.submitted").map((e) => e.sender.clientId));
+const starters = new Set(list.filter((e) => e.type === "scenario.start").map((e) => `${e.sender.role}:${e.sender.clientId}`));
+check("one data producer (the replay); runs started only by base staff on the station", [...producers].every((c) => c.endsWith("-replay")) && [...starters].every((c) => c.startsWith("station:") && !c.endsWith("-replay")), `${[...producers].join(", ")} · ${[...starters].join(", ")}`);
 check("HUD published only hud-role events", byRole(list, "trigger").every((e) => e.sender.clientId.endsWith("-replay")) && list.filter((e) => e.sender.clientId === "hud-a02").every((e) => e.sender.role === "hud"));
 
-// ---------- old-round isolation ----------
-await openDrawer(st);
-await st.getByTestId("relay-dev-start").click();
+// ---------- old-round isolation: end this EVA, start the next one ----------
+await endEva(st);
+await startEva(st, "sim-target-b");
 await hud.waitForFunction((r) => window.__hud.client.activeCase().run?.runId !== r, run1, { timeout: 15000 });
 const run2 = await hud.evaluate(() => window.__hud.client.activeCase().run.runId);
 const notice1 = list.find((e) => e.type === "station.notice.approved" && e.runId === run1);
