@@ -852,7 +852,7 @@ function statusLineInt(st,alert,rt,res,loc){
   const mon=client.monitorState(),open=alert&&alert.status!=='closed',sync=' · last sync '+fmtT(mon.lastAckAt||st.lastSync),run=client.activeCase().run;
   if(st.conn==='offline'||st.conn==='reconnecting')return ['Not connected to base'+(st.outbox.length?' · '+st.outbox.length+' queued':'')+' · will resend when reconnected','warn'];
   if(st.conn==='connecting'&&!alert)return ['Connecting to base…','run'];
-  if(!run)return ['Waiting for the base run to start (data replay)','run'];
+  if(!run)return ['Connected · waiting for the base to start a run (station dev entry or npm run replay -- start)','run'];
   if(alert&&!open)return ['Case closed by base · '+(alert.disposition||'')+sync,'ok'];
   if(open&&rt){
     const what=rt.protocol.label;
@@ -868,7 +868,7 @@ function statusLineInt(st,alert,rt,res,loc){
     return ['Retest · '+(RT_LABEL[rt.status]||rt.status),'amber',true];
   }
   if(alert&&open)return ['Base notice · '+(alert.status==='reassessed'?alert.disposition:'acknowledge in Base Messages'),'amber'];
-  return ['Connected to base · no base messages'+sync,'ok'];
+  return ['Connected · no base messages yet. The base analyses each measurement; a notice and a retest task appear here only after base staff approve'+sync,'ok'];
 }
 function statusLine(st,alert,rt,res,loc){
   if(INTEGRATION)return statusLineInt(st,alert,rt,res,loc);

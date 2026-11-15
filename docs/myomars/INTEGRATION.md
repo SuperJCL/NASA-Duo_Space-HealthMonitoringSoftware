@@ -221,8 +221,20 @@ npm run dev                                 # station on 3000
 - in the station, open "开发入口（数据回放）" and click "开始运行（A-02）";
 - or run `npm run replay -- start`.
 
-Then click "Enter HUD" on the HUD page, and replay a sample with "回放并打开面板" or
-`npm run replay -- send change`.
+Then:
+
+1. Click "Enter HUD" on the HUD page. The HUD now shows only "Connected · no base messages yet":
+   it gets content only after base staff approve something.
+2. Replay a sample with "回放并打开面板" or `npm run replay -- send change`. The station analyses it
+   for about 10 s and stops at "等待基地审核".
+3. In the A-02 panel, click "等待基地审核", then approve with a reason. The HUD now shows the
+   notice and the retest task.
+4. On the HUD: Acknowledge → View task → Start retest → Submit after the capture.
+5. After the station's re-evaluation, close the case or keep watching. The HUD then shows the
+   final status.
+
+The station's dev entry lists the same steps. Its note says which action happened: a new run
+clears A-02's earlier events; a replay starts an analysis.
 
 The standalone station demo stays available at `http://localhost:3000/` (without `?relay`), and the
 HUD's own standalone demo stays at `myomars-hud` → `npm start`.

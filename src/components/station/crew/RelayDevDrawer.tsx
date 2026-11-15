@@ -25,18 +25,25 @@ export function RelayDevDrawer({ relay, state, onClose, onOpenPerson }: { relay:
   const run = state.run;
   const sample = sampleById(sampleId) ?? REPLAY_SAMPLES[0];
   const runInfo = run ? { runId: run.runId, astronaut: run.astronaut, task: run.task } : null;
-  const check = intakeCheck(sample, runInfo, "回放时刻");
+  const check = intakeCheck(sample, runInfo, "");
   const go = async (fn: () => Promise<{ note: string }>) => {
     setBusy(true);
     setNote((await fn()).note);
     setBusy(false);
   };
-  const start = () => go(() => relay.publishAsReplay(startEnvelope(state.sessionId, Date.now())));
+  // The note says WHICH action happened and what comes next (a run start and a replay are different steps).
+  const start = () =>
+    go(async () => {
+      const env = startEnvelope(state.sessionId, Date.now());
+      const r = await relay.publishAsReplay(env);
+      return { note: r.ok ? `已开始新运行 ${env.runId}（seq ${r.seq}）。A-02 的旧事件已清空；HUD 会自动切换到这个运行。下一步：选择样例并回放。` : r.note };
+    });
   const inject = (open: boolean) =>
     go(async () => {
       if (!runInfo || !check.publishable) return { note: "不能回放：见核查项" };
       if (open) onOpenPerson(runInfo.astronaut.id);
-      return relay.publishAsReplay(observationEnvelope(state.sessionId, runInfo, sample, Date.now()));
+      const r = await relay.publishAsReplay(observationEnvelope(state.sessionId, runInfo, sample, Date.now()));
+      return { note: r.ok ? `已回放样例「${sample.label}」（seq ${r.seq}）· 模拟样例。基站正在分析，约 10 秒后停在“等待基地审核”。` : r.note };
     });
   const btn = "min-h-8 rounded-lg border px-2.5 text-[12px] disabled:opacity-40";
   return (
@@ -50,6 +57,13 @@ export function RelayDevDrawer({ relay, state, onClose, onOpenPerson }: { relay:
           {"隐藏"}
         </button>
       </div>
+      <ol className="list-decimal space-y-0.5 rounded-lg border border-[var(--mg-line)] py-2 pl-6 pr-2 text-[11px] text-[var(--mg-dim)]" data-testid="relay-dev-steps">
+        <li>{"开始运行；HUD 页面点 Enter HUD 加入（此时 HUD 只显示已连接，没有消息是正常的）。"}</li>
+        <li>{"选择样例并回放：基站分析约 10 秒，停在“等待基地审核”。"}</li>
+        <li>{"打开 A-02 面板，点“等待基地审核”→ 批准并填写理由。只有批准后 HUD 才会收到提示和复测任务。"}</li>
+        <li>{"HUD：Acknowledge → View task → Start retest → 采集结束后 Submit。"}</li>
+        <li>{"基站复评后：关闭事件或保留关注 → HUD 显示最终状态。"}</li>
+      </ol>
       {run ? (
         <p className="text-[var(--mg-text)]" data-testid="relay-dev-run">{`当前运行：${run.astronaut.callsign} · ${run.task.title}（运行 ${run.runId}）`}</p>
       ) : (

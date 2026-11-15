@@ -165,8 +165,8 @@ export class RelayStationAdapter implements StationAdapter {
    * DEV ONLY: the data replay module (src/lib/replay) publishing through this page, as the data
    * producer (contract role "trigger", client "<station client>-replay"). Simulated samples only.
    */
-  async publishAsReplay(envelope: Envelope): Promise<{ ok: boolean; note: string }> {
+  async publishAsReplay(envelope: Envelope): Promise<{ ok: boolean; note: string; seq?: number }> {
     const r = await this.post("trigger", `${this.status.clientId}-replay`, envelope);
-    return r.ok ? { ok: true, note: `数据回放已发布（seq ${r.body.seq}${r.body.duplicate ? "，重复，未再次投递" : ""}）· 模拟样例` } : { ok: false, note: r.status === 0 ? "未连接通信服务" : `通信服务拒收：${String(r.body.error ?? r.status)}${r.body.detail ? `（${String(r.body.detail)}）` : ""}` };
+    return r.ok ? { ok: true, seq: Number(r.body.seq), note: `通信服务已接收（seq ${r.body.seq}${r.body.duplicate ? "，重复，未再次投递" : ""}）· 模拟样例` } : { ok: false, note: r.status === 0 ? "未连接通信服务" : `通信服务拒收：${String(r.body.error ?? r.status)}${r.body.detail ? `（${String(r.body.detail)}）` : ""}` };
   }
 }
