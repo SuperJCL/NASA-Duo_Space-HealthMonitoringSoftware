@@ -184,15 +184,15 @@ Press **Ctrl+C** in Terminal 2 and in Terminal 1 (answer `Y` if asked "Terminate
 
 ## C. Patch demo (independent Python program)
 
-- **What it is:** a command-line program that prints JSON.
-- **There is no visual demo page.** The optional API has a Swagger page (`/docs`), which is an API
-  explorer: the API starting successfully does not mean a demo page exists.
+- **What it is:** a command-line program that prints JSON, plus a **showcase page** (since the
+  unified-experience round) that shows the same program output visually.
+- The optional API has a Swagger page (`/docs`), which is an API explorer. It is not the showcase.
 - **Independence:** it never contacts the relay, the Base or the HUD.
 
 ### Requirements
 
 - **Python 3.12 or newer** (`py -3.12 --version`, or `python --version`).
-- Free port 8142, only for the optional API.
+- Free port 8150 for the showcase page; 8142 only for the optional API.
 
 ### Set up (once), from the `astra-patch` folder
 
@@ -231,6 +231,26 @@ py -3.12 -m venv .venv
 | `fatigue_suspected` | 43/85, 48/80, 54/73, 61/66 (RMS up, frequency down) | acceptable, no flags. The name is test metadata; no fatigue conclusion is drawn. |
 | `sensor_fault` | 42/86, 43/85, 132/18, 175/11 | windows 3–4 `unsuitable`, flags `motion_artifact` and `electrode_contact_fault` |
 
+### Showcase page (visual; for the introduction video)
+
+```powershell
+.\.venv\Scripts\python.exe -m astra_patch showcase serve
+```
+
+1. Open `http://127.0.0.1:8150/`. It needs no network, Base, HUD or relay.
+2. **Header:** "Synthetic data · Standalone demo".
+3. **Left:** the patch diagram (left thigh), the sEMG and IMU cards and short synthetic waveforms.
+   The waveforms are labelled "Synthetic illustrative signal from the demo's capture path" and
+   "not the source of these numbers".
+4. **Right:** switch `normal` / `fatigue_suspected` / `sensor_fault`. The window values and signal
+   quality must equal the CLI table above.
+   - In `sensor_fault`, windows 3–4 are hatched "Unsuitable" with their flags and are not plotted.
+   - The name `fatigue_suspected` is shown as a simulated label, not a diagnosis.
+5. Stop with **Ctrl+C**.
+
+The data file `showcase\data\showcase.json` is committed. To regenerate it, run
+`.\.venv\Scripts\python.exe -m astra_patch showcase build` (the result is identical).
+
 ### Tests
 
 ```powershell
@@ -238,7 +258,7 @@ $env:PYTHONPATH = "."
 .\.venv\Scripts\python.exe -m pytest -q tests
 ```
 
-Expected: **84 passed** (a warning may be printed).
+Expected: **96 passed** (a warning may be printed).
 
 ### Optional: local API explorer
 
@@ -265,8 +285,8 @@ $env:MYOMARS_ACQUISITION_TOKEN
 
 ### Running both demos on the same PC
 
-- Ports do not collide: Base 3000 and relay/HUD 8787 for demo B; the patch replay uses no port, and
-  its optional API uses 8142.
+- Ports do not collide: Base 3000 and relay/HUD 8787 for demo B; the patch replay uses no port,
+  its showcase page 8150 and its optional API 8142.
 - Use a separate terminal for the patch (three terminals in total if the API is running).
 - Nothing needs to be stopped or reconfigured on either side, because the programs never talk to
   each other.

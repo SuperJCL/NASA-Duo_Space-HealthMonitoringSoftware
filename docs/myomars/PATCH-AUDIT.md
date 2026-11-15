@@ -23,11 +23,12 @@ design, not a gap waiting to be filled.
 | Item | Finding |
 |---|---|
 | Location | `astra-patch/` only: a Python 3.12+ package with its own `requirements.txt` and `.gitignore`. It imports nothing from the Next.js app, relay or HUD. |
-| Main entry: command line | `python -m astra_patch replay --scenario normal \| fatigue_suspected \| sensor_fault`. It prints four observations as JSON in the terminal, then deletes its temporary database. **This is the demo itself; there is no visual demo page.** |
+| Main entry: command line | `python -m astra_patch replay --scenario normal \| fatigue_suspected \| sensor_fault`. It prints four observations as JSON in the terminal, then deletes its temporary database. |
+| Showcase page (added 2026-11-15) | `python -m astra_patch showcase serve` (stdlib server, port 8150, read-only) shows `showcase/data/showcase.json`. `showcase build` writes that file from the SAME code path as `replay` (`replay.py`), deterministic (volatile ids replaced and listed). It shows: the patch diagram; sEMG / IMU explanations; per-window indicators and signal quality; one sentence per scenario checked against the data. Waveforms come from the existing synthetic capture path (`SyntheticSource.capture`, seed 42, `actual_sensor: false`), labelled as not the source of the scenario numbers. No connection to the Base, HUD or relay. `showcase/check.mjs` (browser) and `tests/test_showcase.py` check the page against the data. |
 | Optional: local API | `uvicorn astra_patch.service:app --host 127.0.0.1 --port 8142`, with a bearer token in `MYOMARS_ACQUISITION_TOKEN`. `/docs` is the Swagger **API explorer**, not a demo page. Its 20 endpoints under `/api/myomars/v1` cover sessions, capture, recordings, processing, a console and trigger streams. |
 | Optional: offline check | `python -m astra_patch check <message.json>` checks a message file against the repository's `contracts/schema/` files when they are present. It sends nothing. |
 | Transport | External transmission is **disabled**: there is no network client, relay publisher or enabling switch. |
-| Verified (2026-11-15, on the `main` + #4 result and again inside PR #5) | `pytest -q tests` **84 passed** (Python 3.12.3). `replay` of all three scenarios exits 0 with 4 observations each. The API answered `/docs` with 200; it returned 401 without a token and created a console with a token. Windows not yet verified (owner's acceptance). |
+| Verified (2026-11-15, on the `main` + #4 result and again inside PR #5) | `pytest -q tests` **84 passed** (Python 3.12.3). `replay` of all three scenarios exits 0 with 4 observations each. The API answered `/docs` with 200; it returned 401 without a token and created a console with a token. With the showcase (unified-experience branch): **96 passed**, the replay output unchanged, `showcase/check.mjs` 98/98. Windows not yet verified (owner's acceptance). |
 
 ## Data (what the demo shows)
 
