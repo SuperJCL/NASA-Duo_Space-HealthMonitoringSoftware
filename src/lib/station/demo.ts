@@ -22,22 +22,22 @@ import { caseMessages, latest, messageKind, type StationState } from "./station"
 
 export const DEMO_RUN_PREFIX = "demo-";
 export const DEMO_SCENARIOS = {
-  change: { label: "设备观测：可比变化（完整流程）", fixture: "change" as FixtureId },
-  normal: { label: "设备观测：正常", fixture: "normal" as FixtureId },
-  acquisition: { label: "设备观测：采集质量异常", fixture: "acquisition" as FixtureId },
-  "not-comparable": { label: "设备观测：条件不可比", fixture: "not-comparable" as FixtureId },
-  report: { label: "HUD 主动报告（本地模拟扩展）", fixture: null },
+  change: { label: "Device observation: comparable change (full flow)", fixture: "change" as FixtureId },
+  normal: { label: "Device observation: Within Reference Range", fixture: "normal" as FixtureId },
+  acquisition: { label: "Device observation: signal quality failed", fixture: "acquisition" as FixtureId },
+  "not-comparable": { label: "Device observation: Conditions Not Comparable", fixture: "not-comparable" as FixtureId },
+  report: { label: "HUD astronaut report (local simulated extension)", fixture: null },
 } as const;
 export type DemoScenario = keyof typeof DEMO_SCENARIOS;
 export type HudInput = "received" | "ack" | "defer" | "completed" | RetestFixtureId;
 export const HUD_INPUTS: Record<HudInput, string> = {
-  received: "HUD 接收回执",
-  ack: "宇航员确认",
-  defer: "宇航员暂缓",
-  completed: "宇航员报告复测完成（可选）",
-  "retest-normal": "复测结果：回到参考范围",
-  "retest-changed": "复测结果：仍有变化",
-  "retest-invalid": "复测结果：质量无效",
+  received: "HUD receipt",
+  ack: "Crew acknowledges",
+  defer: "Crew defers",
+  completed: "Crew reports the retest done (optional)",
+  "retest-normal": "Retest result: Within Reference Range",
+  "retest-changed": "Retest result: change persists",
+  "retest-invalid": "Retest result: signal quality failed",
 };
 
 type Raw = ReturnType<typeof inboundEnvelope> | ReturnType<typeof localEnvelope>;
@@ -70,7 +70,7 @@ export function hudInput(s: StationState, caseId: string, kind: HudInput, nowMs:
   }
   if (kind === "defer") {
     const m = current.find((x) => x.type === "station.retest.requested") ?? current[0];
-    return m && m.feedback === "none" ? [inboundEnvelope("hud.defer", { runId, caseId, payload: { messageId: m.eventId, reason: "正在作业，稍后再做（模拟）" }, eventId: `${runId}-defer-${m.eventId}` })] : null;
+    return m && m.feedback === "none" ? [inboundEnvelope("hud.defer", { runId, caseId, payload: { messageId: m.eventId, reason: "Busy with the task, will do it later (simulated)" }, eventId: `${runId}-defer-${m.eventId}` })] : null;
   }
   if (!openRetest) return null;
   if (kind === "completed") return [inboundEnvelope("retest.completed", { runId, caseId, retestId: openRetest.retestId, payload: { completedAt: new Date(nowMs).toISOString() }, eventId: `${runId}-done-${openRetest.retestId}` })];
@@ -85,13 +85,13 @@ export function nextAutoStep(s: StationState, nowMs: number): DemoStep | null {
   for (const caseId of s.caseOrder) {
     const c = s.cases[caseId];
     const recv = hudInput(s, caseId, "received", nowMs);
-    if (recv) return { key: `auto:${recv.map((e) => e.eventId).join(",")}`, label: "自动模拟 HUD：接收回执", delayMs: 1600, make: () => recv };
+    if (recv) return { key: `auto:${recv.map((e) => e.eventId).join(",")}`, label: "Auto-simulated HUD: receipt", delayMs: 1600, make: () => recv };
     if (c.phase === "closed" || c.phase === "deferred") continue;
     const ack = hudInput(s, caseId, "ack", nowMs);
-    if (ack) return { key: `auto:${ack.map((e) => e.eventId).join(",")}`, label: "自动模拟宇航员：确认提示与复测任务", delayMs: 2200, make: () => ack };
+    if (ack) return { key: `auto:${ack.map((e) => e.eventId).join(",")}`, label: "Auto-simulated crew: acknowledge the notice and retest task", delayMs: 2200, make: () => ack };
     if (c.retests.some((r) => r.status === "acknowledged" || r.status === "completed")) {
       const res = hudInput(s, caseId, "retest-normal", nowMs);
-      if (res) return { key: `auto:${res[0].eventId}`, label: "自动模拟复测：按标准协议复测并回传结果", delayMs: 3000, make: () => res };
+      if (res) return { key: `auto:${res[0].eventId}`, label: "Auto-simulated retest: retest with the standard protocol and return the result", delayMs: 3000, make: () => res };
     }
   }
   return null;
@@ -166,7 +166,7 @@ export class DemoDirector {
       const o = crewObservation(FIXTURES[fixture].observation, astronautId, `${caseId}-obs`, at, this.state ? minutesInto(this.state, astronautId, now) : null);
       return [inboundEnvelope("observation.submitted", { runId, caseId, payload: o, eventId: `${runId}-${caseId}` })];
     };
-    this.queue.push({ key: `script:${runId}:${caseId}`, label: `模拟${fixture ? " Trigger" : " HUD"}：${callsign} · ${DEMO_SCENARIOS[scenario].label}`, delayMs: 1500, make: build });
+    this.queue.push({ key: `script:${runId}:${caseId}`, label: `Simulated ${fixture ? "device" : "HUD"}: ${callsign} · ${DEMO_SCENARIOS[scenario].label}`, delayMs: 1500, make: build });
     this.set({ queued: this.queue.length });
     this.reconsider();
   };
@@ -276,5 +276,5 @@ export function demoTargetCase(s: StationState, astronautId: string): string | n
 export const caseLabel = (s: StationState, caseId: string) => {
   const c = s.cases[caseId];
   const ev = c ? latest(c) : null;
-  return ev ? `${ev.trigger === "report" ? "报告" : "测量"} · ${ev.completedAt ? ev.result.headline : "核查中"}` : caseId;
+  return ev ? `${ev.trigger === "report" ? "Report" : "Measurement"} · ${ev.completedAt ? ev.result.headline : "checking"}` : caseId;
 };

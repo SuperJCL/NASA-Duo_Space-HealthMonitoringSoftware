@@ -25,9 +25,9 @@ export function comparisonView(c: Case): ComparisonView {
   if (comparable(before) && comparable(after)) {
     return { kind: "paired", before, after, rows: before.result.comparisons.map((b) => ({ before: b, after: after.result.comparisons.find((x) => x.key === b.key)! })) };
   }
-  if (before.trigger === "report") return { kind: "separate", before, after, why: `v${before.version} 是宇航员报告核查（不是测量），不与 v${after.version} 的测量数值比较，也不计算变化幅度。` };
-  const which = [!comparable(before) ? `v${before.version}` : null, !comparable(after) ? `v${after.version}` : null].filter(Boolean).join("、");
-  return { kind: "separate", before, after, why: `${which} 未通过质量或可比性检查，两次测量不直接比较数值，也不计算变化幅度。` };
+  if (before.trigger === "report") return { kind: "separate", before, after, why: `v${before.version} is an astronaut-report check (not a measurement): its values are not compared with v${after.version}, and no change is computed.` };
+  const which = [!comparable(before) ? `v${before.version}` : null, !comparable(after) ? `v${after.version}` : null].filter(Boolean).join(" and ");
+  return { kind: "separate", before, after, why: `${which} did not pass the quality or comparability check: the two measurements are not compared value by value, and no change is computed.` };
 }
 
 export type Tone = "alert" | "caution" | "ok" | "neutral";
@@ -36,19 +36,19 @@ export type Tone = "alert" | "caution" | "ok" | "neutral";
 export function pendingText(c: Case): string {
   switch (workbenchStage(c)) {
     case "analysing":
-      return "分析中";
+      return "analysing";
     case "review":
-      return "待审核";
+      return "Awaiting Base Review";
     case "dispatched":
-      return "已派发，等待宇航员反馈";
+      return "dispatched, awaiting crew feedback";
     case "reassessing":
-      return "重评中";
+      return "re-evaluating";
     case "reassessed":
-      return "待人工处理";
+      return "awaiting base decision";
     case "decided":
-      return c.phase === "rejected" ? "候选已驳回，待人工处理" : "保留关注";
+      return c.phase === "rejected" ? "candidate rejected, awaiting base decision" : "Continue Monitoring";
     case "closed":
-      return "已关闭";
+      return "Case Closed";
   }
 }
 
@@ -57,34 +57,34 @@ export function pendingText(c: Case): string {
  * and what is pending. Deliberately separate from the latest evaluation result.
  */
 export function caseStatus(c: Case): { label: string; tone: Tone; alertOpen: boolean } {
-  if (c.phase === "closed") return { label: "事件已关闭", tone: "neutral", alertOpen: false };
-  const alert = c.alert.level === "alert" ? "告警未关闭" : c.alert.level === "watch" ? "关注未关闭" : "事件未关闭";
+  if (c.phase === "closed") return { label: "Case Closed", tone: "neutral", alertOpen: false };
+  const alert = c.alert.level === "alert" ? "Alert open" : c.alert.level === "watch" ? "Watch open" : "Case open";
   return { label: `${alert} · ${pendingText(c)}`, tone: c.alert.level === "alert" ? "alert" : c.alert.level === "watch" ? "caution" : "neutral", alertOpen: c.alert.level !== "none" };
 }
 
 const OUTCOME: Record<AnalysisResult["outcome"], { text: string; tone: Tone }> = {
-  "within-baseline": { text: "在参考范围内", tone: "ok" },
-  "single-feature": { text: "单项超出，证据不足", tone: "caution" },
-  "change-beyond-baseline": { text: "超出个体基线波动", tone: "alert" },
-  "quality-blocked": { text: "采集质量不合格", tone: "caution" },
-  "not-comparable": { text: "条件不可比", tone: "caution" },
-  "result-incomplete": { text: "结果不完整", tone: "caution" },
-  "analysis-failed": { text: "分析失败", tone: "caution" },
-  "report-received": { text: "宇航员报告，待核查", tone: "caution" },
+  "within-baseline": { text: "Within Reference Range", tone: "ok" },
+  "single-feature": { text: "One indicator outside, insufficient evidence", tone: "caution" },
+  "change-beyond-baseline": { text: "Beyond the individual baseline variation", tone: "alert" },
+  "quality-blocked": { text: "Unable to Assess: signal quality", tone: "caution" },
+  "not-comparable": { text: "Conditions Not Comparable", tone: "caution" },
+  "result-incomplete": { text: "Incomplete Results", tone: "caution" },
+  "analysis-failed": { text: "Analysis failed", tone: "caution" },
+  "report-received": { text: "Astronaut report, being checked", tone: "caution" },
 };
 
 /** LATEST EVALUATION result (one measurement), independent of whether the case is still open. */
 export function evaluationStatus(ev: Evaluation): { label: string; tone: Tone } {
-  const name = `最新评估 v${ev.version}${ev.trigger === "retest" ? "（复测）" : ev.trigger === "report" ? "（报告核查）" : ""}`;
-  if (ev.completedAt === null) return { label: `${name}：分析中`, tone: "neutral" };
-  return { label: `${name}：${OUTCOME[ev.result.outcome].text}`, tone: OUTCOME[ev.result.outcome].tone };
+  const name = `Latest evaluation v${ev.version}${ev.trigger === "retest" ? " (retest)" : ev.trigger === "report" ? " (report check)" : ""}`;
+  if (ev.completedAt === null) return { label: `${name}: analysing`, tone: "neutral" };
+  return { label: `${name}: ${OUTCOME[ev.result.outcome].text}`, tone: OUTCOME[ev.result.outcome].tone };
 }
 
-/** One-line summary: the latest result, then what is pending (e.g. "复测在参考范围内，待人工处理"). */
+/** One-line summary: the latest result, then what is pending (e.g. "Retest Within Reference Range · awaiting base decision"). */
 export function summaryHeadline(c: Case): string {
   const ev = latest(c);
-  if (ev.completedAt === null) return ev.version > 1 ? "收到复测结果，正在重新评估…" : "收到标准化模拟测量，正在模拟分析…";
-  return `${ev.result.headline}，${c.phase === "closed" ? "事件已关闭" : pendingText(c)}`;
+  if (ev.completedAt === null) return ev.version > 1 ? "Retest result received, re-evaluating…" : "Standardised simulated measurement received, simulated analysis running…";
+  return `${ev.result.headline} · ${c.phase === "closed" ? "Case Closed" : pendingText(c)}`;
 }
 
 /** Why an alert is still shown although the latest result may look normal (null: nothing to say). */
@@ -92,8 +92,8 @@ export function alertNote(c: Case): string | null {
   const ev = latest(c);
   if (c.phase === "closed" || c.alert.level === "none" || ev.completedAt === null || ev.version < 2) return null;
   return ev.result.outcome === "within-baseline"
-    ? "原告警尚未关闭：单次正常复测不能证明已经恢复。告警只在基地人员关闭事件时解除。"
-    : "原告警尚未关闭：告警只在基地人员关闭事件时解除。";
+    ? "The original alert is still open: one retest in range does not show recovery. Only base staff closing the case clears the alert."
+    : "The original alert is still open: only base staff closing the case clears the alert.";
 }
 
 /** Up to three key reasons for the summary: the stages that ran (not skipped, not the template). */
@@ -103,12 +103,12 @@ export function keyBasis(r: AnalysisResult): string[] {
 
 /** The six demo steps of a health event, for the station's flow indicator. */
 export const FLOW_STEPS = [
-  { id: "waiting", label: "等待观测" },
-  { id: "analysing", label: "分析中" },
-  { id: "review", label: "待审核" },
-  { id: "dispatched", label: "已派发等待反馈" },
-  { id: "retest", label: "复测与重评" },
-  { id: "done", label: "人工处理完成" },
+  { id: "waiting", label: "Awaiting observation" },
+  { id: "analysing", label: "Analysing" },
+  { id: "review", label: "Awaiting Base Review" },
+  { id: "dispatched", label: "Dispatched, awaiting feedback" },
+  { id: "retest", label: "Retest and re-evaluation" },
+  { id: "done", label: "Base handling complete" },
 ] as const;
 export type FlowStepState = "done" | "current" | "todo" | "skipped";
 

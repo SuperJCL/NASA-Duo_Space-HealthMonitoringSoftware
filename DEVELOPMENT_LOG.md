@@ -4151,3 +4151,172 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - `test:hud` 49 + 46;
   - a 88 s side-by-side recording of the whole flow.
 - **Not verified:** the health-data teammate's data; multi-device LAN.
+
+## MyoMars English demo + Health Monitoring overlay (branch `feat/myomars-english-overlay`)
+
+- **Started:** 2026-11-15T04:26:58Z (branch created from `main` `a9f9646`).
+- **Status:** draft PR SuperJCL/NASA-11-Mars-Discovery-Intelligence#5, **not merged**. It waits for
+  the owner to approve the English video material and the interaction.
+- **Request:**
+  - all demo-visible text in English (single language, no i18n framework);
+  - Health Monitoring as an overlay on the Mission Map, with interaction improvements.
+- **Commits:**
+  1. `ddd94be` English station library, data replay and contract samples.
+     - Contracts regenerated; `contracts:check` passes.
+     - Event types, protocol ids, field keys, numbers and rules unchanged.
+  2. `b618d59` Health Monitoring overlay; simulated crew marker; English station UI.
+  3. `654ff7b` Decision-area wording for every phase; no repeated reasons.
+  4. `2b4721b` English legacy workbench and dev panel; `smoke-station` asserts the English text.
+  5. `e0c7bc0` Acceptance scripts for the overlay and English UI:
+     - `e2e-two-end` 44 checks, including the English-only check of both pages and every station
+       message;
+     - `e2e-mission` 29 checks;
+     - `smoke-crew` rewritten, 62 checks.
+  6. `e38d904`, then the docs commit: lint clean-up; `docs/myomars/ENGLISH-DEMO.md` (clean English
+     demo session, video walkthrough); English labels in `INTEGRATION.md`.
+- **Phase 1 preview:** sent at about 05:00Z.
+  - A 67 s recording of the real station page: start → collapse → replay → chain animation →
+    review → approve → HUD acknowledgement → full flow.
+  - Screenshots.
+- **Design decisions:**
+  - Overlay = the old "health" view: the per-run choice is kept in `sessionStorage`; it auto-opens
+    once per run.
+  - The map is always mounted, and `inert` while the overlay is open.
+  - Review form, drafts, selected case and full-flow state live in the station shell. They
+    survive collapse and person switch.
+  - Crew marker: a separate OpenLayers layer with an explicit "simulated position · not tracked"
+    label and a legend row, placed about 90 m east of the task target. There is no position
+    source.
+  - Compact chain: built from the station's own flow nodes. A one-shot marker per revealed step
+    (module-level "shown" set, so a remount never replays it).
+  - Dispatch tracker: driven only by `delivery`, `hudReceivedAt` and `feedback` on the outbox
+    messages.
+  - The decision area exposes `data-phase`, `data-where` and `data-who` for the scripts.
+- **Found and fixed while testing:**
+  - full-flow canvas clipped by the decision column → full flow now uses the whole overlay width;
+  - the review form hid the text to be sent → the form is compact and the preview stays above it;
+  - the header and mission bar wrapped → one row each;
+  - the crew label overlapped the "Lefroy Bay" label → marker moved east of the target;
+  - repeated statuses in the decision header;
+  - "sEMG" lower-cased to "semg" in sentences;
+  - the standalone demo bar covered the decision buttons.
+- **Verification on the production build** (fresh relay per two-end suite):
+  - `npm run check`: lint, typecheck, 34 files / 382 tests, build;
+  - `e2e:mission` 29/29; `e2e:two-end` 44/44 (47 relay events);
+  - `smoke:crew` 62/62; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
+    `smoke` 118;
+  - `test:hud` 49/49 + 46/46.
+- **Not verified:** the health-data teammate's data (none yet); multi-device LAN; the 3D terrain view
+  shows no crew marker (2D map only).
+
+## MyoMars round 2: event chain, decision area, HUD layers, patch audit (PR #5, not merged)
+
+- **Started:** about 2026-11-15T06:05Z (remote fetch). The relay and dev servers started at 06:08:02Z.
+- **Baseline check:**
+  - `git fetch` + `ls-remote` + GitHub API: `origin/main` is still `a9f9646`, the same base as this
+    branch, so there was nothing to merge.
+  - The HUD branch is still `239d253`, which is already in `main`.
+  - The patch demo (`feat/astra-standalone-demo` `18f8cd6`) is **not** in `main`: PRs #4 → #3 are open.
+  - It was not merged into PR #5 without the owner. It was audited read-only:
+    `docs/myomars/PATCH-AUDIT.md`. Its 84 Python tests pass in a temporary worktree, which was then
+    removed.
+- **Commits:**
+  1. `c5fa73b` Station:
+     - `lib/station/event-chain.ts` (unit-tested): Data source → Base analysis → Base review →
+       HUD → Crew response → Retest → Reassessment, with "Case Closed" and "closing notice
+       delivered" as separate facts.
+     - Overlay changes: the chain always visible, step evidence and messages,
+       a one-off animation per recorded event, the full flow in the left column with the decision
+       area visible, a "Next:" line, less header repetition, and the build id under "About".
+  2. `aef35d6` HUD integration mode (written with a helper agent, reviewed here):
+     - First layer: base text, the "Now" action and the available buttons. Second layer: details,
+       collapsed.
+     - Finished tasks stay as history without buttons.
+     - The data-link panel no longer implies a patch link.
+  3. `8b4fff8` Acceptance:
+     - `e2e-two-end` 48 checks: HUD offline → no false delivery; review with the full flow open;
+       separate closure facts.
+     - `smoke-crew` 72 checks.
+  4. Docs: `PATCH-AUDIT.md`, `ENGLISH-DEMO.md` (event chain, HUD layers, 2–3 min demo order),
+     `CLAUDE.md` (current station / HUD / patch rules).
+- **Found while testing:**
+  - The 7 step labels were truncated → they wrap now, and the left column is wider.
+  - The full-flow canvas overflowed the narrower column → node results are shown on click
+    (container query).
+  - The communication list now appears twice (step detail and log) → script counts are scoped to
+    the log.
+- **Verification on the production build:** see the next entry.
+
+### Round 2 verification (production build `ec0283b`, 2026-11-15T06:52Z build; regression 06:53–07:03Z)
+
+- `npm run check`: lint, typecheck, 35 files / 386 tests, build.
+- Suites, each two-end suite on a fresh relay:
+  - `e2e:mission` 29/29;
+  - `e2e:two-end` 48/48 (HUD offline: no false delivery; review with the full flow open; separate
+    closure facts; English-only on both pages and every station message);
+  - `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
+    `smoke` 118;
+  - `test:hud` 49/49 + 46/46.
+- Recordings (07:04–07:06Z), same build, one clean relay session:
+  - station alone at 1440×900 (125 s; "About" shows build `ec0283b`);
+  - station + HUD side by side.
+- `origin/main` re-checked after the run: still `a9f9646`. The patch PRs #3 / #4 are still open.
+- Commits after `ec0283b` are documentation only.
+- **Not verified:** patch data link (not connected); teammate data; LAN multi-device.
+
+## Patch standalone demo merged into main (#4); main synced into PR #5
+
+- **Time (UTC):** 2026-11-15, about 07:15 to 08:00. PR #4 was merged at 07:31:58Z.
+- **Owner's direction:** close PR #3 (superseded by the standalone demo in #4), keep its branch,
+  retarget #4 to `main`, verify it, merge it normally. Connecting the data to the relay, base and HUD
+  is follow-up work.
+- **Diff check after the retarget:**
+  - 6 commits, 34 files, +2299 / −0: `astra-patch/` (33 files) and a 4-line patch entry in
+    `DEVELOPMENT_LOG.md`.
+  - The two merge commits only re-merge `integration/myomars` history that `main` already had, and
+    change no files. No old integration code came in, so no replacement PR was needed.
+- **Verification of the merge result** (`main` `a9f9646` + #4, merged locally first; the tree is
+  identical to the final `d518aca`):
+  - patch replay (3 scenarios) exits 0;
+  - `pytest` 84 passed (Python 3.12.3);
+  - local API: `/docs` 200, 401 without a token, a console created with a token;
+  - `npm run check` (382 tests and build), `contracts:check`, `test:hud` 49 + 46.
+  - Repository startup, dependencies and shared files are unchanged.
+- **GitHub actions:**
+  - #3 closed with a "superseded by #4" note; branch `feat/myomars-patch-trigger` kept (`c50c453`).
+  - #4 retargeted, marked ready, merged with a merge commit: **`main` = `d518aca`**. Branch
+    `feat/astra-standalone-demo` kept.
+- **PR #5:**
+  - `main` merged in without conflicts (`ffd0d6d`); docs updated (`3762faf`).
+  - Patch demo inside the PR #5 tree: 84 passed, replay ×3 exit 0, `.venv` untracked.
+  - Production build `3762faf`: `npm run check` 386 tests; `e2e:mission` 29/29; `e2e:two-end` 48/48;
+    `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
+    `smoke` 118; `test:hud` 49 + 46.
+
+## Final round before merging PR #5: patch positioning, task status, Windows guide
+
+- **Time (UTC):** 2026-11-15, about 08:05 to 08:40.
+- **Owner:** the English UI and interaction were accepted by hand. PR #5 may be merged.
+  - The patch is an **independent explanatory demo by design**: no adapters, protocols, baselines
+    or mappings, and no runtime dependency in either direction.
+- **Remote check:** `main` = `d518aca`, PR #5 head = `72d1008` (the verified version); nothing new.
+- **Changes:**
+  - `9cebbd1` HUD integration mode: the page's own patch panel is hidden. The data-link panel reads
+    "stored simulated sample → HUD → Base", so there is no patch wording in the Base/HUD demo.
+  - `36fe678` Docs: `PATCH-AUDIT.md` (scope of the independent demo), `DEMOS.md` (two demos, data
+    sources, ~3 min introduction), `WINDOWS-ACCEPTANCE.md` (PowerShell guide), `INTEGRATION.md`
+    (data scope, task status), `CLAUDE.md`, `ENGLISH-DEMO.md`.
+  - The F2 archive branch `feat/myomars-foundation` (`8f13fdf`) existed only in this container. It
+    was pushed to origin so it is kept; no credentials in it.
+- **Task status:**
+  - F2 superseded and archived.
+  - S1 done: contracts migration, relay adapter, lease, read-only window, page-refresh recovery.
+    Login not done. Relay-restart recovery with `--data` has no automated test.
+  - S2: two-end E2E done; static export, Windows one-click start, packaging and deploy templates
+    are optional later.
+- **Checks for the HUD change, on the Windows guide's exact startup:**
+  - `node relay/server.ts --static myomars-hud --host 127.0.0.1` and
+    `npx next start -H 127.0.0.1 -p 3000` on a fresh production build; pages at `127.0.0.1`.
+  - `e2e:two-end` 48/48; `test:hud` 49/49 + 46/46; `npm run build` OK; lint clean.
+  - The other suites were not re-run: the app code is unchanged since `3762faf`, where they passed.
+- **Pending:** the owner's Windows acceptance. LAN multi-device is not verified (not developed).

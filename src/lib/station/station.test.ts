@@ -40,7 +40,7 @@ function finish(state: StationState, caseId: string) {
 /** Messages for the HUD / Trigger (audit records excluded; they are traceability only). */
 const sends = (effects: Effect[]) => allSends(effects).filter((e) => !e.type.startsWith("station.audit."));
 const allSends = (effects: Effect[]) => effects.filter((e): e is Extract<Effect, { kind: "send" }> => e.kind === "send").map((e) => e.envelope);
-const review = (caseId: string, version: number, decision: Action & { type: "review" } extends infer R ? (R extends { decision: infer D } ? D : never) : never, reason = "已核对证据"): Action => ({ type: "review", caseId, version, decision, reason, reviewer: "基地值班员 A", at: T });
+const review = (caseId: string, version: number, decision: Action & { type: "review" } extends infer R ? (R extends { decision: infer D } ? D : never) : never, reason = "Evidence checked"): Action => ({ type: "review", caseId, version, decision, reason, reviewer: "Base duty officer A", at: T });
 
 describe("simulated analysis (deterministic, demo rules)", () => {
   const b = DEMO_BASELINES[0];
@@ -58,22 +58,22 @@ describe("simulated analysis (deterministic, demo rules)", () => {
     expect(r.outcome).toBe("quality-blocked");
     expect(r.stages.map((s) => s.status)).toEqual(["blocked", "skipped", "skipped", "skipped"]);
     expect(r.comparisons).toHaveLength(0);
-    expect(r.conclusion).toMatch(/不对肌肉状态作任何推断/);
+    expect(r.conclusion).toMatch(/nothing is inferred about the muscle/);
   });
   it("not comparable: stops at comparability, no decline claim", () => {
     const r = analyse(FIXTURES["not-comparable"].observation, b);
     expect(r.outcome).toBe("not-comparable");
     expect(r.stages.map((s) => s.status)).toEqual(["done", "blocked", "skipped", "skipped"]);
     expect(r.comparisons).toHaveLength(0);
-    expect(r.conclusion).toMatch(/不能据此得出肌肉功能下降的结论/);
-    expect(r.headline).not.toMatch(/下降/);
+    expect(r.conclusion).toMatch(/no conclusion about muscle function can be drawn/);
+    expect(r.headline).not.toMatch(/declin|decreas|drop/i);
   });
   it("comparable change: several features beyond baseline → notice + retest candidate (not a diagnosis)", () => {
     const r = analyse(FIXTURES.change.observation, b);
     expect(r.outcome).toBe("change-beyond-baseline");
     expect(r.comparisons.filter((c) => c.flagged).length).toBeGreaterThanOrEqual(2);
     expect(r.candidate?.kind).toBe("notice-and-retest");
-    expect(r.conclusion).toMatch(/不是诊断/);
+    expect(r.conclusion).toMatch(/not a diagnosis/);
   });
   it("missing grip-meter reading: result incomplete by protocol, nothing invented, nothing compared", () => {
     const o = { ...FIXTURES.change.observation, features: { ...FIXTURES.change.observation.features!, gripForceN: null } };
@@ -81,14 +81,14 @@ describe("simulated analysis (deterministic, demo rules)", () => {
     expect(r.outcome).toBe("result-incomplete");
     expect(r.stages.map((s) => s.status)).toEqual(["done", "done", "blocked", "skipped"]);
     expect(r.comparisons).toHaveLength(0);
-    expect(r.headline).toBe("结果不完整：缺少握力");
+    expect(r.headline).toBe("Incomplete Results: missing grip force");
     const ev = r.stages[2].evidence;
-    expect(ev.find((e) => e.label === "握力")).toMatchObject({ value: "缺失（未提供）", ok: false });
-    expect(ev.find((e) => e.label === "肌电中位频率")?.value).toBe("80 Hz");
-    expect(JSON.stringify(r)).not.toMatch(/握力[^"]*\b0 N/);
-    expect(r.stages[2].summary).toMatch(/未补造、未填零/);
+    expect(ev.find((e) => e.label === "Grip force")).toMatchObject({ value: "missing (not provided)", ok: false });
+    expect(ev.find((e) => e.label === "sEMG median frequency")?.value).toBe("80 Hz");
+    expect(JSON.stringify(r)).not.toMatch(/grip force[^"]*\b0 N/i);
+    expect(r.stages[2].summary).toMatch(/not invented or set to zero/);
     expect(r.candidate?.kind).toBe("retest");
-    expect(evaluationStatus({ version: 2, trigger: "retest", completedAt: "x", result: r } as never).label).toMatch(/结果不完整/);
+    expect(evaluationStatus({ version: 2, trigger: "retest", completedAt: "x", result: r } as never).label).toMatch(/Incomplete Results/);
   });
   it("missing features: analysis fails", () => {
     const r = analyse({ ...FIXTURES.normal.observation, features: null }, b);
@@ -104,7 +104,7 @@ describe("station state machine", () => {
     const { state, effects } = run(s0, [inbound(start()), inbound(observe("change")), inbound(observe("change"))]);
     expect(state.cases["case-change"].evaluations).toHaveLength(1);
     expect(effects.filter((e) => e.kind === "schedule-tick")).toHaveLength(1);
-    expect(state.timeline.some((t) => t.kind === "ignored" && /重复事件/.test(t.text))).toBe(true);
+    expect(state.timeline.some((t) => t.kind === "ignored" && /Duplicate event/.test(t.text))).toBe(true);
   });
 
   it("analysis ends in a pending candidate: nothing is sent to the HUD before a human approves", () => {
@@ -122,11 +122,11 @@ describe("station state machine", () => {
   it("review needs the latest version, a reason and an allowed decision", () => {
     let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
     // Not allowed while analysing.
-    expect(step(state, review("case-change", 1, "approve")).error).toMatch(/不允许/);
+    expect(step(state, review("case-change", 1, "approve")).error).toMatch(/not allowed/);
     state = finish(state, "case-change");
-    expect(step(state, review("case-change", 1, "approve", " ")).error).toMatch(/理由/);
-    expect(step(state, review("case-change", 2, "approve")).error).toMatch(/最新版本/);
-    expect(step(state, review("case-change", 1, "close")).error).toMatch(/不允许/);
+    expect(step(state, review("case-change", 1, "approve", " ")).error).toMatch(/enter a reason/);
+    expect(step(state, review("case-change", 2, "approve")).error).toMatch(/latest evaluation/);
+    expect(step(state, review("case-change", 1, "close")).error).toMatch(/not allowed/);
   });
 
   it("approval publishes the notice and a retest task once; a second approval is refused", () => {
@@ -186,7 +186,7 @@ describe("station state machine", () => {
     expect(sends(dupNew.effects)[0].payload).toMatchObject({ status: "duplicate" });
 
     const preview = statusNoticeText(state.cases["case-change"], "close");
-    const closed = step(state, review("case-change", 2, "close", "复测正常，结合值班评估关闭"));
+    const closed = step(state, review("case-change", 2, "close", "Retest normal; closed after the duty assessment"));
     const re = sends(closed.effects);
     expect(re.map((e) => e.type)).toEqual(["station.reassessment"]);
     expect(re[0].payload).toMatchObject({ evaluationVersion: 2, reviewDecision: "close", caseStatus: "closed", summary: preview });
@@ -204,10 +204,10 @@ describe("station state machine", () => {
     const notice = state.outbox.find((m) => m.type === "station.notice.approved")!;
     // Astronaut-facing basis: analysis evidence only; the reviewer's reason is only in reviewReason (never shown by the HUD).
     const np = notice.envelope.payload as { basis: string[]; text: string; reviewReason: string };
-    expect(np.basis.some((l) => /待审候选/.test(l))).toBe(false);
+    expect(np.basis.some((l) => /Candidate for base review/i.test(l))).toBe(false);
     expect(np.basis.join(" ")).not.toContain(np.reviewReason);
     expect(np.text).not.toContain(np.reviewReason);
-    const deferred = step(state, inbound(inboundEnvelope("hud.defer", { runId: RUN, caseId: "case-change", payload: { messageId: notice.eventId, reason: "正在钻取，稍后" } }))).state;
+    const deferred = step(state, inbound(inboundEnvelope("hud.defer", { runId: RUN, caseId: "case-change", payload: { messageId: notice.eventId, reason: "Drilling now, later" } }))).state;
     expect(deferred.cases["case-change"].phase).toBe("deferred");
   });
 
@@ -233,7 +233,7 @@ describe("station state machine", () => {
     // A late observation from run-1 is ignored.
     const lateObs = step(state, inbound(observe("change", "obs-late", RUN)));
     expect(lateObs.state.caseOrder).toHaveLength(0);
-    expect(lateObs.state.timeline.at(-1)?.text).toMatch(/已重置的上一轮/);
+    expect(lateObs.state.timeline.at(-1)?.text).toMatch(/from an earlier, ended run/);
     // The new run works normally.
     state = step(state, inbound(observe("normal", "obs-n2", "run-2"))).state;
     expect(state.caseOrder).toEqual(["case-normal"]);
@@ -251,7 +251,7 @@ describe("station state machine", () => {
     expect(bad.error).toMatch(/invalid envelope/);
     const noRun = step(s0, inbound(observe("normal")));
     expect(noRun.state.caseOrder).toHaveLength(0);
-    expect(noRun.state.timeline.at(-1)?.text).toMatch(/没有进行中的场景/);
+    expect(noRun.state.timeline.at(-1)?.text).toMatch(/no run in progress/);
   });
 
   it("delivery failure is visible and can be resent with the same eventId", () => {
@@ -318,7 +318,7 @@ describe("station state machine", () => {
     expect(paired.kind).toBe("paired");
     const separate = loop("retest-invalid");
     expect(separate.kind).toBe("separate");
-    if (separate.kind === "separate") expect(separate.why).toMatch(/不计算变化幅度/);
+    if (separate.kind === "separate") expect(separate.why).toMatch(/no change is computed/);
   });
 
   it("v1: retest.completed is recorded separately from the retest data", () => {
@@ -362,7 +362,7 @@ describe("station state machine", () => {
     const r = step(finish(first.state, "case-change"), review("case-change", 1, "approve"));
     const all = allSends(r.effects);
     const rev = all.find((e) => e.type === "station.audit.review")!;
-    expect(rev.payload).toMatchObject({ decision: "approve", reviewer: "基地值班员 A", caseStatus: "awaiting-hud" });
+    expect(rev.payload).toMatchObject({ decision: "approve", reviewer: "Base duty officer A", caseStatus: "awaiting-hud" });
     expect((rev.payload as { dispatchedEventIds: string[] }).dispatchedEventIds).toEqual(sends(r.effects).map((e) => e.eventId));
   });
 
@@ -370,7 +370,7 @@ describe("station state machine", () => {
     // v1 normal case: closed without ever dispatching → still one status notification for the HUD.
     let n = finish(run(s0, [inbound(start()), inbound(observe("normal"))]).state, "case-normal");
     const preview = statusNoticeText(n.cases["case-normal"], "close")!;
-    expect(preview).toMatch(/已由基地人员关闭/);
+    expect(preview).toMatch(/Case Closed by base staff/);
     const closed = step(n, review("case-normal", 1, "close"));
     expect(sends(closed.effects).map((e) => [e.type, messageKind(e.type)])).toEqual([["station.reassessment", "status"]]);
     expect(sends(closed.effects)[0].payload).toMatchObject({ evaluationVersion: 1, reviewDecision: "close", caseStatus: "closed", summary: preview, simulated: true });
@@ -404,10 +404,10 @@ describe("station state machine", () => {
     let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
     state = finish(state, "case-change");
     state = step(state, review("case-change", 1, "approve")).state;
-    const r = step(state, review("case-change", 1, "close", "现场已另行处理（测试）"));
+    const r = step(state, review("case-change", 1, "close", "Handled separately on site (test)"));
     const out = sends(r.effects);
     expect(out.map((e) => messageKind(e.type))).toEqual(["status"]);
-    expect((out[0].payload as { summary: string }).summary).toMatch(/之前安排的复测无需再做/);
+    expect((out[0].payload as { summary: string }).summary).toMatch(/The retest scheduled earlier is no longer needed/);
     expect(r.state.cases["case-change"].phase).toBe("closed");
     // A late retest result for the closed case is only acknowledged as rejected, not re-evaluated.
     const late = step(r.state, inbound(inboundEnvelope("retest.result", { runId: RUN, caseId: "case-change", retestId: "case-change-rt1", payload: { observation: RETEST_FIXTURES["retest-normal"].observation(1) } })));
@@ -427,18 +427,18 @@ describe("station state machine", () => {
     let { state } = run(s0, [inbound(start()), inbound(observe("change"))]);
     state = finish(state, "case-change");
     const c = () => state.cases["case-change"];
-    expect(caseStatus(c())).toMatchObject({ label: "告警未关闭 · 待审核", tone: "alert", alertOpen: true });
-    expect(evaluationStatus(latest(c()))).toMatchObject({ label: "最新评估 v1：超出个体基线波动", tone: "alert" });
+    expect(caseStatus(c())).toMatchObject({ label: "Alert open · Awaiting Base Review", tone: "alert", alertOpen: true });
+    expect(evaluationStatus(latest(c()))).toMatchObject({ label: "Latest evaluation v1: Beyond the individual baseline variation", tone: "alert" });
     state = step(state, review("case-change", 1, "approve")).state;
     state = step(state, inbound(inboundEnvelope("retest.result", { runId: RUN, caseId: "case-change", retestId: "case-change-rt1", payload: { observation: RETEST_FIXTURES["retest-normal"].observation(1) } }))).state;
     state = finish(state, "case-change");
-    expect(summaryHeadline(c())).toBe("复测在参考范围内，待人工处理");
-    expect(caseStatus(c())).toMatchObject({ label: "告警未关闭 · 待人工处理", tone: "alert" });
-    expect(evaluationStatus(latest(c()))).toMatchObject({ label: "最新评估 v2（复测）：在参考范围内", tone: "ok" });
-    expect(alertNote(c())).toMatch(/原告警尚未关闭/);
+    expect(summaryHeadline(c())).toBe("Retest Within Reference Range · awaiting base decision");
+    expect(caseStatus(c())).toMatchObject({ label: "Alert open · awaiting base decision", tone: "alert" });
+    expect(evaluationStatus(latest(c()))).toMatchObject({ label: "Latest evaluation v2 (retest): Within Reference Range", tone: "ok" });
+    expect(alertNote(c())).toMatch(/The original alert is still open/);
     state = step(state, review("case-change", 2, "close")).state;
-    expect(caseStatus(c())).toMatchObject({ label: "事件已关闭", alertOpen: false });
-    expect(summaryHeadline(c())).toBe("复测在参考范围内，事件已关闭");
+    expect(caseStatus(c())).toMatchObject({ label: "Case Closed", alertOpen: false });
+    expect(summaryHeadline(c())).toBe("Retest Within Reference Range · Case Closed");
     expect(alertNote(c())).toBeNull();
   });
 
@@ -469,7 +469,7 @@ describe("mission: start and end the simulated EVA", () => {
   const s0 = initialState(DEMO_BASELINES);
   const A02 = { id: "a-02", callsign: "A-02" };
   const TASK = { id: "task-standoff-survey", title: "Survey the outcrops", targetId: "sim-target-a" };
-  const startEva = (runId = "run-eva-1"): Action => ({ type: "start-eva", runId, scenarioId: "mission-glass-lefroy", astronaut: A02, task: TASK, by: "基地值班员", at: T });
+  const startEva = (runId = "run-eva-1"): Action => ({ type: "start-eva", runId, scenarioId: "mission-glass-lefroy", astronaut: A02, task: TASK, by: "Base duty officer", at: T });
   /** The relay's echo of the station's own scenario.start (sender role station). */
   const echo = (state: StationState, seq = 1) => {
     const env = state.outbox.find((m) => m.type === "scenario.start")!.envelope;
@@ -481,12 +481,12 @@ describe("mission: start and end the simulated EVA", () => {
     expect(a.error).toBeNull();
     expect(allSends(a.effects).map((e) => [e.type, e.source, e.eventId])).toEqual([["scenario.start", "station", "stn-run-eva-1-start"]]);
     expect(a.state.run).toBeNull();
-    expect(step(a.state, startEva("run-eva-2")).error).toMatch(/等待通信服务确认/);
+    expect(step(a.state, startEva("run-eva-2")).error).toMatch(/waiting for the relay to confirm/);
     const b = step(a.state, echo(a.state));
     expect(b.state.run).toMatchObject({ runId: "run-eva-1", startedBy: "station", evaEndedAt: null, task: TASK, astronaut: A02 });
     expect(b.state.pendingStart).toBeNull();
     expect(b.effects).toHaveLength(0);
-    expect(step(b.state, startEva("run-eva-2")).error).toMatch(/已有进行中的 EVA/);
+    expect(step(b.state, startEva("run-eva-2")).error).toMatch(/An EVA is already in progress/);
   });
 
   it("ending the EVA closes nothing: open events stay open and can still be handled", () => {
@@ -495,31 +495,31 @@ describe("mission: start and end the simulated EVA", () => {
     st = step(st, inbound(inboundEnvelope("observation.submitted", { runId: "run-eva-1", caseId: "c1", payload: { ...FIXTURES.change.observation, astronautId: "a-02" }, eventId: "o1" }))).state;
     st = finish(st, "c1");
     const phaseBefore = st.cases.c1.phase;
-    const e = step(st, { type: "end-eva", by: "基地值班员", at: T });
+    const e = step(st, { type: "end-eva", by: "Base duty officer", at: T });
     expect(e.error).toBeNull();
     expect(allSends(e.effects).map((x) => x.type)).toEqual(["station.eva.ended"]);
     expect(e.state.run?.evaEndedAt).toBe(T);
     expect(e.state.cases.c1.phase).toBe(phaseBefore);
     expect(e.state.cases.c1.alert.level).not.toBe("none");
-    expect(step(e.state, { type: "end-eva", by: "x", at: T }).error).toMatch(/已结束/);
+    expect(step(e.state, { type: "end-eva", by: "x", at: T }).error).toMatch(/already ended/);
     // still handled after the EVA ended
     const r = step(e.state, review("c1", 1, "approve"));
     expect(r.error).toBeNull();
     expect(sends(r.effects).map((x) => x.type)).toEqual(["station.notice.approved", "station.retest.requested"]);
     // a new EVA is refused while a health event of the ended one is open
-    expect(step(r.state, startEva("run-eva-2")).error).toMatch(/未关闭的健康事件/);
+    expect(step(r.state, startEva("run-eva-2")).error).toMatch(/open health event/);
   });
 
   it("a reload restores the EVA start and end from relay history, sending nothing", () => {
     let st = step(s0, startEva()).state;
     st = step(st, echo(st)).state;
-    const ended = step(st, { type: "end-eva", by: "基地值班员", at: T });
+    const ended = step(st, { type: "end-eva", by: "Base duty officer", at: T });
     const history = [
       { ...st.outbox.find((m) => m.type === "scenario.start")!.envelope, seq: 1, receivedAt: T, sender: { role: "station", clientId: "win-A" } },
       { ...ended.state.outbox.find((m) => m.type === "station.eva.ended")!.envelope, seq: 2, receivedAt: T, sender: { role: "station", clientId: "win-A" } },
     ];
     const fresh = step(s0, { type: "history", raws: history, at: T });
-    expect(fresh.state.run).toMatchObject({ runId: "run-eva-1", startedBy: "station", evaEndedBy: "基地值班员" });
+    expect(fresh.state.run).toMatchObject({ runId: "run-eva-1", startedBy: "station", evaEndedBy: "Base duty officer" });
     expect(fresh.state.run?.evaEndedAt).toBe(T);
     expect(fresh.effects.filter((x) => x.kind === "send")).toHaveLength(0);
   });

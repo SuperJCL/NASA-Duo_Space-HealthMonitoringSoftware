@@ -71,5 +71,5 @@ export const elapsed = (sinceIso: string | null, now: number) => {
 export const duration = (sinceIso: string | null, now: number) => {
   if (!sinceIso || !now) return "–";
   const m = Math.max(0, Math.floor((now - Date.parse(sinceIso)) / 60_000));
-  return `${Math.floor(m / 60)} 小时 ${String(m % 60).padStart(2, "0")} 分`;
+  return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min`;
 };

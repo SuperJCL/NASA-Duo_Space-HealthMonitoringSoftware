@@ -13,7 +13,7 @@ export type DeliveryResult = { ok: true; note: string } | { ok: false; note: str
 
 export interface StationAdapter {
   readonly mode: LinkMode;
-  /** Short label for the station header, e.g. "独立演示 · 本地 mock". */
+  /** Short label for the station header, e.g. "Standalone demo · local mock". */
   readonly label: string;
   /**
    * Receive inbound messages (unvalidated: the station validates them). `onHistory` receives a batch
@@ -28,7 +28,7 @@ export interface StationAdapter {
 /** In-memory adapter for standalone development. `inject` plays the role of Trigger / HUD in tests. */
 export class MockStationAdapter implements StationAdapter {
   readonly mode = "standalone-mock" as const;
-  readonly label = "独立演示 · 本地 mock 适配层（未连接 Trigger / HUD）";
+  readonly label = "Standalone demo · local mock adapter (no HUD or data source connected)";
   readonly sent: Envelope[] = [];
   private failNext = 0;
   private handlers = new Set<(raw: unknown) => void>();
@@ -43,10 +43,10 @@ export class MockStationAdapter implements StationAdapter {
   async send(envelope: Envelope): Promise<DeliveryResult> {
     if (this.failNext > 0) {
       this.failNext -= 1;
-      return { ok: false, note: "mock 适配层模拟发送失败" };
+      return { ok: false, note: "Simulated send failure in the mock adapter" };
     }
     this.sent.push(envelope);
-    return { ok: true, note: "已交给本地 mock 适配层（不代表 HUD 已收到）" };
+    return { ok: true, note: "Handed to the local mock adapter (not a HUD receipt)" };
   }
 
   /** Development only: make the next n sends fail (to show delivery failure and resend). */

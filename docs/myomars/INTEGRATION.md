@@ -12,52 +12,59 @@
 
 - **Acceptance target:** the exact `integration/myomars` commit named in PR #2's description. A
   later change must be stated there, and the affected checks re-run.
-- **Not claimed:** the health-data teammate's data, and multi-device LAN access. Both are follow-up
-  tasks, see the end of this document.
+- **Data scope:** the Base ↔ HUD loop runs on simulated samples from the data replay module.
+  - The ASTRA patch demo (`astra-patch/`, merged via PR #4) is a separate, independent explanatory
+    program with no link to the Base, the HUD or the relay. This is by design; see
+    [DEMOS.md](DEMOS.md) and [PATCH-AUDIT.md](PATCH-AUDIT.md).
+  - Multi-device LAN access is not verified.
+- **Windows acceptance guide:** [WINDOWS-ACCEPTANCE.md](WINDOWS-ACCEPTANCE.md).
 - **HUD changes for the HUD teammate:** [HUD-INTEGRATION-MODE.md](HUD-INTEGRATION-MODE.md).
+- **English demo + Health Monitoring overlay (branch `feat/myomars-english-overlay`, draft PR, not
+  merged):** the station UI is English-only and Health Monitoring is an overlay on the Mission Map.
+  See [ENGLISH-DEMO.md](ENGLISH-DEMO.md). The sections below use the English UI labels; the history
+  sections keep the labels of their time.
 
-## Mission integration (任务准备 → 健康监测)
+## Mission integration (Mission Map → Health Monitoring)
 
-**One station, two views of one mission:** "任务地图" and "健康监测", switched in the mission bar.
-The bar always shows the mission, the phase, the EVA task with the astronaut, and the pending
-health events.
+**One station, one mission:** the Mission Map is always the background; Health Monitoring is an
+overlay on it, opened and collapsed with "Health Monitoring ▸ Open / ▾ Collapse" in the mission bar
+(or Esc). The bar always shows the mission, the phase, the EVA task with the astronaut, and the
+health cases to review.
 
-**Preparation** (default view: task map):
+**Preparation** (overlay collapsed):
 
 1. The existing Mission Glass, embedded unchanged (`embedded` prop). It covers:
    - 2D map and 3D terrain;
    - task selection on the map, target list or cards;
    - planning, EVA route and EVA steps.
 2. Choose the astronaut. A-02 is the HUD device, so the only choice.
-3. "查看任务摘要": the task, the simulated target, the astronaut, and the health-measurement
-   conditions (unknown unless the measurement states them; no terrain-to-health inference; not a
-   real EVA).
-4. **"确认开始 EVA"**: the only action that starts a run. The station publishes one
+3. "Review summary, start EVA": the task, the simulated target, the astronaut, and the
+   health-measurement conditions (unknown unless the measurement states them; no terrain-to-health
+   inference; not a real EVA).
+4. **"Confirm Start EVA"**: the only action that starts a run. The station publishes one
    `scenario.start` (contracts v1.1: the station role may publish it).
 
-**During the EVA** (default view: health monitoring, once per run; after that the user's choice
-for the run wins, also across a refresh):
+**During the EVA** (the overlay opens once per run; after that the user's choice for the run wins,
+also across a refresh):
 
-- The crew card and the person panel: data-flow canvas, review, retest, status notices, all
-  unchanged.
-- The map stays one click away, and the mission context is shared.
-- Pending health events show on the map. Clicking one opens that person's case. Nothing is ever
-  switched automatically.
-- Switching views never ends the task, resets the run, or stops analysis or communication. The
-  health logic sits above both views; the map stays mounted (hidden), and both map renderers draw
-  on demand only.
+- The overlay: observation, indicators, compact analysis chain, communications and the fixed
+  decision area (review, dispatch tracker, retest, status notices); the full data-flow canvas opens
+  inside it. Layout and rules: [ENGLISH-DEMO.md](ENGLISH-DEMO.md).
+- Collapsed, the map shows the crew at a labelled simulated position and the pending cases.
+  Clicking one opens the overlay at that person's case. Nothing is ever opened automatically.
+- Collapsing never ends the task, resets the run, or stops analysis or communication.
 
 **Ending:**
 
-- "结束 EVA" publishes `station.eva.ended` (proposed extension). It changes the phase only: no
+- "End EVA" publishes `station.eva.ended` (proposed extension). It changes the phase only: no
   event is closed or deleted, and it is not a health statement.
 - Events stay viewable and can still be handled.
 - A new EVA is refused while events of the ended one are open.
 
 **Isolation:**
 
-- The map is loaded lazily on first use, behind an error boundary with a working retry.
-- A map code or asset failure shows a notice in the map view; health monitoring keeps working.
+- The map loads behind an error boundary with a working retry.
+- A map code or asset failure shows a notice on the map; Health Monitoring keeps working.
 
 **Data boundaries:**
 
@@ -332,7 +339,8 @@ The last results are stated in PR #2 with the commit they ran on.
 **Not verified yet**
 
 - Multi-device LAN access: addresses are printed, but no second device was tested.
-- The health-data teammate's data. This is the next acceptance and is reported separately.
+- (Scope, not a gap: the Base ↔ HUD loop uses simulated replay samples only, and the patch demo is
+  a separate program by design.)
 
 ## Manual acceptance (three steps)
 
@@ -340,25 +348,27 @@ Start as below (one station window, one HUD window). Optionally keep
 `http://localhost:8787/v1/health` open: its `lastSeq` is the relay's message count.
 
 1. **Missing grip stays missing; the result is incomplete; the case is not closed.**
-   1. Start a run in "开发入口（数据回放）", then click "Enter HUD" on the HUD page.
-   2. Choose the sample "握力计未读数（缺失值演示）", then click "回放并打开面板".
+   1. Start an EVA on the Mission Map, then click "Enter HUD" on the HUD page.
+   2. In "Dev entry (data replay)", choose "Grip meter not read (missing-value demo)", then click
+      "Replay and open Health Monitoring".
    3. Expect, after about 10 s:
-      - "最新评估 v1：结果不完整";
-      - "为什么停在这里" names 握力 as missing and says "未补造、未填零";
-      - click the "指标比较" node, then "查看证据": 握力 reads "缺失（未提供）", never 0;
-      - the case stays "关注未关闭 · 待审核" however long you wait;
+      - the decision area: "Incomplete Results: missing grip force", and the evidence says missing
+        values are not invented or set to zero;
+      - the chain stops at Comparison ("Incomplete Results: not compared"); in "Full flow ⤢" the
+        Comparison node's evidence reads "missing (not provided)", never 0;
+      - the case stays "Watch open · Awaiting Base Review" however long you wait;
       - the HUD still says "no base messages yet".
-2. **Keep watching, then close: HUD and station agree; no notice twice.**
+2. **Continue Monitoring, then close: HUD and station agree; no notice twice.**
    1. Open the HUD as `http://localhost:8787/hud.html?mode=integration&retestSample=retest-changed`
       (so the retest still differs).
-   2. Replay "可比变化（完整流程）", approve, and on the HUD do Acknowledge → View task → Start
-      retest → Submit.
-   3. When v2 is ready, click "保留关注" with a reason. The HUD shows "Base update · …此事件保留关注…"
-      and the case stays open.
-   4. Then click "关闭事件" with a reason. The HUD shows "Case closed by base" and CASE CLOSED; the
-      station shows "事件已关闭".
-   5. In the station's 通信记录 for that case, each status notice appears exactly once (保留关注,
-      then 关闭).
+   2. Replay "Comparable change (full flow)", approve, and on the HUD do Acknowledge → View task →
+      Start retest → Submit.
+   3. When v2 is ready, choose "Continue Monitoring…" with a reason. The HUD shows "Base update ·
+      … Continue Monitoring …" and the case stays open.
+   4. Then "Close case early…" with a reason. The HUD shows "Case closed by base" and CASE CLOSED;
+      the station shows "Case Closed" and "Handling complete".
+   5. In Communications for that case, each status notice appears exactly once (Continue
+      Monitoring, then Case Closed).
    6. The HUD's earlier notice reads "Earlier notice · history", the retest card reads "done
       (history)", and there are no task buttons.
 3. **Refresh both ends: tasks and results restored; nothing sent or processed twice.**
@@ -378,30 +388,31 @@ npm run dev                                 # station on 3000
 
 | Page | Address |
 |---|---|
-| Mars Station (relay mode) | `http://localhost:3000/?relay=auto` |
+| Mars Base (relay mode) | `http://localhost:3000/?relay=auto` |
 | HUD (integration mode) | `http://localhost:8787/` (redirects to `/hud.html?mode=integration`) |
+
+A clean English demo session (empty relay) is described in [ENGLISH-DEMO.md](ENGLISH-DEMO.md).
 
 **Start the EVA** on the station:
 
-1. In the "任务地图" view, choose a task: a target on the map, the target buttons, or a task card.
+1. On the Mission Map, choose a task: a target on the map, the target buttons, or a task card.
 2. Keep the astronaut A-02.
-3. Click "查看任务摘要，开始 EVA", then "确认开始 EVA".
+3. Click "Review summary, start EVA", then "Confirm Start EVA".
 
-The station switches to "健康监测".
+The Health Monitoring overlay opens over the map.
 
 Then:
 
 1. Click "Enter HUD" on the HUD page. It joins the EVA and shows only "Connected · no base
    messages yet": it gets content only after base staff approve something.
-2. Replay a sample with "回放并打开面板" or `npm run replay -- send change`. The station analyses it
-   for about 10 s and stops at "等待基地审核".
-3. In the A-02 panel, click "等待基地审核", then approve with a reason. The HUD now shows the
-   notice and the retest task.
+2. Replay a sample with "Replay and open Health Monitoring" or `npm run replay -- send change`. The
+   station analyses it for about 10 s and stops at "Awaiting Base Review".
+3. In the decision area, click "Approve and send the retest…", pick or write a reason, then
+   "Confirm and publish". The HUD now shows the notice and the retest task.
 4. On the HUD: Acknowledge → View task → Start retest → Submit after the capture.
-5. After the station's re-evaluation, close the case or keep watching. The HUD then shows the
-   final status.
-
-6. "结束 EVA" in the mission bar: open events stay open. A new EVA can start once they are closed.
+5. After the station's re-evaluation, close the case or choose Continue Monitoring. The HUD then
+   shows the final status.
+6. "End EVA" in the mission bar: open cases stay open. A new EVA can start once they are closed.
 
 The station's dev entry lists the same steps. It only replays samples; it never starts a run.
 
@@ -450,9 +461,9 @@ Each item gives the concrete difference and a recommendation. Nothing below was 
    - It stays off in integration mode until then.
 6. **Retest result values in integration mode.**
    - Today: the HUD submits the shared contract fixture whose protocol matches the request.
-   - Recommendation: the health-data teammate provides retest windows, read through the replay
-     module. The HUD keeps publishing `retest.result` as the single source; it is not also sent by
-     the replay.
+   - Settled (2026-11-15): the retest result stays a stored shared simulated sample, and the HUD
+     keeps publishing `retest.result` as the single source. The patch demo is independent by
+     design, so it supplies no retest windows.
 7. **Demo assumptions the replay states:**
    - samples recorded for `ev1` are assigned to the run's astronaut A-02 (the station's A-02
      baseline has the same simulated values as EV1);
@@ -461,25 +472,15 @@ Each item gives the concrete difference and a recommendation. Nothing below was 
    - The station records it; it does not reopen anything.
    - Decide whether status updates need an acknowledgement at all.
 
-## Next acceptance: teammate data → replay → station analysis → HUD
+## Data scope (by design)
 
-When the health-data teammate pushes:
-
-1. Fetch their branch and read the files there. Do not merge into `main` first.
-2. Run `npm run replay -- check <file>` on each file. The checklist covers:
-   - format and source;
-   - person, body site, device;
-   - units, sample rate, time;
-   - protocol conditions;
-   - missing values;
-   - raw signals versus computed features.
-3. **Raw sEMG / IMU** needs a feature-extraction step that is defined and validated first. The
-   station today accepts only the summary features (median frequency Hz, RMS %MVC, grip N). Raw
-   values are never written into those fields.
-4. **Missing person, body site or conditions:** no baseline is applied. Any metadata the demo adds
-   is marked as an assumption.
-5. **Only after this:** add their samples to the replay module (source label = teammate data), then
-   run the same two-end acceptance.
+- **Base ↔ HUD:** observations come only from the data replay module, as simulated samples (the
+  shared contract demo fixtures). The retest result is a stored shared simulated sample, published
+  by the HUD.
+- **Patch demo:** `astra-patch/` is an independent explanatory program, run separately.
+  - It has no adapter, protocol, baseline or field mapping into the Base, and none is planned.
+  - The replay module's intake check (`npm run replay -- check <file>`) remains for any external
+    file someone wants to inspect. It never publishes such a file.
 
 ## Earlier preparation (reference)
 
@@ -517,10 +518,21 @@ When the health-data teammate pushes:
 - **Preservation tag:** this session cannot push tags. Create it once from any clone:
   `git tag -a archive/mission-glass-complete-2026-11-14 76e2888 -m "Complete Mission Glass map/EVA work before the MyoMars station integration"`,
   then `git push origin archive/mission-glass-complete-2026-11-14`.
-- **Follow-up 1, health-data intake:** when the teammate pushes, read their branch, run
-  `npm run replay -- check <file>`, then follow "Next acceptance" above. This is reported
-  separately.
-- **Follow-up 2, multi-device LAN:**
-  - the station on one machine, the HUD on another device, through `http://<LAN-IP>:8787/`;
-  - firewall and allowed origins (`--origins`) checked;
-  - reported separately.
+- **Not verified, and not developed this round: multi-device LAN.** The station would run on one
+  machine and the HUD on another device through `http://<LAN-IP>:8787/`, which needs the firewall
+  and allowed origins (`--origins`) set up.
+- **Optional later (not extended this round):** static export, Windows one-click start, packaging,
+  deploy templates.
+
+## Task status (2026-11-15)
+
+| Task | Status |
+|---|---|
+| F1 shared contracts v1 | Done (`contracts:check`) |
+| F2 Foundation relay (WIP `8f13fdf`, branch `feat/myomars-foundation`) | **Superseded** by the current relay and communication setup (`relay/`, `RelayStationAdapter`). Kept as an archive branch, not merged, not developed further. |
+| S1 station on contracts + relay | **Done and verified** (e2e:two-end, unit tests): contracts v1/v1.1 migration with generated artifacts, the relay adapter, the processing lease (one deciding window), a read-only second window, **page-refresh recovery** of station and HUD without re-sending, and duplicate / old-run rejection. **Not done:** login (demo identity only). **Not verified:** **relay-restart recovery**. The relay is in-memory by default, so a restart is a clean session by design; the `--data` append-only persistence exists but has no automated test. |
+| S2 deployment and E2E | **Done:** two-end E2E (`e2e:two-end` 48, `e2e:mission` 29). **Optional later:** static export, Windows one-click start, packaging, deploy templates. |
+| Patch | Standalone demo merged (#4); independent by design. Not a to-do. |
+| Owner's Windows acceptance on final `main` | Pending ([WINDOWS-ACCEPTANCE.md](WINDOWS-ACCEPTANCE.md)) |
+
+Historical branches are kept.

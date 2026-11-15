@@ -13,28 +13,28 @@ function analysed(fx: keyof typeof FIXTURES, ticks = Infinity) {
   for (let i = 0; i < n; i++) s = step(s, { type: "stage-tick", runId: "r", caseId: FIXTURES[fx].caseId, version: 1, at: T }).state;
   return ev();
 }
-const human = { label: "等待基地审核", outcome: "human" as const };
+const human = { label: "Awaiting Base Review", outcome: "human" as const };
 
 describe("data-flow canvas plan (the path the data actually took)", () => {
   it("normal path: device data → quality → conditions → indicators → base review", () => {
-    const steps = canvasPlan(analysed("change"), "EV1（模拟宇航员）", human)!;
+    const steps = canvasPlan(analysed("change"), "EV1 (simulated)", human)!;
     expect(steps.map((s) => `${s.edge}>${s.to}`)).toEqual(["e-source>receive", "e-quality>quality", "e-context>context", "e-features>features", "e-review>review"]);
-    expect(steps.map((s) => s.result)).toEqual(["已接收：标准握持 40% MVC · 30 s", "合格：6 项参数在阈值内", "条件一致，可比较", "3 项超出参考范围", "等待基地审核"]);
+    expect(steps.map((s) => s.result)).toEqual(["Received: Standard grip 40% MVC · 30 s", "Passed: 6 parameters within limits", "Conditions match: comparable", "3 indicators outside the reference range", "Awaiting Base Review"]);
     expect(steps.at(-1)!.outcome).toBe("human");
-    expect(steps[0].packet).toBe("EV1 · 设备数据 10:00");
+    expect(steps[0].packet).toBe("EV1 · device data 10:00");
     expect(divergence(steps)).toBeNull();
   });
 
   it("quality failure takes the branch: quality → check device / re-measure → base review; normal downstream not used", () => {
-    const steps = canvasPlan(analysed("acquisition"), "EV1（模拟宇航员）", human)!;
+    const steps = canvasPlan(analysed("acquisition"), "EV1 (simulated)", human)!;
     expect(steps.map((s) => s.edge)).toEqual(["e-source", "e-quality", "b-quality", "b-review"]);
-    expect(steps[1]).toMatchObject({ outcome: "stopped", result: "不合格：电极阻抗、运动伪迹" });
-    expect(steps[2].packet).toBe("质量不合格：电极阻抗、运动伪迹");
+    expect(steps[1]).toMatchObject({ outcome: "stopped", result: "Failed: electrode impedance, motion artefact" });
+    expect(steps[2].packet).toBe("Quality failed: electrode impedance, motion artefact");
     expect(divergence(steps)).toBe(1);
   });
 
   it("not comparable takes the other branch from the condition check", () => {
-    const steps = canvasPlan(analysed("not-comparable"), "EV1（模拟宇航员）", human)!;
+    const steps = canvasPlan(analysed("not-comparable"), "EV1 (simulated)", human)!;
     expect(steps.map((s) => s.edge)).toEqual(["e-source", "e-quality", "e-context", "b-context", "b-review"]);
     expect(steps[2].outcome).toBe("stopped");
   });

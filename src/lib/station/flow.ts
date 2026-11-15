@@ -11,7 +11,7 @@
 // that waits for the HUD stays "waiting" until a real (or simulated, in the local demo) message
 // arrives. Earlier rounds are kept; a re-evaluation adds a row and never overwrites one.
 
-import { FEATURES, type Evidence, type FeatureKey } from "./analysis";
+import { FEATURES, inSentence, type Evidence, type FeatureKey } from "./analysis";
 import { allowedDecisions, caseMessages, isActionable, latest, messageKind, stageView, workbenchStage, type Case, type Decision, type Evaluation, type OutMessage, type Review, type StationState } from "./station";
 import { alertNote, comparisonView, keyBasis } from "./views";
 
@@ -21,7 +21,7 @@ import { alertNote, comparisonView, keyBasis } from "./views";
  * todo: not reached yet · skipped: not executed (an earlier step stopped or the case was closed).
  */
 export type NodeState = "done" | "running" | "human" | "waiting" | "stopped" | "todo" | "skipped";
-export type Owner = "系统" | "基地人员" | "HUD" | "宇航员" | "Trigger" | "无";
+export type Owner = "System" | "Base staff" | "HUD" | "Crew" | "Data source" | "None";
 
 export type IndicatorView = {
   key: FeatureKey;
@@ -79,7 +79,7 @@ export type FlowView = {
 };
 
 export const hhmmss = (iso: string | null) => (iso ? new Date(iso).toISOString().slice(11, 19) + " UTC" : "–");
-const POSTURE = { standing: "站姿", kneeling: "跪姿", seated: "坐姿" } as const;
+const POSTURE = { standing: "standing", kneeling: "kneeling", seated: "seated" } as const;
 
 function node(p: Partial<FlowNode> & Pick<FlowNode, "id" | "label" | "state" | "owner" | "summary">): FlowNode {
   return { at: null, input: [], result: null, next: null, reason: null, evidence: [], indicators: [], relation: null, messages: [], action: null, since: null, ...p };
@@ -103,9 +103,9 @@ function indicators(ev: Evaluation, before: Evaluation | null): IndicatorView[] 
     });
 }
 
-const STAGE_LABEL = { quality: "信号质量", context: "情境与可比性", features: "指标比较", recommendation: "建议候选" } as const;
-const REPORT_LABEL = { quality: "报告核查", context: "传感器数据", features: "指标比较", recommendation: "建议候选" } as const;
-const NEXT_LABEL = { quality: "情境与可比性检查", context: "与个体基线比较指标", features: "生成建议候选", recommendation: "" } as const;
+const STAGE_LABEL = { quality: "Signal Quality", context: "Comparability", features: "Comparison", recommendation: "Recommendation" } as const;
+const REPORT_LABEL = { quality: "Report check", context: "Sensor data", features: "Comparison", recommendation: "Recommendation" } as const;
+const NEXT_LABEL = { quality: "Comparability check", context: "Compare indicators with the individual baseline", features: "Prepare a candidate for base review", recommendation: "" } as const;
 
 /** A report-check round: report received → report check → sensor data (limits) → no comparison → candidate. */
 function reportRow(ev: Evaluation): FlowRow {
@@ -114,14 +114,14 @@ function reportRow(ev: Evaluation): FlowRow {
   const nodes: FlowNode[] = [
     node({
       id: `v${ev.version}:receive`,
-      label: "报告接收",
+      label: "Report Received",
       state: "done",
-      owner: "宇航员",
+      owner: "Crew",
       at: ev.startedAt,
-      summary: `宇航员主动报告 · ${hhmmss(r.reportedAt).slice(0, 5)}`,
-      input: [`内容：“${r.text}”`, `请求：${r.request ?? "无"}`, "来源：HUD（本地模拟扩展，不是共享契约消息）"],
-      result: "已接收，自动开始报告核查（自述不是诊断）",
-      next: "报告核查",
+      summary: `Astronaut report · ${hhmmss(r.reportedAt).slice(0, 5)}`,
+      input: [`Content: "${r.text}"`, `Request: ${r.request ?? "none"}`, "Source: HUD (local simulated extension, not a shared-contract message)"],
+      result: "Received; the report check starts automatically (a self-report is not a diagnosis)",
+      next: "Report check",
     }),
   ];
   stages.forEach((st, i) => {
@@ -134,18 +134,18 @@ function reportRow(ev: Evaluation): FlowRow {
         id: `v${ev.version}:${id}`,
         label: REPORT_LABEL[id],
         state,
-        owner: "系统",
+        owner: "System",
         at: shown ? ev.completedAt : null,
-        summary: state === "running" ? "处理中…" : state === "todo" ? "未到达" : id === "quality" ? "自述已记录，不作诊断" : id === "context" ? (state === "done" ? "有近期有效测量（仅参考）" : "无有效传感器数据") : id === "features" ? "未比较：报告不是测量" : (ev.result.candidate?.title ?? "无建议"),
-        input: state === "todo" ? [] : res.evidence.map((e) => `${e.label}：${e.value}`),
-        result: shown ? (id === "recommendation" ? `候选（未发布）：${ev.result.candidate?.title ?? "无"}。${ev.result.candidate?.rationale ?? ""}` : res.summary) : state === "skipped" ? res.summary : null,
-        next: shown ? (id === "recommendation" ? "等待基地批准（建议在批准前不会发布）" : id === "quality" ? "查看该宇航员的传感器数据" : "仍生成建议候选：报告不会因缺少传感器数据被忽略") : null,
+        summary: state === "running" ? "Processing…" : state === "todo" ? "Not reached" : id === "quality" ? "Self-report recorded, no diagnosis" : id === "context" ? (state === "done" ? "Recent valid measurement (reference only)" : "No valid sensor data") : id === "features" ? "Not compared: a report is not a measurement" : (ev.result.candidate?.title ?? "No candidate"),
+        input: state === "todo" ? [] : res.evidence.map((e) => `${e.label}: ${e.value}`),
+        result: shown ? (id === "recommendation" ? `Candidate (not published): ${ev.result.candidate?.title ?? "none"}. ${ev.result.candidate?.rationale ?? ""}` : res.summary) : state === "skipped" ? res.summary : null,
+        next: shown ? (id === "recommendation" ? "Awaiting Base Review (nothing is published before approval)" : id === "quality" ? "Look at this astronaut's sensor data" : "A candidate is still prepared: a report is never ignored for lack of sensor data") : null,
         reason: state === "stopped" ? res.summary : null,
         evidence: res.evidence,
       }),
     );
   });
-  return { id: `v${ev.version}:analysis`, title: `第 ${ev.version} 轮核查 · 宇航员报告（v${ev.version}）`, lane: "main", nodes };
+  return { id: `v${ev.version}:analysis`, title: `Check round ${ev.version} · astronaut report (v${ev.version})`, lane: "main", nodes };
 }
 
 /** One analysis round: data received → four simulated analysis steps. */
@@ -157,19 +157,19 @@ function analysisRow(c: Case, ev: Evaluation): FlowRow {
   const nodes: FlowNode[] = [
     node({
       id: `v${ev.version}:receive`,
-      label: "数据接收",
+      label: "Data Received",
       state: "done",
-      owner: "Trigger",
+      owner: "Data source",
       at: ev.startedAt,
-      summary: `${retest ? "复测数据" : "测量数据"} · ${hhmmss(o.capturedAt).slice(0, 5)}`,
+      summary: `${retest ? "Retest data" : "Measurement"} · ${hhmmss(o.capturedAt).slice(0, 5)}`,
       input: [
-        `来源：${retest ? "复测结果（模拟）" : "Trigger（模拟）"}`,
-        `标准化模拟测量：${p.label} · ${POSTURE[p.posture]} · ${p.glove === "eva-glove" ? "EVA 手套" : "不戴手套"}`,
-        `数据时间 ${hhmmss(o.capturedAt)}${o.context.minutesIntoEva !== null ? ` · EVA 第 ${o.context.minutesIntoEva} 分钟` : ""}`,
-        "内容：信号质量参数 + 3 项汇总指标（不是原始肌电波形）",
+        `Source: ${retest ? "retest result (simulated)" : "data replay (simulated sample)"}`,
+        `Standardised simulated measurement: ${p.label} · ${POSTURE[p.posture]} · ${p.glove === "eva-glove" ? "EVA glove" : "no glove"}`,
+        `Data time ${hhmmss(o.capturedAt)}${o.context.minutesIntoEva !== null ? ` · EVA minute ${o.context.minutesIntoEva}` : ""}`,
+        "Content: signal-quality parameters + 3 summary indicators (no raw sEMG waveform)",
       ],
-      result: retest ? "已接收并发出接收回执，自动开始第二轮模拟分析" : "已接收，自动开始模拟分析",
-      next: "质量检查",
+      result: retest ? "Received and acknowledged with a receipt; the second simulated analysis starts automatically" : "Received; the simulated analysis starts automatically",
+      next: "Signal Quality",
     }),
   ];
   const stages = stageView(ev);
@@ -181,18 +181,18 @@ function analysisRow(c: Case, ev: Evaluation): FlowRow {
     const failed = r.evidence.filter((e) => e.ok === false).map((e) => e.label);
     const input =
       id === "features"
-        ? ["3 项汇总指标：肌电中位频率、肌电幅值 RMS（sEMG）与握力（握力计，独立测量）", "比较对象：该宇航员的个体基线（同一标准协议）"]
+        ? ["3 summary indicators: sEMG median frequency and sEMG RMS amplitude (sEMG), grip force (grip meter, independent reading)", "Compared with: this astronaut's individual baseline (same standard protocol)"]
         : id === "recommendation"
-          ? ["前面各步骤的结果", "演示规则的建议模板"]
-          : r.evidence.map((e) => `${e.label}：${e.value}${e.note ? `（${e.note}）` : ""}`);
-    let summary = "未到达";
-    if (state === "running") summary = "处理中…";
-    else if (state === "skipped") summary = "未执行（前一步已停止）";
+          ? ["Results of the previous steps", "Candidate templates of the demo rules"]
+          : r.evidence.map((e) => `${e.label}: ${e.value}${e.note ? ` (${e.note})` : ""}`);
+    let summary = "Not reached";
+    if (state === "running") summary = "Processing…";
+    else if (state === "skipped") summary = "Not run (an earlier step stopped)";
     else if (state === "done" || state === "stopped") {
-      if (id === "quality") summary = state === "done" ? "合格 · 6 项参数在阈值内" : `不合格：${failed.join("、")}`;
-      else if (id === "context") summary = state === "done" ? "条件一致，可比较" : `不可比：${failed.join("、")}不同`;
-      else if (id === "features") summary = state === "stopped" ? "特征缺失，无法比较" : ev.result.outcome === "change-beyond-baseline" ? `${ev.result.comparisons.filter((x) => x.flagged).length} 项超出参考范围` : ev.result.outcome === "single-feature" ? "仅 1 项超出参考范围" : "均在参考范围内";
-      else summary = ev.result.candidate?.title ?? "无建议";
+      if (id === "quality") summary = state === "done" ? "Passed · 6 parameters within limits" : `Failed: ${failed.map(inSentence).join(", ")}`;
+      else if (id === "context") summary = state === "done" ? "Conditions match: comparable" : `Not comparable: ${failed.map(inSentence).join(", ")} differ`;
+      else if (id === "features") summary = state === "stopped" ? (ev.result.outcome === "result-incomplete" ? "Incomplete Results: not compared" : "Features missing: not compared") : ev.result.outcome === "change-beyond-baseline" ? `${ev.result.comparisons.filter((x) => x.flagged).length} indicators outside the reference range` : ev.result.outcome === "single-feature" ? "1 indicator outside the reference range" : "All Within Reference Range";
+      else summary = ev.result.candidate?.title ?? "No candidate";
     }
     const actionable = isActionable(ev.result.candidate);
     nodes.push(
@@ -200,19 +200,19 @@ function analysisRow(c: Case, ev: Evaluation): FlowRow {
         id: `v${ev.version}:${id}`,
         label: STAGE_LABEL[id],
         state,
-        owner: "系统",
+        owner: "System",
         at: state === "done" || state === "stopped" ? (ev.completedAt ?? null) : null,
         summary,
         input: state === "todo" ? [] : input,
-        result: state === "done" || state === "stopped" ? (id === "recommendation" ? `候选（未发布）：${ev.result.candidate?.title ?? "无"}。${ev.result.candidate?.rationale ?? ""}` : r.summary) : null,
+        result: state === "done" || state === "stopped" ? (id === "recommendation" ? `Candidate (not published): ${ev.result.candidate?.title ?? "none"}. ${ev.result.candidate?.rationale ?? ""}` : r.summary) : null,
         next:
           state === "stopped"
-            ? `停止后续分析；${ev.result.candidate ? `生成建议“${ev.result.candidate.title}”，等待基地审核` : "等待基地处理"}`
+            ? `Later steps stopped; ${ev.result.candidate ? `candidate "${ev.result.candidate.title}" prepared, Awaiting Base Review` : "awaiting base handling"}`
             : state === "done"
               ? id === "recommendation"
                 ? actionable
-                  ? "等待基地批准（建议在批准前不会发布）"
-                  : "等待人工处理"
+                  ? "Awaiting Base Review (nothing is published before approval)"
+                  : "Awaiting a base decision"
                 : NEXT_LABEL[id]
               : null,
         reason: state === "stopped" ? r.summary : null,
@@ -221,22 +221,22 @@ function analysisRow(c: Case, ev: Evaluation): FlowRow {
       }),
     );
   });
-  return { id: `v${ev.version}:analysis`, title: `第 ${ev.version} 轮分析 · ${retest ? "复测数据" : "测量数据"}（v${ev.version}）`, lane: "main", nodes };
+  return { id: `v${ev.version}:analysis`, title: `Analysis round ${ev.version} · ${retest ? "retest data" : "measurement"} (v${ev.version})`, lane: "main", nodes };
 }
 
-const DECISION_LABEL: Record<Decision, string> = { approve: "基地批准", reject: "驳回建议", close: "关闭事件", "keep-open": "继续关注" };
+const DECISION_LABEL: Record<Decision, string> = { approve: "Approved by base", reject: "Candidate rejected", close: "Case Closed", "keep-open": "Continue Monitoring" };
 
 function reviewNode(ev: Evaluation, r: Review, i: number): FlowNode {
   return node({
     id: `v${ev.version}:review-${i}`,
     label: DECISION_LABEL[r.decision],
     state: "done",
-    owner: "基地人员",
+    owner: "Base staff",
     at: r.at,
     summary: `${r.reviewer} · ${hhmmss(r.at).slice(0, 5)}`,
-    input: ev.result.candidate ? [`建议：${ev.result.candidate.title}`, ev.result.candidate.rationale] : [],
-    result: `理由：${r.reason}`,
-    next: { approve: "派发提示与复测任务", reject: "等待人工处理（关闭或继续关注）", close: "处理完成：事件关闭", "keep-open": "事件继续关注，未结束" }[r.decision],
+    input: ev.result.candidate ? [`Candidate: ${ev.result.candidate.title}`, ev.result.candidate.rationale] : [],
+    result: `Reason: ${r.reason}`,
+    next: { approve: "Dispatch the notice and the retest task", reject: "Awaiting a base decision (close or Continue Monitoring)", close: "Handling complete: Case Closed", "keep-open": "Continue Monitoring: the case stays open" }[r.decision],
   });
 }
 
@@ -247,37 +247,37 @@ function pendingDecision(c: Case, ev: Evaluation, stopReason: string | null): Fl
   const cand = ev.result.candidate;
   const actionable = isActionable(cand);
   const view = comparisonView(c);
-  const relation = ev.version > 1 ? (view.kind === "paired" ? `原测量 v${view.before.version} 与复测 v${view.after.version} 都满足质量与可比条件：可以并列查看，不计算“改善幅度”。` : view.kind === "separate" ? view.why : null) : null;
-  let label = actionable ? "等待基地批准" : "等待人工处理";
+  const relation = ev.version > 1 ? (view.kind === "paired" ? `The original measurement v${view.before.version} and the retest v${view.after.version} both passed quality and comparability: shown side by side; no "improvement" is computed.` : view.kind === "separate" ? view.why : null) : null;
+  let label = actionable ? "Awaiting Base Review" : "Awaiting base decision";
   let reason: string;
   let next: string;
   if (c.phase === "monitoring") {
-    label = "继续关注中";
-    reason = "已决定继续关注：事件未结束、告警保持；可随时关闭。";
-    next = "关闭事件（告警解除）";
+    label = "Continue Monitoring";
+    reason = "Decided: Continue Monitoring. The case stays open and the alert stays; it can be closed at any time.";
+    next = "Close the case (clears the alert)";
   } else if (c.phase === "rejected") {
-    label = "等待人工处理";
-    reason = "建议已驳回，未发送任何消息；事件仍未关闭。";
-    next = "关闭事件，或继续关注";
+    label = "Awaiting base decision";
+    reason = "The candidate was rejected and nothing was sent; the case is still open.";
+    next = "Close the case, or Continue Monitoring";
   } else if (stage === "reassessed") {
-    reason = ev.result.outcome === "within-baseline" ? "复测在参考范围内，但单次正常复测不能证明已恢复；原告警未关闭，需要人工处理。" : `重评结果：${ev.result.headline}；需要人工处理。`;
-    next = actionable ? "再次批准复测，关闭事件，或继续关注" : "关闭事件（告警解除），或继续关注（告警保持）";
+    reason = ev.result.outcome === "within-baseline" ? "The retest is Within Reference Range, but one retest in range does not show recovery; the original alert is still open and needs a base decision." : `Re-evaluation: ${ev.result.headline}; needs a base decision.`;
+    next = actionable ? "Approve another retest, close the case, or Continue Monitoring" : "Close the case (clears the alert), or Continue Monitoring (alert stays)";
   } else if (actionable) {
-    reason = stopReason ? `${stopReason} 需要基地人员审核建议：${cand!.title}。` : "模拟分析生成了建议；发布前必须由基地人员批准。";
-    next = "批准后派发给 HUD；也可以驳回";
+    reason = stopReason ? `${stopReason} Base staff review the candidate: ${cand!.title}.` : "The simulated analysis prepared a candidate; base staff must approve it before anything is published.";
+    next = "After approval it is dispatched to the HUD; it can also be rejected";
   } else {
-    reason = "结果在参考范围内；由基地人员关闭事件或继续关注。";
-    next = "关闭事件，或继续关注";
+    reason = "The result is Within Reference Range; base staff close the case or Continue Monitoring.";
+    next = "Close the case, or Continue Monitoring";
   }
   const primary: Decision | null = options.includes("approve") ? "approve" : options.includes("close") ? "close" : null;
   return node({
     id: `v${ev.version}:pending-${c.reviews.length}`,
     label,
     state: "human",
-    owner: "基地人员",
-    summary: c.phase === "monitoring" ? "事件未结束 · 告警保持" : (cand?.title ?? "需要人工决定"),
-    input: [`本轮结果：${ev.result.headline}`, ...(cand ? [`建议（未发布）：${cand.title}`, cand.rationale] : [])],
-    result: ev.version > 1 ? alertNote(c) : `关键依据：${keyBasis(ev.result).map((b) => b.replace(/。$/, "")).join("；")}。`,
+    owner: "Base staff",
+    summary: c.phase === "monitoring" ? "Case open · alert stays" : (cand?.title ?? "Needs a base decision"),
+    input: [`This round: ${ev.result.headline}`, ...(cand ? [`Candidate (not published): ${cand.title}`, cand.rationale] : [])],
+    result: ev.version > 1 ? alertNote(c) : `Key evidence: ${keyBasis(ev.result).map((b) => b.replace(/\.$/, "")).join("; ")}.`,
     next,
     reason,
     relation,
@@ -289,20 +289,20 @@ function pendingDecision(c: Case, ev: Evaluation, stopReason: string | null): Fl
 
 const delivery = (msgs: OutMessage[], mock: boolean): Pick<FlowNode, "state" | "summary" | "reason" | "result" | "action" | "owner" | "at"> => {
   const failed = msgs.filter((m) => m.delivery === "failed");
-  if (failed.length) return { state: "stopped", owner: "基地人员", summary: `发送失败 ${failed.length}/${msgs.length}`, reason: `发送失败：${failed[0].deliveryNote ?? "未知原因"}。需要基地人员重发（同一条消息）。`, result: null, action: { kind: "resend", eventIds: failed.map((m) => m.eventId) }, at: null };
-  if (msgs.some((m) => m.delivery === "queued")) return { state: "running", owner: "系统", summary: "发出中…", reason: null, result: null, action: null, at: null };
+  if (failed.length) return { state: "stopped", owner: "Base staff", summary: `Send failed ${failed.length}/${msgs.length}`, reason: `Send failed: ${failed[0].deliveryNote ?? "unknown reason"}. Base staff resend (same message).`, result: null, action: { kind: "resend", eventIds: failed.map((m) => m.eventId) }, at: null };
+  if (msgs.some((m) => m.delivery === "queued")) return { state: "running", owner: "System", summary: "Sending…", reason: null, result: null, action: null, at: null };
   return {
     state: "done",
-    owner: "系统",
-    summary: mock ? `已发出 ${msgs.length} 条 · 仅本地模拟` : `已发出 ${msgs.length} 条`,
+    owner: "System",
+    summary: mock ? `${msgs.length} sent · local simulation only` : `${msgs.length} sent`,
     reason: null,
-    result: mock ? "已交给本地模拟通道：只表示基站已发出，不代表 HUD 已收到。" : "已交给传输适配层：不代表 HUD 已收到。",
+    result: mock ? "Handed to the local simulated channel: the base sent it; not a HUD receipt." : "Accepted by the relay: not a HUD receipt.",
     action: null,
     at: msgs.map((m) => m.adapterAt ?? "").sort().at(-1) || null,
   };
 };
 
-const MSG_TITLE = (m: OutMessage) => (m.type === "station.notice.approved" ? "提示（行动消息）" : m.type === "station.retest.requested" ? "复测任务（行动消息）" : "状态通知");
+const MSG_TITLE = (m: OutMessage) => (m.type === "station.notice.approved" ? "Notice (action)" : m.type === "station.retest.requested" ? "Retest task (action)" : "Status notice");
 const msgText = (m: OutMessage) => {
   const p = m.envelope.payload as { text?: string; instructions?: string; summary?: string };
   return p.text ?? p.instructions ?? p.summary ?? "";
@@ -311,10 +311,10 @@ const msgText = (m: OutMessage) => {
 /** Approval → sent → HUD receipt → astronaut confirmation → retest result (one retest round). */
 function dispatchRow(s: StationState, c: Case, ev: Evaluation, approve: Review | null, mock: boolean, pending: FlowNode | null): FlowRow {
   const nodes: FlowNode[] = [];
-  const title = `审核与派发 · 复测 ${c.retests.filter((r) => r.requestedFromVersion <= ev.version).length || c.retests.length + 1}`;
+  const title = `Review and dispatch · retest ${c.retests.filter((r) => r.requestedFromVersion <= ev.version).length || c.retests.length + 1}`;
   if (pending) {
     nodes.push(pending);
-    for (const [id, label] of [["send", "复测已发出"], ["hud", "HUD 接收"], ["crew", "宇航员确认"], ["result", "等待复测结果"]] as const) nodes.push(node({ id: `v${ev.version}:${id}`, label, state: "todo", owner: "无", summary: "未到达" }));
+    for (const [id, label] of [["send", "Retest sent"], ["hud", "Received by HUD"], ["crew", "Acknowledged by Crew"], ["result", "Awaiting retest result"]] as const) nodes.push(node({ id: `v${ev.version}:${id}`, label, state: "todo", owner: "None", summary: "Not reached" }));
     return { id: `v${ev.version}:dispatch`, title, lane: "main", nodes };
   }
   const msgs = caseMessages(s, c.caseId).filter((m) => messageKind(m.type) === "action" && (m.envelope.payload as { evaluationVersion?: number }).evaluationVersion === ev.version);
@@ -323,22 +323,22 @@ function dispatchRow(s: StationState, c: Case, ev: Evaluation, approve: Review |
   const earlyClose = closed ? { kind: "decide" as const, options: [] as Decision[], primary: null } : workbenchStage(c) === "dispatched" ? { kind: "decide" as const, options: allowedDecisions(c), primary: null } : null;
   nodes.push(reviewNode(ev, approve!, 0));
   const send = delivery(msgs, mock);
-  nodes.push(node({ id: `v${ev.version}:send`, label: "复测已发出", ...send, input: msgs.map((m) => `${MSG_TITLE(m)}：${msgText(m)}`), next: send.state === "done" ? "等待 HUD 接收回执" : null, messages: msgs }));
+  nodes.push(node({ id: `v${ev.version}:send`, label: "Retest sent", ...send, input: msgs.map((m) => `${MSG_TITLE(m)}: ${msgText(m)}`), next: send.state === "done" ? "Awaiting the HUD receipt" : null, messages: msgs }));
   const sent = send.state === "done";
 
   const received = msgs.filter((m) => m.hudReceivedAt).length;
   nodes.push(
     node({
       id: `v${ev.version}:hud`,
-      label: "HUD 接收",
+      label: "Received by HUD",
       state: !sent ? "todo" : received === msgs.length ? "done" : "waiting",
       owner: "HUD",
       at: received === msgs.length ? (msgs.map((m) => m.hudReceivedAt ?? "").sort().at(-1) ?? null) : null,
-      summary: !sent ? "未到达" : `已接收 ${received}/${msgs.length}`,
-      input: msgs.map((m) => `${MSG_TITLE(m)}：${m.hudReceivedAt ? `已接收 ${hhmmss(m.hudReceivedAt)}` : "未收到接收回执"}`),
-      result: received === msgs.length ? "HUD 设备已接收（不等于宇航员已确认）" : null,
-      next: "等待宇航员确认",
-      reason: sent && received < msgs.length ? (closed ? "未收到接收回执（事件已关闭，不再等待）" : "等待 HUD 发送接收回执（不会根据时间推断）。") : null,
+      summary: !sent ? "Not reached" : `Received ${received}/${msgs.length}`,
+      input: msgs.map((m) => `${MSG_TITLE(m)}: ${m.hudReceivedAt ? `received ${hhmmss(m.hudReceivedAt)}` : "no receipt yet"}`),
+      result: received === msgs.length ? "The HUD device received it (not a crew acknowledgement)" : null,
+      next: "Awaiting the crew acknowledgement",
+      reason: sent && received < msgs.length ? (closed ? "No receipt (Case Closed; no longer waiting)" : "Waiting for the HUD receipt (never inferred from time).") : null,
       messages: msgs,
     }),
   );
@@ -348,15 +348,15 @@ function dispatchRow(s: StationState, c: Case, ev: Evaluation, approve: Review |
   nodes.push(
     node({
       id: `v${ev.version}:crew`,
-      label: "宇航员确认",
+      label: "Acknowledged by Crew",
       state: !sent ? "todo" : deferred ? "stopped" : acked === msgs.length ? "done" : "waiting",
-      owner: deferred ? "基地人员" : "宇航员",
+      owner: deferred ? "Base staff" : "Crew",
       at: acked === msgs.length ? (msgs.map((m) => m.feedbackAt ?? "").sort().at(-1) ?? null) : null,
-      summary: !sent ? "未到达" : deferred ? "宇航员暂缓" : `已确认 ${acked}/${msgs.length}`,
-      input: msgs.map((m) => `${MSG_TITLE(m)}：${{ none: "未反馈", acknowledged: `已确认 ${hhmmss(m.feedbackAt)}`, deferred: `暂缓：${m.feedbackNote ?? ""}` }[m.feedback]}`),
-      result: acked === msgs.length ? "宇航员已在 HUD 上确认提示与复测任务" : null,
-      next: deferred ? "等待宇航员再次确认；基地人员也可以提前关闭事件" : "等待宇航员按标准协议复测",
-      reason: deferred ? `宇航员暂缓：${deferred.feedbackNote ?? "未说明原因"}。可等待宇航员再次确认，或由基地人员提前关闭事件。` : sent && acked < msgs.length && !closed ? "等待宇航员在 HUD 上确认（不会根据时间推断）。" : null,
+      summary: !sent ? "Not reached" : deferred ? "Deferred by the crew" : `Acknowledged ${acked}/${msgs.length}`,
+      input: msgs.map((m) => `${MSG_TITLE(m)}: ${{ none: "no feedback", acknowledged: `acknowledged ${hhmmss(m.feedbackAt)}`, deferred: `deferred: ${m.feedbackNote ?? ""}` }[m.feedback]}`),
+      result: acked === msgs.length ? "The crew acknowledged the notice and the retest task on the HUD" : null,
+      next: deferred ? "Wait for the crew to acknowledge again; base staff may also close the case early" : "Waiting for the crew to retest with the standard protocol",
+      reason: deferred ? `Deferred by the crew: ${deferred.feedbackNote ?? "no reason given"}. Wait for the crew to acknowledge again, or base staff close the case early.` : sent && acked < msgs.length && !closed ? "Waiting for the crew to acknowledge on the HUD (never inferred from time)." : null,
       messages: msgs,
     }),
   );
@@ -367,15 +367,15 @@ function dispatchRow(s: StationState, c: Case, ev: Evaluation, approve: Review |
   nodes.push(
     node({
       id: `v${ev.version}:result`,
-      label: resultState === "done" ? "复测结果" : "等待复测结果",
+      label: resultState === "done" ? "Retest result" : "Awaiting retest result",
       state: resultState,
-      owner: rt?.status === "completed" ? "Trigger" : "宇航员",
+      owner: rt?.status === "completed" ? "Data source" : "Crew",
       at: resultEv?.startedAt ?? null,
-      summary: resultState === "done" ? `已接收 → 第 ${rt!.resultVersion} 轮分析` : resultState === "skipped" ? "事件已关闭，不再需要" : rt?.status === "completed" ? "宇航员报告已完成，等待数据" : resultState === "waiting" ? "等待复测数据" : "未到达",
-      input: rt ? [`复测任务：按标准协议复测一次（${rt.status === "result-received" ? "已完成" : "进行中"}）`, ...(rt.completedAt ? [`宇航员报告完成：${hhmmss(rt.completedAt)}（可选扩展消息）`] : [])] : [],
-      result: resultState === "done" ? `复测数据已接收；接收回执${receipt ? (receipt.delivery === "failed" ? "发送失败" : "已发出") : "未发出"}。第一轮评估保留不变。` : null,
-      next: resultState === "done" ? "自动开始第二轮模拟分析" : null,
-      reason: resultState === "waiting" ? (rt?.status === "completed" ? "宇航员报告已完成复测，等待复测数据回传。" : "等待宇航员按标准协议复测并回传结果（不会根据时间推断）。") : null,
+      summary: resultState === "done" ? `Received → analysis round ${rt!.resultVersion}` : resultState === "skipped" ? "Case Closed: no longer needed" : rt?.status === "completed" ? "Crew reports done; waiting for data" : resultState === "waiting" ? "Waiting for retest data" : "Not reached",
+      input: rt ? [`Retest task: retest once with the standard protocol (${rt.status === "result-received" ? "done" : "in progress"})`, ...(rt.completedAt ? [`Crew reported done: ${hhmmss(rt.completedAt)} (optional extension message)`] : [])] : [],
+      result: resultState === "done" ? `Retest data received; receipt ${receipt ? (receipt.delivery === "failed" ? "send failed" : "sent") : "not sent"}. The first evaluation is kept unchanged.` : null,
+      next: resultState === "done" ? "The second simulated analysis starts automatically" : null,
+      reason: resultState === "waiting" ? (rt?.status === "completed" ? "The crew reports the retest as done; waiting for the retest data." : "Waiting for the crew to retest with the standard protocol and send the result (never inferred from time).") : null,
     }),
   );
   // One open wait at a time: later nodes still waiting for their own reply show as not reached.
@@ -400,16 +400,16 @@ function handlingRow(c: Case, ev: Evaluation, reviews: Review[], pending: FlowNo
   nodes.push(
     node({
       id: `v${ev.version}:end`,
-      label: "处理完成",
+      label: "Handling complete",
       state: close ? "done" : "todo",
-      owner: "无",
+      owner: "None",
       at: close?.at ?? null,
-      summary: close ? "事件已关闭 · 告警已人工解除" : "未到达（事件未关闭）",
-      result: close ? `由 ${close.reviewer} 关闭：${close.reason}` : null,
-      next: close ? "无（状态通知的送达见下方单独一行）" : null,
+      summary: close ? "Case Closed · alert cleared by base staff" : "Not reached (case open)",
+      result: close ? `Closed by ${close.reviewer}: ${close.reason}` : null,
+      next: close ? "None (status-notice delivery is shown separately)" : null,
     }),
   );
-  return { id: `v${ev.version}:handling`, title: "人工处理", lane: "main", nodes };
+  return { id: `v${ev.version}:handling`, title: "Base handling", lane: "main", nodes };
 }
 
 /** Status notifications (close / keep watching) and their delivery, kept apart from the handling. */
@@ -419,24 +419,24 @@ function noticeRow(s: StationState, c: Case, mock: boolean): FlowRow | null {
   const nodes: FlowNode[] = [];
   msgs.forEach((m, i) => {
     const caseStatus = (m.envelope.payload as { caseStatus?: string }).caseStatus;
-    const what = caseStatus === "closed" ? "关闭" : caseStatus === "monitoring" ? "继续关注" : (caseStatus ?? "");
+    const what = caseStatus === "closed" ? "Case Closed" : caseStatus === "monitoring" ? "Continue Monitoring" : (caseStatus ?? "");
     const d = delivery([m], mock);
-    nodes.push(node({ id: `n${i}:send`, label: `状态通知：${what}`, ...d, summary: d.state === "done" ? (mock ? "已发出 · 仅本地模拟" : "已发出") : d.summary, input: [`内容：${msgText(m)}`, "类型：状态通知（仅告知事件状态，不是行动）"], next: d.state === "done" ? "等待 HUD 接收回执" : null, messages: [m] }));
+    nodes.push(node({ id: `n${i}:send`, label: `Status notice: ${what}`, ...d, summary: d.state === "done" ? (mock ? "Sent · local simulation only" : "Sent") : d.summary, input: [`Content: ${msgText(m)}`, "Type: status notice (case status only, not an action)"], next: d.state === "done" ? "Awaiting the HUD receipt" : null, messages: [m] }));
     nodes.push(
       node({
         id: `n${i}:hud`,
-        label: "HUD 接收",
+        label: "Received by HUD",
         state: d.state !== "done" ? "todo" : m.hudReceivedAt ? "done" : "waiting",
         owner: "HUD",
         at: m.hudReceivedAt,
-        summary: d.state !== "done" ? "未到达" : m.hudReceivedAt ? `已接收 ${hhmmss(m.hudReceivedAt).slice(0, 5)}` : "等待接收回执",
-        reason: d.state === "done" && !m.hudReceivedAt ? "等待 HUD 发送接收回执（不会根据时间推断）。" : null,
-        result: m.hudReceivedAt ? "HUD 设备已接收状态通知" : null,
+        summary: d.state !== "done" ? "Not reached" : m.hudReceivedAt ? `Received ${hhmmss(m.hudReceivedAt).slice(0, 5)}` : "Awaiting receipt",
+        reason: d.state === "done" && !m.hudReceivedAt ? "Waiting for the HUD receipt (never inferred from time)." : null,
+        result: m.hudReceivedAt ? "The HUD device received the status notice" : null,
         messages: [m],
       }),
     );
   });
-  return { id: "notice", title: "状态通知送达（与处理完成分开）", lane: "notice", nodes };
+  return { id: "notice", title: "Status-notice delivery (separate from the handling)", lane: "notice", nodes };
 }
 
 /** The whole flow of one case. `mock`: the station runs on the local mock adapter. */
@@ -480,21 +480,21 @@ export function buildFlow(s: StationState, c: Case, { mock }: { mock: boolean })
   const finished = c.phase === "closed";
   const currentNode = open ?? lastRow.nodes[lastRow.nodes.length - 1];
   const why = finished
-    ? "处理已完成：事件由基地人员关闭。"
+    ? "Handling complete: Case Closed by base staff."
     : currentNode.state === "running"
-      ? currentNode.label === "复测已发出"
-        ? "基站正在发出消息。"
-        : "系统正在进行模拟分析（确定性规则，未调用模型）。"
-      : (currentNode.reason ?? "需要处理。");
+      ? currentNode.label === "Retest sent"
+        ? "The base is sending the messages."
+        : "Simulated analysis in progress (deterministic rules, no model called)."
+      : (currentNode.reason ?? "Needs handling.");
   const lastNotice = notice?.nodes.filter((n) => n.id.endsWith(":hud")).at(-1);
   const lastNoticeSend = notice?.nodes.filter((n) => n.id.endsWith(":send")).at(-1);
-  const noticePending = lastNoticeSend?.state === "stopped" ? "状态通知发送失败，需要重发" : lastNotice && lastNotice.state !== "done" ? "状态通知已发出，等待 HUD 接收回执" : null;
+  const noticePending = lastNoticeSend?.state === "stopped" ? "Status notice failed to send: resend it" : lastNotice && lastNotice.state !== "done" ? "Status notice sent; awaiting the HUD receipt" : null;
   return {
     rows,
     current: { rowId: lastRow.id, node: currentNode },
-    where: finished ? "人工处理 · 处理完成" : `${lastRow.title.split(" · ")[0]} · ${currentNode.label}`,
+    where: finished ? "Base handling · Case Closed" : `${lastRow.title.split(" · ")[0]} · ${currentNode.label}`,
     why,
-    who: finished ? "无" : currentNode.owner,
+    who: finished ? "None" : currentNode.owner,
     finished,
     noticePending,
   };

@@ -105,15 +105,21 @@
   the current `stateVersion` and never change numbers. Keep the provenance
   headers of the files derived from Sol Atlas. MAP-2 sequence lines stay
   conceptual and are not replaced by these routes.
-- `src/lib/station/`, `src/components/station/` — MyoMars base station (`/`):
-  crew overview (one card per astronaut; device connection, data validity and
-  event status are separate statements, no "health light"; no valid data →
-  "无法评估") → clickable alerts (no sound, no auto-open, no focus stealing) →
-  near-full-screen person panel (`crew/PersonPanel.tsx`: analysis chain and
-  process on the left, structured message stream on the right; closing it
-  changes nothing). The flow is DERIVED from recorded state (`flow.ts`,
-  `crew.ts`, `comms.ts`); animations and replays are presentation only and
-  never drive a business step. The data-flow canvas (`canvas.ts`,
+- `src/lib/station/`, `src/components/station/` — MyoMars Mars Base (`/`), English-only UI (no
+  i18n framework; glossary in `docs/myomars/ENGLISH-DEMO.md`): the Mission Map is always the
+  background and Health Monitoring is an overlay on it (`crew/HealthOverlay.tsx`; opens once per
+  EVA, then only by the user; Esc / Collapse only collapses; the map is inert while it is open; the
+  real crew list only; other people's messages notify, never take focus; device connection, data
+  validity and case status are separate statements; no valid data → "Unable to Assess"). The
+  overlay shows the case EVENT CHAIN (`event-chain.ts`: Data source → Base analysis → Base review →
+  HUD → Crew response → Retest → Reassessment; "Case Closed" and "closing notice delivered" are two
+  separate facts), step evidence and messages, the indicator chart, and a fixed decision area
+  (conclusion, next step, actual text to send, main actions, inline review form) that stays visible
+  when the full flow is open. Collapse, person switch and the full flow keep the selected case, drafts
+  and an open review form. The crew map marker is a labelled SIMULATED position (no position source).
+  The flow is DERIVED from recorded state (`flow.ts`, `event-chain.ts`, `crew.ts`, `comms.ts`);
+  animations (one-off, per recorded event) and replays are presentation only and never drive a
+  business step; nothing is inferred from elapsed time. The data-flow canvas (`canvas.ts`,
   `crew/FlowCanvas.tsx`) draws the path the data actually took; a node may
   show its result only once the station revealed it (`businessProgress` ≥
   `needs`), the transfer stops at a human node, and a replay never re-runs
@@ -123,19 +129,19 @@
   (`local-protocol.ts`, schema `myomars/v1-local`, proposals in
   `docs/myomars/STATION-LOCAL-PROPOSALS.md`), never added to the shared
   contracts without the team. The previous three-column workbench is kept at
-  `/legacy/workbench`. Since the mission integration, `/` also has a "任务地图" view: the
+  `/legacy/workbench`. The Mission Map is the
   existing Mission Glass embedded unchanged (`embedded` prop; lazy, error-bounded, kept mounted
   but hidden), so map, terrain and EVA route code is reused, never reimplemented, and
   `/legacy/mission-glass` stays the full standalone page. Mission context (`mission.ts`): one
-  simulated EVA = one run; only the human "开始EVA" (summary dialog) publishes `scenario.start`
-  (station role; selecting a task, opening the map or switching views never does); "结束EVA"
+  simulated EVA = one run; only the human "Confirm Start EVA" (summary dialog) publishes `scenario.start`
+  (station role; selecting a task, opening the map or opening the overlay never does); "End EVA"
   (`station.eva.ended`) changes the phase only and never closes, deletes or judges health events;
   a new EVA waits until the ended one's events are closed. A task gives display context only:
   unstated load / posture / device conditions stay unknown, and terrain or route scores are never
   turned into health risk. A SIMULATED demo (`docs/myomars/CONTRACTS.md`; v0 history in `docs/station-integration.md`).
   Adapter hand-off, HUD receipt and astronaut confirmation are separate
   statuses and are never inferred from one another. Every view keeps the
-  "模拟数据 / 模拟分析" label. The "LLM analysis" is a deterministic rule
+  "Simulated Data · Simulated Analysis" label. The "LLM analysis" is a deterministic rule
   pipeline (`analysis.ts`, demo thresholds); never call a real model, never
   produce a diagnosis, treatment or automatic task restriction, never infer
   physiology from data that failed quality or comparability checks. The
@@ -159,8 +165,10 @@
   injector).
 - MyoMars two-end integration (`integration/myomars` only; `docs/myomars/INTEGRATION.md`):
   two product interfaces (station, HUD), no Trigger / simulator page. `myomars-hud/` is the HUD
-  teammate's code at a LOCKED commit; change it only through small compatibility patches behind
-  `hud.html?mode=integration`, and keep its standalone suites passing. `relay/` is the local relay
+  (now maintained by the project owner); integration-mode changes stay behind `hud.html?mode=integration`
+  (base-published content only, first layer = text + current action + available buttons, details
+  collapsed, finished tasks as history without buttons, no category inferred from noticeId, no
+  fatigue / recovery / medical content) and the standalone suites keep passing. `relay/` is the local relay
   (never analyses or approves). Data input is the replay module (`src/lib/replay/`, `replay/cli.ts`,
   the station's relay-mode dev entry): role `trigger` = data producer, SIMULATED samples labelled as
   such, every demo assumption listed by `intakeCheck`; teammate data is checked on their branch first,
@@ -170,6 +178,12 @@
   `npm run test:hud` (the HUD's own suites; the HUD folder is outside the station's ESLint),
   `npm run e2e:two-end`, and the standalone smoke tests; HUD changes are listed for the teammate in
   `docs/myomars/HUD-INTEGRATION-MODE.md`.
+  The ASTRA patch demo (`astra-patch/`, standalone Python, merged via #4) is an INDEPENDENT
+  explanatory program by design (`docs/myomars/DEMOS.md`, `docs/myomars/PATCH-AUDIT.md`): it never
+  becomes a runtime dependency of the Base, HUD or relay; do not build patch → relay / Base / HUD
+  adapters, protocols, baselines or field mappings; never relabel its walking/quadriceps µV data as
+  `std-grip-40` or fill its missing fields; the Base ↔ HUD loop keeps using the simulated data
+  replay; no UI or introduction may imply the two programs are connected.
 - `src/contracts/`, `contracts/`, `tools/myomars/` — MyoMars shared message
   contracts v1 (Trigger / HUD / Mars Station), a team PROPOSAL
   (`docs/myomars/CONTRACTS.md`). Zod sources in erasable TypeScript that Node

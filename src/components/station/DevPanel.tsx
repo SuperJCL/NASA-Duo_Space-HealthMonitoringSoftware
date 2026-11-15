@@ -22,7 +22,7 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
   const inject = (env: Envelope) => {
     setLast(env);
     adapter.inject(env);
-    setNote(`已注入 ${env.type} · ${env.eventId}`);
+    setNote(`Injected ${env.type} · ${env.eventId}`);
   };
   const activeCase = caseId ? state.cases[caseId] : null;
   const current = caseMessages(state, caseId);
@@ -37,11 +37,11 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
   const btn = "min-h-8 rounded-lg border border-[var(--mg-line-strong)] px-2 text-[12px] disabled:opacity-40";
 
   return (
-    <aside className="fixed bottom-3 left-3 z-50 w-[22rem] max-w-[calc(100vw-1.5rem)] rounded-xl border border-dashed border-[#d678ff] bg-[rgba(11,17,28,0.96)] p-3 text-[12px] shadow-2xl" aria-label="开发测试入口" data-testid="station-dev">
+    <aside className="fixed bottom-3 left-3 z-50 w-[22rem] max-w-[calc(100vw-1.5rem)] rounded-xl border border-dashed border-[#d678ff] bg-[rgba(11,17,28,0.96)] p-3 text-[12px] shadow-2xl" aria-label="Development test entry" data-testid="station-dev">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-semibold text-[#d678ff]">{"开发测试入口 · 仅用于验证基站（非 Trigger / HUD）"}</p>
+        <p className="font-semibold text-[#d678ff]">{"Development test entry · for verifying the base only (not the Trigger / HUD)"}</p>
         <button type="button" onClick={() => setOpen((o) => !o)} className="underline" data-testid="station-dev-toggle">
-          {open ? "收起" : "展开"}
+          {open ? "Collapse" : "Expand"}
         </button>
       </div>
       {open ? (
@@ -59,16 +59,16 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               }}
               data-testid="dev-start"
             >
-              {"场景开始"}
+              {"Start scenario"}
             </button>
             <button type="button" className={btn} disabled={!runId} onClick={() => runId && inject(inboundEnvelope("scenario.reset", { runId, payload: {} }))} data-testid="dev-reset">
-              {"场景重置"}
+              {"Reset scenario"}
             </button>
             <button type="button" className={btn} disabled={!last} onClick={() => last && inject(last)} data-testid="dev-duplicate">
-              {"重复上一条（同 eventId）"}
+              {"Repeat last (same eventId)"}
             </button>
           </div>
-          <p className="text-[var(--mg-faint)]">{"① Trigger：注入标准化模拟测量（每个按钮新建一个事件）"}</p>
+          <p className="text-[var(--mg-faint)]">{"① Trigger: inject a standardised simulated measurement (each button opens a new case)"}</p>
           <div className="flex flex-wrap gap-1.5">
             {(Object.keys(FIXTURES) as FixtureId[]).map((k) => (
               <button key={k} type="button" className={btn} disabled={!runId} onClick={() => runId && inject(inboundEnvelope("observation.submitted", { runId, caseId: FIXTURES[k].caseId, payload: FIXTURES[k].observation }))} data-testid={`dev-obs-${k}`}>
@@ -76,10 +76,10 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               </button>
             ))}
             <button type="button" className={btn} disabled={!prevRunId} onClick={() => prevRunId && inject(inboundEnvelope("observation.submitted", { runId: prevRunId, caseId: FIXTURES.change.caseId, payload: FIXTURES.change.observation }))} data-testid="dev-late">
-              {"上一轮迟到的观测"}
+              {"Late observation from the previous run"}
             </button>
           </div>
-          <p className="text-[var(--mg-faint)]">{`② HUD 回传（当前事件 ${caseId ?? "无"}；先在右栏批准；接收回执也适用于状态通知）`}</p>
+          <p className="text-[var(--mg-faint)]">{`② HUD replies (current case ${caseId ?? "none"}; approve in the right column first; receipts also apply to status notices)`}</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -91,7 +91,7 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               }}
               data-testid="dev-hud-received"
             >
-              {"HUD 接收回执"}
+              {"HUD receipt"}
             </button>
             <button
               type="button"
@@ -103,13 +103,13 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               }}
               data-testid="dev-hud-ack"
             >
-              {"宇航员确认"}
+              {"Crew acknowledges"}
             </button>
-            <button type="button" className={btn} disabled={!runId || !latestHudMessage()} onClick={() => runId && caseId && inject(inboundEnvelope("hud.defer", { runId, caseId, payload: { messageId: latestHudMessage()!.eventId, reason: "正在作业，稍后处理（模拟）" } }))} data-testid="dev-hud-defer">
-              {"宇航员暂缓"}
+            <button type="button" className={btn} disabled={!runId || !latestHudMessage()} onClick={() => runId && caseId && inject(inboundEnvelope("hud.defer", { runId, caseId, payload: { messageId: latestHudMessage()!.eventId, reason: "Busy with the task, will handle it later (simulated)" } }))} data-testid="dev-hud-defer">
+              {"Crew defers"}
             </button>
           </div>
-          <p className="text-[var(--mg-faint)]">{`③ 复测回传${openRetest ? `（${openRetest.retestId}）` : "（批准复测后可用）"}`}</p>
+          <p className="text-[var(--mg-faint)]">{`③ Retest replies${openRetest ? ` (${openRetest.retestId})` : " (available once a retest is approved)"}`}</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -117,9 +117,9 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               disabled={!runId || !openRetest || openRetest.status === "result-received"}
               onClick={() => runId && caseId && openRetest && inject(inboundEnvelope("retest.completed", { runId, caseId, retestId: openRetest.retestId, payload: { completedAt: new Date().toISOString() } }))}
               data-testid="dev-retest-completed"
-              title="提议中的扩展（可选）：宇航员报告已完成复测；数据另由 retest.result 提交"
+              title="Proposed extension (optional): the astronaut reports the retest done; the data arrive separately in retest.result"
             >
-              {"宇航员完成复测（可选）"}
+              {"Crew completes retest (optional)"}
             </button>
             {(Object.keys(RETEST_FIXTURES) as RetestFixtureId[]).map((k) => (
               <button
@@ -144,18 +144,18 @@ export function DevPanel({ adapter, state, caseId }: { adapter: MockStationAdapt
               className={btn}
               onClick={() => {
                 adapter.failNextSends(1);
-                setNote("下一次发送将模拟失败");
+                setNote("The next send will simulate a failure");
               }}
               data-testid="dev-fail-next"
             >
-              {"下一次发送失败"}
+              {"Fail the next send"}
             </button>
             <span className="text-[var(--mg-faint)]" data-testid="dev-note">
               {note}
             </span>
           </div>
           <details>
-            <summary className="cursor-pointer text-[var(--mg-dim)]">{`mock 适配层已发出 ${adapter.sent.length} 条`}</summary>
+            <summary className="cursor-pointer text-[var(--mg-dim)]">{`Sent by the mock adapter: ${adapter.sent.length}`}</summary>
             <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-[10px] text-[var(--mg-dim)]" data-testid="dev-sent">
               {JSON.stringify(adapter.sent.slice(-4), null, 1)}
             </pre>

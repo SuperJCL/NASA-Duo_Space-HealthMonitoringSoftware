@@ -12,18 +12,18 @@ const TONE: Record<Tone, string> = {
 };
 
 export const STAGE_TEXT: Record<WorkbenchStage, string> = {
-  analysing: "模拟分析中",
-  review: "待审核",
-  dispatched: "已派发 · 等待宇航员反馈",
-  reassessing: "结果已接收 · 重评中",
-  reassessed: "重评完成 · 等待人工处理",
-  decided: "已决定",
-  closed: "已关闭",
+  analysing: "Simulated Analysis in progress",
+  review: "Awaiting Base Review",
+  dispatched: "Dispatched · awaiting crew feedback",
+  reassessing: "Result received · re-evaluating",
+  reassessed: "Re-evaluation done · awaiting base decision",
+  decided: "Decided",
+  closed: "Case Closed",
 };
 /** Title of the right column for a case (the decided stage is split by its decision). */
-export const stageTitle = (c: Case, stage: WorkbenchStage) => (stage === "decided" ? (c.phase === "rejected" ? "候选已驳回 · 待人工处理" : "保留关注 · 事件未关闭") : STAGE_TEXT[stage]);
+export const stageTitle = (c: Case, stage: WorkbenchStage) => (stage === "decided" ? (c.phase === "rejected" ? "Candidate rejected · awaiting base decision" : "Continue Monitoring · case still open") : STAGE_TEXT[stage]);
 
-export const DECISION_TEXT: Record<Decision, string> = { approve: "批准并发送", reject: "驳回", close: "关闭事件", "keep-open": "保留关注" };
+export const DECISION_TEXT: Record<Decision, string> = { approve: "Approve and send", reject: "Reject", close: "Close case", "keep-open": "Continue Monitoring" };
 
 export const OUT_TEXT = OUT_LABEL;
 

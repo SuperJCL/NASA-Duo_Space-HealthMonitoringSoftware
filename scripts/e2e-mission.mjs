@@ -1,6 +1,7 @@
 // MyoMars mission integration acceptance on the REAL station page (relay mode) + the HUD page:
-// task preparation on the mission map (existing Mission Glass: 2D map, 3D terrain, task selection)
-// → human "开始EVA" → health monitoring → map and health views share one mission context.
+// task preparation on the Mission Map (existing Mission Glass: 2D map, 3D terrain, task selection)
+// → human "Start EVA" → the Health Monitoring overlay opens once over the map; collapsing / reopening
+// it changes nothing; the map is always the mission background.
 // The full health loop (approval → HUD → retest → re-evaluation → close) is scripts/e2e-two-end.mjs.
 //
 // Needs, on one machine, a FRESH relay session:
@@ -37,13 +38,24 @@ const attr = (pg, name) => pg.getByTestId("crew-station").getAttribute(name);
 const view = (pg) => attr(pg, "data-view");
 const phase = (pg) => attr(pg, "data-phase");
 const waitPhase = (pg, p) => pg.waitForFunction((x) => document.querySelector('[data-testid="crew-station"]')?.dataset.phase === x, p, { timeout: 20000 });
-const closeOverlays = async (pg) => {
-  if (await pg.getByTestId("person-panel").isVisible().catch(() => false)) {
+const overlayOpen = async (pg) => (await attr(pg, "data-overlay")) === "open";
+const collapse = async (pg) => {
+  if (await overlayOpen(pg)) {
     await pg.keyboard.press("Escape");
     await pg.waitForTimeout(300);
   }
-  if (await pg.getByTestId("relay-dev-drawer").isVisible().catch(() => false)) await pg.getByTestId("relay-dev-close").click();
 };
+const openOverlay = async (pg) => {
+  if (!(await overlayOpen(pg))) {
+    await pg.getByTestId("overlay-toggle").click();
+    await pg.waitForTimeout(300);
+  }
+};
+const closeOverlays = async (pg) => {
+  if (await pg.getByTestId("relay-dev-drawer").isVisible().catch(() => false)) await pg.getByTestId("relay-dev-close").click();
+  await collapse(pg);
+};
+const waitDecision = (pg, ph) => pg.waitForFunction((x) => document.querySelector('[data-testid="decision-panel"]')?.dataset.phase === x, ph, { timeout: 40000 });
 const replay = async (pg, sample, open) => {
   await closeOverlays(pg);
   await pg.getByTestId("demo-toggle").click();
@@ -63,7 +75,7 @@ st.on("response", (r) => {
 await st.goto(STATION, { waitUntil: "domcontentloaded" });
 await st.waitForSelector('[data-testid="station-lease"][data-lease="holder"]', { timeout: 40000 });
 await st.waitForSelector('[data-testid="mission-glass"]', { timeout: 60000 });
-check("preparation: the mission map is the default view and nothing has started", (await view(st)) === "map" && (await phase(st)) === "preparing" && (await starts()).length === 0, `${await view(st)} / ${await phase(st)}`);
+check("preparation: the Mission Map is shown, the overlay is collapsed and nothing has started", (await view(st)) === "map" && (await phase(st)) === "preparing" && (await starts()).length === 0, `${await view(st)} / ${await phase(st)}`);
 
 // ---------- 1. 2D and 3D open; task selection works; resources load ----------
 await st.waitForSelector(".ol-viewport canvas", { timeout: 30000 });
@@ -83,8 +95,8 @@ const prepTask = await st.getByTestId("prep-task").getAttribute("data-task");
 check("task selection on the map feeds the preparation (Target A → task-standoff-survey)", prepTask === "task-standoff-survey", await st.getByTestId("prep-task").innerText());
 
 // ---------- 2. selecting, 2D/3D, view switches never start a run ----------
-await st.getByTestId("view-health").click();
-await st.getByTestId("view-map").click();
+await st.getByTestId("overlay-toggle").click();
+await st.getByTestId("overlay-toggle").click();
 await st.getByTestId("mg-view-3d").click();
 await st.waitForTimeout(800);
 await st.getByTestId("mg-view-2d").click();
@@ -92,9 +104,9 @@ await st.getByTestId("prep-summary").click();
 await st.waitForSelector('[data-testid="eva-start-dialog"]');
 const summary = await st.getByTestId("eva-start-dialog").innerText();
 await shot(st, "m2-summary");
-await st.getByRole("button", { name: "取消" }).click();
-check("selecting tasks, 2D/3D, switching views and opening the summary start nothing", (await starts()).length === 0 && (await phase(st)) === "preparing");
-check("summary: task, simulated target, astronaut, health conditions unknown, not a real EVA", /Survey the outcrops/.test(summary) && /模拟目标/.test(summary) && /A-02/.test(summary) && /负荷、姿势、设备条件：保持未知/.test(summary) && /不代表宇航员真实出舱/.test(summary) && /不把地形、路线或任务评分转换成疲劳或健康风险/.test(summary));
+await st.getByRole("button", { name: "Cancel" }).click();
+check("selecting tasks, 2D/3D, opening / collapsing the overlay and opening the summary start nothing", (await starts()).length === 0 && (await phase(st)) === "preparing");
+check("summary: task, simulated target, astronaut, health conditions unknown, not a real EVA", /Survey the outcrops/.test(summary) && /simulated target/.test(summary) && /A-02/.test(summary) && /stay unknown/.test(summary) && /not a real EVA/.test(summary) && /never turned into fatigue or health risk/.test(summary));
 
 // ---------- HUD joins; 3. one human start → one run → health view for the right person ----------
 const hud = await ctx.newPage();
@@ -112,40 +124,40 @@ await st.waitForTimeout(1500);
 const s1 = await starts();
 const run1 = s1[0]?.runId;
 check("human start: exactly one scenario.start, published by the station", s1.length === 1 && s1[0].sender.role === "station" && s1[0].payload.task.id === "task-standoff-survey" && s1[0].payload.astronaut.id === "a-02", `${s1.length} start(s) · ${run1}`);
-check("after the start: health monitoring shows this EVA's astronaut card", (await view(st)) === "health" && (await st.locator('[data-crew-card="a-02"]').innerText()).includes("Survey the outcrops"), await st.getByTestId("mission-task").innerText());
+check("after the start: the Health Monitoring overlay opens once, for this EVA's astronaut", (await view(st)) === "health" && (await st.getByTestId("health-overlay").getAttribute("data-astronaut")) === "a-02" && (await st.getByTestId("overlay-mission").innerText()).includes("Survey the outcrops"), await st.getByTestId("overlay-mission").innerText());
 await hud.waitForFunction((r) => window.__hud.client.activeCase().run?.runId === r, run1, { timeout: 15000 });
 check("the HUD joined the same run", true, run1);
 await shot(st, "m3-health-after-start");
 
-// ---------- events while on the map: no forced switch; the map shows them and jumps to them ----------
-await st.getByTestId("view-map").click();
+// ---------- collapsed: the map shows the crew at a SIMULATED position; events never reopen the overlay ----------
+await collapse(st);
+const markers = JSON.parse((await st.getByTestId("mars-map").getAttribute("data-crew-markers")) ?? "[]");
+check("crew marker: A-02 at a labelled simulated position, not on the task target", markers.length === 1 && markers[0].id === "a-02" && /simulated position/.test(markers[0].label) && /not tracked/.test(markers[0].note) && (await st.getByTestId("mg-legend-crew").isVisible()), JSON.stringify(markers[0] ?? {}));
 await replay(st, "change", false);
 await st.waitForFunction(() => Number(document.querySelector('[data-testid="mission-pending"]')?.dataset.count ?? 0) > 0, null, { timeout: 40000 });
-check("a new health event does not take the user away from the map", (await view(st)) === "map");
-check("the map view shows the pending health event", await st.getByTestId("map-pending-a-02").isVisible(), await st.getByTestId("map-pending-a-02").innerText());
+check("a new health case does not reopen the overlay (the user collapsed it)", (await view(st)) === "map");
+check("the map view shows the pending health case", await st.getByTestId("map-pending-a-02").isVisible(), await st.getByTestId("map-pending-a-02").innerText());
 await shot(st, "m4-map-pending");
 await st.getByTestId("map-pending-a-02").click();
-await st.waitForSelector('[data-testid="person-panel"]');
-check("clicking it opens health monitoring at that person's event", (await view(st)) === "health" && (await st.getByTestId("person-panel").getAttribute("data-astronaut")) === "a-02");
+await st.waitForSelector('[data-testid="health-overlay"]');
+check("clicking it opens the overlay at that person's case", (await view(st)) === "health" && (await st.getByTestId("health-overlay").getAttribute("data-astronaut")) === "a-02");
 
-// ---------- 5. switching views keeps evaluations, receipts and drafts; nothing repeats ----------
-await st.waitForFunction(() => document.querySelector('[data-testid="flow-canvas"]')?.dataset.phase === "end", null, { timeout: 40000 });
-await st.getByTestId("canvas-node-review").click();
+// ---------- 5. collapsing / reopening keeps the evaluation, an open review form and its draft; nothing repeats ----------
+await waitDecision(st, "review");
 await st.getByTestId("decide-approve").click();
-const DRAFT = "草稿：多项指标同向偏离，待值班长确认后批准";
+const DRAFT = "Draft: several indicators shifted together; approve after the shift lead agrees";
 await st.getByTestId("confirm-reason").fill(DRAFT);
-await st.getByTestId("confirm-cancel").click();
 const evalBefore = await st.getByTestId("panel-eval-status").textContent();
 const seqBefore = (await history()).lastSeq;
-await closeOverlays(st);
-await st.getByTestId("view-map").click();
+await collapse(st);
 await st.waitForTimeout(1000);
-await st.getByTestId("view-health").click();
-await st.locator('[data-crew-card="a-02"]').click();
-await st.getByTestId("canvas-node-review").click().catch(() => {});
-await st.getByTestId("decide-approve").click();
+await openOverlay(st);
+const formKept = await st.getByTestId("confirm-dialog").isVisible();
 const draftAfter = await st.getByTestId("confirm-reason").inputValue();
-check("map ↔ health: the evaluation, the draft and the relay log are unchanged", draftAfter === DRAFT && (await st.getByTestId("panel-eval-status").textContent()) === evalBefore && (await history()).lastSeq === seqBefore, `draft "${draftAfter.slice(0, 12)}…" · lastSeq ${seqBefore} → ${(await history()).lastSeq}`);
+await st.getByTestId("confirm-cancel").click();
+await st.getByTestId("decide-approve").click();
+const draftAfterCancel = await st.getByTestId("confirm-reason").inputValue();
+check("collapse ↔ reopen: the evaluation, the open review form, the draft and the relay log are unchanged", formKept && draftAfter === DRAFT && draftAfterCancel === DRAFT && (await st.getByTestId("panel-eval-status").textContent()) === evalBefore && (await history()).lastSeq === seqBefore, `draft "${draftAfter.slice(0, 12)}…" · lastSeq ${seqBefore} → ${(await history()).lastSeq}`);
 await st.getByTestId("confirm-submit").click();
 await hud.waitForFunction(() => !!window.__hud.client.activeCase().retest, null, { timeout: 15000 });
 check("the approval still reaches the real HUD", true);
@@ -163,21 +175,29 @@ await hud.waitForFunction((r) => window.__hud?.client.state.conn === "online" &&
 check("HUD refresh: same run and task restored", (await starts()).length === 1);
 
 // ---------- 7. map resources fail: the map says so, health monitoring keeps working ----------
-const fail = (r) => r.abort();
+// Abort only the code chunk of the Mission Glass map (recognised by its content) and the terrain assets.
+const fail = async (route) => {
+  const res = await route.fetch().catch(() => null);
+  if (!res) return route.abort();
+  const body = await res.text();
+  if (body.includes("Mission planning") && body.includes("EVA route")) return route.abort();
+  return route.fulfill({ response: res, body });
+};
+const failTerrain = (r) => r.abort();
 await st.route("**/_next/static/chunks/**", fail);
-await st.route("**/terrain/**", fail);
-await st.getByTestId("view-map").click(); // first map open on this page load: its code must be fetched now
+await st.route("**/terrain/**", failTerrain);
+await st.reload({ waitUntil: "domcontentloaded" });
+await st.waitForSelector('[data-testid="station-lease"][data-lease="holder"]', { timeout: 40000 });
 await st.waitForSelector('[data-testid="mission-map-error"], [data-testid="mission-glass"]', { timeout: 30000 });
 const mapFailed = await st.getByTestId("mission-map-error").isVisible().catch(() => false);
+await collapse(st);
 await shot(st, "m5-map-failed");
-await st.getByTestId("view-health").click();
 await replay(st, "grip-missing", true);
-await st.waitForFunction(() => /结果不完整/.test(document.querySelector('[data-testid="panel-eval-status"]')?.textContent ?? ""), null, { timeout: 40000 });
-check("map code/resources blocked: the map view reports it; health monitoring still analyses new data", mapFailed && (await st.getByTestId("panel-eval-status").textContent()).includes("结果不完整"));
+await st.waitForFunction(() => /Incomplete Results/.test(document.querySelector('[data-testid="decision-conclusion"]')?.textContent ?? ""), null, { timeout: 40000 });
+check("map code/resources blocked: the map reports it; Health Monitoring still analyses new data", mapFailed && (await st.getByTestId("decision-conclusion").textContent()).includes("Incomplete Results"));
 await st.unroute("**/_next/static/chunks/**", fail);
-await st.unroute("**/terrain/**", fail);
+await st.unroute("**/terrain/**", failTerrain);
 await closeOverlays(st);
-await st.getByTestId("view-map").click();
 await st.getByTestId("mission-map-retry").click();
 await st.waitForSelector('[data-testid="mission-glass"]', { timeout: 60000 });
 check("after the network recovers, the map loads again on retry", true);
@@ -202,11 +222,11 @@ await st.waitForTimeout(1200);
 const list = await evs();
 const ended = list.filter((e) => e.type === "station.eva.ended");
 const closes = list.filter((e) => e.type === "station.reassessment" && e.payload.caseStatus === "closed");
-check("end EVA: one station.eva.ended; no event closed; the dialog says so", ended.length === 1 && closes.length === 0 && /尚未关闭/.test(endText) && /不表示宇航员健康正常/.test(endText), `${ended.length} end · ${closes.length} closes`);
-await st.getByTestId("view-health").click();
+check("end EVA: one station.eva.ended; no case closed; the dialog says so", ended.length === 1 && closes.length === 0 && /still open/.test(endText) && /does not mean the astronaut is healthy/.test(endText), `${ended.length} end · ${closes.length} closes`);
+await openOverlay(st);
 const cardAfter = (await st.locator('[data-crew-card="a-02"]').innerText()).replace(/\n/g, " ");
-check("after the end: the person's events and history are still shown", /未关闭事件 [1-9]/.test(cardAfter), cardAfter.slice(0, 120));
-await st.getByTestId("view-map").click();
+check("after the end: the person's cases and history are still shown", /[1-9] (open|to review)/.test(cardAfter) && (await st.getByTestId("panel-case-switch").isVisible()), cardAfter.slice(0, 120));
+await collapse(st);
 await st.waitForTimeout(500);
 check("a new EVA is refused while those events are open", (await st.getByTestId("prep-blocked").isVisible()) && (await st.getByTestId("prep-summary").isDisabled()));
 await shot(st, "m6-ended-blocked");
