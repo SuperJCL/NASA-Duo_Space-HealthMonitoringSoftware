@@ -1,0 +1,16 @@
+{
+  "repository": "leonardoTT-debug/ASTRA-MyoMars",
+  "commit": "91a464b87afa32c000b75c5a4dfeacc13871e2cb",
+  "source_backend_sha256": {
+    "__init__.py": "9cf2c12e1d50649d87b0853133d46c9909674d509ab52a69fafbbeceab269f64",
+    "acquisition.py": "dcf2426c060f9febad13a34f53b360a7bfa63ef2483d025e41a566e39ce8f74e",
+    "schema.py": "9fde1bfda85bd967645cb9014d6b0695a800528370bf685c548d31650ac0bf99",
+    "processing.py": "34352f6e7dfe9d295ff6302a9b6e90ad75a5ef9659d50f6d7a88ebd92f8055ad",
+    "fatigue.py": "74e50dc36596015bc670cbe264973aacbcb821a25fbfe01881e76310fcf43217",
+    "triggers.py": "4d159d3cc46f51f6df848ce6bb9b06a4bae5c0c47d82a2a280aaf8c51407a5a2",
+    "console.py": "3dd25427020fc1f97be179cb410fb403e6890e3ef13eea71291e6c5e7f7c4098",
+    "scenario_fixture.py": "7a21eb1b8f821e673869fdea207281c299f6a9805eec217846ced02d5e8ffbf1",
+    "store.py": "b5f8ed64fa25f79fd3b096d55fc9b82739f8164565c73f636eb869e411fee047"
+  },
+  "port": "Python namespaces and isolated DB configuration; prototype transport removed; target contract read-only validation added; no source React product UI ported"
+}

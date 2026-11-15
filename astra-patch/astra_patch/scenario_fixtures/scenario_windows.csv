@@ -1,0 +1,13 @@
+scenario,round_id,observation_id,elapsed_seconds,activity,emg_rms_uv,emg_median_frequency_hz,baseline_rms_uv,baseline_median_frequency_hz,quality_score,motion_artifact_flag,electrode_contact_fault_flag,protocol,muscle_site,source,expected_classification
+normal,demo-normal,normal-01,6,walking,42,86,42,86,0.97,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,normal
+normal,demo-normal,normal-02,12,walking,43,85,42,86,0.98,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,normal
+normal,demo-normal,normal-03,18,walking,44,84,42,86,0.96,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,normal
+normal,demo-normal,normal-04,24,walking,43,85,42,86,0.98,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,normal
+fatigue_suspected,demo-fatigue_suspected,fatigue_suspected-01,6,walking,43,85,42,86,0.98,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,monitor
+fatigue_suspected,demo-fatigue_suspected,fatigue_suspected-02,12,walking,48,80,42,86,0.97,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,monitor
+fatigue_suspected,demo-fatigue_suspected,fatigue_suspected-03,18,walking,54,73,42,86,0.97,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,fatigue_review_candidate
+fatigue_suspected,demo-fatigue_suspected,fatigue_suspected-04,24,walking,61,66,42,86,0.96,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,fatigue_review_candidate
+sensor_fault,demo-sensor_fault,sensor_fault-01,6,walking,42,86,42,86,0.98,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,monitor
+sensor_fault,demo-sensor_fault,sensor_fault-02,12,walking,43,85,42,86,0.96,0,0,demo_walk_fixed,vastus_lateralis_demo,synthetic,monitor
+sensor_fault,demo-sensor_fault,sensor_fault-03,18,walking,132,18,42,86,0.31,1,1,demo_walk_fixed,vastus_lateralis_demo,synthetic,sensor_quality_fault
+sensor_fault,demo-sensor_fault,sensor_fault-04,24,walking,175,11,42,86,0.19,1,1,demo_walk_fixed,vastus_lateralis_demo,synthetic,sensor_quality_fault
