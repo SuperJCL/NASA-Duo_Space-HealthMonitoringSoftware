@@ -1,0 +1,107 @@
+"use client";
+
+import { useState } from "react";
+import { intakeCheck, observationEnvelope, REPLAY_SAMPLES, sampleById, type CheckStatus } from "@/lib/replay/replay";
+import type { RelayStationAdapter } from "@/lib/station/relay-adapter";
+import type { StationState } from "@/lib/station/station";
+
+const MARK: Record<CheckStatus, { t: string; c: string }> = {
+  ok: { t: "✓", c: "text-[var(--mg-dim)]" },
+  assumed: { t: "假设", c: "text-[var(--mg-caution)]" },
+  missing: { t: "缺失", c: "text-[var(--mg-caution)]" },
+  blocked: { t: "阻止", c: "text-[var(--mg-coral)]" },
+};
+
+/**
+ * DEV ENTRY in relay mode: the station page as one entry point of the DATA REPLAY module
+ * (src/lib/replay; the other is `npm run replay`). It starts a run and publishes stored SIMULATED
+ * samples as the data producer (contract role "trigger", client "-replay"). No product page, no HUD
+ * feedback: receipts and confirmations only come from the real HUD page.
+ */
+export function RelayDevDrawer({ relay, state, onClose, onOpenPerson }: { relay: RelayStationAdapter; state: StationState; onClose: () => void; onOpenPerson: (astronautId: string) => void }) {
+  const [sampleId, setSampleId] = useState(REPLAY_SAMPLES[0].id);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const run = state.run;
+  const sample = sampleById(sampleId) ?? REPLAY_SAMPLES[0];
+  const runInfo = run ? { runId: run.runId, astronaut: run.astronaut, task: run.task } : null;
+  const check = intakeCheck(sample, runInfo, "");
+  const go = async (fn: () => Promise<{ note: string }>) => {
+    setBusy(true);
+    setNote((await fn()).note);
+    setBusy(false);
+  };
+  // The note says WHICH action happened and what comes next (a run start and a replay are different steps).
+  const inject = (open: boolean) =>
+    go(async () => {
+      if (!runInfo || !check.publishable) return { note: "不能回放：见核查项" };
+      if (open) onOpenPerson(runInfo.astronaut.id);
+      const r = await relay.publishAsReplay(observationEnvelope(state.sessionId, runInfo, sample, Date.now()));
+      return { note: r.ok ? `已回放样例「${sample.label}」（seq ${r.seq}）· 模拟样例。基站正在分析，约 10 秒后停在“等待基地审核”。` : r.note };
+    });
+  const btn = "min-h-8 rounded-lg border px-2.5 text-[12px] disabled:opacity-40";
+  return (
+    <aside className="fixed bottom-3 right-3 top-3 z-50 flex w-[24rem] max-w-[calc(100vw-1.5rem)] flex-col gap-3 overflow-y-auto rounded-2xl border-2 border-dashed border-[#d678ff] bg-[rgba(11,17,28,0.97)] p-4 text-[12px] shadow-2xl" aria-label="开发入口（数据回放）" data-testid="relay-dev-drawer">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[14px] font-semibold text-[#e3a6ff]">{"开发入口 · 数据回放（模拟样例）"}</p>
+          <p className="text-[11px] text-[var(--mg-dim)]">{"以数据生产者身份（契约角色 trigger）向通信服务发布已存储的模拟样例。不是队友的健康数据；命令行 npm run replay 是同一模块。"}</p>
+        </div>
+        <button type="button" onClick={onClose} className="underline" data-testid="relay-dev-close">
+          {"隐藏"}
+        </button>
+      </div>
+      <ol className="list-decimal space-y-0.5 rounded-lg border border-[var(--mg-line)] py-2 pl-6 pr-2 text-[11px] text-[var(--mg-dim)]" data-testid="relay-dev-steps">
+        <li>{"在“任务地图”中选择任务和宇航员，确认开始 EVA；HUD 页面点 Enter HUD 加入（此时 HUD 只显示已连接，没有消息是正常的）。"}</li>
+        <li>{"选择样例并回放：基站分析约 10 秒，停在“等待基地审核”。"}</li>
+        <li>{"打开 A-02 面板，点“等待基地审核”→ 批准并填写理由。只有批准后 HUD 才会收到提示和复测任务。"}</li>
+        <li>{"HUD：Acknowledge → View task → Start retest → 采集结束后 Submit。"}</li>
+        <li>{"基站复评后：关闭事件或保留关注 → HUD 显示最终状态。"}</li>
+      </ol>
+      {run ? (
+        <p className="text-[var(--mg-text)]" data-testid="relay-dev-run">{`当前运行：${run.astronaut.callsign} · ${run.task.title}（运行 ${run.runId}）`}</p>
+      ) : (
+        <p className="text-[var(--mg-caution)]" data-testid="relay-dev-norun">{"没有进行中的 EVA。回放只发送观测，不开始运行：请在“任务地图”中确认开始 EVA。"}</p>
+      )}
+      {run?.evaEndedAt ? <p className="text-[11px] text-[var(--mg-caution)]">{"本次 EVA 已结束：仍可回放，例如结束后的测量（数据照常进入基站分析）。"}</p> : null}
+      <label className="flex items-center gap-2">
+        {"样例"}
+        <select value={sampleId} onChange={(e) => setSampleId(e.target.value)} className="flex-1 rounded-md border border-[var(--mg-line)] bg-[var(--mg-bg)] px-2 py-1" data-testid="relay-dev-fixture">
+          {REPLAY_SAMPLES.map((s) => (
+            <option key={s.id} value={s.id}>
+              {`${s.label} · ${s.observation.protocol.label}`}
+            </option>
+          ))}
+        </select>
+      </label>
+      <ul className="grid gap-1 rounded-lg border border-[var(--mg-line)] p-2 text-[11px]" data-testid="relay-dev-check">
+        <li className="text-[var(--mg-dim)]">{`来源：${sample.source.label}`}</li>
+        {check.items
+          .filter((i) => i.item !== "来源")
+          .map((i) => (
+            <li key={i.item} className="flex gap-2" data-status={i.status}>
+              <span className={`w-8 shrink-0 ${MARK[i.status].c}`}>{MARK[i.status].t}</span>
+              <span>
+                <b className="font-medium">{i.item}</b>
+                {`：${i.detail}`}
+              </span>
+            </li>
+          ))}
+      </ul>
+      <div className="flex flex-wrap gap-1.5">
+        <button type="button" disabled={!run || busy || !check.publishable} onClick={() => void inject(true)} className={`${btn} border-[#d678ff] text-[#e3a6ff]`} data-testid="relay-dev-inject-open">
+          {"回放并打开面板"}
+        </button>
+        <button type="button" disabled={!run || busy || !check.publishable} onClick={() => void inject(false)} className={`${btn} border-[var(--mg-line-strong)]`} data-testid="relay-dev-inject">
+          {"只回放"}
+        </button>
+      </div>
+      {note ? (
+        <p className="text-[var(--mg-cyan)]" data-testid="relay-dev-note">
+          {note}
+        </p>
+      ) : null}
+      <p className="text-[11px] text-[var(--mg-faint)]">{"联调模式下没有自动或手动的模拟 HUD 反馈：接收回执、宇航员确认和复测结果只来自真实 HUD 页面。"}</p>
+    </aside>
+  );
+}

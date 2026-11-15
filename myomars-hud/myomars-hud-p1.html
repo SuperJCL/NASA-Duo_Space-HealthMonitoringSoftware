@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyoMars HUD P1 演示</title>
+<style>
+:root{--bg:#0b0f17;--panel:#121927;--line:#243049;--tx:#e6edf7;--mut:#8b9ab5;--ok:#3ddc97;--warn:#ffb020;--bad:#ff5d6c;--acc:#5ab0ff;--mars:#e2724a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 -apple-system,"PingFang SC","Noto Sans SC",sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+h1{font-size:16px;margin:0}
+.sim{background:#3a2a05;color:var(--warn);border:1px solid var(--warn);border-radius:999px;padding:2px 10px;font-weight:600;font-size:12px}
+.sub{color:var(--mut);font-size:12px}
+main{padding:16px;display:grid;gap:16px;max-width:1200px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h2{font-size:13px;margin:0 0 10px;color:var(--mut);letter-spacing:.04em;display:flex;justify-content:space-between;gap:8px}
+.tag{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--mut);font-weight:400}
+.tag.preset{color:var(--mars);border-color:var(--mars)}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;color:var(--tx);background:#1b2538;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--acc)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:#16406b;border-color:var(--acc)}
+button.danger{border-color:var(--bad);color:#ffc2c8}
+label.sw{display:flex;gap:6px;align-items:center;color:var(--mut)}
+.hint{margin-top:10px;padding:8px 10px;border-left:3px solid var(--acc);background:#0f1a2c;color:#bcd3f2;border-radius:4px}
+/* transport */
+.lane{position:relative;height:96px;margin:6px 24px 0}
+.node{position:absolute;top:8px;transform:translateX(-50%);text-align:center;width:110px}
+.node i{display:block;width:40px;height:40px;margin:0 auto 4px;border-radius:50%;border:2px solid var(--line);background:#0e1522;line-height:36px;font-style:normal;font-size:18px}
+.node small{color:var(--mut);display:block;font-size:11px}
+.wire{position:absolute;top:28px;height:0;border-top:2px dashed var(--line)}
+.wire.down{border-color:var(--bad)}
+.wire .x{position:absolute;left:50%;top:-12px;transform:translateX(-50%);color:var(--bad);font-weight:700;font-size:16px;background:var(--panel);padding:0 4px}
+.dot{position:absolute;top:20px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc);transition:left 1s linear}
+.dot.cached{background:var(--warn);box-shadow:0 0 10px var(--warn)}
+.dot.poor{background:var(--bad);box-shadow:0 0 10px var(--bad)}
+.dot.retest{border-radius:3px}
+.plist{margin-top:4px;color:var(--mut);font-size:12px;display:flex;flex-wrap:wrap;gap:6px 14px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.cols{grid-template-columns:1fr}.lane{margin:6px 8px 0}.node{width:80px}}
+/* base */
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.steps li{display:flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:8px;color:var(--mut)}
+.steps li.run{border-color:var(--acc);color:var(--tx)}
+.steps li.done{color:var(--ok)}
+.steps li.fail{border-color:var(--bad);color:#ffc2c8;background:#2a1318}
+.bstat{margin-bottom:10px;font-weight:600}
+/* hud */
+.hud{border-color:#2f5d8f;box-shadow:inset 0 0 40px #0f2a4a55}
+.status{padding:8px 12px;border-radius:8px;background:#0f1a2c;border:1px solid var(--line);margin-bottom:10px;font-weight:600}
+.status.warn{border-color:var(--warn);color:var(--warn)}
+.status.bad{border-color:var(--bad);color:#ffc2c8}
+.status.ok{border-color:var(--ok);color:var(--ok)}
+.status.run{border-color:var(--acc);color:#bcd3f2}
+.alert{border:1px solid var(--warn);border-radius:10px;padding:10px 12px;margin-top:10px;background:#1e1a0d}
+.alert.v2{border-color:var(--ok);background:#0f2018}
+.alert h3{margin:0 0 4px;font-size:14px}
+.alert p{margin:2px 0;color:#d5dcea}
+.notice{border:1px solid var(--bad);background:#2a1318;border-radius:10px;padding:10px 12px;margin-top:10px}
+.notice.okn{border-color:var(--ok);background:#0f2018}
+.notice.done{opacity:.6}
+.guide{margin:8px 0 0;padding-left:20px;color:#d5dcea}
+.empty{color:var(--mut);padding:8px 0}
+.log{max-height:220px;overflow:auto;font:12px/1.6 ui-monospace,Menlo,monospace;color:var(--mut)}
+.log b{color:var(--tx);font-weight:500}
+.log .w{color:var(--warn)}.log .e{color:var(--bad)}.log .g{color:var(--ok)}
+.ver{font-size:11px;color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>MyoMars · 宇航员 HUD · P1</h1>
+  <span class="sim" role="status">⚠ 模拟演示</span>
+  <span class="sub">所有数据为模拟；基地分析为预设分析，不构成临床判断。</span>
+</header>
+<main>
+  <section class="card" aria-label="演示控制">
+    <h2>演示控制 <span class="tag">前端共享状态</span></h2>
+    <div class="ctrl">
+      <button id="bCollect" class="primary">① 开始首次采集</button>
+      <button id="bRetest" class="primary">② 开始复测</button>
+      <span style="width:8px"></span>
+      <button id="bLink"></button>
+      <label class="sw"><input type="checkbox" id="swPoor"> 下一包注入「接触不良」</label>
+      <button id="bMulti" title="连点测试：连续触发 5 次「恢复链路」与「重新采集」，验证幂等">连点×5 测试</button>
+      <button id="bReset">重置</button>
+    </div>
+    <div class="hint" id="hint"></div>
+  </section>
+
+  <section class="card" aria-label="传输链路">
+    <h2>贴片 → 本地设备 → 火星基地 <span class="tag">模拟传输动画</span></h2>
+    <div class="lane" id="lane"></div>
+    <div class="plist" id="plist"></div>
+  </section>
+
+  <div class="cols">
+    <section class="card" aria-label="基地面板">
+      <h2>基地面板 <span class="tag preset">预设分析</span></h2>
+      <div class="bstat" id="bstat"></div>
+      <ol class="steps" id="steps"></ol>
+    </section>
+
+    <section class="card hud" aria-label="宇航员 HUD">
+      <h2>宇航员 HUD <span class="tag">仅显示基地送达内容</span></h2>
+      <div class="status" id="hstat"></div>
+      <div id="hnotice"></div>
+      <div id="halert"></div>
+      <div id="htask"></div>
+    </section>
+  </div>
+
+  <section class="card" aria-label="事件日志">
+    <h2>事件日志</h2>
+    <div class="log" id="log" aria-live="polite"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+'use strict';
+const T={toLocal:1000,upload:1400,step:900,deliver:1000,noticeDelay:1200};
+const $=id=>document.getElementById(id);
+let S, timers=[];
+
+function fresh(){return{
+  linkUp:true, injectPoor:false, seq:0,
+  packets:[], activeId:null,
+  base:null,            // {packetId, kind, steps:[{n,st}], text}
+  hud:{text:'待命 · 尚无采集',cls:''},
+  alert:null,           // {ver,title,reason}
+  task:null,            // {id,state:'issued'|'running'|'done'}
+  notice:null,          // {kind:'poor'|'restored', state, retestId, packetKind, text}
+  recollecting:false,
+  log:[]
+}}
+function later(fn,ms){timers.push(setTimeout(()=>{fn();render()},ms))}
+function clock(){return new Date().toLocaleTimeString('zh-CN',{hour12:false})}
+function log(msg,c){S.log.unshift('<span>'+clock()+'</span> <b class="'+(c||'')+'">'+msg+'</b>')}
+function pad(n){return String(n).padStart(4,'0')}
+function pkt(id){return S.packets.find(p=>p.id===id)}
+
+/* ---------- packets ---------- */
+function newPacket(kind,extra){
+  const p=Object.assign({id:'PKT-'+pad(++S.seq),kind,stage:'patch',pos:0,poor:S.injectPoor,received:false,recv:0},extra||{});
+  S.packets.push(p); S.activeId=p.id;
+  S.base={packetId:p.id,kind,steps:null,text:'等待接收'};
+  log('贴片生成模拟采集包 '+p.id+(kind==='retest'?'（复测）':'（首次）')+(p.poor?' · 已注入接触不良':''));
+  hudWhenCollecting(p);
+  later(()=>{p.stage='toLocal';p.pos=50},30);
+  later(()=>{p.stage='local';log(p.id+' 已到达本地设备');tryUpload(p)},T.toLocal+30);
+  return p;
+}
+function hudWhenCollecting(p){
+  if(!(S.notice&&S.notice.state==='recollecting'))
+    S.hud={text:p.kind==='retest'?'复测采集中':'采集中',cls:'run'};
+}
+function tryUpload(p){
+  if(p.received||p.stage==='uploading'||p.stage==='base')return;
+  if(!S.linkUp){
+    p.stage='cached';p.pos=50;
+    S.hud={text:'基地链路中断 · 采集包已在本地缓存，待上传',cls:'warn'};
+    S.base={packetId:p.id,kind:p.kind,steps:null,text:'等待接收'};
+    log(p.id+' 链路中断，已本地缓存待上传','w');return;
+  }
+  p.stage='uploading';
+  if(p.resumed)S.hud={text:'链路已恢复 · 正在补传',cls:'run'};
+  later(()=>{p.pos=100},30);
+  later(()=>{
+    if(p.received)return;
+    if(!S.linkUp){p.stage='cached';p.pos=50;S.hud={text:'基地链路中断 · 采集包已在本地缓存，待上传',cls:'warn'};log(p.id+' 上传中途链路中断，退回本地缓存','w');return}
+    baseReceive(p);
+  },T.upload+30);
+}
+function baseReceive(p){
+  p.recv++;
+  if(p.received){log(p.id+' 重复接收已忽略（幂等）','w');return}
+  p.received=true;p.stage='base';p.pos=100;
+  log('基地确认收到 '+p.id+(p.resumed?'（补传，保留原编号）':''),'g');
+  startAnalysis(p);
+}
+
+/* ---------- base preset analysis ---------- */
+function stepNames(kind){return['接收数据包','质量检查','基线比较','情境融合',kind==='retest'?'基地重评':'生成告警']}
+function startAnalysis(p){
+  const retest=p.kind==='retest';
+  S.base={packetId:p.id,kind:p.kind,steps:stepNames(p.kind).map(n=>({n,st:'wait'})),text:retest?'基地重评中':'分析中'};
+  if(!(S.notice&&S.notice.state==='recollecting'))
+    S.hud={text:retest?'基地已接收 · 基地重评中':'基地已接收 · 分析中',cls:'run'};
+  runStep(p,0);
+}
+function runStep(p,i){
+  const b=S.base; if(!b||b.packetId!==p.id)return;
+  if(i>=b.steps.length){return deliverResult(p)}
+  b.steps[i].st='run';
+  later(()=>{
+    if(S.base!==b)return;
+    if(i===1&&p.poor){
+      b.steps[i].st='fail';b.text='接触不良 · 当前采集不可用';
+      log(p.id+' 预设质量检查：接触不良，当前采集不可用','e');
+      later(()=>deliverPoorNotice(p),T.noticeDelay);
+      return;
+    }
+    b.steps[i].st='done';
+    if(i===1&&p.recollectOf)qualityRestored(p);
+    runStep(p,i+1);
+  },T.step);
+}
+
+/* ---------- deliveries to HUD ---------- */
+function deliverPoorNotice(p){
+  S.recollecting=false;
+  S.notice={kind:'poor',state:'open',packetKind:p.kind,retestId:p.retestId||null,text:'贴片接触不良 · 请检查佩戴后重新采集'};
+  S.hud={text:S.notice.text,cls:'bad'};
+  log('基地质量提示已送达 HUD','w');
+}
+function qualityRestored(p){
+  const next=p.kind==='retest'?'基地正在重评，结果送达前原告警保持不变。':'基地继续分析，告警将在送达后显示。';
+  S.notice={kind:'restored',state:'done',packetKind:p.kind,retestId:p.retestId||null,text:'信号质量已恢复 · '+next};
+  S.recollecting=false;
+  S.hud={text:'信号质量已恢复',cls:'ok'};
+  log('新采集包 '+p.id+' 通过质量检查，质量提示已处理','g');
+}
+function deliverResult(p){
+  const b=S.base;b.text=p.kind==='retest'?'重评完成 · 结果下发中':'分析完成 · 告警下发中';
+  later(()=>{
+    if(p.kind==='first'){
+      S.alert={ver:1,title:'关注 · 模拟趋势出现可解释变化',reason:'预设分析：相对个体基线的活动相关偏移，证据足以提交复核。（模拟，不代表医学结论）'};
+      S.task={id:'RT-001',state:'issued'};
+      S.hud={text:'基地告警已送达',cls:'warn'};
+      b.text='告警已送达 HUD';
+      log('告警 v1 与标准化复测任务 RT-001 已送达 HUD','g');
+    }else{
+      S.alert={ver:2,title:'已重评 · 维持关注，待基地复核后关闭',reason:'预设重评：复测结果已关联原告警 ALT-001，偏移较上次缩小。关闭需基地复核人员确认。（模拟）'};
+      S.task.state='done';
+      S.hud={text:'基地重评结果已送达 · 原告警已更新',cls:'ok'};
+      b.text='重评结果已送达 HUD';
+      log('重评结果已送达，原告警更新为 v2','g');
+    }
+  },T.deliver);
+}
+
+/* ---------- user actions ---------- */
+function actCollect(){ if(S.packets.length) return; newPacket('first'); }
+function actRetest(){
+  if(!S.task||S.task.state!=='issued')return;
+  S.task.state='running';
+  newPacket('retest',{retestId:S.task.id});
+}
+function actLink(){ setLink(!S.linkUp); }
+function setLink(up){
+  if(up===S.linkUp)return;
+  S.linkUp=up;
+  if(!up){log('基地链路已断开','e');return}
+  log('基地链路已恢复','g');
+  S.packets.filter(p=>p.stage==='cached'&&!p.received).forEach(p=>{p.resumed=true;tryUpload(p)});
+}
+function actRecollect(){
+  const n=S.notice;
+  if(!n||n.kind!=='poor'||n.state!=='open'||S.recollecting)return;
+  S.recollecting=true;n.state='recollecting';
+  S.hud={text:'重新采集中',cls:'run'};
+  const old=S.activeId;
+  log('宇航员点击「重新采集」'+(n.retestId?'（仍关联复测任务 '+n.retestId+'）':''));
+  newPacket(n.packetKind,{retestId:n.retestId,recollectOf:old});
+  S.hud={text:'重新采集中',cls:'run'};
+}
+function actMulti(){
+  for(let i=0;i<5;i++){setLink(true);actRecollect()}
+  log('连点测试已执行：5 次「恢复链路」/「重新采集」','w');
+}
+
+/* ---------- render ---------- */
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function render(){
+  $('bCollect').disabled=S.packets.length>0;
+  $('bRetest').disabled=!(S.task&&S.task.state==='issued');
+  $('bLink').textContent=S.linkUp?'断开基地链路':'恢复链路';
+  $('bLink').className=S.linkUp?'danger':'primary';
+  $('bMulti').disabled=false;
+  $('swPoor').checked=S.injectPoor;
+
+  // lane
+  const down=!S.linkUp;
+  let h='<div class="wire" style="left:0;width:50%;border-color:var(--acc)"></div>'
+   +'<div class="wire'+(down?' down':'')+'" style="left:50%;width:50%">'+(down?'<span class="x">✕</span>':'')+'</div>'
+   +'<div class="node" style="left:0"><i>🩹</i>贴片<small>sEMG + IMU</small></div>'
+   +'<div class="node" style="left:50%"><i>📟</i>本地设备<small>缓存 · 转发</small></div>'
+   +'<div class="node" style="left:100%"><i style="border-color:var(--mars)">🏛</i>火星基地<small>'+(down?'链路中断':'链路正常')+'</small></div>';
+  S.packets.filter(p=>p.stage!=='base'||p.id===S.activeId).forEach(p=>{
+    if(p.stage==='base'&&p.id!==S.activeId)return;
+    h+='<div class="dot'+(p.stage==='cached'?' cached':'')+(p.poor?' poor':'')+(p.kind==='retest'?' retest':'')+'" style="left:'+p.pos+'%" title="'+p.id+'"></div>';
+  });
+  const lane=$('lane');
+  // preserve dots for CSS transition: patch in place
+  {
+    lane.querySelectorAll('.wire,.node').forEach(e=>e.remove());
+    lane.insertAdjacentHTML('afterbegin',h.replace(/<div class="dot[\s\S]*$/,''));
+    const want=S.packets.filter(p=>p.stage!=='base'||p.id===S.activeId);
+    want.forEach(p=>{
+      let d=lane.querySelector('.dot[data-id="'+p.id+'"]');
+      if(!d){d=document.createElement('div');d.dataset.id=p.id;d.title=p.id;lane.appendChild(d);d.style.left='0%';d.offsetWidth}
+      d.className='dot'+(p.stage==='cached'?' cached':'')+(p.poor?' poor':'')+(p.kind==='retest'?' retest':'');
+      d.style.left=p.pos+'%';
+    });
+    lane.querySelectorAll('.dot').forEach(d=>{if(!want.some(p=>p.id===d.dataset.id))d.remove()});
+  }
+  const stageTxt={patch:'贴片生成',toLocal:'传向本地设备',local:'本地设备',cached:'本地缓存 · 待上传',uploading:'上传中',base:'基地已接收'};
+  $('plist').innerHTML=S.packets.map(p=>'<span>'+p.id+' · '+(p.kind==='retest'?'复测':'首次')+' · '+stageTxt[p.stage]+(p.poor?' · 接触不良':'')+' · 基地接收次数 '+p.recv+'</span>').join('')||'<span>尚无采集包 · ●=首次包 ■=复测包 黄色=本地缓存 红色=接触不良</span>';
+
+  // base
+  const b=S.base;
+  $('bstat').textContent=b?(b.packetId+' · '+b.text):'基地空闲 · 等待采集包';
+  $('steps').innerHTML=b&&b.steps?b.steps.map(s=>'<li class="'+s.st+'"><span aria-hidden="true">'+({wait:'○',run:'◔',done:'✓',fail:'✕'}[s.st])+'</span>'+s.n+(s.st==='fail'?' · 接触不良':'')+'</li>').join(''):'<li>'+(b?'等待接收 · 数据包尚未抵达基地':'—')+'</li>';
+
+  // hud
+  $('hstat').textContent=S.hud.text;$('hstat').className='status '+S.hud.cls;
+  const n=S.notice;let nh='';
+  if(n){
+    if(n.kind==='poor'){
+      nh='<div class="notice'+(n.state==='recollecting'?' done':'')+'"><h3 style="margin:0 0 4px;font-size:14px">⚠ 设备提示 · 贴片接触不良</h3><p style="margin:0">'+esc(n.text)+'</p><p class="ver" style="margin:4px 0 8px">仅为设备/采集提示，与肌肉功能告警无关。</p>'
+        +'<div class="ctrl"><button id="bGuide">查看佩戴指引</button><button id="bRe" class="primary"'+(n.state!=='open'?' disabled':'')+'>'+(n.state==='recollecting'?'重新采集中…':'重新采集')+'</button></div>'
+        +'<ol class="guide" id="guide" hidden><li>清洁并擦干贴片区域皮肤。</li><li>对齐标记位置，避免贴在关节折痕处。</li><li>按压贴片边缘约 10 秒，确认电极贴紧。</li><li>检查贴片与本地设备连接后再重新采集。</li></ol></div>';
+    }else nh='<div class="notice okn done"><h3 style="margin:0 0 4px;font-size:14px">✓ 质量提示已处理</h3><p style="margin:0">'+esc(n.text)+'</p></div>';
+  }
+  $('hnotice').innerHTML=nh;
+  const wasOpen=window.__guideOpen;
+  if($('guide')&&wasOpen)$('guide').hidden=false;
+  if($('bGuide'))$('bGuide').onclick=()=>{const g=$('guide');g.hidden=!g.hidden;window.__guideOpen=!g.hidden};
+  if($('bRe'))$('bRe').onclick=()=>{actRecollect();render()};
+
+  const a=S.alert;
+  $('halert').innerHTML=a?'<div class="alert'+(a.ver>1?' v2':'')+'"><h3>'+(a.ver>1?'✓ ':'▲ ')+esc(a.title)+'</h3><p>'+esc(a.reason)+'</p><p class="ver">告警 ALT-001 · 版本 v'+a.ver+' · 模拟</p></div>':'<div class="empty">暂无基地告警</div>';
+  const t=S.task;
+  $('htask').innerHTML=t?'<div class="alert" style="border-color:var(--acc);background:#0f1a2c"><h3>标准化复测任务 '+t.id+'（模拟）</h3><p>状态：'+({issued:'待复测',running:'复测进行中',done:'已完成 · 已重评'}[t.state])+'</p></div>':'';
+
+  $('log').innerHTML=S.log.join('<br>');
+
+  // hint
+  let hint;
+  if(!S.packets.length)hint='建议：先点击「① 开始首次采集」，走完基地分析与告警下发。';
+  else if(S.task&&S.task.state==='issued')hint='告警已送达。场景1：点击「② 开始复测」→ 复测包到达本地设备后「断开基地链路」→ 观察待上传 → 「恢复链路」。场景2：勾选「下一包注入接触不良」后采集/复测，再取消勾选并点「重新采集」。';
+  else if(S.notice&&S.notice.kind==='poor'&&S.notice.state==='open')hint='质量提示已送达：取消勾选「注入接触不良」后点「重新采集」恢复；保持勾选则继续提示检查贴片。';
+  else if(!S.linkUp)hint='链路已断开：数据包会停在本地设备，点「恢复链路」补传。';
+  else if(S.task&&S.task.state==='done')hint='闭环完成。可点「重置」重新演示另一场景。';
+  else hint='演示进行中…';
+  $('hint').textContent=hint;
+}
+
+/* ---------- wiring ---------- */
+function reset(){timers.forEach(clearTimeout);timers=[];window.__guideOpen=false;S=fresh();$('lane').innerHTML='';$('lane')._built=0;log('演示已重置');render()}
+$('bCollect').onclick=()=>{actCollect();render()};
+$('bRetest').onclick=()=>{actRetest();render()};
+$('bLink').onclick=()=>{actLink();render()};
+$('bMulti').onclick=()=>{actMulti();render()};
+$('bReset').onclick=reset;
+$('swPoor').onchange=e=>{S.injectPoor=e.target.checked;log('接触不良注入：'+(S.injectPoor?'开':'关'));render()};
+window.__demo={get state(){return S}};
+reset();
+})();
+</script>
+</body>
+</html>

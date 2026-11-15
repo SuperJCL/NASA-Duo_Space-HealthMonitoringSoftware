@@ -3530,6 +3530,256 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `verify:briefing`: 35 checks, 0 problems;
   - `verify:terrain`: the assets match a fresh build.
 
+## EVA route & scouting: Sol Atlas / MarsScout capabilities integrated into Mission Glass
+
+- **Started:** 2026-11-14T16:06:33Z, on branch `eva-route-scouting` from `main` at
+  `c31704b`. `main` is untouched.
+- **Completed:** 2026-11-14T16:39:01Z, at this commit. Not pushed, not merged, not deployed.
+- **Goal:** keep MDI as the single main project and bring in only what it needs. The sources were:
+  - Sol Atlas (`saracen66/the-sol-explorers` at `9e1b2e0`, Apache-2.0): the EVA O₂/time model and A*;
+  - the MarsScout prototype (`/home/user/marsscout/app` at `3e1fccb`), built earlier the same
+    day: the observed map vs hidden truth, rover scouting, map update, re-planning and resource
+    checks.
+- **Inventory before the work:**
+  - MDI was the only Mars repository locally and on the account, and the only one with this
+    project's history.
+  - MarsScout was a standalone Vite app with no remote.
+  - The Sol Atlas reference copy was unmodified.
+  - The Sol Atlas HiRISE tile (77.390–77.497° E) does not overlap MDI's CTX crop
+    (77.312–77.366° E). MDI therefore keeps its own verified CTX DTM, and no HiRISE data was
+    imported.
+- **What was added (see `docs/EVA_ROUTE_SCOUTING.md`):**
+  - `src/lib/eva-route/`: pure TypeScript modules for the grid, knowledge, traversal rules,
+    simulator truth, A*, planner, budgets, assumptions, scouting, options, mission controller,
+    scenario loader, overlay, and an agent tool entry point (`tools.ts`).
+  - `src/components/route/` and a third Mission Glass tab, **EVA route**. It has:
+    - the 3D terrain with a route overlay, plus a 2D plan and fallback;
+    - target selection;
+    - routes and budgets;
+    - the scouting loop;
+    - a simulator-only truth toggle;
+    - editable assumptions and EVA window.
+  - The EVA HUD shows the approved route's budget in one line.
+  - `TerrainViewer` gains the optional props `routeOverlay`, `showProfile` and `followSelection`.
+    Its default behaviour is unchanged.
+  - `src/data/prototype/eva-scouting.json`, all simulated: habitat, surveyed areas, rover and
+    hazards for variants A/B/C, positioned as offsets from the verified Lefroy Bay site.
+  - Provenance:
+    - `NOTICE`;
+    - `LICENSES/Apache-2.0-Sol-Atlas.txt` (copied unchanged; `cmp` identical);
+    - change headers in `sol-atlas-eva.ts` and `pathfind.ts`;
+    - a provenance table in the doc;
+    - a separation of real data, simulated items and model assumptions.
+- **Rule change, flagged:** the earlier rules said "no route optimisation, travel-time claims" for
+  the terrain view. The new request asks for route planning and EVA budgets, so:
+  - `CLAUDE.md` now allows exactly one clearly labelled simulated planning layer, the EVA route view;
+  - the terrain itself is still described as not a traversability model;
+  - the profile line and MAP-2 sequence lines are unchanged ("not a navigable route");
+  - `docs/TERRAIN_3D.md` notes the reuse.
+- **Computed results** (same map, knowledge and budget in each variant; not scripted):
+  - A: scout 6.51 > known 6.07. The shortcut is confirmed after 5 posts and a 21 min wait;
+    continue scores 7.14.
+  - B: the same first decision. 7 posts and a 36 min wait; ripples are crew-blocked but
+    rover-drivable. Detour 6.67 > known 5.38 > switch 2.48.
+  - C: scouting is feasible but scores 5.68 < known 6.07, so the known route is kept.
+- **Unchanged:**
+  - The scored data, registry (50 pending), sources, geo, terrain assets, engine and loaders:
+    `git diff main` on those paths is empty.
+  - The ranks, scores and plan are not affected by the route view. Its decision values attach to
+    target roles and are labelled as demo points, not science scores.
+- **Verification (this branch, production build):**
+  - `npm run check` passes: 304/304 tests (289 before, plus 15 new route tests); lint, typecheck and build pass.
+  - `smoke:eva-route`: 50/50. It covers:
+    - terrain and overlay;
+    - target selection by select and by 3D click;
+    - routes and budgets;
+    - the full B loop: scout → rover drives → 7 observations → re-tint → detour recommended →
+      approved with a return route;
+    - the 2D plan and the truth toggle;
+    - the HUD line;
+    - variant C and the 1 h EVA window;
+    - phone 390×844 with no horizontal scroll.
+  - Prototype smoke: 228/228 (unchanged). Research smoke: 120/120 with `SMOKE_LIVE=1`.
+  - The data checks all report 0 problems:
+    - `verify:terrain`: the assets match a fresh build;
+    - `verify:geo`;
+    - `verify:briefing`: 35 checks;
+    - `verify:sci1`: 27 quotes;
+    - `verify:citations`: 156 quotes.
+- **Not done / known limits:**
+  - No agent or model call is wired in; `tools.ts` is the entry point for one.
+  - Slope comes from the 20 m DTM, so it is a lower bound.
+  - The rover sensor has no line-of-sight model.
+  - The traverse corridor counts as surveyed ground by assumption.
+  - The demo weights, rover model and crew surface rules are simulated, not validated.
+
+## MyoMars base station (part 3 of 3), first version, standalone
+
+- **Started:** 2026-11-14T19:28:03Z, on branch `feat/myomars-station`, created from
+  `eva-route-scouting` at `76e2888` (the current latest work, as the project owner asked).
+  `eva-route-scouting` and `main` are untouched.
+- **Completed:** 2026-11-14T19:48:21Z, at this commit. Not pushed, not merged, not deployed.
+- **Scope:**
+  - This branch builds only the base station.
+  - The Trigger and the HUD belong to teammates and are not built here.
+  - No team protocol or teammate branch existed in the repository. The message format is
+    therefore a **proposal** (`docs/station-integration.md`), not an agreed standard.
+- **Reuse:**
+  - The Mission Glass shell: header, mode tabs, `.mission-glass` tokens, glass panels, map-first
+    layout with floating cards and a right panel.
+  - The map component (`MarsMapLoader`).
+  - The EVA route view, unchanged (`EVA 路线` tab).
+  - The choose-then-confirm decision pattern, the versioned-state and stale-result pattern,
+    Zod validation, and the smoke-test style.
+- **Changed:**
+  - `/` is now the station.
+  - Mission Glass is kept unchanged at `/legacy/mission-glass`. `/mission-glass` still redirects
+    to `/` through the existing `next.config.ts`, which was not edited.
+  - The research header link, the legacy smoke scripts and the SCI-1 isolation whitelist now
+    point to that path.
+- **Added:**
+  - `src/lib/station/`:
+    - `protocol.ts`: envelope and payloads, Zod;
+    - `analysis.ts`: the deterministic four-stage simulated analysis (quality → context and
+      comparability → feature comparison → recommendation template), with demo thresholds;
+    - `station.ts`: the pure state machine with effects;
+    - `controller.ts`: timers and adapter;
+    - `adapter.ts`: the adapter interface and the local mock;
+    - `fixtures.ts`: four observation sets plus three retest results;
+    - 22 unit tests.
+  - `src/components/station/`: the station page, the case panel, and a development injector
+    that only shows with `?dev=1`.
+  - `scripts/smoke-station.mjs`.
+- **Rules implemented:**
+  - Nothing reaches the HUD without a human approval with a reason.
+  - A record-only candidate cannot be approved for sending.
+  - A duplicate `eventId` creates no new evaluation, dispatch or task.
+  - A duplicate retest result gets a `duplicate` receipt.
+  - An unknown `retestId` is rejected.
+  - A reset cancels pending analysis timers, and later events from that run are ignored.
+  - Poor quality or non-comparable conditions stop the pipeline before any physiological inference.
+  - Alerts are cleared only by a human close.
+  - A single normal retest does not close a case.
+  - A delivery failure is shown and can be resent with the same `eventId`.
+  - No diagnosis, treatment or automatic task restriction.
+- **Verification (production build, standalone mode only):**
+  - `npm run check`: 326/326 tests (304 before, plus 22 station tests); lint, typecheck and build pass.
+  - `smoke:station`: 51/51 checks:
+    - the normal, acquisition-anomaly, not-comparable and comparable-change fixtures;
+    - the full review and retest loop with HUD defer and acknowledgement, receipt, v2, and close
+      with reassessment;
+    - duplicates;
+    - reset during analysis plus a late event from the old run;
+    - delivery failure and resend;
+    - tab switching;
+    - phone 390×844 with no horizontal scroll.
+  - Legacy suites still pass at the new path: Mission Glass smoke 228/228 and EVA route smoke
+    50/50. Research smoke 120/120 with `SMOKE_LIVE=1`.
+- **Not done:**
+  - No real adapter: the station is standalone, and no same-browser or cross-device link was
+    built or tested.
+  - No real model, backend or sensor.
+  - The astronaut, baseline, signals and thresholds are simulated demo values.
+
+## MyoMars base station: health-event workbench layout
+
+- **Started:** exact time not recorded. The first recorded action is the unit test run at
+  2026-11-14T20:06:15Z, right after the state-logic change. Branch `feat/myomars-station`, from
+  `07bd1a8`.
+- **Completed:** 2026-11-14T20:17:28Z, at this commit.
+- **Why:** the first version kept the old Mission Glass product in front:
+  - a full-screen Lefroy Bay geology map;
+  - an EVA route tab with terrain planning, targets, a scout rover and route scores;
+  - the health event squeezed into a side panel, with the review below the fold at 1440×900.
+
+  The project owner asked for the station to centre on the astronaut and health events.
+- **Decisions confirmed by the project owner:**
+  - The map is removed from the station; there is no thumbnail.
+  - The EVA route tab is hidden from the station. The old code is kept and still runs at
+    `/legacy/mission-glass`.
+  - The task context is neutral ("EVA 采样作业 · 第 95 分钟") and comes in through the adapter,
+    as mock data for now.
+  - One astronaut (EV1), listing only events that exist.
+- **Layout:** three columns using the Mission Glass visual system.
+  - **Left:** the astronaut and the real events.
+  - **Centre:**
+    - the summary: what happened, key basis, next owner;
+    - a four-step analysis bar, each step expandable to its evidence;
+    - observation versus individual baseline;
+    - conclusion and limitations;
+    - technical fields, the message log, the timeline and versions, folded by default.
+  - **Right:** only the current stage, switched by a new pure `workbenchStage()`:
+    - review: the exact notice and retest text that would be sent, decision, reason and confirm;
+    - dispatched: per message, three separate steps;
+    - reassessing: receipt and progress;
+    - reassessed: close, keep under watch or hold;
+    - decided;
+    - closed: outcome and reason, with no leftover candidate.
+  - At 1440×900 the summary, the basis and the current main action are on the first screen in
+    each stage; the smoke test checks this.
+- **Small logic corrections:** the previous state machine could not show the requested statuses.
+  - The protocol proposal gains `hud.received`, a HUD device receipt. Each message now records
+    `adapterAt`, `hudReceivedAt` and `feedbackAt`, so adapter hand-off, HUD receipt and astronaut
+    confirmation are never merged or inferred.
+  - Decisions narrow per stage:
+    - once dispatched, only "close";
+    - at v ≥ 2, close or keep under watch directly;
+    - after "keep under watch", only "close".
+  - `comparisonView()` puts v1 and v2 side by side only when both passed the quality and
+    comparability checks. Otherwise it describes each separately, with no change size.
+- **Verification (standalone mode only):**
+  - `npm run check`: 329/329 tests (326 before, plus 3 new station tests); lint, typecheck and build pass.
+  - `smoke:station`: 63/63. This includes the first-screen visibility checks for the review,
+    dispatched and reassessed stages, the three separate dispatch statuses, side-by-side versus
+    separate v1/v2, and the phone order: summary, then action, then analysis.
+  - Legacy suites: Mission Glass smoke 228/228, EVA route smoke 50/50, research smoke
+    120/120 (`SMOKE_LIVE=1`).
+
+## MyoMars shared message contracts v1 (F1)
+
+- **Started:** 2026-11-14T20:57:34Z, on branch `feat/myomars-foundation` from `a4bb19d`.
+- **Scope:** the shared message contracts only, usable on their own. The relay (F2) is **not**
+  part of this commit; it stays unfinished on the working branch.
+- **Added:**
+  - `src/contracts/`, Zod sources written as erasable TypeScript so Node 22 runs them directly:
+    - `payloads.ts`;
+    - `envelope.ts`: the envelope, the 14 event types, publisher rules, `parseEnvelope` and
+      `parseIncoming`;
+    - `demo-fixtures.ts`: the shared simulated inputs, moved out of the station so the contracts do
+      not depend on station code.
+  - Generated `contracts/` folder: JSON Schema 2020-12, one example message per type, `event-rules.json`
+    and 4 fixed scenarios.
+  - `tools/myomars/`:
+    - a generator, plus `contracts:build` and `contracts:check`;
+    - a local validator, `contracts:validate`;
+    - 6 tests, including drift between the sources and the generated files.
+  - `docs/myomars/CONTRACTS.md`: the minimal integration guide, migration from the v0 station draft,
+    the change procedure and open questions for the teammates.
+- **Shared-file changes:**
+  - `package.json`: `"type": "module"`, so Node loads the `.ts` contracts without warnings;
+    the repository has no CommonJS files. Also three new scripts.
+  - `tsconfig.json`: `allowImportingTsExtensions`.
+  - `vitest.config.mts`: also runs `tools/**/*.test.ts`.
+- **Behaviour additions** (from the owner's requirements):
+  - `retest.completed` as a separate type: the astronaut reports the retest done, with the data
+    sent separately.
+  - `hud.received`, `hud.ack` and `retest.completed` are separate types.
+  - `station.audit.*` traceability records, which must never be acted on.
+  - Required `sessionId`, optional `occurredAt`.
+  - Optional IMU summary and `deviceId` on an observation.
+- **Status:** a proposal from the Station owner, not yet agreed by the HUD and Trigger owners. All
+  data is simulated.
+- **Station migration to v1 (separate commit, mock mode unchanged):**
+  - `src/lib/station/protocol.ts` re-exports the shared contracts.
+  - The state machine now:
+    - carries `sessionId` and a relay `cursor`; events at or below the cursor are ignored, and the
+      station's own echoed messages only record the relay `seq`;
+    - ignores other sessions;
+    - handles `retest.completed`;
+    - emits `station.audit.assessment` and `station.audit.review` records.
+  - The fixtures are re-exported from the contracts; the individual baselines stay in the station.
+  - The smoke test now counts only HUD-facing messages.
+  - 4 new unit tests.
 ## MyoMars shared message contracts v1: public handoff
 
 - **Date:** 2026-11-14 (handoff prepared on `feat/myomars-shared-contracts`, from `origin/main` at
@@ -3554,3 +3804,346 @@ unchanged, and `verify:terrain` still matches a fresh build.
 - **Proposed extensions:** `retest.completed` and `station.audit.*` are marked
   `proposed-extension` and are optional. `retest.result` alone is a complete retest submission, so
   teammates have nothing to migrate.
+
+## MyoMars base station: six-step flow completed and verified (standalone mock)
+
+- **Time (real, UTC):** 2026-11-14. Started after the merge of main into the station branch
+  (`fd4b288`, 21:24:46 UTC). Station smoke and screenshots ran at 21:32 UTC.
+- **Base:** `feat/myomars-station` with the contracts v1 migration, without F2 (relay stays paused
+  on `feat/myomars-foundation`). The existing three columns and stage interaction are kept; no new
+  page set, no map, no EVA route view.
+- **Changes:**
+  - right column: a six-step flow at the top of every stage (等待观测 → 分析中 → 待审核 →
+    已派发等待反馈 → 复测与重评 → 人工处理完成); steps an event never went through are shown as
+    skipped, not done (`flowSteps` in `views.ts`, unit-tested);
+  - waiting state: the right column says no action is needed; the centre says what is happening
+    and that input comes from the local mock adapter (no Trigger / HUD connected);
+  - closed state: decision history and "no pending review, nothing more is sent to the HUD"; no
+    candidate card or decision buttons remain;
+  - message log labels `station.audit.*` as audit records, not HUD actions;
+  - dev panel (`?dev=1` only): numbered groups and an optional `retest.completed` button (proposed
+    extension; `retest.result` alone still drives the re-evaluation);
+  - `nextOwner` texts for closed and monitoring events.
+- **Verification:** `npm run check` passed (28 test files, 341 tests, build OK). Station smoke
+  `scripts/smoke-station.mjs` against `next start` on port 3210: 90/90, including each of the six
+  steps, first-screen checks at 1440×900, the optional `retest.completed` path (no re-evaluation,
+  alert kept), no leftover prompt after closing, and a late HUD event after closing that sends
+  nothing.
+- **Scope:** standalone station with the mock adapter only. No three-end integration with the
+  Trigger and HUD was performed.
+
+## MyoMars base station: acceptance fixes (status notifications, separate status, wording)
+
+- **Time (real, UTC):** 2026-11-14, after commit `7c7fce1` (pushed 21:33 UTC). Code changes and
+  checks ran between about 21:40 and 21:54 UTC (file times and test run logs). The exact start
+  time was not recorded.
+- **Scope:** acceptance fixes only, on `feat/myomars-station`. Same three columns and stage flow.
+  No new features, no teammate pages, no relay work.
+- **1. Final result reaches the HUD interface:** before, a decision at v1 published nothing. That
+  included closing while a notice and retest were still pending at the HUD. Now:
+  - `close` and `keep-open` publish a STATUS notification through the mock adapter at any version:
+    `station.reassessment` with `caseStatus` `closed` / `monitoring` and a readable `summary`;
+  - only `approve` sends ACTION messages; `reject` sends nothing;
+  - `messageKind()` classifies messages as action, status, receipt or audit;
+  - the same case status is never published twice (state guard plus the decision rules);
+  - the status text is shown before confirming and is sent unchanged.
+  - **Open question for the team:** `CONTRACTS.md` on main describes `station.reassessment` as
+    "version 2 or later". The schema already allows v1, so nothing breaks, but the wording needs a
+    team-reviewed clarification. Not changed here.
+- **Bug found and fixed:** the outbox keeps earlier runs' messages and the demo reuses case IDs.
+  Lookups by case (the duplicate-status guard, HUD receipt/feedback matching, dispatch views, dev
+  panel) could match a previous run. All of them now go through `caseMessages()`, scoped to the
+  current run. Regression test added.
+- **2. Case status vs latest evaluation:**
+  - two separate indicators: `事件状态：告警未关闭 · 待人工处理` and `最新评估 v2（复测）：在参考范围内`;
+  - summary line `复测在参考范围内，待人工处理`;
+  - an explicit note that the original alert is still open;
+  - the red alert badge that mixed both statuses is removed.
+- **3. 保留关注 vs 保留复核:** `hold` (保留复核) kept the event in the same pending state and had
+  no other effect, so it is no longer offered. `keep-open` (保留关注) keeps the event open with its
+  alert, publishes a `monitoring` status notification, and leaves only "close" as the next step.
+- **4. Wording:**
+  - the summary leads; numbers appear only in the comparison table;
+  - analysis step details open on demand, and the feature step points to the table;
+  - event types, IDs and adapter wording moved to a "技术详情" fold, and the timeline uses
+    readable labels;
+  - in mock mode the hand-off reads "仅本地模拟" without a success tick.
+- **5. Positioning:**
+  - the demo is "标准化模拟测量出现变化 → 人工审核 → 标准化复测 → 重评 → 人工处理";
+  - each input is one standardised simulated measurement, not continuous monitoring;
+  - grip force is labelled as an independent grip-meter reading, not derived from sEMG;
+  - "特征" became "指标" where grip force is included.
+
+## MyoMars base station: crew overview and person panel (interaction prototype)
+
+- **Time (real, UTC):** 2026-11-14. Started after commit `b5b10f4` (21:56:56 UTC). Code ran until
+  about 22:43 UTC; final checks and the commit followed. A flow-canvas draft (`flow.ts`, first
+  `demo.ts`) was started at the request just before and is reused here.
+- **What changed:** the interaction model only. The protocol, analysis rules, state machine,
+  review rules and mock adapter are reused. The interaction is now crew overview → alerts →
+  person panel → back to overview.
+  - Home page (`/`, `crew/CrewStation.tsx`): one card per simulated astronaut. Device connection,
+    data validity ("无法评估" without valid data) and event status are separate statements.
+    Cards show open, needs-base and unread counts. A border pulses once per new message (keyed by
+    eventId; never with reduced motion), and a stable marker stays. A clickable top notification
+    appears. There is no sound and no auto-open.
+  - Person panel (`crew/PersonPanel.tsx`):
+    - layout: analysis chain and process (2/3) and a structured message stream with the current
+      status (1/3);
+    - top facts: where the data is, why it stops there, who acts;
+    - the decision sits at the current node, with the evidence (indicator range chart, summary
+      indicators only) and a compact confirmation (actual content, execution conditions, editable
+      reason templates, demo reviewer identity);
+    - Esc or collapse keeps everything, including drafts; focus returns to the card;
+    - other astronauts' messages only notify;
+    - per-person event switcher; analysis/communication tabs on phones.
+  - Analysis replay is visual only: no re-analysis, no message, no state change.
+  - Demo drawer (`crew/DemoDrawer.tsx`, labelled local simulation):
+    - astronaut and scenario selection; start, pause, step, reset;
+    - manual simulated HUD inputs, only for messages the station actually sent;
+    - simulated device disconnect (not a pause);
+    - auto HUD feedback, off by default and never past a human approval.
+  - The previous three-column workbench moved unchanged to `/legacy/workbench`; its smoke test
+    follows.
+- **State changes (small, verified):**
+  - crew roster and device status;
+  - report-triggered evaluations (`observation` may be null);
+  - a station-internal `view` record for unread counts;
+  - inbound type on timeline entries.
+- **Contract gaps:** crew roster, device status and HUD reports are not in contracts v1. They are
+  isolated local mock messages (`myomars/v1-local`, `local-protocol.ts`), and proposals are in
+  `docs/myomars/STATION-LOCAL-PROPOSALS.md`. A report check has no contract audit form, so no
+  `station.audit.assessment` is sent for it (open point listed there).
+- **Fixes found while building:**
+  - Esc did not collapse the panel when focus was in the demo drawer;
+  - focus was lost after hiding the drawer;
+  - a quality stop was hidden in a folded row;
+  - notifications kept stale "正在核查" text;
+  - a normal measurement looked like an alarm.
+- **Verification:**
+  - `npm run check`;
+  - station unit tests, including new flow / crew / demo / report tests;
+  - `scripts/smoke-crew.mjs` (`npm run smoke:crew`): 58/58, including keyboard, reduced motion,
+    phone, send failure, deferral, keep watching, quality stop, report, reset and per-person
+    isolation;
+  - `scripts/smoke-station.mjs` on `/legacy/workbench`: 121/121.
+- **Scope:** standalone local mock only. No Trigger / HUD integration, no relay (F2 paused), no
+  teammate page and no shared-contract change.
+
+## MyoMars base station: data-flow canvas prototype (five nodes + quality branch)
+
+- **Time (real, UTC):** 2026-11-14, after commit `9a01ac2`. Work ran until about 23:25 UTC; the
+  final check, commit and build followed. The exact start time was not recorded.
+- **Why:** user acceptance found no visible data flow. In `9a01ac2` the "unified node-link canvas"
+  had not been implemented. The analysis was shown as vertically stacked rows of step chips. A
+  0.55 s connector fill played only for transitions seen while the panel was open, so starting a
+  scenario and then opening the panel showed only the end state. This was a design gap, not a
+  browser cache problem.
+- **Scope (paused feature work):** a visual prototype only. Home page and business logic unchanged.
+- **Canvas** (`src/lib/station/canvas.ts`, `crew/FlowCanvas.tsx`):
+  - one SVG node-link graph with fixed positions and arrowheads:
+    设备 → 设备数据 → 质量检查 → 条件核对 → 指标比较 → 等待基地审核;
+  - labelled branches 质量不合格 / 条件不可比 → 检查设备 / 重新测量 → 建议待审核 → 等待基地审核;
+  - nodes show only name, state and one result line; details (input, output, evidence) open on
+    click; the review node's detail holds the existing decision buttons;
+  - a data marker with a short data summary moves along the edge actually taken; the node then
+    shows 处理中 with a progress bar, then its result; the output moves on;
+  - a quality failure takes the branch, and the normal nodes and edges become 未执行;
+  - at 等待基地审核 the transfer stops.
+- **Honesty gate:** `canvasPlan` comes from the evaluation's fixed result. Every node result has
+  `needs`, compared with the station's revealed progress (`businessProgress`). The picture may lag
+  (labelled) but never leads, and it invents no data, results or receipts.
+- **Replay and pacing:**
+  - live vs 可视化回放 are labelled separately, with play/pause, speed (0.5×–2×) and restart; a
+    replay only re-draws;
+  - reduced motion keeps direction, order and results with no moving marker;
+  - display pacing at 1×: 0.7 s per edge, about 1.6 s per node;
+  - the crew page's simulated-analysis pacing is now 2.6 s per stage (display pacing, not an
+    algorithm's duration).
+- **Missed animations:** the demo drawer offers "打开面板并播放示例" (normal path / quality-failure
+  path). It resets the demo, opens the panel first, then sends the data. After a start the drawer
+  collapses into a compact bar; the message stream is collapsible (collapsed by default).
+- **Build identifier:** `next.config.ts` embeds the commit (with `-dirty` when there are uncommitted
+  tracked changes) and the start/build time. The header shows it, plus "开发模式" under `next dev`.
+- **Not yet on the graph:** review outcome, dispatch, HUD feedback, retest and handling. They stay
+  operable in a collapsible "后续流程" section and join the graph after the user confirms the five
+  nodes.
+- **Verification:**
+  - station unit tests, including new canvas-plan and gating tests;
+  - `scripts/smoke-crew.mjs` against `next dev`: 63/63, including the moving marker, the review
+    stop, the quality branch with skipped edges, and replay pause with no business change;
+  - two screen recordings (normal path, quality-failure path), checked frame by frame for marker
+    motion.
+
+## MyoMars integration prep: local relay and station relay mode (no HUD code yet)
+
+- **Time (real, UTC):** 2026-11-14 to 2026-11-15, after the canvas baseline `7638421`. The browser
+  pre-check ran at about 00:15 UTC on 2026-11-15; this entry was written just after it.
+- **Branch:** `integration/myomars` from `7638421`. A local merge of `feat/myomars-hud` (`a76c0e8`)
+  was made, then removed (unpushed, local only) when the user said the HUD teammate is updating the
+  branch. The HUD will be merged only after the team sends the locked commit. PR #1 stays open and
+  unmerged. No Trigger branch exists on the remote yet.
+- **Relay** (`relay/relay.ts`, `npm run relay`):
+  - HTTP publish plus SSE, with the routes and responses the HUD client calls;
+  - validation against the shared contracts, publisher-role check, eventId de-duplication and
+    conflict, run gating, history plus SSE resume;
+  - a station lease, same-host CORS for development, optional static serving and persistence.
+  - Selective reuse of F2 ideas only.
+- **Station:**
+  - `RelayStationAdapter` with explicit connection and lease status;
+  - history batch replay that **restores** the station's own earlier messages (decisions, tasks,
+    completed analyses, receipts are adopted) and never re-sends them;
+  - read-only mirror windows; relay mode via `?relay=…`;
+  - the dev entry publishes the simulated Trigger observation into the HUD's run;
+  - mock HUD feedback off in relay mode.
+- **State changes:** `history` and `discard` actions; own-message restore; receipt adoption;
+  `outSeq` restore; event times from the relay's `receivedAt`; a simulated baseline for the HUD's
+  demo astronaut A-02.
+- **Fixes found:**
+  - a reloaded tab must keep its lease, and React calls state initialisers twice in development,
+    so the client id is now computed once per page load;
+  - test mistakes (wrong session, non-identical "duplicate", `networkidle` with an open SSE stream).
+- **Verification:**
+  - relay tests 5/5;
+  - an end-to-end test against a real HTTP relay: two station windows, a simulated HUD, reload
+    restore, and a receipt adopted on a second reload;
+  - a Node probe and a browser pre-check with the reference HUD `a76c0e8` (not merged): full step-1
+    chain, reload without re-send, read-only second window, HUD reload restore, no errors;
+  - standalone mode smoke 63/63.
+  - Details and interface differences: `docs/myomars/INTEGRATION.md`.
+
+## MyoMars two-end run: locked HUD 239d253, data replay, closed loop on the real pages
+
+- **Time (real, UTC):** 2026-11-15, about 00:50 to 01:25.
+- **Scope change (user, 2026-11-15):**
+  - there are two product interfaces, the Mars Station and the HUD;
+  - there is no Trigger page; the former Trigger teammate provides health data, which is not on any
+    branch yet;
+  - data input is a replay module without a product UI;
+  - the contract role `trigger` is kept as the data-producer role.
+- **HUD lock:** `feat/myomars-hud` at `239d253048a594c2debb4d0021011465b1478bc6` (PR #1, open). It was
+  merged unchanged into `integration/myomars` (`43e606d`, `--no-ff`). The teammate branch was not
+  modified. Their suites pass on the merge: 49/49 and 46/46.
+- **Compared with `a76c0e8`:**
+  - added: the Scenario 2 recovery / symptom / medical-review flow, the proposed `hud.symptoms`
+    extension, and faster pacing;
+  - resolved by the teammate, so kept: the "returning to the habitat" text;
+  - still open: the HUD starts runs and publishes its own observations; it infers the notice kind
+    from IDs; it shows `reviewReason`; it splits the label into body site and action; its retest
+    sample is a knee-bend placeholder.
+- **Compatibility changes (all HUD changes only with `?mode=integration`):**
+  - HUD client option `integration`: hud-role only, no inferred kind, no `reviewReason`;
+  - HUD page:
+    - joins the replay's run;
+    - local simulation off;
+    - status lines from station facts;
+    - recovery and symptom steps off;
+    - protocol label instead of an invented body site;
+    - retest values from the shared contract fixture with a matching protocol (never relabelled);
+  - relay: `/` redirects to the HUD in integration mode;
+  - station:
+    - the `result-incomplete` outcome (missing grip-meter reading: listed, not invented, not
+      zero-filled, not compared);
+    - the notice `basis` without the internal workflow line;
+    - labels updated for the new scope;
+  - data replay: `src/lib/replay/replay.ts` with an intake checklist; `replay/cli.ts`
+    (`npm run replay`); the station dev entry uses the same module; `relay-dev.ts` was removed;
+  - `myomars-hud/**` is excluded from the station's ESLint.
+- **Verification:**
+  - `npm run e2e:two-end` 30/30 on the real pages, against both the dev server and the production
+    build: the main flow, close and keep-watching paths, duplicates, station and HUD reload, a
+    read-only second station window, old-run isolation, the single data producer, missing grip,
+    and no page errors;
+  - `npm run check` passes;
+  - `smoke:crew` 63/63 and `smoke:station` 121/121.
+- **Not done:**
+  - LAN multi-device check;
+  - the health-data teammate's data (next acceptance, reported separately);
+  - team decisions listed in `docs/myomars/INTEGRATION.md`: demo protocol and body site, the notice
+    category field, `hud.symptoms`, the missing-grip policy, and the retest data source.
+
+## MyoMars two-end baseline: closing round (history display, lease fix, HUD tests, manual steps)
+
+- **Time (real, UTC):** 2026-11-15, about 01:50 to 02:35.
+- **Context:** the user ran one main flow by hand and accepted `integration/myomars` as the baseline
+  for the two-end run on shared simulated data. This round adds no protocol, medical or interface
+  features.
+- **Changes (fixes and documentation):**
+  - HUD, integration mode only:
+    - after a reassessment or a close, the earlier notice is "Earlier notice · history";
+    - a finished retest is "done (history)";
+    - a task closed before any result is "not needed (history)", with no task buttons or highlight;
+    - a retest task without a notice shows "Base task" (it previously said "no base messages").
+  - Station adapter: the lease release is delayed and skipped while the page still has a live
+    subscription for the same window id.
+    - Bug: React development mode mounts twice, and a late release could hand the lease to
+      another station window, so the reloaded window turned read-only a few seconds later.
+    - A regression test simulates the late release; it fails on the old adapter and passes now.
+  - Replay wording: `std-grip-40` is the current integration sample protocol, not the only protocol
+    for future data.
+  - `npm run test:hud` runs the HUD teammate's two suites and restores their result files.
+  - `scripts/e2e-two-end.mjs` grows from 30 to 40 checks:
+    - missing grip, not closed after 15 s;
+    - refresh of both ends mid-task and after the close;
+    - keep watching then close, with one status notice each;
+    - history display;
+    - a retest task without a notice, closed before a result.
+- **Docs:**
+  - `docs/myomars/HUD-INTEGRATION-MODE.md`, for the HUD teammate: every change, and standalone vs
+    integration mode;
+  - `INTEGRATION.md`: the three manual acceptance steps, the verification table (check, test:hud,
+    e2e, smoke), the protocol note, and the merge plan and follow-ups (health data, LAN).
+- **Verification:** see the PR #2 description for the commit and results.
+
+## MyoMars mission integration: task map and health monitoring in one station
+
+- **Time (real, UTC):** 2026-11-15, about 02:45 to 04:00.
+- **Request:** the original 2D map, 3D terrain and task functions become the preparation phase of
+  the same mission as MyoMars health monitoring. The user authorised implementation, verification
+  and the PR merge once every check passes.
+- **Branches checked:**
+  - `main` = `58b5a08`; PR #2 open; `integration/myomars` contains `main` and
+    `feat/myomars-station`;
+  - `eva-route-scouting` (`76e2888`) is the only map/EVA branch not in `main`, and it is contained
+    in the integration branch;
+  - new remote branch `feat/myomars-patch-trigger` = our `2038e79` + an `astra-patch/README.md`
+    placeholder by the data teammate; no data yet, not merged.
+- **Preserved state:**
+  - `76e2888` (complete Mission Glass at `/`, with EVA route & scouting), checked in a clean
+    worktree: lint, typecheck, 304 tests, build;
+  - annotated tag `archive/mission-glass-complete-2026-11-14` created locally;
+  - pushing tags is refused for this session (HTTP 403; branch pushes work). It was not worked
+    around; the command is in `docs/myomars/INTEGRATION.md`.
+- **Commits:**
+  1. Task context (`683cdee`):
+     - contracts v1.1: the station may publish `scenario.start`; new proposed extension
+       `station.eva.ended`;
+     - station start-eva / end-eva (one start, the run begins with the relay echo, no new EVA
+       while events are open, restore from history, refused sends leave no trace);
+     - replay re-assigns task context and drops the stored EVA minute.
+  2. View integration (`2bd769b`):
+     - `/` = base station with a 任务地图 / 健康监测 switch, a mission bar, and the preparation
+       strip (task → astronaut → summary → 确认开始 EVA);
+     - Mission Glass embedded (optional `embedded` prop only), lazy, error-bounded with a working
+       retry, kept mounted but hidden;
+     - pending events on the map with a jump;
+     - 结束 EVA keeps events;
+     - the drawer no longer starts runs; CLI start needs `--dev-run`; HUD waiting line updated.
+  3. Verification:
+     - `scripts/e2e-mission.mjs` (28 checks);
+     - `e2e-two-end` now starts and ends EVAs on the map (40 checks);
+     - SCI-1 guard: `/` is a Server Component rendering Mission Glass, so it joins the
+       `candidate-compare-data` allowlist (same display-only loader as `/legacy/mission-glass`);
+     - docs.
+- **Fixes found while testing:**
+  - `next/dynamic` caches a failed import, so "重试" did nothing; the map now uses a fresh
+    `React.lazy` per attempt;
+  - the SCI-1 loader guard flagged the new page (see above).
+- **Verification on the production build:**
+  - `npm run check`: 34 files / 382 tests and build;
+  - `e2e:mission` 28/28; `e2e:two-end` 40/40;
+  - `smoke:crew` 63; `smoke:station` 121; `smoke:mission-glass` 228; `smoke:eva-route` 50;
+    `smoke` 118;
+  - `test:hud` 49 + 46;
+  - a 88 s side-by-side recording of the whole flow.
+- **Not verified:** the health-data teammate's data; multi-device LAN.

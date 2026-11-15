@@ -1,0 +1,40 @@
+{
+  "id": "eva-scouting-lefroy",
+  "label": "Simulated EVA route and scouting scenario: base, surveyed areas, rover and hidden ground hazards are scenario-defined. Terrain (CTX DTM), sample sites and Perseverance's historical traverse are verified NASA data.",
+  "basis": "simulated",
+  "anchorId": "sample-lefroy-bay",
+  "base": { "id": "sim-base", "name": "Habitat (simulated)", "offsetM": { "east": -910, "north": -1160 } },
+  "knownAreas": [
+    { "kind": "disk", "label": "Ground around the habitat, surveyed during set-up (simulated)", "centreM": { "east": -910, "north": -1160 }, "radiusM": 250 },
+    { "kind": "band", "label": "Earlier surveyed walking corridor from the habitat to the traverse (simulated)", "fromM": { "east": -910, "north": -1160 }, "toM": { "east": -1100, "north": 180 }, "widthM": 80 },
+    { "kind": "traverse", "label": "Corridor along Perseverance's historical traverse (real NASA data); treating it as surveyed walkable ground is a simulation assumption", "halfWidthM": 40 },
+    { "kind": "disk", "label": "Work area around the Lefroy Bay sample site, surveyed earlier (simulated)", "centreM": { "east": 0, "north": 0 }, "radiusM": 250 }
+  ],
+  "defaultPrimaryId": "sim-target-a",
+  "defaultAlternativeId": "sim-target-c",
+  "variants": [
+    {
+      "id": "A",
+      "title": "A · Shortcut clear",
+      "summary": "The unobserved ground on the direct line turns out walkable (simulated truth).",
+      "hazards": [],
+      "rover": { "startM": { "east": -910, "north": -1160 }, "chargePct": 90, "note": "Rover parked at the habitat, 90 % charged (simulated)" }
+    },
+    {
+      "id": "B",
+      "title": "B · Obstacle on the shortcut",
+      "summary": "A sand-ripple field crosses the direct line: the rover can drive it, the crew may not walk it (simulated truth).",
+      "hazards": [
+        { "kind": "disk", "label": "Sand-ripple field (simulated, not a mapped feature)", "surface": "ripples", "centreM": { "east": -510, "north": -520 }, "radiusM": 300 }
+      ],
+      "rover": { "startM": { "east": -910, "north": -1160 }, "chargePct": 90, "note": "Rover parked at the habitat, 90 % charged (simulated)" }
+    },
+    {
+      "id": "C",
+      "title": "C · Scouting too costly",
+      "summary": "Same ground as A, but the rover is far away on the traverse with a low charge (simulated).",
+      "hazards": [],
+      "rover": { "startM": { "east": 900, "north": -360 }, "chargePct": 45, "note": "Rover on the traverse 2 km east of the habitat, 45 % charged (simulated)" }
+    }
+  ]
+}

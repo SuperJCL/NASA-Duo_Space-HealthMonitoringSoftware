@@ -1,0 +1,22 @@
+{
+  "schema": "myomars/v1",
+  "eventId": "example-scenario-start",
+  "sessionId": "demo",
+  "runId": "run-example-1",
+  "caseId": null,
+  "sentAt": "2026-11-14T10:00:00.000Z",
+  "source": "trigger",
+  "type": "scenario.start",
+  "payload": {
+    "scenarioId": "myomars-demo",
+    "astronaut": {
+      "id": "ev1",
+      "callsign": "EV1（模拟宇航员）"
+    },
+    "task": {
+      "id": "eva-sampling",
+      "title": "EVA 采样作业",
+      "targetId": null
+    }
+  }
+}

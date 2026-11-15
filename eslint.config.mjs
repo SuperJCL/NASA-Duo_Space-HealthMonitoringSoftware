@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // HUD teammate's sub-project (feat/myomars-hud, merged on integration/myomars): its own code
+    // style and test suites (myomars-hud/test); only integration compat patches are made there.
+    "myomars-hud/**",
   ]),
 ]);
 

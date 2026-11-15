@@ -1,0 +1,1 @@
+{ "private": true, "type": "module", "description": "Lets Node 22 run this folder directly (data replay CLI); Next.js ignores it." }

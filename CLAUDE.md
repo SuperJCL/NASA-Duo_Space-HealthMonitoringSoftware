@@ -68,8 +68,9 @@
   the existing `selectEvidenceAsOf`, and contains no science logic.
 - `src/lib/briefing/` — location science briefings: Zod schema, integrity
   rules, loader. Not imported by `lib/evidence` or `lib/decision`.
-- `src/lib/prototype/`, `src/data/prototype/` — MDI 2.0 Mission Glass, the
-  default entry point (`/`; the research workspace is `/research`). Its
+- `src/lib/prototype/`, `src/data/prototype/` — MDI 2.0 Mission Glass (on the
+  `feat/myomars-station` branch it is kept at `/legacy/mission-glass`; `/` is
+  the MyoMars base station; the research workspace is `/research`). Its
   targets, steps and events are
   scenario-defined and must stay labelled simulated; never copy them into
   `src/data/geo/`. Ranks come only from the existing engine. MAP-2
@@ -86,7 +87,89 @@
   and never present the view as a route or traversability model. Elevation
   profiles are straight sampling lines and must say so; state the real relief
   rather than implying more (`docs/TERRAIN_3D.md`). Terrain never affects
-  scores.
+  scores. The only route layer on this terrain is the EVA route view below;
+  the terrain itself is still not a traversability model.
+- `src/lib/eva-route/`, `src/components/route/`, `src/data/prototype/eva-scouting.json`
+  — EVA route & scouting, a clearly labelled SIMULATED planning layer
+  (`docs/EVA_ROUTE_SCOUTING.md`). It plans A* routes on the OBSERVED map of
+  the verified CTX crop and budgets crew time/O₂ with the Sol Atlas EVA model
+  (Apache-2.0; see `NOTICE`). Rules: unobserved ground is never safe and a
+  crew route never crosses it; only the rover `Sensor` reads the hidden truth
+  (`truth.ts` is never imported by planner-side modules or `tools.ts`); a
+  departure needs a safe outbound AND return crew route on observed ground;
+  every simulated item (habitat, surveyed areas, rover, hazards, rules,
+  decision weights) stays labelled simulated; DTM slope is derived and is a
+  lower bound, never a ground observation; decision values attach to target
+  roles, are not science scores, and never feed or read the decision engine.
+  Future agents use `tools.ts` only: they choose among computed options with
+  the current `stateVersion` and never change numbers. Keep the provenance
+  headers of the files derived from Sol Atlas. MAP-2 sequence lines stay
+  conceptual and are not replaced by these routes.
+- `src/lib/station/`, `src/components/station/` — MyoMars base station (`/`):
+  crew overview (one card per astronaut; device connection, data validity and
+  event status are separate statements, no "health light"; no valid data →
+  "无法评估") → clickable alerts (no sound, no auto-open, no focus stealing) →
+  near-full-screen person panel (`crew/PersonPanel.tsx`: analysis chain and
+  process on the left, structured message stream on the right; closing it
+  changes nothing). The flow is DERIVED from recorded state (`flow.ts`,
+  `crew.ts`, `comms.ts`); animations and replays are presentation only and
+  never drive a business step. The data-flow canvas (`canvas.ts`,
+  `crew/FlowCanvas.tsx`) draws the path the data actually took; a node may
+  show its result only once the station revealed it (`businessProgress` ≥
+  `needs`), the transfer stops at a human node, and a replay never re-runs
+  analysis or sends anything. Summary indicators only, never a fake waveform. The local demo (`demo.ts`, drawer) only reacts
+  to messages the station already sent and never decides for base staff.
+  Crew roster, device status and HUD reports are LOCAL mock extensions
+  (`local-protocol.ts`, schema `myomars/v1-local`, proposals in
+  `docs/myomars/STATION-LOCAL-PROPOSALS.md`), never added to the shared
+  contracts without the team. The previous three-column workbench is kept at
+  `/legacy/workbench`. Since the mission integration, `/` also has a "任务地图" view: the
+  existing Mission Glass embedded unchanged (`embedded` prop; lazy, error-bounded, kept mounted
+  but hidden), so map, terrain and EVA route code is reused, never reimplemented, and
+  `/legacy/mission-glass` stays the full standalone page. Mission context (`mission.ts`): one
+  simulated EVA = one run; only the human "开始EVA" (summary dialog) publishes `scenario.start`
+  (station role; selecting a task, opening the map or switching views never does); "结束EVA"
+  (`station.eva.ended`) changes the phase only and never closes, deletes or judges health events;
+  a new EVA waits until the ended one's events are closed. A task gives display context only:
+  unstated load / posture / device conditions stay unknown, and terrain or route scores are never
+  turned into health risk. A SIMULATED demo (`docs/myomars/CONTRACTS.md`; v0 history in `docs/station-integration.md`).
+  Adapter hand-off, HUD receipt and astronaut confirmation are separate
+  statuses and are never inferred from one another. Every view keeps the
+  "模拟数据 / 模拟分析" label. The "LLM analysis" is a deterministic rule
+  pipeline (`analysis.ts`, demo thresholds); never call a real model, never
+  produce a diagnosis, treatment or automatic task restriction, never infer
+  physiology from data that failed quality or comparability checks. The
+  analysis only creates a candidate: nothing reaches the HUD without a human
+  approval with a reason (`station.ts` enforces it). Only `approve` sends
+  ACTION messages (notice, retest task); `close` and `keep-open` publish a
+  STATUS notification (`station.reassessment` with `caseStatus`) at any
+  evaluation version, never an action and never twice for the same status;
+  `reject` sends nothing. Show the case status and the latest evaluation
+  result as separate indicators. Outbox lookups by case are scoped to the
+  current run (demo case IDs repeat across runs). The demo input is one
+  standardised simulated measurement (fixed grip protocol), not continuous
+  sEMG monitoring; grip force is an independent grip-meter reading, never
+  derived from sEMG. In mock mode a hand-off is never shown as a delivery
+  success; event types and IDs belong in the technical details. Alerts are
+  cleared only by a human close. Inbound events are deduplicated by `eventId`, scoped by
+  `runId`, and a reset cancels pending analysis. Transport lives only in an
+  adapter (`adapter.ts`); the message format is a PROPOSAL, not an agreed
+  team protocol, and the station is standalone until a real adapter is
+  tested. Do not build the Trigger or HUD here (`?dev=1` is a dev-only
+  injector).
+- MyoMars two-end integration (`integration/myomars` only; `docs/myomars/INTEGRATION.md`):
+  two product interfaces (station, HUD), no Trigger / simulator page. `myomars-hud/` is the HUD
+  teammate's code at a LOCKED commit; change it only through small compatibility patches behind
+  `hud.html?mode=integration`, and keep its standalone suites passing. `relay/` is the local relay
+  (never analyses or approves). Data input is the replay module (`src/lib/replay/`, `replay/cli.ts`,
+  the station's relay-mode dev entry): role `trigger` = data producer, SIMULATED samples labelled as
+  such, every demo assumption listed by `intakeCheck`; teammate data is checked on their branch first,
+  raw signals are never written into feature fields, and a missing value stays null. `std-grip-40` is
+  only the current integration sample protocol, never the required protocol for future data (a new
+  protocol needs its own baseline, never a relabel). Integration verification = `npm run check`,
+  `npm run test:hud` (the HUD's own suites; the HUD folder is outside the station's ESLint),
+  `npm run e2e:two-end`, and the standalone smoke tests; HUD changes are listed for the teammate in
+  `docs/myomars/HUD-INTEGRATION-MODE.md`.
 - `src/contracts/`, `contracts/`, `tools/myomars/` — MyoMars shared message
   contracts v1 (Trigger / HUD / Mars Station), a team PROPOSAL
   (`docs/myomars/CONTRACTS.md`). Zod sources in erasable TypeScript that Node

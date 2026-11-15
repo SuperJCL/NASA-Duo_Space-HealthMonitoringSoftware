@@ -1,0 +1,238 @@
+{
+  "runAt": "2026-11-15T00:40:52.303Z",
+  "node": "v26.12.1",
+  "contract": "myomars/v1",
+  "relay": "mock",
+  "results": [
+    {
+      "name": "P1 page connects to the relay stream and shows link state",
+      "ok": true,
+      "detail": "Base link ● Online Last sync 00:40:45 UTC"
+    },
+    {
+      "name": "P2 picking Scenario 2 starts a run (scenario.start from the local device)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P3 nothing published yet: auto-monitoring status, empty alert",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P4 walking segments become observation.submitted; station uses only valid comparable ones",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P5 normal patrol shows \"Auto-monitoring · last sync HH:MM:SS UTC\"",
+      "ok": true,
+      "detail": "Auto-monitoring · last sync 00:40:45 UTC"
+    },
+    {
+      "name": "P6 Scenario 2 → AMBER; retest request arrives but stays pending until the checks are done",
+      "ok": true,
+      "detail": "AMBER · Muscle fatigue suspected · acknowledge the base alert"
+    },
+    {
+      "name": "P7 alert card shows station reason, next step and data time",
+      "ok": true,
+      "detail": "▲ Notice · Muscle fatigue suspected across comparable walking segments; rest and retest. Reason Base…"
+    },
+    {
+      "name": "P8 device receipt (hud.received) sent automatically; Acknowledge still offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P9 Acknowledge publishes hud.ack for the notice → Recovery Guidance",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R1 Recovery Guidance: target, View Instructions / Safe to Pause / Defer — Unsafe to Stop; no retest controls",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R2 \"Safe to Pause\" needs the instructions to be viewed first",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R3 Defer — Unsafe to Stop records the reason with the base (hud.defer on the fatigue notice)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R4 deferred recovery can be resumed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R5 instructions shown (4 steps), then paused → confirm button",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R6 recovery completion cannot be confirmed while moving",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "R7 reload keeps the step: recovery not silently completed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "S1 Symptom Check appears after recovery; Submit disabled until a selection",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "S2 \"None of the above\" is mutually exclusive",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "S3 offline: assessment queued once, no success shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "S4 base acknowledges the assessment (station.receipt accepted) → existing retest controls revealed",
+      "ok": true,
+      "detail": "no symptoms reported; retest may proceed when the base permits"
+    },
+    {
+      "name": "P10 View task opens Start retest / Defer",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P11 defer without a reason is blocked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P12 defer publishes hud.defer with the reason for the retest request",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P13 Start retest: hud.ack on the request, capture begins, Abort offered",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P14 Abort is local only (no protocol event); card offers Restart",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P15 Restart begins a new capture without a second hud.ack",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P16 reload restores the task (capture interrupted → capture again) and the acknowledgement",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P17 captured result shown as SIMULATED with units, ready to submit",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P18 offline: \"Recording locally · pending upload\", result and segment queued, nothing shown as received",
+      "ok": true,
+      "detail": "Recording locally · pending upload (2). Will resend when reconnected"
+    },
+    {
+      "name": "P19 reconnect: resent; station.receipt accepted → awaiting reassessment",
+      "ok": true,
+      "detail": "AMBER · Awaiting base reassessment"
+    },
+    {
+      "name": "P20 station.reassessment v2 updates the original alert; case not closed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P21 v2 needs a new acknowledgement",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P22 duplicate deliveries create no new task",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P23 station closes the case → GREEN",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P24 left-thigh card shows station findings before / after",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P25 every message the page sent or received conforms to contracts v1",
+      "ok": true,
+      "detail": "24 messages"
+    },
+    {
+      "name": "P26 Scenario 1 → GREEN \"Normal · continue patrol\", no retest card",
+      "ok": true,
+      "detail": "GREEN · Normal · continue patrol · last sync 00:40:49 UTC"
+    },
+    {
+      "name": "M1 reported symptoms → \"AMBER — Medical Review Pending\" with the medical review card in Base Messages",
+      "ok": true,
+      "detail": "AMBER — Medical Review Pending"
+    },
+    {
+      "name": "M2 Start retest disabled / blocked during medical review; no retest started",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "M3 patch monitoring stays active during medical review",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "M4 medical review message can be acknowledged (hud.ack)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "M5 only a crew-medical clearance from the base re-enables the existing retest; AMBER stays",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P27 Scenario 3 → RED immediately from the local device; patch contact shows Fault",
+      "ok": true,
+      "detail": "RED · Sensor fault · reconnect the patch and verify"
+    },
+    {
+      "name": "P28 base confirms a sensor fault (not a muscle finding); no fatigue diagnosis, no retest",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "P29 reconnect + verify → station closes it (signal restored) → GREEN",
+      "ok": true,
+      "detail": "GREEN · Sensor verified · monitoring resumed · last sync 00:40:52 UTC"
+    },
+    {
+      "name": "P30 all three scenarios conform to contracts v1",
+      "ok": true,
+      "detail": "60 messages"
+    }
+  ]
+}

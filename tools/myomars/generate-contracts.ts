@@ -60,6 +60,7 @@ export function exampleEnvelopes(): Record<EventType, Envelope> {
       simulated: true,
     },
     "station.audit.review": { evaluationVersion: 1, decision: "approve", reason: "多项特征同向偏离，安排复测", reviewer: "基地值班员", decidedAt: T0, caseStatus: "awaiting-hud", dispatchedEventIds: ["stn-run-example-1-001", "stn-run-example-1-002"] },
+    "station.eva.ended": { endedBy: "基地值班员", endedAt: T0, simulated: true },
   };
   return Object.fromEntries(EVENT_TYPES.map((t) => [t, base(t, { payload: payloads[t], ...(t === "observation.submitted" ? { occurredAt: FIXTURES.change.observation.capturedAt } : {}) })])) as Record<EventType, Envelope>;
 }

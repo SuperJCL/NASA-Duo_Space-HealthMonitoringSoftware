@@ -83,7 +83,7 @@ Messages delivered later by the relay will also carry `seq` (the relay's order),
 
 | Type | Publisher | Meaning |
 |---|---|---|
-| `scenario.start` | Trigger | Starts a run: astronaut and task context |
+| `scenario.start` | Trigger or Station | Starts a run: astronaut and task context. *v1.1, additive:* the station may publish it when base staff explicitly confirm "开始EVA" (simulated EVA): `scenarioId` = mission id, `task` = the chosen mission task and its `targetId`. Selecting a task or opening a map never sends it. |
 | `scenario.reset` | Trigger | Ends the run. Later messages for it are ignored. |
 | `observation.submitted` | Trigger | One simulated sEMG window: signal quality, features, optional IMU summary, protocol and context |
 | `hud.received` | HUD | **The HUD device received** a station message (`messageId` = that message's eventId). Not a confirmation. |
@@ -96,6 +96,7 @@ Messages delivered later by the relay will also carry `seq` (the relay's order),
 | `station.receipt` | Station | The station received a retest result: `accepted`, `duplicate` or `rejected` |
 | `station.reassessment` | Station | The human decision on a re-evaluation (version 2 or later) |
 | `station.audit.assessment`, `station.audit.review` | Station | *Proposed extension.* Traceability records only. **The HUD and Trigger must ignore them.** |
+| `station.eva.ended` | Station | *Proposed extension (v1.1).* Base staff ended the simulated EVA of this run (`endedBy`, `endedAt`). Mission phase only: the run stays open, open health events stay open and can still be handled, nothing is deleted, and it says nothing about the astronaut's health. Receivers may ignore it. |
 
 Delivery, acknowledgement, retest completion and case closure are four different things. Only a
 Station human closes a case, and a single normal retest does not close it by itself.

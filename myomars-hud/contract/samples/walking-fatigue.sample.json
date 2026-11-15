@@ -1,0 +1,8 @@
+{
+  "_note": "SIMULATED placeholder (contracts v1 observation shape). Scenario 2 — Muscle fatigue: good patch contact, but lower median frequency and higher activation than the personal walking baseline. The local device fills only timing.",
+  "sampleId": "walk-fatigue-v1",
+  "protocol": { "id": "walk-auto-v1", "label": "Left quadriceps · auto walking segment", "targetPctMvc": 0, "posture": "standing", "glove": "eva-glove" },
+  "signal": { "sampleRateHz": 2000, "durationS": 6, "electrodeImpedanceKOhm": 14, "saturationPct": 0.1, "motionArtifactPct": 9, "dropoutPct": 0.4 },
+  "features": { "medianFreqHz": 76, "rmsPctMvc": 18.5, "gripForceN": null },
+  "imu": { "accelRmsG": 0.43, "gyroRmsDps": 62, "movementPct": 88 }
+}

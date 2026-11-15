@@ -11,7 +11,8 @@ import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 
 const ORIGIN = process.env.BASE_URL ?? "http://localhost:3000";
-const BASE_URL = ORIGIN + "/";
+// On the MyoMars station branch (/) Mission Glass is kept at /legacy/mission-glass.
+const BASE_URL = ORIGIN + (process.env.MG_PATH ?? "/legacy/mission-glass");
 const failures = [];
 let checks = 0;
 const check = (ok, msg) => {
@@ -77,7 +78,7 @@ try {
   await settle(page, 800);
 
   // ── MAP-0: entry point and routing ──
-  check((await page.getByTestId("mission-glass").count()) === 1 && (await page.title()) === "Mission Glass · MDI 2.0", "MAP-0: Mission Glass is the default entry point (/)");
+  check((await page.getByTestId("mission-glass").count()) === 1 && (await page.title()) === "Mission Glass · MDI 2.0", "MAP-0: Mission Glass renders (at /legacy/mission-glass on the station branch)");
   {
     const res = await fetch(ORIGIN + "/mission-glass", { redirect: "manual" });
     check(res.status === 307 && new URL(res.headers.get("location"), ORIGIN).pathname === "/", `MAP-0: the old /mission-glass route redirects to / (${res.status} → ${res.headers.get("location")})`);

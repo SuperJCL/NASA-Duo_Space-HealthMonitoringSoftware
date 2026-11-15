@@ -53,7 +53,7 @@ try {
   });
 
   await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
-  check((await page.getByRole("heading", { name: "Mars Discovery Intelligence" }).count()) === 1 && (await page.getByTestId("link-mission-glass").getAttribute("href")) === "/", "header renders, with a link back to Mission Glass");
+  check((await page.getByRole("heading", { name: "Mars Discovery Intelligence" }).count()) === 1 && (await page.getByTestId("link-mission-glass").getAttribute("href")) === "/legacy/mission-glass", "header renders, with a link back to Mission Glass");
   check((await page.getByTestId("location-panel").count()) === 1, "location panel renders");
 
   await page.waitForSelector('[data-testid="mars-map"] canvas', { timeout: 15_000 });

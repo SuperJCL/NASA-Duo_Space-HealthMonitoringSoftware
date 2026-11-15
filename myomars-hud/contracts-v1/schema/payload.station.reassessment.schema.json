@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.station.reassessment.schema.json",
+  "title": "payload.station.reassessment",
+  "type": "object",
+  "properties": {
+    "evaluationVersion": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 9007199254740991
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "reviewDecision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50
+    },
+    "caseStatus": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50
+    },
+    "simulated": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "required": [
+    "evaluationVersion",
+    "outcome",
+    "summary",
+    "reviewDecision",
+    "caseStatus",
+    "simulated"
+  ],
+  "additionalProperties": false
+}

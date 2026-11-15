@@ -132,6 +132,15 @@ body {
   bottom: 16px;
 }
 
+/* Station data-flow canvas: one node's processing bar (finite, tied to a processing step). */
+@keyframes mg-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
 @keyframes mg-rise {
   from {
     opacity: 0;

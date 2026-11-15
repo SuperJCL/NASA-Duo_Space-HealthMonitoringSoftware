@@ -1,0 +1,13 @@
+{
+  "name": "myomars-hud",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MyoMars astronaut HUD + mock base station (SRS v0.1 draft contract)",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node server/mock-base.mjs",
+    "test": "node test/joint-test.mjs",
+    "build": "node scripts/build.mjs"
+  }
+}

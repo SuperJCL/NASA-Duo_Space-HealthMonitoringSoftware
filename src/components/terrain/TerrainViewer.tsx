@@ -27,6 +27,7 @@ import {
   type LonLat,
   type TerrainMeta,
 } from "@/lib/terrain/terrain";
+import { PATH_COLORS, type RouteOverlay } from "@/lib/eva-route/overlay";
 
 export type TerrainMarkerTone = "candidate" | "added" | "planned" | "active" | "done" | "skipped" | "infeasible";
 export type TerrainMarker = {
@@ -55,6 +56,15 @@ export type TerrainViewerProps = {
   onSelectSegment?: (id: string) => void;
   /** MAP-2: simulated targets to emphasise as well (the ends of a selected connection). */
   highlightIds?: readonly string[];
+  /**
+   * EVA route view: tint per DTM post (observed ground) plus simulated route lines and points
+   * (src/lib/eva-route/overlay.ts). Drawn over the terrain; never changes heights. null: none.
+   */
+  routeOverlay?: RouteOverlay | null;
+  /** The straight-line elevation profile panel and its 3D line (default shown). */
+  showProfile?: boolean;
+  /** Move the orbit centre to the selected marker (default). The route view keeps the whole crop in view. */
+  followSelection?: boolean;
 };
 
 export type TerrainSequence = {
@@ -88,6 +98,12 @@ function applyLook(mat: THREE.ShaderMaterial, surface: Surface, contours: boolea
   mat.uniforms.uContours.value = contours ? 1 : 0;
 }
 
+/** EVA route view: the per-post overlay tint is a uniform too (no rebuild); null removes it. */
+function applyOverlay(mat: THREE.ShaderMaterial, tex: THREE.Texture | null) {
+  mat.uniforms.uOverlay.value = tex;
+  mat.uniforms.uHasOverlay.value = tex ? 1 : 0;
+}
+
 /**
  * MAP-3A.1 terrain material. Colours only: the geometry is the DTM. Shading
  * uses the mesh normals and a fixed low sun (contrast-enhanced for gentle
@@ -99,6 +115,8 @@ function terrainMaterial(minM: number, maxM: number) {
     uniforms: {
       uMap: { value: null as THREE.Texture | null },
       uHasMap: { value: 0 },
+      uOverlay: { value: null as THREE.Texture | null },
+      uHasOverlay: { value: 0 },
       uSurface: { value: 1 },
       uContours: { value: 1 },
       uInterval: { value: CONTOUR_INTERVAL_M },
@@ -121,6 +139,8 @@ function terrainMaterial(minM: number, maxM: number) {
     fragmentShader: `
       uniform sampler2D uMap;
       uniform float uHasMap;
+      uniform sampler2D uOverlay;
+      uniform float uHasOverlay;
       uniform int uSurface;
       uniform float uContours;
       uniform float uInterval;
@@ -149,6 +169,10 @@ function terrainMaterial(minM: number, maxM: number) {
           float t = clamp((vElev - uMin) / max(uMax - uMin, 1.0), 0.0, 1.0);
           col = ramp(t) * clamp(1.0 + 3.0 * (lambert - uFlat), 0.3, 1.6);
         }
+        if (uHasOverlay > 0.5) {
+          vec4 ov = texture2D(uOverlay, vUv);
+          col = mix(col, ov.rgb, ov.a);
+        }
         if (uContours > 0.5) {
           float f = vElev / uInterval;
           float d = abs(fract(f - 0.5) - 0.5) / max(fwidth(f), 1e-4);
@@ -175,7 +199,7 @@ const RAMP_CSS = "linear-gradient(to right, rgb(26,77,107), rgb(107,148,122), rg
  * simulated targets are drawn with distinct markers. Not a route, travel-time
  * or traversability model.
  */
-export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSelect, onFallback, sequence = null, selectedSegmentId = null, onSelectSegment, highlightIds = [] }: TerrainViewerProps) {
+export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSelect, onFallback, sequence = null, selectedSegmentId = null, onSelectSegment, highlightIds = [], routeOverlay = null, showProfile = true, followSelection = true }: TerrainViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [heights, setHeights] = useState<Float32Array | null>(null);
   const [imageryOk, setImageryOk] = useState<boolean | null>(null);
@@ -210,6 +234,10 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
   const onFallbackRef = useRef(onFallback);
   const onSelectSegmentRef = useRef(onSelectSegment);
   const seqGroupRef = useRef<THREE.Group | null>(null);
+  // EVA route view: the overlay texture survives mesh rebuilds; route points get HTML labels.
+  const overlayTexRef = useRef<THREE.DataTexture | null>(null);
+  const routePointsRef = useRef<THREE.Group | null>(null);
+  const [routeLabels, setRouteLabels] = useState<{ id: string; x: number; y: number; visible: boolean }[]>([]);
   useEffect(() => {
     onSelectRef.current = onSelect;
     onFallbackRef.current = onFallback;
@@ -250,7 +278,8 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
     return a && b ? { from: { id: a.id, name: a.name, position: a.position }, to: { id: b.id, name: b.name, position: b.position } } : null;
   }, [markerData]);
   const ends = profileEnds ?? defaultEnds;
-  const profile = useMemo(() => (heights && ends ? profileAlong(meta, heights, ends.from.position, ends.to.position) : null), [heights, meta, ends]);
+  // Without the profile panel (route view) there is no profile line either.
+  const profile = useMemo(() => (showProfile && heights && ends ? profileAlong(meta, heights, ends.from.position, ends.to.position) : null), [showProfile, heights, meta, ends]);
   // Local elevation range (DTM posts within 300 m) around the selected marker, else Lefroy Bay.
   const LOCAL_RADIUS_M = 300;
   const localOf = markerData.find((m) => m.id === selectedId) ?? reference;
@@ -345,6 +374,14 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
           if (v.z < 1 && v.z > -1) cones[String(g.userData.segmentId)] = [Math.round(((v.x + 1) / 2) * w), Math.round(((1 - v.y) / 2) * h)];
         }
         setSegScreen(cones);
+        setRouteLabels(
+          (routePointsRef.current?.children ?? [])
+            .filter((o) => o.userData.label)
+            .map((o) => {
+              const v = o.position.clone().add(new THREE.Vector3(0, 36, 0)).project(camera);
+              return { id: String(o.userData.routePointId), x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, visible: v.z < 1 && v.z > -1 };
+            }),
+        );
         const off = camera.position.clone().sub(controls.target);
         const sph = new THREE.Spherical().setFromVector3(off);
         setCamState({ azDeg: Math.round((sph.theta * 180) / Math.PI), polarDeg: Math.round((sph.phi * 180) / Math.PI), distM: Math.round(sph.radius) });
@@ -500,6 +537,7 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
     geom.computeVertexNormals();
     const mat = terrainMaterial(meta.heights.minM, meta.heights.maxM);
     applyLook(mat, surfaceRef.current, contoursRef.current);
+    applyOverlay(mat, overlayTexRef.current);
     new THREE.TextureLoader().load(
       meta.imagery.file,
       (tex) => {
@@ -687,6 +725,121 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sequenceKey, coverage, selectedSegmentId, exaggeration, meta, heights, quality]);
 
+  // EVA route view: per-post tint of what is known about the ground (one texel per DTM post).
+  const overlayKey = routeOverlay ? routeOverlay.key : null;
+  useEffect(() => {
+    const ctx = sceneRef.current;
+    if (!heights) return;
+    let tex: THREE.DataTexture | null = null;
+    if (routeOverlay) {
+      const { cols, rows, rgba } = routeOverlay;
+      // Texture rows run south to north (v up); the overlay rows run north to south.
+      const flipped = new Uint8Array(cols * rows * 4);
+      for (let r = 0; r < rows; r++) flipped.set(rgba.subarray((rows - 1 - r) * cols * 4, (rows - r) * cols * 4), r * cols * 4);
+      tex = new THREE.DataTexture(flipped, cols, rows, THREE.RGBAFormat);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.magFilter = THREE.NearestFilter;
+      tex.minFilter = THREE.NearestFilter;
+      tex.needsUpdate = true;
+    }
+    overlayTexRef.current = tex;
+    const mat = ctx?.terrain?.material as THREE.ShaderMaterial | undefined;
+    if (mat?.uniforms) applyOverlay(mat, tex);
+    ctx?.render();
+    return () => {
+      tex?.dispose();
+      if (overlayTexRef.current === tex) overlayTexRef.current = null;
+    };
+    // overlayKey captures the tint content; the terrain rebuild reads overlayTexRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlayKey, heights, quality, exaggeration]);
+
+  // EVA route view: simulated route lines, draped on the DTM like the profile line.
+  const routePaths = routeOverlay?.paths ?? null;
+  const pathsKey = routePaths ? routePaths.map((p) => `${p.id}:${p.tone}:${p.points.length}:${p.points[p.points.length - 1]?.join(",")}`).join("|") : "";
+  useEffect(() => {
+    const ctx = sceneRef.current;
+    if (!ctx || !heights || !routePaths) return;
+    const base = meta.heights.minM;
+    const group = new THREE.Group();
+    const RADIUS = { approved: 5, recommended: 4.5, known: 3.5, candidate: 3.5, return: 3, rover: 2.5 } as const;
+    for (const p of routePaths) {
+      const pts = p.points
+        .filter((q) => insideCrop(meta, q))
+        .map((q) => {
+          const [e, n] = lonLatToLocal(meta, q);
+          return new THREE.Vector3(e, ((sampleHeight(meta, heights, q) ?? base) - base) * exaggeration + 4 + (p.tone === "rover" ? 2 : 0), -n);
+        });
+      if (pts.length < 2) continue;
+      const color = new THREE.Color(PATH_COLORS[p.tone]);
+      const pieces: THREE.Vector3[][] = [];
+      if (p.dashed) for (let k = 0; k < pts.length - 1; k += 3) pieces.push(pts.slice(k, Math.min(pts.length, k + 2)));
+      else pieces.push(pts);
+      for (const piece of pieces) {
+        if (piece.length < 2) continue;
+        const curve = new THREE.CurvePath<THREE.Vector3>();
+        for (let k = 1; k < piece.length; k++) curve.add(new THREE.LineCurve3(piece[k - 1], piece[k]));
+        group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(2, piece.length * 2), RADIUS[p.tone], 6, false), new THREE.MeshBasicMaterial({ color })));
+      }
+    }
+    group.userData.routePaths = true;
+    ctx.scene.add(group);
+    ctx.render();
+    return () => {
+      ctx.scene.remove(group);
+      group.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.geometry.dispose();
+          (o.material as THREE.Material).dispose();
+        }
+      });
+      ctx.render();
+    };
+    // pathsKey captures the content of the paths.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathsKey, exaggeration, meta, heights, quality]);
+
+  // EVA route view: base, rover and observation posts (simulated), with HTML labels for base and rover.
+  const routePoints = routeOverlay?.points ?? null;
+  const pointsKey = routePoints ? JSON.stringify(routePoints.map((p) => [p.id, p.position[0].toFixed(6), p.position[1].toFixed(6)])) : "";
+  useEffect(() => {
+    const ctx = sceneRef.current;
+    if (!ctx || !heights || !routePoints) return;
+    const base = meta.heights.minM;
+    const group = new THREE.Group();
+    for (const p of routePoints) {
+      if (!insideCrop(meta, p.position)) continue;
+      const [e, n] = lonLatToLocal(meta, p.position);
+      const y = ((sampleHeight(meta, heights, p.position) ?? base) - base) * exaggeration;
+      const mesh =
+        p.kind === "base"
+          ? new THREE.Mesh(new THREE.CylinderGeometry(22, 22, 16, 20), new THREE.MeshBasicMaterial({ color: 0xffffff }))
+          : p.kind === "rover"
+            ? new THREE.Mesh(new THREE.BoxGeometry(22, 12, 22), new THREE.MeshBasicMaterial({ color: 0xff8a6b }))
+            : new THREE.Mesh(new THREE.SphereGeometry(7, 10, 8), new THREE.MeshBasicMaterial({ color: 0xf1c878 }));
+      mesh.position.set(e, y + (p.kind === "post" ? 8 : 10), -n);
+      mesh.userData.routePointId = p.id;
+      if (p.kind !== "post") mesh.userData.label = p.label;
+      group.add(mesh);
+    }
+    ctx.scene.add(group);
+    routePointsRef.current = group;
+    ctx.render();
+    return () => {
+      ctx.scene.remove(group);
+      group.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.geometry.dispose();
+          (o.material as THREE.Material).dispose();
+        }
+      });
+      if (routePointsRef.current === group) routePointsRef.current = null;
+      ctx.render();
+    };
+    // pointsKey captures the content of the points.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsKey, exaggeration, meta, heights, quality]);
+
   // MAP-2: on selecting a connection, orbit around its middle and come closer if far away (instant, no animation).
   useEffect(() => {
     const ctx = sceneRef.current;
@@ -751,6 +904,9 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
     if (sel) {
       const y = (sel.elevation - meta.heights.minM) * exaggeration;
       ctx.ring.position.set(sel.east, y + 3, -sel.north);
+    }
+    if (sel && followSelection) {
+      const y = (sel.elevation - meta.heights.minM) * exaggeration;
       const delta = new THREE.Vector3(sel.east, y, -sel.north).sub(ctx.controls.target);
       ctx.controls.target.add(delta);
       ctx.camera.position.add(delta);
@@ -760,7 +916,7 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
       ctx.controls.update();
     }
     ctx.render();
-  }, [selectedId, markerData, exaggeration, meta]);
+  }, [selectedId, markerData, exaggeration, meta, followSelection]);
 
   /** MAP-3A.1 camera presets (instant: no animated flight, so reduced motion is respected). */
   const applyPreset = (name: CameraPreset) => {
@@ -822,6 +978,7 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
           highlighted: [...highlightIds],
         }
       : null,
+    route: routeOverlay ? { key: routeOverlay.key, paths: routeOverlay.paths.map((p) => ({ id: p.id, tone: p.tone, points: p.points.length, dashed: p.dashed })), points: routeOverlay.points.map((p) => p.id), labels: routeLabels.filter((l) => l.visible).map((l) => l.id) } : null,
     profile: profile
       ? { from: ends?.from.id ?? ends?.from.name, to: ends?.to.id ?? ends?.to.name, lengthM: Math.round(profile.lengthM), startM: Math.round(profile.startM), endM: Math.round(profile.endM), minM: Math.round(profile.minM), maxM: Math.round(profile.maxM), netM: Math.round(profile.netChangeM) }
       : null,
@@ -863,6 +1020,23 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
           </button>
         );
       })}
+      {/* EVA route view: labels for the simulated base and rover (not interactive). */}
+      {routePoints
+        ? routeLabels.map((l) => {
+            const p = routePoints.find((x) => x.id === l.id);
+            if (!p || !l.visible) return null;
+            return (
+              <span
+                key={`route-${l.id}`}
+                className={`pointer-events-none absolute -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md border bg-[rgba(11,17,28,0.8)] px-1.5 py-0.5 text-[12px] font-semibold ${p.kind === "rover" ? "border-[#ff8a6b] text-[#ff8a6b]" : "border-white text-white"}`}
+                style={{ left: l.x, top: l.y }}
+                data-testid={`terrain-route-label-${p.kind}`}
+              >
+                {`SIM · ${p.label}`}
+              </span>
+            );
+          })
+        : null}
       {/* MAP-2: plan-order chips under the simulated targets ("Seq n"; "Draft n" for a preview). Not the engine's rank. */}
       {sequence
         ? labels.map((l) => {
@@ -944,7 +1118,7 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
             </div>
           ) : null}
           <p className="mt-1">
-            <span>{"Not a route or traversability model. "}</span>
+            <span data-testid="terrain-model-note">{routeOverlay ? "The terrain is not a traversability model; route lines are a simulated planning layer. " : "Not a route or traversability model. "}</span>
             <button type="button" aria-expanded={aboutOpen} onClick={() => setAboutOpen((o) => !o)} className="text-[12px] text-[var(--mg-text)] underline underline-offset-2" data-testid="terrain-about">
               {aboutOpen ? "Hide notes" : "About this 3D view"}
             </button>
@@ -962,7 +1136,7 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
         </div>
 
         {/* MAP-3A.1: real-DTM elevation profile along a straight sampling line. */}
-        <section className="mg-glass pointer-events-auto max-h-full w-full overflow-y-auto p-3 text-[12px] text-[var(--mg-dim)] sm:ml-auto sm:w-[22rem]" aria-labelledby="terrain-profile-title" data-testid="terrain-profile">
+        <section hidden={!showProfile} className="mg-glass pointer-events-auto max-h-full w-full overflow-y-auto p-3 text-[12px] text-[var(--mg-dim)] sm:ml-auto sm:w-[22rem]" aria-labelledby="terrain-profile-title" data-testid="terrain-profile">
           <div className="flex items-center justify-between gap-2">
             <h3 id="terrain-profile-title" className="text-[13px] font-semibold text-[var(--mg-text)]">
               {"Elevation profile (DTM)"}
