@@ -25,6 +25,7 @@ import { targetMarkers } from "@/lib/prototype/target-markers";
 import { missionSequence, replanSequences } from "@/lib/prototype/mission-sequence";
 import type { MapSequence } from "@/components/map/MarsMap";
 import { MarsMapLoader } from "@/components/map/MarsMapLoader";
+import type { CrewMarker } from "@/components/map/MarsMap";
 import { TerrainLoader } from "@/components/terrain/TerrainLoader";
 import type { TerrainMarker, TerrainSequence } from "@/components/terrain/TerrainViewer";
 import { useTerrainHeights } from "@/components/terrain/terrain-data";
@@ -60,7 +61,7 @@ type Props = {
    * task is reported to the station (it never starts anything), and the EVA's task is pre-selected
    * when the map is first opened during an EVA. Without it, the page behaves as before.
    */
-  embedded?: { onSelectTask?: (taskId: string | null) => void; activeTaskId?: string | null };
+  embedded?: { onSelectTask?: (taskId: string | null) => void; activeTaskId?: string | null; crewMarkers?: readonly CrewMarker[]; onSelectCrew?: (id: string) => void };
 };
 
 const LABEL_KINDS = ["sample-site"] as const;
@@ -310,6 +311,8 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
       selectedSegmentId={state.mode === "planning" ? (selectedSegment?.id ?? null) : null}
       onSelectSegment={state.mode === "planning" ? pickSegment : undefined}
       highlightIds={state.mode === "planning" ? highlightIds : undefined}
+      crewMarkers={embedded?.crewMarkers}
+      onSelectCrew={embedded?.onSelectCrew}
     />
   );
 
@@ -419,6 +422,12 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                 </span>
                 <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Number: provisional priority (existing engine, not validated)"}</span>
                 <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · ½ ended with skipped steps · yellow: not feasible"}</span>
+                {embedded?.crewMarkers?.length ? (
+                  <span className="flex items-center gap-2" data-testid="mg-legend-crew">
+                    <span aria-hidden className="inline-block size-3 rounded-full border-2 border-[#0e1520] bg-white outline-dashed outline-1 outline-offset-1 outline-white" />
+                    {"Crew · simulated position (no live tracking)"}
+                  </span>
+                ) : null}
                 {sequence.phase !== "none" ? (
                   <>
                     <span className="flex items-center gap-2 font-medium text-[var(--mg-coral)]" data-testid="mg-legend-seq">

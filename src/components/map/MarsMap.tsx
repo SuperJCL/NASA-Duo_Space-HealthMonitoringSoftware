@@ -54,6 +54,22 @@ export type SimTarget = {
 };
 
 /**
+ * A crew member drawn on the map. There is NO position source in the MyoMars demo: the caller places
+ * the marker at a SIMULATED position and says so in `label` / `note`. It is drawn as a white circle
+ * with a dashed ring (approximate), never like a target diamond or a verified feature.
+ */
+export type CrewMarker = {
+  id: string;
+  /** Visible label, e.g. "A-02 · simulated position". */
+  label: string;
+  /** Second label line, e.g. "not tracked". */
+  note: string;
+  position: readonly [number, number];
+  /** A health case waits for base staff (coral ring). */
+  attention?: boolean;
+};
+
+/**
  * MAP-2: a conceptual mission sequence (plan order only, never a route).
  * Computed by the caller; the map only draws it, under the simulated targets.
  */
@@ -108,6 +124,9 @@ export type MarsMapProps = {
   onSelectSegment?: (id: string) => void;
   /** MAP-2: simulated targets to ring as well (the two ends of a selected connection). */
   highlightIds?: readonly string[];
+  /** Crew members at simulated positions (MyoMars station). Clicking one calls `onSelectCrew`. */
+  crewMarkers?: readonly CrewMarker[];
+  onSelectCrew?: (id: string) => void;
 };
 
 const SIM = "#ff8a6b";
@@ -280,6 +299,8 @@ export function MarsMap({
   selectedSegmentId = null,
   onSelectSegment,
   highlightIds = [],
+  crewMarkers = [],
+  onSelectCrew,
   ariaLabel = "Mars map of Jezero crater. Arrow keys pan, plus and minus zoom. Use the feature list in the layer panel to select features with the keyboard.",
 }: MarsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -289,6 +310,9 @@ export function MarsMap({
   const geoLayersRef = useRef<Partial<Record<GeoLayerKey, VectorLayer>>>({});
   const simLayerRef = useRef<VectorLayer | null>(null);
   const seqLayerRef = useRef<VectorLayer | null>(null);
+  const crewLayerRef = useRef<VectorLayer | null>(null);
+  const onSelectCrewRef = useRef(onSelectCrew);
+  const [crewAttr, setCrewAttr] = useState("[]");
   const selectedSegmentRef = useRef<string | null>(selectedSegmentId);
   const highlightRef = useRef<ReadonlySet<string>>(new Set(highlightIds));
   const onSelectSegmentRef = useRef(onSelectSegment);
@@ -317,7 +341,8 @@ export function MarsMap({
   useEffect(() => {
     onSelectRef.current = onSelect;
     onSelectSegmentRef.current = onSelectSegment;
-  }, [onSelect, onSelectSegment]);
+    onSelectCrewRef.current = onSelectCrew;
+  }, [onSelect, onSelectSegment, onSelectCrew]);
 
   const featureById = useMemo(() => new Map(features.map((f) => [f.id, f])), [features]);
   const counts = useMemo(() => {
@@ -436,9 +461,35 @@ export function MarsMap({
       properties: { sequence: true },
     });
 
+    // Crew at SIMULATED positions: white circle, dashed "approximate" ring, explicit label. Above the targets.
+    const crewLayer = new VectorLayer({
+      source: new VectorSource(),
+      style: (f) => {
+        const attention = Boolean(f.get("attention"));
+        return [
+          new Style({
+            zIndex: 5,
+            image: new CircleStyle({ radius: 14, stroke: new Stroke({ color: attention ? SIM : "rgba(255, 255, 255, 0.9)", width: 2, lineDash: attention ? undefined : [3, 3] }), fill: new Fill({ color: "rgba(14, 21, 32, 0.35)" }) }),
+          }),
+          new Style({
+            zIndex: 6,
+            image: new CircleStyle({ radius: 7, fill: new Fill({ color: "#ffffff" }), stroke: new Stroke({ color: "#0e1520", width: 2 }) }),
+            text: new Text({
+              text: `${String(f.get("label") ?? "")}\n${String(f.get("note") ?? "")}`,
+              offsetY: 30,
+              font: "600 12px ui-sans-serif, system-ui, sans-serif",
+              fill: new Fill({ color: "#ffffff" }),
+              stroke: new Stroke({ color: "rgba(14, 21, 32, 0.95)", width: 3 }),
+            }),
+          }),
+        ];
+      },
+      properties: { crew: true },
+    });
+
     const map = new OlMap({
       target,
-      layers: [...orderedKeys.map((key) => layers[key]!), ...GEO_LAYERS.map((g) => geoLayers[g.key]!), seqLayer, simLayer],
+      layers: [...orderedKeys.map((key) => layers[key]!), ...GEO_LAYERS.map((g) => geoLayers[g.key]!), seqLayer, simLayer, crewLayer],
       controls: defaultControls({ rotate: false }).extend([
         new ScaleLine({ units: "metric" }),
         new MousePosition({
@@ -452,7 +503,7 @@ export function MarsMap({
       view: new View({ projection, center: [0, 0], zoom: 2, minZoom: 1, maxZoom: VIEW_MAX_ZOOM }),
     });
 
-    const vectorLayers = new Set<VectorLayer>([...Object.values(geoLayers).filter((l): l is VectorLayer => Boolean(l)), seqLayer, simLayer]);
+    const vectorLayers = new Set<VectorLayer>([...Object.values(geoLayers).filter((l): l is VectorLayer => Boolean(l)), seqLayer, simLayer, crewLayer]);
     const hitsAt = (pixel: number[]) =>
       map
         .getFeaturesAtPixel(pixel, { hitTolerance: 6, layerFilter: (l) => vectorLayers.has(l as VectorLayer) })
@@ -461,6 +512,9 @@ export function MarsMap({
         .filter((h) => !h.id.startsWith("seqnode:"));
     map.on("singleclick", (e) => {
       const hits = hitsAt(e.pixel);
+      // A crew marker wins over everything under the same pixel.
+      const crew = hits.find((h) => h.id.startsWith("crew:"));
+      if (crew && onSelectCrewRef.current) return onSelectCrewRef.current(crew.id.slice(5));
       // A simulated target wins over a sequence connection, which wins over verified features under the same pixel.
       const sim = hits.find((h) => h.id.startsWith("sim-"));
       const seg = hits.find((h) => h.id.startsWith("seq:"));
@@ -483,6 +537,7 @@ export function MarsMap({
     geoLayersRef.current = geoLayers;
     simLayerRef.current = simLayer;
     seqLayerRef.current = seqLayer;
+    crewLayerRef.current = crewLayer;
     return () => {
       map.setTarget(undefined);
       map.dispose();
@@ -520,6 +575,22 @@ export function MarsMap({
     // simKey captures the content of simulatedTargets.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simKey]);
+
+  // Crew markers (simulated positions); the attribute mirrors what is drawn.
+  const crewKey = JSON.stringify(crewMarkers);
+  useEffect(() => {
+    const source = crewLayerRef.current?.getSource();
+    if (!source) return;
+    source.clear();
+    for (const m of crewMarkers) {
+      const f = new Feature({ geometry: new Point([m.position[0], m.position[1]]), label: m.label, note: m.note, attention: Boolean(m.attention) });
+      f.setId(`crew:${m.id}`);
+      source.addFeature(f);
+    }
+    setCrewAttr(JSON.stringify(crewMarkers.map((m) => ({ id: m.id, label: m.label, note: m.note, attention: Boolean(m.attention), position: m.position }))));
+    // crewKey captures the content of crewMarkers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crewKey]);
 
   // MAP-1: decision state on the targets. Updated in place whenever the
   // budget, constraints or plan change; the attribute mirrors what is drawn.
@@ -718,6 +789,7 @@ export function MarsMap({
         data-testid="mars-map"
         data-view-extent={viewExtent}
         data-sim-markers={markerAttr}
+        data-crew-markers={crewAttr}
         data-sequence={sequenceAttr}
         data-selected-id={selectedId ?? ""}
         data-motion={reducedMotion ? "reduced" : "full"}

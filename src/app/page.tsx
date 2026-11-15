@@ -11,7 +11,7 @@ import { parseScenario, simulatedTargets } from "@/lib/prototype/mission-glass";
 import { loadEvaScouting } from "@/lib/eva-route/repository";
 
 export const metadata: Metadata = {
-  title: "MyoMars · 火星基站",
+  title: "MyoMars · Mars Base",
   description: "MyoMars base station: one simulated EVA from task preparation on the map (2D map, 3D terrain, task selection) to health monitoring (simulated observations, rule-based simulated analysis, human review, HUD dispatch, retest and re-evaluation). Not a medical device.",
 };
 

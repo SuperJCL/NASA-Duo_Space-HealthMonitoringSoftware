@@ -34,7 +34,7 @@ const NODE_STYLE: Record<NodeView, string> = {
   human: "border-[var(--mg-coral)] bg-[rgba(255,128,102,0.14)] text-[var(--mg-text)]",
   skipped: "border-dashed border-[var(--mg-line)] bg-transparent text-[var(--mg-faint)] opacity-60",
 };
-const NODE_WORD: Record<NodeView, string> = { source: "", todo: "未到达", incoming: "数据传入中", processing: "处理中…", done: "完成", stopped: "停止：转入分支", human: "等待基地审核", skipped: "未执行" };
+const NODE_WORD: Record<NodeView, string> = { source: "", todo: "Not reached", incoming: "Data in…", processing: "Processing…", done: "Done", stopped: "Stopped: branch", human: "Awaiting Base Review", skipped: "Not run" };
 const EDGE_STROKE: Record<EdgeView, string> = { todo: "var(--mg-line-strong)", active: "var(--mg-cyan)", done: "var(--mg-ok)", skipped: "var(--mg-line)" };
 
 /**
@@ -139,29 +139,29 @@ export function FlowCanvas({
   const current = steps[cursor.step];
   const behind = cursor.mode === "live" && cursor.phase !== "end" && steps.findLastIndex((s) => s.needs <= progress) > cursor.step;
   const shown = !current
-    ? (waitingText ?? "等待数据")
+    ? (waitingText ?? "Waiting for data")
     : cursor.phase === "end" && current.outcome === "human"
-      ? "停在「等待基地审核」：数据传输已停止，等待基地人员"
-      : `${CANVAS_NODES[current.to].label} · ${cursor.phase === "travel" ? "数据传入中" : cursor.phase === "process" ? "处理中" : "已完成"}`;
+      ? "Stopped at Awaiting Base Review: data transfer halted, waiting for base staff"
+      : `${CANVAS_NODES[current.to].label} · ${cursor.phase === "travel" ? "data incoming" : cursor.phase === "process" ? "processing" : "done"}`;
 
   return (
-    <section aria-label="分析数据流" className="flex flex-col gap-2" data-testid="flow-canvas" data-step={cursor.step} data-phase={cursor.phase} data-mode={cursor.mode}>
+    <section aria-label="Analysis data flow" className="flex flex-col gap-2" data-testid="flow-canvas" data-step={cursor.step} data-phase={cursor.phase} data-mode={cursor.mode}>
       <div className="flex flex-wrap items-center gap-2">
         <span className={`rounded-md border px-2 py-0.5 text-[12px] font-semibold ${cursor.mode === "replay" ? "border-[#d678ff] text-[#e3a6ff]" : "border-[var(--mg-cyan)] text-[var(--mg-cyan)]"}`} data-testid="canvas-mode">
-          {cursor.mode === "replay" ? "可视化回放 · 仅重绘已发生的过程，不重新分析、不发送消息" : "实时 · 跟随基站实际进度"}
+          {cursor.mode === "replay" ? "Visual replay · redraws only what already happened; no re-analysis, no messages sent" : "Live · follows the base's actual progress"}
         </span>
         <span className="text-[12px] text-[var(--mg-dim)]" role="status" aria-live="polite" data-testid="canvas-shown">
-          {`画面：${shown}`}
+          {`Showing: ${shown}`}
         </span>
         <div className="ml-auto flex items-center gap-1.5 text-[12px]">
           <button type="button" disabled={!steps.length || cursor.phase === "end"} onClick={() => setPaused((x) => !x)} className="min-h-8 rounded-lg border border-[var(--mg-line-strong)] px-2.5 disabled:opacity-40" data-testid="canvas-pause">
-            {paused ? "▶ 继续" : "⏸ 暂停"}
+            {paused ? "▶ Resume" : "⏸ Pause"}
           </button>
           <button type="button" disabled={!steps.length} onClick={replay} className="min-h-8 rounded-lg border border-[#d678ff] px-2.5 text-[#e3a6ff] disabled:opacity-40" data-testid="canvas-replay">
-            {"↺ 可视化回放"}
+            {"↺ Visual replay"}
           </button>
           <label className="flex items-center gap-1 text-[var(--mg-dim)]">
-            {"速度"}
+            {"Speed"}
             <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="rounded-md border border-[var(--mg-line)] bg-[var(--mg-bg)] px-1 py-0.5" data-testid="canvas-speed">
               {SPEEDS.map((s) => (
                 <option key={s} value={s}>{`${s}×`}</option>
@@ -170,7 +170,7 @@ export function FlowCanvas({
           </label>
         </div>
       </div>
-      {behind ? <p className="text-[11px] text-[var(--mg-dim)]" data-testid="canvas-behind">{"画面按展示节奏追赶中，稍落后于基站实际进度（实际进度见上方“数据到了哪一步”）。"}</p> : null}
+      {behind ? <p className="text-[11px] text-[var(--mg-dim)]" data-testid="canvas-behind">{"The animation is catching up at display pace and runs slightly behind the base's actual progress (the actual progress is shown above)."}</p> : null}
 
       <div className="overflow-x-auto">
         <div className="relative min-w-[860px] rounded-2xl border border-[var(--mg-line)] bg-[rgba(8,13,22,0.6)]" style={{ aspectRatio: `${CANVAS_W} / ${CANVAS_H}` }} data-testid="canvas-area">
@@ -211,12 +211,13 @@ export function FlowCanvas({
               return (
                 <span
                   key={e}
-                  className={`pointer-events-none absolute -translate-y-1/2 whitespace-nowrap rounded px-1 text-[11px] ${e === "b-quality" ? "-translate-x-full" : e === "e-review" ? "" : "-translate-x-1/2"} ${v === "skipped" ? "text-[var(--mg-faint)] line-through" : e.startsWith("b-") ? "font-medium text-[var(--mg-caution)]" : "text-[var(--mg-dim)]"}`}
+                  className={`pointer-events-none absolute -translate-y-1/2 whitespace-nowrap rounded px-1 text-center text-[11px] leading-tight ${e === "b-quality" ? "-translate-x-full" : e === "e-review" ? "" : "-translate-x-1/2"} ${v === "skipped" ? "text-[var(--mg-faint)]" : e.startsWith("b-") ? "font-medium text-[var(--mg-caution)]" : "text-[var(--mg-dim)]"}`}
                   style={{ left: `${(CANVAS_EDGES[e].lx / CANVAS_W) * 100}%`, top: `${(CANVAS_EDGES[e].ly / CANVAS_H) * 100}%` }}
                   data-testid={`canvas-label-${e}`}
                 >
-                  {CANVAS_EDGES[e].label}
-                  {v === "skipped" ? "（未执行）" : ""}
+                  <span className={v === "skipped" ? "line-through" : undefined}>{CANVAS_EDGES[e].label}</span>
+                  {/* The "not run" note goes on its own line: English is too wide for the gap between two nodes. */}
+                  {v === "skipped" ? <span className="block text-[10px]">{"(not run)"}</span> : null}
                 </span>
               );
             })}
@@ -234,7 +235,7 @@ export function FlowCanvas({
                 type="button"
                 disabled={!clickable}
                 onClick={() => setOpen(open === id ? null : id)}
-                aria-label={`${id === "source" ? sourceLabel : n.label}：${NODE_WORD[v]}${result ? `，${result}` : ""}`}
+                aria-label={`${id === "source" ? sourceLabel : n.label}: ${NODE_WORD[v]}${result ? `, ${result}` : ""}`}
                 className={`absolute flex flex-col items-start justify-center gap-0.5 overflow-hidden rounded-xl border-2 px-2 text-left transition-colors ${NODE_STYLE[v]} ${open === id ? "ring-2 ring-[var(--mg-cyan)]" : ""} ${clickable ? "cursor-pointer" : "cursor-default"}`}
                 style={{ left: `${((n.x - w / 2) / CANVAS_W) * 100}%`, top: `${((n.y - NODE_H / 2) / CANVAS_H) * 100}%`, width: `${(w / CANVAS_W) * 100}%`, height: `${(NODE_H / CANVAS_H) * 100}%` }}
                 data-testid={`canvas-node-${id}`}
@@ -245,7 +246,7 @@ export function FlowCanvas({
                 ) : (
                   <>
                     <span className="text-[13px] font-semibold leading-tight">{n.label}</span>
-                    <span className={`text-[11px] ${v === "processing" || v === "incoming" ? "text-[var(--mg-cyan)]" : v === "stopped" ? "text-[var(--mg-caution)]" : v === "human" ? "text-[var(--mg-coral)]" : ""}`}>{NODE_WORD[v]}</span>
+                    <span className={`text-[11px] leading-tight ${v === "processing" || v === "incoming" ? "text-[var(--mg-cyan)]" : v === "stopped" ? "text-[var(--mg-caution)]" : v === "human" ? "text-[var(--mg-coral)]" : ""}`}>{NODE_WORD[v]}</span>
                     {result ? <span className="line-clamp-2 text-[11px] leading-snug text-[var(--mg-dim)]">{result}</span> : null}
                     {v === "processing" ? (
                       <span className="mt-0.5 h-1 w-full overflow-hidden rounded bg-[var(--mg-line)]">
@@ -276,14 +277,14 @@ export function FlowCanvas({
           {open ? (
             <div className="absolute inset-x-[2%] bottom-[3%] z-20 max-h-[80%] overflow-y-auto rounded-xl border border-[var(--mg-line-strong)] bg-[var(--mg-bg-2)] p-3 shadow-2xl" data-testid="canvas-detail" data-node={open}>
               <button type="button" onClick={() => setOpen(null)} className="float-right text-[12px] text-[var(--mg-dim)] underline" data-testid="canvas-detail-close">
-                {"关闭"}
+                {"Close"}
               </button>
               {renderDetail(open)}
             </div>
           ) : null}
         </div>
       </div>
-      <p className="text-[11px] text-[var(--mg-faint)]">{`展示节奏（1×）：连线传输 ${PACE.travelMs / 1000} s，节点处理约 ${(PACE.processMs + PACE.holdMs) / 1000} s；不是算法耗时。点击节点查看输入、输出与证据。只有汇总指标，没有原始肌电波形。`}</p>
+      <p className="text-[11px] text-[var(--mg-faint)]">{`Display pace (1×): ${PACE.travelMs / 1000} s per link, about ${(PACE.processMs + PACE.holdMs) / 1000} s per node; not the algorithm's run time. Click a node to see its input, output and evidence. Summary indicators only, no raw sEMG waveform.`}</p>
     </section>
   );
 }
