@@ -63,7 +63,6 @@ const join2 = async (page) => {
 const ds = (page) => page.evaluate(() => ({ ...document.documentElement.dataset }));
 const view = (page) => page.evaluate(() => window.__hudScene.view());
 const frames = (page) => page.evaluate(() => window.__hudScene.frames);
-const frame2 = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 const close = (a, b) => Math.abs(a - b) < 0.05;
 async function dragAt(page, x, y, dx, dy) {
   await page.mouse.move(x, y);

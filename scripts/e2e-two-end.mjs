@@ -18,6 +18,10 @@ const D = process.env.OUT ?? null;
 if (D) mkdirSync(D, { recursive: true });
 const RELAY = process.env.RELAY ?? "http://127.0.0.1:8787";
 const STATION = process.env.STATION ?? "http://localhost:3000/?relay=auto";
+// Optional HUD variants: HUD_SCENE=off (forced image fallback) / HUD_QUALITY=low|standard|high, and
+// REDUCED_MOTION=1 (both pages). The loop must pass the same way in every variant.
+const HUD_EXTRA = [process.env.HUD_SCENE ? `scene=${process.env.HUD_SCENE}` : "", process.env.HUD_QUALITY ? `quality=${process.env.HUD_QUALITY}` : ""].filter(Boolean).join("&");
+const HUD_HOME = HUD_EXTRA ? `/hud.html?mode=integration&${HUD_EXTRA}` : "/";
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push({ name, ok: !!ok });
@@ -53,7 +57,7 @@ const evs = async () => (await history()).events;
 const byRole = (list, role) => list.filter((e) => e.sender.role === role);
 
 const b = await chromium.launch();
-const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: D ? 2 : 1 });
+const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: D ? 2 : 1, ...(process.env.REDUCED_MOTION ? { reducedMotion: "reduce" } : {}) });
 const errs = [];
 const watch = (n, pg) => {
   pg.on("pageerror", (e) => errs.push(`${n}: ${e}`));
@@ -70,7 +74,7 @@ check("station online and lease holder", true, await st.getByTestId("integration
 
 const hud = await ctx.newPage();
 watch("hud", hud);
-await hud.goto(`${RELAY}/`, { waitUntil: "load" });
+await hud.goto(`${RELAY}${HUD_HOME}`, { waitUntil: "load" });
 check("relay root opens the HUD in integration mode", hud.url().endsWith("/hud.html?mode=integration"), hud.url());
 await hud.locator("#bJoin").click();
 await hud.waitForFunction(() => window.__hud?.client.state.conn === "online", null, { timeout: 15000 });
@@ -118,7 +122,7 @@ await st.waitForTimeout(6000);
 const stepHud = await st.getByTestId("step-hud").getAttribute("data-state");
 check("HUD offline: approved messages are relay-accepted but the HUD step keeps waiting (no false delivery)", stepHud === "waiting" && (await st.getByTestId("track-hud").first().getAttribute("data-state")) === "pending" && /awaiting receipt/.test(await st.getByTestId("step-hud-summary").innerText()), `step-hud ${stepHud}`);
 await st.getByTestId("full-flow-back").click();
-await hud.goto(`${RELAY}/`, { waitUntil: "load" });
+await hud.goto(`${RELAY}${HUD_HOME}`, { waitUntil: "load" });
 await hud.locator("#bJoin").click();
 await hud.waitForFunction(() => window.__hud?.client.state.conn === "online", null, { timeout: 15000 });
 await hud.waitForFunction(() => { const a = window.__hud.client.activeCase(); return a.alert && a.retest; }, null, { timeout: 15000 });
@@ -244,7 +248,7 @@ const gripSent = list.filter((e) => e.caseId === gripCase && e.sender.role === "
 check("missing grip: 15 s later the case is still open and nothing went to the HUD", /open/.test(gripStatus) && !/Case Closed/.test(gripStatus) && gripSent.length === 0 && /no base messages yet/.test(await hudStatus()), gripStatus);
 
 // ---------- acceptance 2 + 3: keep watching, then close; refresh both ends mid-task and after close ----------
-await hud.goto(`${RELAY}/hud.html?mode=integration&retestSample=retest-changed`, { waitUntil: "load" });
+await hud.goto(`${RELAY}/hud.html?mode=integration&retestSample=retest-changed${HUD_EXTRA ? `&${HUD_EXTRA}` : ""}`, { waitUntil: "load" });
 await hud.locator("#bJoin").click();
 await hud.waitForFunction(() => window.__hud?.client.state.conn === "online", null, { timeout: 15000 });
 await openDrawer(st);
