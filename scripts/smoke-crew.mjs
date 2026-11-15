@@ -37,7 +37,6 @@ const who = (p) => attr(p, "decision-panel", "data-who");
 const person = (p) => attr(p, "health-overlay", "data-astronaut");
 const overlay = (p) => attr(p, "crew-station", "data-overlay");
 const waitPhase = (p, ph, timeout = 30_000) => p.waitForFunction((x) => document.querySelector('[data-testid="decision-panel"]')?.dataset.phase === x, ph, { timeout });
-const waitWhere = (p, re, timeout = 15_000) => p.waitForFunction((src) => new RegExp(src).test(document.querySelector('[data-testid="decision-panel"]')?.dataset.where ?? ""), re.source, { timeout });
 async function drawer(p, fn) {
   if (!(await tid(p, "demo-drawer").count())) await tid(p, "demo-toggle").evaluate((el) => el.click());
   await fn();
