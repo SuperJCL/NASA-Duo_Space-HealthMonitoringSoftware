@@ -1,0 +1,11 @@
+{
+  "dataset_type": "synthetic_test_fixture_not_public_api_contract",
+  "fixed_seed": 20261114,
+  "window_seconds": 6,
+  "notes": [
+    "Synthetic summary features, not raw EMG or clinical thresholds",
+    "Do not transmit scenario or expected_classification as health evidence",
+    "Use only team-approved public-base schema",
+    "HUD team owns retest result submission"
+  ]
+}

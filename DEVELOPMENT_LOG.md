@@ -4062,6 +4062,10 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - team decisions listed in `docs/myomars/INTEGRATION.md`: demo protocol and body site, the notice
     category field, `hud.symptoms`, the missing-grip policy, and the retest data source.
 
+## 2026-11-14 — ASTRA Patch offline port prepared for teammate review
+
+Added isolated `astra-patch/` acquisition, MuscleSense processing, headless console and trigger rules from ASTRA `91a464b`. Reused target v1 schema files read-only for intake checks; omitted prototype transport and third product UI. Incomplete fixture measurements produce explicit blocked intake reports, not invented v1 payloads. HUD, Station and shared contracts are unchanged. Local Python: 74 passed, 4 skipped (JSON Schema dependency unavailable). `npm run check` attempted; missing node_modules/eslint prevents the target JS checks. Sensor-fault CLI demo completed without transport. Existing remote feature branch/README must be fetched before applying this prepared commit; no remote operation performed.
+
 ## MyoMars two-end baseline: closing round (history display, lease fix, HUD tests, manual steps)
 
 - **Time (real, UTC):** 2026-11-15, about 01:50 to 02:35.
