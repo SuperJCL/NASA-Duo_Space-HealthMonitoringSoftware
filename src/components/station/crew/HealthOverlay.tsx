@@ -446,6 +446,8 @@ function ChainPanel({ c, flow, now, onDecide, onResend, onFull }: { c: Case; flo
   );
 }
 
+const IF_DECIDED: Record<Decision, string> = { approve: "If approved", reject: "If rejected", close: "If the case is closed", "keep-open": "If you choose Continue Monitoring" };
+
 type DecisionPhase = "idle" | "analysing" | "review" | "reassessed" | "sending" | "dispatched" | "failed" | "deferred" | "monitoring" | "decided" | "closed";
 
 function decisionPhase(c: Case | null, flow: FlowView | null): DecisionPhase {
@@ -540,7 +542,7 @@ function DecisionPanel({ c, flow, card, state, mock, now, reviewing, setReviewin
         ) : null}
         {out ? (
           <div className="mt-3 rounded-lg border border-[var(--mg-line-strong)] p-2.5" data-testid="decision-outgoing" data-decision={previewDecision}>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--mg-faint)]">{`If you ${DECISION_WORD[previewDecision!].toLowerCase()}: sent to the HUD`}</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--mg-faint)]">{`${IF_DECIDED[previewDecision!]}: sent to the HUD`}</p>
             {out.actions.length || out.status ? (
               <>
                 {out.actions.map((a, i) => (
@@ -658,13 +660,14 @@ function Progress({ done, total }: { done: number; total: number }) {
 /** Phase-specific status: what is happening, who is awaited, and real delivery states only. */
 function StatusBlock({ phase, c, flow, node, state, mock, now }: { phase: DecisionPhase; c: Case; flow: FlowView; node: FlowNode | null; state: StationState; mock: boolean; now: number }) {
   const why = <p className="mt-2 text-[12px]" data-testid="panel-fact-why">{flow.why}</p>;
-  if (phase === "review" || phase === "reassessed") return <div className="text-[var(--mg-coral)]">{why}</div>;
+  // Review: the conclusion, evidence and the draft to send say it all (no repeated reason line).
+  if (phase === "review" || phase === "reassessed") return null;
   if (phase === "closed") {
     const close = c.reviews.filter((r) => r.decision === "close").at(-1);
     const hadRetest = c.retests.some((r) => r.status !== "result-received");
     return (
       <div className="mt-2 rounded-lg border border-[var(--mg-ok)] p-2.5 text-[12px]" data-testid="decision-closed">
-        <p className="text-[14px] font-semibold text-[var(--mg-ok)]">{"Case Closed"}</p>
+        <p className="text-[14px] font-semibold text-[var(--mg-ok)]">{"Handling complete"}</p>
         {close ? <p className="mt-0.5">{`By ${close.reviewer} at ${hhmmss(close.at).slice(0, 8)}: ${close.reason}`}</p> : null}
         <p className="mt-0.5 text-[var(--mg-dim)]">{"The alert is cleared by base staff. Case Closed does not mean the astronaut is healthy or recovered."}</p>
         {hadRetest ? <p className="mt-0.5 text-[var(--mg-dim)]">{"The earlier retest task is no longer needed; the HUD shows it as history."}</p> : null}
@@ -700,7 +703,6 @@ function StatusBlock({ phase, c, flow, node, state, mock, now }: { phase: Decisi
           {node.state === "running" ? "Sending to the relay…" : `Waiting for ${party(node.owner)} (${node.label}) · since ${hhmmss(node.since).slice(0, 8)} · ${elapsed(node.since, now)}`}
         </p>
       ) : null}
-      {phase === "deferred" ? <p className="text-[12px] text-[var(--mg-dim)]">{"Next: wait for the crew to acknowledge again, or close the case early."}</p> : null}
     </div>
   );
 }
