@@ -214,6 +214,31 @@ kbd{border:1px solid var(--hud-dim);border-radius:3px;padding:0 5px;font:inherit
 #intro p{color:#cfefff;margin:8px 0}
 #intro button{font-size:14px;padding:8px 22px;margin-top:10px}
 
+/* integration mode only (body.int): progressive disclosure. First layer = station text, the one current action, the
+   buttons available now; second layer = a collapsed <details class="more"> (ids, versions, receipt, conditions, history) */
+body.int .itext{margin:2px 0 6px;font-size:15px;line-height:1.4;color:#eaf8ff;font-weight:500}
+body.int .itext.dim{color:var(--hud-dim);font-size:13px;font-weight:400}
+body.int .inow{margin:6px 0 2px;font-size:14px;font-weight:600;color:var(--hud)}
+body.int .inow .lab{font-weight:400}
+body.int .inow.todo{color:#ffe0a8}
+body.int .inow.none{color:var(--ok)}
+body.int .inote{margin:3px 0 0;font-size:12px;color:var(--hud-dim)}
+body.int #alert button,body.int #rcBody button{font-size:13px;padding:6px 14px}
+body.int details.more{margin-top:8px;padding-top:5px;border-top:1px solid var(--hud-faint)}
+body.int details.more>summary{cursor:pointer;list-style:none;color:var(--hud-dim);font-size:11px;letter-spacing:.06em}
+body.int details.more>summary::-webkit-details-marker{display:none}
+body.int details.more>summary::before{content:"▸ "}
+body.int details.more[open]>summary::before{content:"▾ "}
+body.int details.more dl{margin-top:6px}
+body.int details.more .past{margin:6px 0 0;font-size:12px;color:var(--hud-dim)}
+body.int details.more .past b{display:block;font-weight:400;font-size:11px;color:var(--hud-dim)}
+body.int #right{max-height:calc(77vh - 64px)}   /* room for an expanded second layer above the link-test tools */
+body.int #rcard{max-height:56vh;overflow:auto}
+body.int #rcard .rc{display:block}
+body.int #rcard .rc>svg{display:none}   /* the contract has no body site: no body map */
+body.int #rcard.hist{border-color:var(--hud-faint);box-shadow:none}
+body.int #rcard.hist h4,body.int #rcard.hist h4 .tag{color:var(--hud-dim)!important}
+
 @media (max-width:860px){#left,#demo,#bottom{display:none}#right{width:46vw}#rcard{width:46vw}#keys{bottom:3vh}}
 </style>
 </head>
@@ -626,7 +651,8 @@ function plot(c,arr,col){
 
 /* ================= base-driven engine: HUD shows only what the base station publishes ================= */
 const SAMPLE_URL='contract/samples/retest-result.sample.json';
-let S={phase:'idle',flagBase:false,flex:0,baseLabel:'Connecting',baseCls:'',curPoor:false,collectT0:0,collectMs:0,log:[],legOpen:false,busy:{},err:{},deferOpen:false,alertFlash:false};
+let S={phase:'idle',flagBase:false,flex:0,baseLabel:'Connecting',baseCls:'',curPoor:false,collectT0:0,collectMs:0,log:[],legOpen:false,busy:{},err:{},deferOpen:false,alertFlash:false,
+  more:{alert:false,task:false},flashUntil:0};   // integration: second-layer <details> open state (kept across re-renders), notice-update flash
 let LOCAL;try{LOCAL=JSON.parse(localStorage.getItem(UI_KEY)||'{}')}catch{LOCAL={}}
 LOCAL.collect=LOCAL.collect||{};LOCAL.viewed=LOCAL.viewed||{};LOCAL.aborted=LOCAL.aborted||{};
 function saveLocal(){try{localStorage.setItem(UI_KEY,JSON.stringify(LOCAL))}catch{}}
@@ -853,21 +879,23 @@ function statusLineInt(st,alert,rt,res,loc){
   if(st.conn==='offline'||st.conn==='reconnecting')return ['Not connected to base'+(st.outbox.length?' · '+st.outbox.length+' queued':'')+' · will resend when reconnected','warn'];
   if(st.conn==='connecting'&&!alert)return ['Connecting to base…','run'];
   if(!run)return ['Connected · waiting for the base to start the EVA (base staff confirm it on the station)','run'];
-  if(alert&&!open)return ['Case closed by base · '+(alert.disposition||'')+sync,'ok'];
+  // the station's own text is the first line of the Base messages card below; the status line is a short headline
+  if(alert&&!open)return ['Case closed by base'+sync,'ok'];
   if(rt){                                   // a retest task may come without a notice (e.g. after an incomplete result)
     const what=rt.protocol.label;
     if(S.phase==='collecting')return ['Retest capturing · '+what,'amber'];
     if(res==='rejected')return ['Retest result rejected by base · see task','bad'];
     if(res==='pending')return ['Result sent · waiting for base receipt','amber'];
     if(res==='reassessing')return ['Result received by base · awaiting base review','amber'];
-    if(res==='completed')return ['Base update · '+(alert&&alert.disposition||''),'amber'];
+    if(res==='completed')return ['Base update · case still open','amber'];   // closed is handled above
     if(rt.status==='requested')return [(alert?'Base notice':'Base task')+' · retest requested · '+what,'amber',true];
     if(rt.status==='accepted'&&loc&&loc.phase==='collected')return ['Retest captured · result ready to submit','amber'];
     if(rt.status==='deferred')return ['Retest deferred · synced with base','amber',true];
     if(rt.status==='aborted')return ['Retest aborted · can restart','amber',true];
     return ['Retest · '+(RT_LABEL[rt.status]||rt.status),'amber',true];
   }
-  if(alert&&open)return ['Base notice · '+(alert.status==='reassessed'?alert.disposition:'acknowledge in Base Messages'),'amber'];
+  if(alert&&open){const ak=client.ackState(alert);
+    return [alert.status==='reassessed'?'Base update · case still open':'Base notice · '+(ak&&ak.status==='confirmed'?'acknowledged':'acknowledge below'),'amber']}
   return ['Connected · no base messages yet. The base analyses each measurement; a notice and a retest task appear here only after base staff approve'+sync,'ok'];
 }
 function statusLine(st,alert,rt,res,loc){
@@ -908,6 +936,96 @@ function statusLine(st,alert,rt,res,loc){
   if(k==='ok')return ['GREEN · Normal · continue patrol'+sync,'ok'];
   return ['Auto-monitoring'+sync,'ok'];
 }
+/* integration: progressive disclosure in Base messages (#alert) and the retest card (#rcBody).
+   First layer: the station's own text (verbatim), ONE "Now" line derived from the recorded state (ack, retest status,
+   case status: never a health judgement or an added step), and only the buttons available now.
+   Second layer: a collapsed <details class="more"> with ids, versions, times, receipts, conditions, instructions, basis and
+   history. Its open state lives in S.more, so it survives the frequent re-renders and incoming messages. */
+const GLOVE={'eva-glove':'EVA glove',none:'no glove'};
+const nowLine=(text,kind)=>'<p class="inow '+kind+'"><span class="lab">Now</span> '+esc(text)+'</p>';
+const rowsDl=rows=>'<dl>'+rows.map(([k,x])=>'<dt>'+esc(k)+'</dt><dd>'+esc(x)+'</dd>').join('')+'</dl>';
+const moreBox=(key,label,inner)=>'<details class="more" data-more="'+key+'"'+(S.more[key]?' open':'')+'><summary>'+esc(label)+'</summary>'+inner+'</details>';
+const errP=k=>S.err[k]?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">'+esc(S.err[k])+'</p>':'';
+const onClick=(id,fn)=>{if($(id))$(id).onclick=fn};
+function setHtml(el,h){if(el._h!==h){el.innerHTML=h;el._h=h}}   // rebuild only on change: keeps a chosen reason, focus and the update flash
+function bindMore(el){el.querySelectorAll('details.more').forEach(d=>{d.querySelector('summary').onclick=e=>{e.preventDefault();S.more[d.dataset.more]=!S.more[d.dataset.more];render()}})}
+function renderAlertInt(alert,rt,res){
+  const el=$('alert');
+  if(!alert){setHtml(el,'<div class="empty">'+(rt?'No base notice · see the retest task':'No base notice yet')+'</div>');return}
+  const ak=client.ackState(alert),rc=client.receiptState(alert.messageId),done=alert.status!=='published',closed=alert.status==='closed';
+  const acked=!!(ak&&ak.status==='confirmed'),taskOpen=!!rt&&!closed&&res!=='completed';
+  if(S.alertFlash){S.flashUntil=performance.now()+2400;S.alertFlash=false}
+  let now,kind='todo';
+  if(ak&&ak.status==='pending'){now='Sending your acknowledgement…';kind='wait'}
+  else if(!acked)now=ak&&ak.status==='failed'?'Not confirmed by base · acknowledge again':done?'Acknowledge the base update':'Acknowledge the base notice';
+  else if(closed){now='No action needed · case closed';kind='none'}
+  else if(taskOpen){now='Acknowledged · see the retest task';kind='wait'}
+  else if(done){now='No action needed · case still open';kind='none'}
+  else{now='Acknowledged · waiting for the base';kind='wait'}
+  const btn=acked?'':'<div class="btns"><button id="bAck"'+(ak&&ak.status==='pending'?' disabled':'')+'>'+(ak&&ak.status==='pending'?'Acknowledging…':done?'Acknowledge update':'Acknowledge')+'</button></div>'
+    +(ak&&ak.status==='failed'?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">No base receipt; acknowledgement not applied</p>':'');
+  const rows=[];
+  if(done&&alert.nextAction&&alert.nextAction!=='—')rows.push(['Base decision',alert.nextAction]);
+  rows.push(['Case',alert.alertId+' · v'+alert.version+' · '+(AL_LABEL[alert.status]||alert.status)]);
+  if(alert.noticeId)rows.push(['Notice',alert.noticeId]);
+  rows.push(['Data time',fmtT(alert.dataTime)],['Sent by base',fmtT(alert.issuedAt)],
+    ['Device receipt',{confirmed:'sent ✓',sending:'sending…',failed:'unconfirmed · retrying'}[rc]||'—'],
+    ['Acknowledged',acked?'✓ v'+alert.version+' (not task completion)':ak&&ak.status==='pending'?'sending…':'not yet']);
+  const basis=(alert.basis||[]).length?'<p class="past"><b>Basis</b>'+alert.basis.map(esc).join('<br>')+'</p>':'';
+  const earlier=(alert.history||[]).slice(0,-1);   // the last entry is the text shown in the first layer
+  const past=earlier.map((x,i)=>'<p class="past"><b>'+(i===0&&alert.noticeId?'Earlier notice':'Earlier update')+' · v'+esc(x.version)+'</b>'+esc(x.finding)+'</p>').join('');
+  const label=done&&alert.noticeId?'Details · Earlier notice · history':earlier.length?'Details · history':'Details';
+  setHtml(el,'<div class="card alert'+(done?' v2':'')+(performance.now()<S.flashUntil?' updated':'')+'"><h5>'+(done?'✓ Base update'+(closed?' · case closed':''):'▲ Base notice')+'</h5>'
+    +'<p class="itext">'+esc(done?alert.disposition:alert.reason)+'</p>'+nowLine(now,kind)+btn
+    +moreBox('alert',label,rowsDl(rows)+basis+past)+'</div>');
+  bindMore(el);onClick('bAck',actAck);
+}
+function renderTaskInt(rt,alert,res,up,loc,online){
+  const el=$('rcBody'),p=rt.protocol;
+  const caseClosed=!!(alert&&alert.status==='closed'),done=res==='completed',moot=caseClosed&&!done,hist=done||moot;   // closed before a result → not needed
+  const collected=rt.status==='accepted'&&loc&&loc.phase==='collected';
+  $('rcTitle').textContent='📡 Base retest · Round '+rt.round+(done?' · done (history)':moot?' · not needed (history)':'');
+  $('rcard').classList.toggle('hist',hist);
+  let now,kind='todo',note='',act='',ek='';   // finished / closed tasks: no executable buttons
+  if(moot){now='No action needed · this task is history';kind='none';note=esc('The base closed the case before a result was submitted.')}
+  else if(rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)]){now='View the task to see the steps';act='<div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>'}
+  else if(done){now=caseClosed?'No action needed · this task is history':'No action needed · retest done';kind='none'}
+  else if(res==='reassessing'||res==='persisted'||res==='received'){now='No action needed · the base is reviewing the result';kind='wait'}
+  else if(res==='pending'){now=online?'Result sent · waiting for base receipt':'Offline · the result is queued until reconnect';kind='wait'}
+  else if(S.phase==='collecting'){now='Capture in progress (simulated)';kind='wait';ek='abort';
+    act='<div class="btns" style="flex-wrap:nowrap"><div class="prog" style="flex:1;margin:0"><i id="rcProg"></i></div><button id="bAbort"'+(S.busy.abort?' disabled':'')+'>'+(S.busy.abort?'Aborting…':'Abort retest')+'</button></div>'}
+  else if(rt.status==='accepted'&&loc&&loc.phase==='collecting'){now='Capture interrupted · capture again';note=esc('The page was reloaded or disconnected during the capture.');
+    act='<div class="btns"><button id="bRecollect" class="go">↻ Capture again</button></div>'}
+  else if(collected){now='Submit the captured result';ek='submit';
+    note='<span class="tag" style="color:var(--warn)">SIMULATED</span> '+(SAMPLE?'Stored shared sample · demo assumption':'Sample not loaded yet')
+      +(SAMPLE&&SAMPLE.protocolId!==p.id?'<br><span class="t-bad">Sample protocol does not match the request: will not be submitted</span>':'');
+    act='<div class="btns"><button id="bSubmit" class="go"'+(SAMPLE?'':' disabled')+'>Submit simulated retest result</button></div>'}
+  else{
+    note=rt.status==='deferred'?esc('Deferred · reason: '+rt.deferReason):rt.status==='aborted'?esc('Aborted · this capture was not uploaded.')
+      :rt.status==='rejected'?'<span class="t-bad">'+esc('Rejected by base: '+(up&&up.error||'no reason given'))+'</span>':'';
+    if(S.deferOpen){now='Choose a reason to defer';ek='defer';
+      act='<div class="btns"><select id="deferReason"><option value="">Choose a reason…</option>'+DEFER_REASONS.map(x=>'<option>'+x+'</option>').join('')+'</select>'
+        +'<button id="bDeferOk" class="go"'+(S.busy.defer?' disabled':'')+'>'+(S.busy.defer?'Submitting…':'Confirm defer')+'</button><button id="bDeferNo">Cancel</button></div>'}
+    else{now=rt.status==='aborted'?'Restart the retest when ready':rt.status==='rejected'?'Start the retest again when ready':'Start the retest when ready';ek='start';
+      act='<div class="btns"><button id="bGo" class="go"'+(S.busy.start?' disabled':'')+'>'+(S.busy.start?'Waiting for base…':rt.status==='aborted'?'↻ Restart':'▶ Start retest')+'</button>'
+        +(['requested','accepted'].includes(rt.status)?'<button id="bDefer">Defer</button>':'')+'</div>'}
+  }
+  const rows=[['Status',moot?'Not needed · case closed by base':RT_LABEL[rt.status]||rt.status],['Protocol',p.label],['Protocol id',p.id],
+    ['Conditions',p.targetPctMvc+'% MVC · '+p.posture+' · '+(GLOVE[p.glove]||p.glove)],
+    [done?'Instructions (done)':moot?'Instructions (not needed)':'Instructions',rt.instructions]];
+  if(done&&alert&&alert.disposition)rows.push(['Base update',alert.disposition]);
+  if(up)rows.push(['Result',res==='rejected'?'Rejected by base':up.ackAt?'Received by base '+fmtT(up.ackAt):up.status==='queued'?'Queued · not sent yet':'Sent · awaiting base receipt']);
+  rows.push(['Retest',rt.retestId+' · round '+rt.round+' · v'+rt.version],['Requested',fmtT(rt.issuedAt)]);
+  if(collected&&SAMPLE)rows.push(['Sample',SAMPLE.sampleId+' · recorded for '+SAMPLE.recordedFor+' · simulated'],['Duration',SAMPLE.signal.durationS+' s'],
+    ['Median freq.',SAMPLE.features.medianFreqHz+' Hz'],['RMS',SAMPLE.features.rmsPctMvc+' %MVC'],['Grip (meter)',SAMPLE.features.gripForceN==null?'not measured':SAMPLE.features.gripForceN+' N'],
+    ['Signal',SAMPLE.signal.sampleRateHz+' Hz · '+SAMPLE.signal.electrodeImpedanceKOhm+' kΩ']);
+  setHtml(el,'<p class="itext'+(hist?' dim':'')+'">'+esc(p.label)+'</p>'+nowLine(now,kind)+(note?'<p class="inote">'+note+'</p>':'')+act+(ek?errP(ek):'')
+    +moreBox('task','Task details',rowsDl(rows)));
+  bindMore(el);
+  onClick('bView',()=>{actView();S.more.task=true;render()});onClick('bGo',actStart);onClick('bAbort',actAbort);onClick('bSubmit',actSubmit);
+  onClick('bRecollect',()=>beginCollect(rt));onClick('bDefer',()=>{S.deferOpen=true;S.err.defer=null;render()});
+  onClick('bDeferOk',actDefer);onClick('bDeferNo',()=>{S.deferOpen=false;render()});
+}
 function render(){
   const st=client.state,{alert}=client.activeCase();let rt=client.activeCase().retest;
   if(rt&&rt.status==='accepted'&&LOCAL.aborted[keyOfRt(rt)])rt={...rt,status:'aborted'};   // local abort (no protocol event)
@@ -945,7 +1063,7 @@ function render(){
       +'<p>'+esc(alert&&alert.kind==='sensor'?alert.reason:'Local device: corrupted patch signal (high impedance, dropouts, saturation). The data is not used to judge muscle condition.')+'</p>'
       +(alert&&alert.kind==='sensor'&&!closed?'':alert&&alert.kind==='sensor'?'':'<p class="ver">Waiting for base confirmation…</p>')+act+'</div>';
     if($('bReconnect'))$('bReconnect').onclick=actReconnect;
-  }else if(cv.medical&&alert&&alert.status!=='closed'){
+  }else if(!INTEGRATION&&cv.medical&&alert&&alert.status!=='closed'){   // integration: no category from noticeId (-mr/-mrc), no medical step
     const md=cv.medical,mak=client.ackState({messageId:md.messageId});
     $('notice').innerHTML=md.cleared
       ?'<div class="card notice ok"><h5>✓ Medical review complete</h5><p>'+esc(md.clearText)+'</p></div>'
@@ -955,20 +1073,21 @@ function render(){
   }else $('notice').innerHTML='';
   const [sl,sc,vt]=statusLine(st,alert,rt,res,loc);const se=$('status');
   se.innerHTML=esc(sl)+(vt?' · <button class="vt" id="bViewTask">View task</button>':'');se.className=sc;
-  if($('bViewTask'))$('bViewTask').onclick=()=>{if(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])actView();flash($('rcard'),'flashc',1200);render()};
+  if($('bViewTask'))$('bViewTask').onclick=()=>{if(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])actView();if(INTEGRATION)S.more.task=true;flash($('rcard'),'flashc',1200);render()};
   const mon=client.monitorState();
   $('segVal').textContent=INTEGRATION?'off · integration mode':SEG.cur?'recording '+SEG.cur.t.toFixed(1)+' / '+SEG.LEN+' s':S.phase==='collecting'?'paused (retest)':'idle';
 
   // alert card: reason, next action, data time, receipt vs human ack
-  if(alert){
+  if(INTEGRATION)renderAlertInt(alert,rt,res);
+  else if(alert){
     const ak=client.ackState(alert),rc=client.receiptState(alert.messageId),done=alert.status!=='published';
     let ackHtml;
     if(ak&&ak.status==='confirmed')ackHtml='<span class="t-ok" style="font-size:12px">✓ Acknowledged v'+alert.version+' (not task completion)</span>';
-    else ackHtml='<button id="bAck"'+(ak&&ak.status==='pending'?' disabled':'')+'>'+(ak&&ak.status==='pending'?'Acknowledging…':INTEGRATION&&done?'Acknowledge update':'Acknowledge')+'</button>'
+    else ackHtml='<button id="bAck"'+(ak&&ak.status==='pending'?' disabled':'')+'>'+(ak&&ak.status==='pending'?'Acknowledging…':'Acknowledge')+'</button>'
       +(ak&&ak.status==='failed'?'<span class="t-bad" style="font-size:11px">No base receipt; acknowledgement not applied</span>':'');
     $('alert').innerHTML='<div class="card alert'+(alert.kind==='sensor'&&alert.status!=='closed'?' red':(done||alert.kind==='ok')?' v2':'')+(S.alertFlash?' updated':'')+'"><h5>'+((done&&alert.kind!=='sensor')||alert.kind==='ok'||(alert.kind==='sensor'&&alert.status==='closed')?'✓ ':'▲ ')+esc(alert.levelLabel)+' · '+esc(alert.title)+'</h5>'
-      +(alert.kind==='sensor'?'':INTEGRATION&&done?'<p class="ver"><span class="lab">Earlier notice · history</span>'+esc(alert.reason)+'</p>':'<p><span class="lab">Reason</span>'+esc(alert.reason)+'</p>')   // sensor text is already in the fault card
-      +(alert.nextAction&&alert.nextAction!=='—'?'<p><span class="lab">'+(INTEGRATION&&done?'Base decision':'Next')+'</span>'+esc(alert.nextAction)+'</p>':'')
+      +(alert.kind==='sensor'?'':'<p><span class="lab">Reason</span>'+esc(alert.reason)+'</p>')   // sensor text is already in the fault card
+      +(alert.nextAction&&alert.nextAction!=='—'?'<p><span class="lab">Next</span>'+esc(alert.nextAction)+'</p>':'')
       +'<p class="ver">'+esc(alert.alertId)+' · v'+alert.version+' · '+(AL_LABEL[alert.status]||alert.status)+' · Data time '+fmtT(alert.dataTime)+'</p>'
       +'<p class="ver">Device receipt: '+({confirmed:'sent ✓',sending:'sending…',failed:'unconfirmed · retrying'}[rc]||'—')+'</p>'
       +'<div class="btns">'+ackHtml+'</div></div>';
@@ -1010,21 +1129,16 @@ function render(){
     on('bSymSubmit',actSymSubmit);on('bSymBack',actSymBack);
     for(const [id] of [...SYMPTOMS,['none']]){const cb=$('sy-'+id);if(cb)cb.onchange=()=>actSymToggle(id)}
   }else if(fs==='RETEST'&&!rt){$('rcTitle').textContent='📡 Base retest';$('rcBody').innerHTML='<p style="margin:0;color:#cfefff">Checks complete · waiting for the base retest task.</p>';}
+  else if(rt&&INTEGRATION)renderTaskInt(rt,alert,res,up,loc,online);
   else if(rt){
-    const caseClosed=!!(alert&&alert.status==='closed'),moot=INTEGRATION&&caseClosed&&res!=='completed';   // integration: closed before a result → task no longer needed
-    $('rcTitle').textContent='📡 Base retest · Round '+rt.round+(INTEGRATION&&res==='completed'?' · done (history)':moot?' · not needed (history)':'');
-    const dl=INTEGRATION
-      ?'<dl><dt>Status</dt><dd>'+esc(moot?'Not needed · case closed by base':RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.label)+'</dd><dt>Conditions</dt><dd>'+esc(rt.protocol.targetPctMvc)+'% MVC · '+esc(rt.protocol.posture)+' · '+esc(rt.protocol.glove)+'</dd><dt>'+(res==='completed'?'Instructions (done)':moot?'Instructions (not needed)':'Instructions')+'</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>'
-      :'<dl><dt>Status</dt><dd>'+esc(RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.id)+' · '+esc(rt.protocol.posture)+'</dd><dt>Site</dt><dd>'+esc(rt.bodySite)+'</dd><dt>Action</dt><dd>'+esc(rt.action)+'</dd><dt>Instructions</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>';
+    const dl='<dl><dt>Status</dt><dd>'+esc(RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.id)+' · '+esc(rt.protocol.posture)+'</dd><dt>Site</dt><dd>'+esc(rt.bodySite)+'</dd><dt>Action</dt><dd>'+esc(rt.action)+'</dd><dt>Instructions</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>';
+    $('rcTitle').textContent='📡 Base retest · Round '+rt.round;
     let h;
-    if(moot)h=dl+'<p class="ver" style="margin-top:4px">The base closed the case before a result was submitted. This task is history: nothing to do.</p>';
-    else if(rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])
-      h=(INTEGRATION?'<p style="margin:0 0 4px;color:#ffe0a8">The base requests one standardized retest: <b>'+esc(rt.protocol.label)+'</b>. '+esc(rt.instructions)+'</p>'
-        :'<p style="margin:0 0 4px;color:#ffe0a8">The base requests one standardized retest of <b>'+esc(rt.bodySite)+'</b>: '+esc(rt.instructions)+' Auto-monitoring keeps running.</p>')+'<div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>';
+    if(rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])
+      h='<p style="margin:0 0 4px;color:#ffe0a8">The base requests one standardized retest of <b>'+esc(rt.bodySite)+'</b>: '+esc(rt.instructions)+' Auto-monitoring keeps running.</p><div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>';
     else if(res==='completed'){
       h=dl+'<p style="margin:4px 0 0;color:#cfefff"><span class="lab">Final</span>'+esc(alert&&alert.disposition||'Reassessed')+'</p>'
-        +'<p class="ver">'+(INTEGRATION?(caseClosed?'Case closed by base · this task is history':alert&&alert.status==='reassessed'?'Retest done · the base keeps watching the case (see Base messages) · nothing to do now':'Submitting a result does not close the case · base staff decide')
-          :alert&&alert.status==='closed'?'Case closed by base':'Submitting a result does not close the case · pending medical review')+'</p>';
+        +'<p class="ver">'+(alert&&alert.status==='closed'?'Case closed by base':'Submitting a result does not close the case · pending medical review')+'</p>';
     }else if(res==='reassessing')h=dl+'<p class="ver" style="margin-top:4px">◔ Awaiting base reassessment…</p>';
     else if(res==='persisted'||res==='received')h=dl+'<p class="ver" style="margin-top:4px">✓ Result received by base '+fmtT(up&&up.ackAt)+'</p>';
     else if(res==='pending')h=dl+'<p class="ver" style="margin-top:4px">Result pending · '+(online?'waiting for base receipt…':'offline, will submit when reconnected')+'</p>';
@@ -1033,9 +1147,8 @@ function render(){
     else if(rt.status==='accepted'&&loc&&loc.phase==='collecting')
       h=dl+'<p style="color:#ffe0a8;margin:4px 0 0">Capture was interrupted (page reload or disconnect). Please capture again.</p><div class="btns"><button id="bRecollect" class="go">↻ Capture again</button></div>';
     else if(rt.status==='accepted'&&loc&&loc.phase==='collected'){
-      const ms=SAMPLE?('<dt>Duration</dt><dd>'+esc(SAMPLE.signal.durationS)+' s</dd><dt>Median freq.</dt><dd>'+esc(SAMPLE.features.medianFreqHz)+' Hz</dd><dt>RMS</dt><dd>'+esc(SAMPLE.features.rmsPctMvc)+' %MVC</dd>'+(INTEGRATION?'<dt>Grip (meter)</dt><dd>'+(SAMPLE.features.gripForceN==null?'not measured':esc(SAMPLE.features.gripForceN)+' N')+'</dd>':'')+'<dt>Signal</dt><dd>'+esc(SAMPLE.signal.sampleRateHz)+' Hz · '+esc(SAMPLE.signal.electrodeImpedanceKOhm)+' kΩ</dd>'):'';
-      h='<div class="simres"><span class="tag" style="color:var(--warn)">SIMULATED</span> <span class="ver">'+esc(SAMPLE?SAMPLE.sampleId:'sample not loaded')+' · Protocol '+esc(rt.protocol.id)+'</span><dl>'+ms+'</dl>'
-        +(INTEGRATION&&SAMPLE?'<p class="ver">Stored shared sample (recorded for '+esc(SAMPLE.recordedFor)+', used for this run as a demo assumption)'+(SAMPLE.protocolId!==rt.protocol.id?' · protocol does not match the request: will not be submitted':'')+'</p>':'')+'</div>'
+      const ms=SAMPLE?('<dt>Duration</dt><dd>'+esc(SAMPLE.signal.durationS)+' s</dd><dt>Median freq.</dt><dd>'+esc(SAMPLE.features.medianFreqHz)+' Hz</dd><dt>RMS</dt><dd>'+esc(SAMPLE.features.rmsPctMvc)+' %MVC</dd><dt>Signal</dt><dd>'+esc(SAMPLE.signal.sampleRateHz)+' Hz · '+esc(SAMPLE.signal.electrodeImpedanceKOhm)+' kΩ</dd>'):'';
+      h='<div class="simres"><span class="tag" style="color:var(--warn)">SIMULATED</span> <span class="ver">'+esc(SAMPLE?SAMPLE.sampleId:'sample not loaded')+' · Protocol '+esc(rt.protocol.id)+'</span><dl>'+ms+'</dl></div>'
         +(res==='rejected'?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">Rejected by base: '+esc(up&&up.error)+'</p>':'')
         +'<div class="btns"><button id="bSubmit" class="go"'+(SAMPLE?'':' disabled')+'>Submit simulated retest result</button></div>'+err('submit');
     }else{
@@ -1076,10 +1189,13 @@ function render(){
 /* ================= wiring ================= */
 document.querySelectorAll('[data-scn]').forEach(b=>b.onclick=()=>startScenario(b.dataset.scn));
 if(INTEGRATION){   // integration: no scenario choice; join the run the data replay started
+  document.body.classList.add('int');   // integration-only styles (progressive disclosure, no body map)
   const dr=document.querySelector('#demo .btns');if(dr)dr.style.display='none';
   // the local patch panel (left thigh, live sEMG/IMU traces, contact estimate) is this page's own simulation: not used here
   const lp=$('left');if(lp){lp.querySelector('h4').textContent='Local patch · not used in integration mode';
     for(const id of ['emgVal','imuVal','contact']){const r=$(id)&&$(id).closest('.row');if(r)r.style.display='none'}for(const id of ['cvEmg','cvImu'])if($(id))$(id).style.display='none'}
+  // the data-link panel describes this page's own patch demo; here the retest result is a stored simulated sample (no patch link)
+  const dl=$('bottom');if(dl){dl.querySelector('h4').textContent='Retest result link · simulated sample → HUD → Base (patch not connected)';const pn=dl.querySelector('.cn');if(pn)pn.lastChild.textContent='Sample (sim.)'}
   const bm=document.querySelector('svg.body');if(bm)bm.setAttribute('aria-label','Body map');
   const ii=document.querySelector('#intro .in');
   if(ii)ii.innerHTML='<h1>MyoMars HUD · Integration mode</h1><p>Two-end run with the Mars Station. You are astronaut A-02.<br><b>Drag</b> to look around, <b>W / S</b> to move, <b>A / D</b> to step sideways.</p>'
