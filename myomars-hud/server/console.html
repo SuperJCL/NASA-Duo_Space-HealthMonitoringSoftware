@@ -27,11 +27,13 @@ th{color:var(--mut);font-weight:500}.mono{font-family:ui-monospace,Menlo,monospa
     <h2>Actions</h2>
     <button data-a="/mock/start">Trigger: start run</button>
     <button data-a="/mock/reset-run">Trigger: reset run</button>
-    <button class="pri" data-a="/mock/approve">Station: approve now (notice + retest)</button>
+    <button id="bApprove" data-a="/mock/approve">Station: approve detection now (skip auto-review)</button>
     <button data-a="/mock/close">Station: close case</button>
+    <button id="bMedClear" data-a="/mock/medical-clear">Crew medical: clear retest</button>
     <button data-a="/mock/duplicate">Relay: re-deliver last station message</button>
     <button data-a="/mock/drop">Relay: drop SSE connections</button>
     <button data-a="/mock/reset">Wipe session</button>
+    <div id="medHint" style="display:none;margin:4px 0 8px;padding:6px 10px;border:1px solid var(--warn);border-radius:6px;color:var(--warn);font-size:12px">Medical review pending on the HUD → click <b>Crew medical: clear retest</b> to permit the retest.</div>
     <div id="msg"></div>
   </section>
   <div class="grid">
@@ -55,9 +57,13 @@ function summary(e){const p=e.payload||{};
     case 'station.reassessment':return 'v'+p.evaluationVersion+' · '+p.reviewDecision+' · '+p.caseStatus;
     case 'hud.received':case 'hud.ack':return '→ '+p.messageId.slice(0,14)+'…';
     case 'hud.defer':return '→ '+p.messageId.slice(0,14)+'… · '+p.reason;
+    case 'hud.symptoms':return p.noneReported?'none of the above':p.symptoms.join(', ');
     case 'scenario.start':return p.astronaut.callsign+' · '+p.task.title;default:return ''}}
 async function refresh(){
   const s=await fetch('/mock/state').then(r=>r.json());
+  const medPending=s.cases.some(c=>c.medical&&c.medical.pending);
+  $('medHint').style.display=medPending?'block':'none';$('bMedClear').className=medPending?'pri':'';$('bMedClear').disabled=!medPending;
+  $('bApprove').disabled=!s.cases.some(c=>c.pending)&&s.cases.some(c=>c.notice||c.ok||c.sensor);
   $('cases').innerHTML='<p style="margin:0 0 6px;font-size:12px;color:var(--mut)">Active run <span class="mono">'+esc(s.activeRun||'—')+'</span> · last seq '+s.lastSeq+' · SSE clients '+s.clients+'</p>'
     +'<table><tr><th>Case</th><th>Status</th><th>Eval v</th><th>Pending review</th><th>Retest</th></tr>'+s.cases.map(c=>'<tr><td class="mono">'+esc(c.caseId)+'</td><td>'+c.status+'</td><td>'+c.version+'</td><td>'+(c.pending?'<b style="color:var(--warn)">yes</b>':'no')+'</td><td class="mono">'+esc(c.request?c.request.retestId:'')+'</td></tr>').join('')+'</table>';
   const ob=s.cases.flatMap(c=>c.observations);

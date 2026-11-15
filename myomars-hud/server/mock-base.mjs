@@ -22,11 +22,18 @@ const J = f => JSON.parse(fs.readFileSync(path.join(SD, f), 'utf8'));
 const RULES = J('event-rules.json');
 export const CONTRACT = { envelope: J('envelope.schema.json'), delivered: J('delivered.schema.json'), rules: RULES,
   payloads: Object.fromEntries(Object.entries(RULES).map(([t, r]) => [t, J(r.payloadSchema)])) };
+// Proposed extensions (contract/extensions/*.json): additive event types validated exactly like core ones.
+for (const f of fs.readdirSync(path.join(ROOT, 'contract/extensions')).filter(x => x.endsWith('.json'))) {
+  const x = JSON.parse(fs.readFileSync(path.join(ROOT, 'contract/extensions', f), 'utf8'));
+  for (const sc of [CONTRACT.envelope, CONTRACT.delivered]) sc.properties.type.enum = [...sc.properties.type.enum, x.type];
+  CONTRACT.rules[x.type] = { ...x.rule, payloadSchema: 'contract/extensions/' + f };
+  CONTRACT.payloads[x.type] = x.payloadSchema;
+}
 
-const REASSESS_MS = Number(process.env.REASSESS_MS || 3500);
-const REVIEW_MS = Number(process.env.REVIEW_MS || 2500);      // mock medical reviewer approves after this delay
+const REASSESS_MS = Number(process.env.REASSESS_MS || 1200);   // demo pacing
+const REVIEW_MS = Number(process.env.REVIEW_MS || 800);       // mock medical reviewer approves after this delay (demo pacing)
 const SEG_TRIGGER = Number(process.env.SEG_TRIGGER || 3);      // comparable walking observations before a trend call
-const MIN_SEG_S = Number(process.env.MIN_SEG_SEC || 4);        // quality rule (demo only, not a clinical threshold)
+const MIN_SEG_S = Number(process.env.MIN_SEG_SEC || 2.5);      // quality rule (demo only, not a clinical threshold)
 const BASELINE = { baselineId: 'bl-walk-a02-v3', protocolId: 'walk-auto-v1', taskId: 'eva-patrol', glove: 'eva-glove', medianFreqHz: 84, rmsPctMvc: 15 };
 const SENSOR_TRIGGER = Number(process.env.SENSOR_TRIGGER || 2);   // consecutive corrupted segments before a sensor-fault notice
 const VERIFY_NEEDED = 2;                                          // valid segments after reconnection to verify the patch
@@ -115,6 +122,7 @@ function stationOnEvent(sessionId, d) {
     const c = s.station.cases[d.caseId], o = d.payload.observation;
     let status = 'accepted', reason = null;
     if (!c || !c.request || c.request.retestId !== d.retestId) { status = 'rejected'; reason = 'no open retest request for this retestId'; }
+    else if (c.medical && c.medical.pending) { status = 'rejected'; reason = 'medical review pending: retest not permitted yet'; }
     else if (o.protocol.id !== c.request.protocol.id) { status = 'rejected'; reason = 'protocol does not match the requested retest'; }
     else if (o.context.phase !== 'retest') { status = 'rejected'; reason = 'context.phase must be retest'; }
     else if (c.results.has(o.observationId)) { status = 'duplicate'; reason = 'observation already received'; }
@@ -131,6 +139,32 @@ function stationOnEvent(sessionId, d) {
           summary: 'Retest shift is smaller than in the walking segments; keep under watch.', reviewDecision: 'keep-watch', caseStatus: 'under-watch', simulated: true });
       }, REASSESS_MS);
     }
+    return;
+  }
+  if (d.type === 'hud.symptoms') {                       // proposed extension: symptom assessment after a fatigue notice
+    const c = s.station.cases[d.caseId], p = d.payload, base = { runId: d.runId, caseId: d.caseId };
+    let status = 'accepted', reason = null;
+    const coherent = p.noneReported ? p.symptoms.length === 0 : p.symptoms.length > 0 && new Set(p.symptoms).size === p.symptoms.length;
+    if (!c || !c.notice || p.messageId !== c.notice.eventId) { status = 'rejected'; reason = 'no open fatigue notice for this messageId'; }
+    else if (!coherent) { status = 'rejected'; reason = 'select symptoms or "none of the above", not both'; }
+    else if (c.symptoms) { status = 'duplicate'; reason = 'assessment already received'; }
+    if (status === 'accepted') {
+      c.symptoms = { symptoms: p.symptoms, none: p.noneReported, eventId: d.eventId };
+      if (!p.noneReported) {
+        // DEMO RULE (deterministic, not a clinical threshold): any reported symptom → crew medical review before a retest
+        c.medical = { pending: true };
+        audit(s, 'routing', 'medical-review', d.caseId, 'required (demo rule)', { symptoms: p.symptoms.join(', ') });
+        c.medical.notice = stationPublish(sessionId, base, 'station.notice.approved', {
+          noticeId: d.caseId + '-mr1',
+          text: 'Symptoms reported. Await instructions from the crew medical team before starting a muscle retest.',
+          basis: ['Reported: ' + p.symptoms.join(', ') + '.', 'Demo rule: any reported symptom routes the case to crew medical review (not a clinical threshold).'],
+          evaluationVersion: 1, reviewedBy: 'Base duty officer (mock)', reviewReason: 'Medical review required before any muscle retest.', simulated: true
+        });
+        reason = 'medical review required (demo rule: any reported symptom)';
+      } else reason = 'no symptoms reported; retest may proceed when the base permits';
+    }
+    stationPublish(sessionId, base, 'station.receipt', { receivedEventId: d.eventId, receivedType: 'hud.symptoms', status, reason });
+    audit(s, 'station', 'symptoms', d.caseId, status, reason ? { reason } : undefined);
     return;
   }
   if (d.type === 'hud.ack' || d.type === 'hud.defer' || d.type === 'hud.received')
@@ -153,7 +187,10 @@ function approveCase(sessionId, caseId, by = REVIEWER) {
   if (!c) return { status: 409, body: { error: 'no-case', detail: 'no observations received yet' } };
   if (!s.activeRun) return { status: 409, body: { error: 'no-active-run' } };
   const kind = c.pending ? c.pending.kind : 'fatigue';
-  if ((kind === 'fatigue' && c.notice) || (kind === 'ok' && c.ok) || (kind === 'sensor' && c.sensor)) return { status: 409, body: { error: 'already-approved' } };
+  if ((kind === 'fatigue' && c.notice) || (kind === 'ok' && c.ok) || (kind === 'sensor' && c.sensor))
+    return { status: 409, body: { error: 'already-approved', hint: c.medical && c.medical.pending
+      ? 'Medical review is pending: use "Crew medical: clear retest" instead.'
+      : 'The station already published this notice; nothing to approve.' } };
   const used = c.observations.filter(x => x.comparable), base = { runId: s.activeRun, caseId: c.caseId };
   const lastObs = c.observations.at(-1);
   const occ = lastObs ? { occurredAt: lastObs.capturedAt } : {};
@@ -245,6 +282,15 @@ const server = http.createServer(async (req, res) => {
       const s = sess(sid);
       if (p === '/mock/approve') return send(res, approveCase(sid));
       if (p === '/mock/close') return send(res, closeCase(sid));
+      if (p === '/mock/medical-clear') {                       // crew medical team (human) clears the retest
+        const c = Object.values(s.station.cases).find(x => x.medical && x.medical.pending);
+        if (!c) return send(res, { status: 409, body: { error: 'no-medical-review-pending' } });
+        c.medical.pending = false; audit(s, 'crew medical team (mock)', 'medical-clear', c.caseId, 'retest permitted');
+        stationPublish(sid, { runId: s.activeRun, caseId: c.caseId }, 'station.notice.approved', { noticeId: c.caseId + '-mrc1',
+          text: 'Crew medical team: you may perform the standard retest when ready.', basis: ['Reviewed the reported symptoms.'],
+          evaluationVersion: 1, reviewedBy: 'Crew medical team (mock)', reviewReason: 'Retest permitted after medical review.', simulated: true });
+        return send(res, { status: 200, body: { ok: true } });
+      }
       if (p === '/mock/duplicate') { const e = s.events.filter(x => x.source === 'station').at(-1); if (e) for (const c of s.clients) sseSend(c, e); return send(res, { status: 200, body: { resent: e?.eventId || null } }); }
       if (p === '/mock/drop') { const n = s.clients.size; for (const c of s.clients) c.destroy(); s.clients.clear(); return send(res, { status: 200, body: { dropped: n } }); }
       if (p === '/mock/start' || p === '/mock/reset-run') {       // console acting as the Trigger

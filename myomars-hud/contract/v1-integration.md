@@ -49,7 +49,24 @@ mock 中继对每条发布做完整校验：`envelope.schema.json`、对应 `pay
 | 2 · Muscle fatigue | `walking-fatigue`：信号质量合格，中值频率下降、激活升高 | 连续 3 段可比片段呈疲劳模式（中值频率 < 基线 92% 且 RMS > 基线 110%） | 疲劳提示（`…-n1`）+ `station.retest.requested`（先休息再复测） | **AMBER** · Muscle fatigue suspected · rest and retest |
 | 3 · Sensor malfunction | `walking-sensor-fault`：阻抗高、掉线、饱和；肌肉状态本身正常 | 连续 2 段信号质量不合格 → 这些片段**不做任何肌肉判断** | 传感器故障提示（`…-sensor1`），无复测任务；重连后 2 段合格片段 → `station.reassessment`（`signal-restored`，`close`） | **RED** · Sensor fault · reconnect the patch and verify → 验证后 GREEN |
 
-场景 3 中，本地设备在第一段数据就能看到接触异常，HUD 立即显示 RED（技术提示，不涉及肌肉状态）；站点的故障提示随后确认。点「Reconnect patch & verify」后，本地设备发送两段 5 秒的验证采集。
+场景 3 中，本地设备在第一段数据就能看到接触异常，HUD 立即显示 RED（技术提示，不涉及肌肉状态）；站点的故障提示随后确认。点「Reconnect patch & verify」后，本地设备发送两段 3 秒的验证采集。
+
+## 2c. 场景 2 后续流程（恢复指导 → 症状自查 → 复测）
+
+`AMBER 提示 → Acknowledge → Recovery Guidance → Symptom Check →（现有）复测任务 → （现有）重评`。底部左侧卡片一次只显示一个步骤；站点的复测请求在前置步骤完成前保持挂起，不显示 Start retest。
+
+| 步骤（HUD 内部状态） | 进入条件 | 收发 |
+|---|---|---|
+| ACK_PENDING | 收到疲劳提示（noticeId `…-n1`） | — |
+| RECOVERY_PENDING | 对提示发出 `hud.ack` | 「Defer — Unsafe to Stop」→ `hud.defer`（messageId = 疲劳提示，reason = `Unsafe to stop: …`）→ RECOVERY_DEFERRED，可恢复 |
+| RECOVERY_COMPLETED | 查看指引 → Safe to Pause → 确认完成（移动中不可确认） | 无契约事件，按案例保存在本地；刷新不会自动完成 |
+| SYMPTOM_CHECK_PENDING / SUBMITTED | 恢复已确认 | 发 `hud.symptoms`（**提议扩展**，见下）；只有收到 `station.receipt` accepted 才算提交成功 |
+| MEDICAL_REVIEW_PENDING | 回执表明需复核：站点先发 `station.notice.approved`（noticeId `…-mr1`） | Start retest 禁用；站点也拒收此时的 `retest.result`；医疗组放行 → notice `…-mrc1` |
+| RETEST | 症状回执 accepted 且无待处理的医疗复核 | 现有复测流程，不变 |
+
+**演示规则（确定性，非临床阈值）：** 报告任一症状 → 转医疗复核；选「None of the above」→ 允许复测。不设恢复时长。
+
+**提议扩展 `hud.symptoms`**（`contract/extensions/hud.symptoms.json`）：v1 没有症状上报事件，按 CONTRACTS.md「v1 只接受新增」新增一个类型；mock 中继对它做与核心类型相同的 schema + 规则校验；站点用现有 `station.receipt`（`receivedType: "hud.symptoms"`）确认。需团队 PR 评审后才算正式契约。
 
 ## 3. 仍需团队确认的缺口
 
@@ -67,3 +84,5 @@ mock 中继对每条发布做完整校验：`envelope.schema.json`、对应 `pay
 | V1-10 | 提议扩展 `retest.completed` | 未发送（契约说明不发送也完全兼容） |
 | V1-11 | `station.notice.approved` 没有类别 / 等级字段（正常、疲劳、传感器故障无法区分） | 用 noticeId 后缀约定：`-ok`、`-n`、`-sensor`；HUD 据此显示 GREEN / AMBER / RED |
 | V1-12 | 没有「传感器已验证」专用事件 | 用 `station.reassessment`（`outcome: signal-restored`，`reviewDecision: close`） |
+| V1-13 | 没有症状上报事件 | 提议扩展 `hud.symptoms`（见 §2c） |
+| V1-14 | 没有医疗复核 / 放行事件，也没有恢复完成事件 | 复核与放行用 notice 后缀 `-mr` / `-mrc`；恢复完成只在本地记录 |

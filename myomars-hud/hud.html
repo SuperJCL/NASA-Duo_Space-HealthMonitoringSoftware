@@ -118,6 +118,8 @@ button.go{border-color:var(--amber);color:#fff0d6;background:rgba(120,70,10,.6);
 button.go:hover:not(:disabled){background:rgba(170,100,20,.75)}
 .btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
 ol.guide{margin:6px 0 0;padding-left:18px;color:#cfefff;font-size:12px}
+.chk{display:grid;gap:4px;margin:6px 0;font-size:12px;color:#e4f7ff}.chk label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.card.notice.amber{border-color:var(--amber)}.card.notice.amber h5{color:var(--amber)}
 
 @keyframes drop{0%{top:-40px;opacity:0}60%{opacity:1}100%{top:20vh;opacity:1}}
 @keyframes blink{50%{opacity:.35}}
@@ -367,7 +369,7 @@ const mod=(a,n)=>((a%n)+n)%n;
 function bearingT(t,u){return mod(B0+u*SPAN,360)}
 function bearingX(X){return mod(B0+X/v.W*SPAN,360)}
 function stripX(t,u){return u*v.W}
-const T={msg:1500,firstUpload:4500,toLocal:1000,upload:1600,step:850,deliver:1200,noticeDelay:1300,collect:5200,recollect:3200};
+const T={msg:800,firstUpload:4500,toLocal:1000,upload:1600,step:850,deliver:1200,noticeDelay:1300,collect:3000,recollect:3200};   // demo pacing: msg flight 0.8 s, retest capture 3 s
 const WALK={maxScale:1.12,fullAfter:10,bob:3.2,stepHz:1.7,strafe:.10,mps:1.2,turnKey:.45};
 const BASE_KM=2.4;
 
@@ -474,6 +476,8 @@ function frame(ts){
   if(SEG.cur&&(ts|0)%10===0)$('segVal').textContent='recording '+SEG.cur.t.toFixed(1)+' / '+SEG.LEN+' s';
   // "View retest" waits until you stop walking
   const vb=$('bView');if(vb){const moving=v.speed>.08;vb.disabled=moving;$('stopHint').textContent=moving?'Stop first to view':''}
+  {const moving=v.speed>.08;let any=false;for(const id of ['bPause','bRecDone']){const b=$(id);if(b){any=true;b.disabled=moving||b.dataset.off==='1'}}
+   const rh=$('recHint');if(rh&&any)rh.textContent=moving?'Stop moving to confirm':''}
   requestAnimationFrame(frame);
 }
 /* ===== near-ground rubble: ground-plane particles, move faster than distant hills ===== */
@@ -623,6 +627,47 @@ const SCN={normal:{id:'myomars-normal',name:'Scenario 1 · Normal',file:'walking
   sensor:{id:'myomars-sensor-fault',name:'Scenario 3 · Sensor malfunction',file:'walking-sensor-fault'}};
 const WALK_S={};
 LOCAL.patchOk=LOCAL.patchOk||{};
+/* Scenario 2 follow-up: AMBER → Acknowledge → Recovery Guidance → Symptom Check → existing Retest → existing Reassessment.
+   Recovery progress has no contract event, so it is kept per case in LOCAL (never marked complete without an explicit tap);
+   ack / defer / symptoms / medical review come from relay history via the client view. */
+LOCAL.rec=LOCAL.rec||{};LOCAL.symDraft=LOCAL.symDraft||{};
+const RECOVERY_DEFER_REASONS=['Operational task cannot be interrupted','Unsafe terrain or position','Other crew safety judgment'];
+const SYMPTOMS=[['muscle-pain','Muscle pain'],['unusual-weakness','Unusual muscle weakness'],['muscle-cramping','Muscle cramping']];
+function flowStep(c){                         // only for an AMBER fatigue case; returns null otherwise
+  const a=c.alert;if(!a||a.kind!=='review'||!a.noticeMessageId)return null;
+  const ak=client.ackState({messageId:a.noticeMessageId});
+  if(!ak||ak.status!=='confirmed')return 'ACK_PENDING';
+  const rec=LOCAL.rec[a.caseId]||{};
+  if(!rec.completed){const d=c.recoveryDefer;return d&&d.seq>(rec.resumedSeq||0)?'RECOVERY_DEFERRED':'RECOVERY_PENDING'}
+  const sy=c.symptoms;
+  if(!sy||sy.state==='failed'||sy.state==='rejected')return 'SYMPTOM_CHECK_PENDING';
+  if(sy.state==='queued'||sy.state==='submitted')return 'SYMPTOM_CHECK_SUBMITTED';
+  if(c.medical&&!c.medical.cleared)return 'MEDICAL_REVIEW_PENDING';
+  return 'RETEST';                            // prerequisites done and base permits testing
+}
+function recState(){const a=client.activeCase().alert;if(!a)return null;return LOCAL.rec[a.caseId]||(LOCAL.rec[a.caseId]={})}
+function actRecView(){const r=recState();if(!r)return;r.viewed=true;saveLocal();log('Recovery instructions viewed');render()}
+function actRecPause(){const r=recState();if(!r||!r.viewed||v.speed>.08)return;r.paused=true;saveLocal();log('Astronaut: safe to pause');render()}
+function actRecDone(){const r=recState();if(!r||!r.paused||v.speed>.08)return;r.completed=true;saveLocal();log('Recovery procedure confirmed complete');render()}
+async function actRecDefer(){
+  const sel=$('recDeferReason'),reason=sel?sel.value:'';if(!reason){S.err.rec=errText('reason-required');render();return}
+  S.busy.rec=true;render();const r=await client.deferNotice('Unsafe to stop: '+reason);S.busy.rec=false;
+  if(r.ok){S.recDeferOpen=false;S.err.rec=null;const x=recState();if(x){x.paused=false;saveLocal()}log('Recovery deferred: '+reason)}else S.err.rec=errText(r.error);render();
+}
+function actRecResume(){const c=client.activeCase(),x=recState();if(!x||!c.recoveryDefer)return;x.resumedSeq=c.recoveryDefer.seq;saveLocal();log('Recovery resumed');render()}
+function actSymToggle(id){
+  const a=client.activeCase().alert;if(!a)return;const d=LOCAL.symDraft[a.caseId]||(LOCAL.symDraft[a.caseId]={sel:[]});
+  if(id==='none')d.sel=d.sel.includes('none')?[]:['none'];                     // "None of the above" is exclusive
+  else{d.sel=d.sel.filter(x=>x!=='none');d.sel=d.sel.includes(id)?d.sel.filter(x=>x!==id):[...d.sel,id]}
+  saveLocal();render();
+}
+function actSymSubmit(){
+  const a=client.activeCase().alert;if(!a||S.busy.sym)return;const d=(LOCAL.symDraft[a.caseId]||{sel:[]}).sel;
+  if(!d.length){S.err.sym='Select at least one option';render();return}
+  const none=d.includes('none'),r=client.submitSymptoms({symptoms:none?[]:d,noneReported:none});
+  S.err.sym=r.ok?null:errText(r.error);if(r.ok&&!r.duplicate)log('Symptom assessment sent: '+(none?'none of the above':d.join(', ')));render();
+}
+function actSymBack(){const x=recState();if(!x)return;x.completed=false;saveLocal();render()}
 function scenarioKey(){const r=client.activeCase().run;if(r)for(const k in SCN)if(SCN[k].id===r.scenarioId)return k;return LOCAL.scenario||'normal'}
 function runId(){const r=client.activeCase().run;return r?r.runId:null}
 function patchOk(){return !!LOCAL.patchOk[runId()]}
@@ -636,7 +681,7 @@ function loadSamples(){
   if(!SAMPLE||Object.keys(WALK_S).length<3)setTimeout(loadSamples,3000);
 }
 /* auto patrol monitoring: the local device cuts walking into segments and queues them for upload */
-const SEG={cur:null,idle:0,LEN:6,MIN:2};
+const SEG={cur:null,idle:0,LEN:3,MIN:1.5};   // demo pacing: one walking segment every 3 s of walking
 const COND={task:'EVA patrol',load:'standard suit',terrain:'flat regolith'};
 function segTick(dt){
   if(!started||S.phase==='collecting'){if(SEG.cur)closeSegment();return}
@@ -657,7 +702,7 @@ function emitSegment(sec,steps,startedAt){
   // walking segment → observation.submitted (Trigger role); timing from the device, values from the contract sample
   const r=client.submitObservation({segmentId:'seg-'+Date.now().toString(36)+'-'+(SEG.n=(SEG.n||0)+1),startedAt:startedAt||new Date(Date.now()-sec*1000).toISOString(),durationSec:dur},smp);
   if(smp===WALK_S.sensor)log('Local device: corrupted patch signal (impedance '+smp.signal.electrodeImpedanceKOhm+' kΩ, dropout '+smp.signal.dropoutPct+'%)','t-bad');
-  if(r.ok&&client.state.conn==='online')flight={t0:performance.now(),dur:1400};
+  if(r.ok&&client.state.conn==='online')flight={t0:performance.now(),dur:900};
   render();
 }
 
@@ -666,6 +711,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 const keyOfRt=rt=>rt.retestId+'#'+rt.round;
 const ERR={'reason-required':'Please choose a reason to defer','state-conflict':'Task state changed; synced latest from base','round-mismatch':'Round changed; synced latest from base',
   network:'Not connected to base; queued, will send when reconnected','unknown-message':'Message no longer available','unknown-retest':'Task not found','no-service-receipt':'No receipt from base'};
+ERR['selection-required']='Select at least one option';ERR['no-fatigue-notice']='No fatigue notice to answer';
 const errText=e=>ERR[e]||('Not confirmed by base ('+e+')');
 
 const client=createBaseClient({baseUrl:BASE_URL,sessionId:'demo',storage:localStorage,
@@ -688,7 +734,7 @@ function startScenario(k){
 function actReconnect(){
   if(S.reconnect)return;S.reconnect='running';log('Reconnecting patch…');render();
   setTimeout(()=>{LOCAL.patchOk[runId()]=true;saveLocal();S.reconnect='verifying';log('Patch reconnected · verifying signal');render();
-    emitSegment(5,10);setTimeout(()=>{emitSegment(5,10)},1500);},1600);
+    emitSegment(3,6);setTimeout(()=>{emitSegment(3,6)},500);},700);
 }
 
 /* ---- actions (each reports success only after a service response) ---- */
@@ -699,6 +745,7 @@ async function actAck(){
 }
 async function actStart(){
   const {retest:rt}=client.activeCase();if(!rt||S.busy.start)return;
+  const fs=flowStep(client.activeCase());if(fs&&fs!=='RETEST'){S.err.start='Complete the recovery and symptom check first';render();return}
   S.err.start=null;
   // starting = astronaut acknowledges the request (hud.ack); contracts v1 has no separate "accept" event
   if(rt.status!=='accepted'){S.busy.start=true;render();const r=await client.respond(rt.retestId,'accept');S.busy.start=false;
@@ -733,7 +780,7 @@ function actSubmit(){
   if(!SAMPLE){S.err.submit='Protocol sample not loaded; cannot submit';render();return}
   const r=client.submitResult(rt.retestId,SAMPLE);
   if(!r.ok){S.err.submit=errText(r.error);render();return}
-  S.err.submit=null;if(client.state.conn==='online')flight={t0:performance.now(),dur:1600};render();
+  S.err.submit=null;if(client.state.conn==='online')flight={t0:performance.now(),dur:1000};render();
 }
 
 /* ---- collecting progress (HUD only, view stays stable) ---- */
@@ -789,7 +836,16 @@ function statusLine(st,alert,rt,res,loc){
   if(k==='sensor'&&!open)return ['GREEN · Sensor verified · monitoring resumed'+sync,'ok'];
   if(S.reconnect==='verifying'||(k==='sensor'&&patchOk()))return ['RED · Verifying patch signal · waiting for base','bad'];
   if(liveFault()||k==='sensor')return ['RED · Sensor fault · reconnect the patch and verify','bad'];
-  // Scenario 2 — muscle fatigue: rest and retest
+  // Scenario 2 — muscle fatigue follow-up steps before the retest
+  if(open&&S.flow&&S.flow!=='RETEST'){
+    if(S.flow==='ACK_PENDING')return ['AMBER · Muscle fatigue suspected · acknowledge the base alert','amber'];
+    if(S.flow==='RECOVERY_PENDING')return ['AMBER · Muscle fatigue suspected · recovery guidance','amber',true];
+    if(S.flow==='RECOVERY_DEFERRED')return ['AMBER · Recovery deferred · unsafe to stop','amber',true];
+    if(S.flow==='SYMPTOM_CHECK_PENDING')return ['AMBER · Muscle symptom check pending','amber',true];
+    if(S.flow==='SYMPTOM_CHECK_SUBMITTED')return ['AMBER · Symptom check sent · waiting for base acknowledgement','amber'];
+    if(S.flow==='MEDICAL_REVIEW_PENDING')return ['AMBER — Medical Review Pending','amber'];
+  }
+  // Scenario 2 — muscle fatigue: existing retest
   if(open&&rt){
     if(S.phase==='collecting')return ['AMBER · Retest capturing · view stabilized','amber'];
     if(res==='rejected')return ['AMBER · Retest result rejected · please resubmit','bad'];
@@ -824,6 +880,7 @@ function render(){
   $('stab').style.display=S.phase==='collecting'?'block':'none';
   $('visor').classList.toggle('focus',S.phase==='collecting'||(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)]));
   $('bLink').textContent=st.conn==='offline'?'Reconnect base':'Disconnect base';
+  const cv=client.activeCase();S.flow=flowStep(cv);
   const lv=levelOf(alert),le=$('level');
   le.className='lvl'+(lv?' '+lv:'');le.textContent=lv?'● '+lv.toUpperCase():'● MONITORING';
   $('scnName').textContent=started?SCN[scenarioKey()].name:'—';
@@ -839,7 +896,14 @@ function render(){
       +'<p>'+esc(alert&&alert.kind==='sensor'?alert.reason:'Local device: corrupted patch signal (high impedance, dropouts, saturation). The data is not used to judge muscle condition.')+'</p>'
       +(alert&&alert.kind==='sensor'&&!closed?'':alert&&alert.kind==='sensor'?'':'<p class="ver">Waiting for base confirmation…</p>')+act+'</div>';
     if($('bReconnect'))$('bReconnect').onclick=actReconnect;
-  }else if(!S.notice)$('notice').innerHTML='';
+  }else if(cv.medical&&alert&&alert.status!=='closed'){
+    const md=cv.medical,mak=client.ackState({messageId:md.messageId});
+    $('notice').innerHTML=md.cleared
+      ?'<div class="card notice ok"><h5>✓ Medical review complete</h5><p>'+esc(md.clearText)+'</p></div>'
+      :'<div class="card notice amber"><h5>Medical Review Required</h5><p>'+esc(md.text)+'</p><p class="ver">AMBER — Medical Review Pending · '+esc((md.basis||[]).join(' '))+'</p>'
+        +'<div class="btns">'+(mak&&mak.status==='confirmed'?'<span class="t-ok" style="font-size:12px">✓ Acknowledged</span>':'<button id="bAckMed"'+(mak&&mak.status==='pending'?' disabled':'')+'>Acknowledge</button>')+'</div></div>';
+    if($('bAckMed'))$('bAckMed').onclick=async()=>{await client.ack(md.messageId);render()};
+  }else $('notice').innerHTML='';
   const [sl,sc,vt]=statusLine(st,alert,rt,res,loc);const se=$('status');
   se.innerHTML=esc(sl)+(vt?' · <button class="vt" id="bViewTask">View task</button>':'');se.className=sc;
   if($('bViewTask'))$('bViewTask').onclick=()=>{if(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])actView();flash($('rcard'),'flashc',1200);render()};
@@ -864,14 +928,45 @@ function render(){
   }else $('alert').innerHTML='<div class="empty">No alerts published by base</div>';
 
   // retest card
-  const rc=$('rcard');rc.classList.toggle('show',!!rt);
-  if(rt){
+  const rc=$('rcard'),fs=S.flow;rc.classList.toggle('show',!!rt||!!fs);
+  const err=k=>S.err[k]?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">'+esc(S.err[k])+'</p>':'';
+  const on=(id,fn)=>{if($(id))$(id).onclick=fn};
+  if(fs&&fs!=='RETEST'){
+    const site=rt?rt.bodySite:'Left quadriceps',rec=LOCAL.rec[alert.caseId]||{};let h,title;
+    if(fs==='ACK_PENDING'){title='Muscle Recovery Guidance';
+      h='<p style="margin:0;color:#ffe0a8">Acknowledge the AMBER alert in Base Messages to begin.</p>'+(rt?'<p class="ver">Base retest task received · pending until the checks below are complete.</p>':'');}
+    else if(fs==='RECOVERY_PENDING'||fs==='RECOVERY_DEFERRED'){title='Muscle Recovery Guidance';
+      h='<dl><dt>Target</dt><dd>'+esc(site)+'</dd></dl>'
+        +(rec.viewed?'<ol class="guide"><li>Pause nonessential strenuous activity when operationally safe.</li><li>Follow the approved mission recovery procedure.</li><li>Check for unusual muscle pain, weakness, or cramping.</li><li>Complete the symptom assessment before retesting.</li></ol>'
+          +(rt&&rt.inHabitat?'<p class="ver">Base protocol: the retest itself must be done in the habitat.</p>':''):'');
+      if(fs==='RECOVERY_DEFERRED')h+='<p style="margin:4px 0 0;color:#ffe0a8">Deferred · '+esc(cv.recoveryDefer.reason)+'</p><div class="btns"><button id="bRecResume" class="go">Resume recovery</button></div>';
+      else if(S.recDeferOpen)h+='<div class="btns"><select id="recDeferReason"><option value="">Why is stopping unsafe?</option>'+RECOVERY_DEFER_REASONS.map(x=>'<option>'+x+'</option>').join('')+'</select>'
+        +'<button id="bRecDeferOk" class="go"'+(S.busy.rec?' disabled':'')+'>'+(S.busy.rec?'Sending…':'Confirm defer')+'</button><button id="bRecDeferNo">Cancel</button></div>'+err('rec');
+      else if(rec.paused)h+='<p style="margin:4px 0 0;color:#cfefff">Paused. Follow the approved recovery procedure, then confirm.</p><div class="btns"><button id="bRecDone" class="go">Recovery procedure completed</button><span class="stopHint" id="recHint"></span></div>';
+      else h+='<div class="btns"><button id="bRecView">'+(rec.viewed?'Instructions viewed ✓':'View Instructions')+'</button><button id="bPause" class="go"'+(rec.viewed?'':' data-off="1" disabled')+'>Safe to Pause</button><button id="bRecDefer">Defer — Unsafe to Stop</button><span class="stopHint" id="recHint"></span></div>'+err('rec');}
+    else if(fs==='SYMPTOM_CHECK_PENDING'){title='Muscle Symptom Check';
+      const sel=(LOCAL.symDraft[alert.caseId]||{sel:[]}).sel;
+      h='<p style="margin:0 0 2px;color:#e4f7ff">Are you experiencing any of the following symptoms?</p><div class="chk">'
+        +SYMPTOMS.map(([id,l])=>'<label><input type="checkbox" id="sy-'+id+'"'+(sel.includes(id)?' checked':'')+'> '+l+'</label>').join('')
+        +'<label><input type="checkbox" id="sy-none"'+(sel.includes('none')?' checked':'')+'> None of the above</label></div>'
+        +(cv.symptoms&&cv.symptoms.state==='rejected'?'<p class="t-bad" style="font-size:11px;margin:2px 0">Base rejected: '+esc(cv.symptoms.reason)+'</p>':'')
+        +'<div class="btns"><button id="bSymSubmit" class="go"'+(sel.length?'':' disabled')+'>Submit Assessment</button><button id="bSymBack">Back</button></div>'+err('sym');}
+    else if(fs==='SYMPTOM_CHECK_SUBMITTED'){title='Muscle Symptom Check';
+      h='<p style="margin:0;color:#cfefff">Assessment '+(cv.symptoms.noneReported?'· none of the above':'· '+esc(cv.symptoms.symptoms.join(', ')))+'</p><p class="ver">'+(client.state.conn==='online'?'Sent · waiting for base acknowledgement…':'Queued offline · will send when reconnected')+'</p>';}
+    else {title='Retest on hold';
+      h='<p style="margin:0;color:#ffe0a8">Medical review required. Await instructions from the crew medical team.</p>'+(rt?'<div class="btns"><button disabled>▶ Start retest</button></div>':'')+'<p class="ver">Patch monitoring stays active.</p>';}
+    $('rcTitle').textContent=title;$('rcBody').innerHTML=h;
+    on('bRecView',actRecView);on('bPause',actRecPause);on('bRecDone',actRecDone);on('bRecResume',actRecResume);
+    on('bRecDefer',()=>{S.recDeferOpen=true;S.err.rec=null;render()});on('bRecDeferOk',actRecDefer);on('bRecDeferNo',()=>{S.recDeferOpen=false;render()});
+    on('bSymSubmit',actSymSubmit);on('bSymBack',actSymBack);
+    for(const [id] of [...SYMPTOMS,['none']]){const cb=$('sy-'+id);if(cb)cb.onchange=()=>actSymToggle(id)}
+  }else if(fs==='RETEST'&&!rt){$('rcTitle').textContent='📡 Base retest';$('rcBody').innerHTML='<p style="margin:0;color:#cfefff">Checks complete · waiting for the base retest task.</p>';}
+  else if(rt){
     $('rcTitle').textContent='📡 Base retest · Round '+rt.round;
     const dl='<dl><dt>Status</dt><dd>'+esc(RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.id)+' · '+esc(rt.protocol.posture)+'</dd><dt>Site</dt><dd>'+esc(rt.bodySite)+'</dd><dt>Action</dt><dd>'+esc(rt.action)+'</dd><dt>Instructions</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>';
-    const err=k=>S.err[k]?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">'+esc(S.err[k])+'</p>':'';
     let h;
     if(rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])
-      h='<p style="margin:0 0 4px;color:#ffe0a8">The base recommends returning to the habitat for one standardized retest of <b>'+esc(rt.bodySite)+'</b> to verify this case. Auto-monitoring keeps running.</p><div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>';
+      h='<p style="margin:0 0 4px;color:#ffe0a8">The base requests one standardized retest of <b>'+esc(rt.bodySite)+'</b>: '+esc(rt.instructions)+' Auto-monitoring keeps running.</p><div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>';
     else if(res==='completed'){
       h=dl+'<p style="margin:4px 0 0;color:#cfefff"><span class="lab">Final</span>'+esc(alert&&alert.disposition||'Reassessed')+'</p>'
         +'<p class="ver">'+(alert&&alert.status==='closed'?'Case closed by base':'Submitting a result does not close the case · pending medical review')+'</p>';
@@ -896,7 +991,6 @@ function render(){
         +(['requested','accepted'].includes(rt.status)?'<button id="bDefer">Defer</button>':'')+'</div>'+err('start');
     }
     $('rcBody').innerHTML=h;
-    const on=(id,fn)=>{if($(id))$(id).onclick=fn};
     on('bView',()=>{actView();render()});on('bGo',actStart);on('bAbort',actAbort);on('bSubmit',actSubmit);
     on('bRecollect',()=>beginCollect(rt));on('bDefer',()=>{S.deferOpen=true;S.err.defer=null;render()});
     on('bDeferOk',actDefer);on('bDeferNo',()=>{S.deferOpen=false;render()});
@@ -928,7 +1022,7 @@ $('bLink').onclick=()=>{if(client.state.conn==='offline')client.reconnect();else
 $('bClear').onclick=()=>{client.stop();client.clearLocal();localStorage.removeItem('myomars.hud.ui');location.reload()};
 $('edge').onclick=e=>{if(e.target.closest('#bLocate'))locateBase()};
 {const th=$('thigh'),tog=()=>{S.legOpen=!S.legOpen;render()};th.onclick=tog;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tog()}}}
-window.__hud={client,get S(){return S},actStart,actAck,actSubmit,actAbort,actReconnect,emitSegment,startScenario,get walkReady(){return Object.keys(WALK_S).length===3}};
+window.__hud={client,get S(){return S},get view(){return v},flowStep:()=>flowStep(client.activeCase()),actRecView,actRecPause,actRecDone,actRecResume,actSymToggle,actSymSubmit,actStart,actAck,actSubmit,actAbort,actReconnect,emitSegment,startScenario,get walkReady(){return Object.keys(WALK_S).length===3}};
 layout();buildCompass();loadSamples();render();requestAnimationFrame(frame);requestAnimationFrame(progressLoop);
 client.start().then(()=>{const {alert,retest}=client.activeCase();if(retest)seenUi.add(keyOfRt(retest));if(alert)seenUi.add(alert.alertId+'@'+alert.version);ready=true;
   if(retest&&retest.status==='requested'&&!LOCAL.viewed[keyOfRt(retest)])S.flagBase=true;render()});

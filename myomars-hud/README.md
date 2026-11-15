@@ -29,8 +29,8 @@ npm run build        # 生成 dist/（静态 HUD + 契约 + mock 基站），cd 
 ## 联调测试
 
 ```bash
-npm test                        # 客户端 ↔ mock relay/station：41 项（含三个场景与逐条契约校验）
-node test/hud-page-test.mjs     # 运行真实 hud.html 脚本、点击按钮：30 项
+npm test                        # 客户端 ↔ mock relay/station：49 项（含三个场景、症状扩展与逐条契约校验）
+node test/hud-page-test.mjs     # 运行真实 hud.html 脚本、点击按钮：46 项
 ```
 
 结果写入 `test/joint-test-result.json`、`test/hud-page-test-result.json`。

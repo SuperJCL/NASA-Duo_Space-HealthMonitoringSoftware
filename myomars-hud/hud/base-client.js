@@ -81,9 +81,12 @@
     function view() {
       const run = currentRun(), evs = inRun(run);
       const station = evs.filter(e => HANDLED.has(e.type));                  // station.audit.* and unknown types are ignored
-      if (!run || !station.length) return { run, alert: null, retest: null };
+      if (!run || !station.length) return { run, alert: null, retest: null, medical: null, symptoms: null, recoveryDefer: null };
       const caseId = station.at(-1).caseId, sc = station.filter(e => e.caseId === caseId);
-      const notice = sc.filter(e => e.type === 'station.notice.approved').at(-1) || null;
+      const notices = sc.filter(e => e.type === 'station.notice.approved');
+      const MR = /-mr\d+$/, MRC = /-mrc\d+$/;                          // medical review / clearance notices (noticeId suffix, gap V1-11)
+      const notice = notices.filter(e => !MR.test(e.payload.noticeId) && !MRC.test(e.payload.noticeId)).at(-1) || null;
+      const mr = notices.filter(e => MR.test(e.payload.noticeId)).at(-1) || null, mrc = notices.filter(e => MRC.test(e.payload.noticeId)).at(-1) || null;
       const reass = sc.filter(e => e.type === 'station.reassessment').sort((a, b) => a.payload.evaluationVersion - b.payload.evaluationVersion);
       const lastR = reass.at(-1) || null, req = sc.filter(e => e.type === 'station.retest.requested').at(-1) || null;
       let alert = null;
@@ -91,7 +94,7 @@
         const latest = lastR || notice, closed = !!lastR && lastR.payload.caseStatus === 'closed';
         // notice kind by noticeId suffix (contracts v1 has no category field — gap V1-11)
         const kind = !notice ? 'review' : /-sensor\d+$/.test(notice.payload.noticeId) ? 'sensor' : /-ok\d+$/.test(notice.payload.noticeId) ? 'ok' : 'review';
-        alert = { alertId: caseId, caseId, kind, noticeId: notice ? notice.payload.noticeId : null, messageId: latest.eventId, version: latest.payload.evaluationVersion,
+        alert = { alertId: caseId, caseId, kind, noticeId: notice ? notice.payload.noticeId : null, noticeMessageId: notice ? notice.eventId : null, messageId: latest.eventId, version: latest.payload.evaluationVersion,
           status: closed ? 'closed' : lastR ? 'reassessed' : 'published', levelLabel: lastR ? 'Reassessment' : 'Notice',
           title: lastR ? lastR.payload.summary : notice.payload.reviewReason,
           reason: notice ? notice.payload.text : lastR.payload.summary,
@@ -121,7 +124,24 @@
           instructions: p.instructions, reviewedBy: p.reviewedBy, deferReason: defers.length ? defers.at(-1).payload.reason : null,
           inHabitat: /habitat/i.test(p.instructions), receipt: receipt ? { ...receipt.payload, at: receipt.sentAt } : null, issuedAt: req.sentAt };
       }
-      return { run, alert, retest };
+      // Scenario 2 follow-up: medical review, symptom assessment (proposed extension hud.symptoms), recovery deferral
+      const medical = mr ? { messageId: mr.eventId, caseId, text: mr.payload.text, basis: mr.payload.basis, at: mr.sentAt,
+        cleared: !!(mrc && mrc.seq > mr.seq), clearText: mrc ? mrc.payload.text : null, clearMessageId: mrc ? mrc.eventId : null } : null;
+      let symptoms = null;
+      if (notice) {
+        const del = evs.filter(e => e.type === 'hud.symptoms' && e.payload.messageId === notice.eventId).at(-1);
+        const ob = st.outbox.find(m => m.env.type === 'hud.symptoms' && m.env.payload.messageId === notice.eventId);
+        const rj = st.rejected.filter(m => m.env.type === 'hud.symptoms' && m.env.payload.messageId === notice.eventId).at(-1);
+        const env = del || (ob && ob.env) || (rj && rj.env);
+        if (env) {
+          const rc = del && evs.find(e => e.type === 'station.receipt' && e.payload.receivedEventId === del.eventId);
+          symptoms = { eventId: env.eventId, symptoms: env.payload.symptoms, noneReported: env.payload.noneReported,
+            state: rc ? rc.payload.status : del ? 'submitted' : ob ? 'queued' : 'failed', reason: rc ? rc.payload.reason : rj ? rj.error : null };
+        }
+      }
+      const rd = notice ? evs.filter(e => e.type === 'hud.defer' && e.payload.messageId === notice.eventId).at(-1) : null;
+      const recoveryDefer = rd ? { reason: rd.payload.reason, seq: rd.seq } : null;
+      return { run, alert, retest, medical, symptoms, recoveryDefer };
     }
 
     /* ---------- automatic device receipts (hud.received) for every handled station message ---------- */
@@ -252,7 +272,9 @@
     async function ack(alertIdOrMessageId) {                      // astronaut acknowledgement, separate from hud.received
       const v = view(), run = v.run;
       const target = v.alert && (v.alert.alertId === alertIdOrMessageId || v.alert.messageId === alertIdOrMessageId) ? v.alert
-        : v.retest && v.retest.messageId === alertIdOrMessageId ? v.retest : null;
+        : v.retest && v.retest.messageId === alertIdOrMessageId ? v.retest
+        : v.medical && v.medical.messageId === alertIdOrMessageId ? v.medical
+        : v.alert && v.alert.noticeMessageId === alertIdOrMessageId ? { messageId: v.alert.noticeMessageId, caseId: v.alert.caseId } : null;
       if (!target || !run) return { ok: false, error: 'unknown-message' };
       const prev = hudSent(run, 'hud.ack', target.messageId);
       if (prev && prev.state === 'confirmed') return { ok: true };
@@ -272,6 +294,20 @@
         enqueue(env, 'hud'); return waitPublished(env.eventId);
       }
       return { ok: false, error: 'invalid-action' };
+    }
+    function submitSymptoms({ symptoms = [], noneReported = false } = {}) {   // hud.symptoms (proposed extension) → acknowledged by station.receipt
+      const v = view(); if (!v.alert || !v.alert.noticeMessageId || v.alert.kind !== 'review') return { ok: false, error: 'no-fatigue-notice' };
+      if (noneReported ? symptoms.length : !symptoms.length) return { ok: false, error: 'selection-required' };
+      if (v.symptoms && v.symptoms.state !== 'failed' && v.symptoms.state !== 'rejected') return { ok: true, duplicate: true };
+      enqueue(envelope('hud', 'hud.symptoms', { messageId: v.alert.noticeMessageId, symptoms: [...symptoms], noneReported: !!noneReported, assessedAt: new Date().toISOString() },
+        { runId: v.run.runId, caseId: v.alert.caseId }), 'hud');
+      log('Symptom assessment queued'); return { ok: true, pending: true };
+    }
+    async function deferNotice(reason) {                           // recovery cannot start safely → hud.defer on the fatigue notice
+      const v = view(); if (!v.alert || !v.alert.noticeMessageId) return { ok: false, error: 'unknown-message' };
+      if (!(reason || '').trim()) return { ok: false, error: 'reason-required' };
+      const env = envelope('hud', 'hud.defer', { messageId: v.alert.noticeMessageId, reason: reason.trim() }, { runId: v.run.runId, caseId: v.alert.caseId });
+      enqueue(env, 'hud'); return waitPublished(env.eventId);
     }
     function submitResult(retestId, sample) {                     // retest.result (HUD role): complete on its own
       const v = view(), rt = v.retest; if (!rt || rt.retestId !== retestId) return { ok: false, error: 'unknown-retest' };
@@ -297,8 +333,8 @@
       disconnect() { manual = true; clearTimeout(retryTimer); if (abort) abort.abort(); st.conn = 'offline'; log('Relay disconnected manually', 'warn'); emit(); },
       async reconnect() { manual = false; st.conn = 'connecting'; emit(); if (await resync()) { flush(); stream(); } else { st.conn = 'reconnecting'; emit(); schedule(); } },
       stop() { manual = true; clearTimeout(retryTimer); if (abort) abort.abort(); },
-      ensureRun, submitObservation, ack, respond, submitResult,
-      activeCase() { const v = view(); return { alert: v.alert, retest: v.retest, run: v.run }; },
+      ensureRun, submitObservation, ack, respond, submitResult, submitSymptoms, deferNotice,
+      activeCase() { const v = view(); return { alert: v.alert, retest: v.retest, run: v.run, medical: v.medical, symptoms: v.symptoms, recoveryDefer: v.recoveryDefer }; },
       ackState(target) {
         if (!target) return null; const h = hudSent(currentRun(), 'hud.ack', target.messageId);
         return h ? { status: h.state, error: h.error } : null;

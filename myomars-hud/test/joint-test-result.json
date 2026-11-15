@@ -1,5 +1,5 @@
 {
-  "runAt": "2026-11-14T23:44:25.577Z",
+  "runAt": "2026-11-15T00:40:45.033Z",
   "node": "v26.12.1",
   "contract": "myomars/v1 (contracts-v1 @ 58b5a08)",
   "relay": "mock",
@@ -32,7 +32,7 @@
     {
       "name": "B3 HUD receives station.notice.approved + station.retest.requested only after human approval",
       "ok": true,
-      "detail": "run-mwh1ylbs-lq-rt1"
+      "detail": "run-mwh3z0k3-lq-rt1"
     },
     {
       "name": "B4 fatigue notice + retest: site and \"rest, then retest\" come from station content",
@@ -208,6 +208,46 @@
       "name": "H6 all scenario messages conform to contracts v1",
       "ok": true,
       "detail": "16 messages"
+    },
+    {
+      "name": "I1 empty selection is refused locally",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I2 \"none\" together with a symptom is rejected by the station (station.receipt rejected)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I3 relay validates the extension payload (unknown symptom → 400)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I4 accepted only after base receipt; reported symptom → medical review notice (demo rule)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I5 duplicate assessment is not sent again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I6 station refuses a retest result while medical review is pending",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I7 crew-medical clearance arrives as a station notice; case stays open (AMBER)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I8 all messages (incl. extension) conform",
+      "ok": true,
+      "detail": "22 messages"
     }
   ]
 }

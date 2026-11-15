@@ -37,7 +37,7 @@ let s = await state();
 check('A3 local device (Trigger role) published scenario.start', s.activeRun === runId && ofType(s, 'scenario.start')[0]?.sender.role === 'trigger');
 
 console.log('\n== B. Fatigue pattern → AMBER notice + rest-and-retest ==');
-c.submitObservation(seg(0, 3), WALK);
+c.submitObservation(seg(0, 2), WALK);
 for (let i = 1; i <= 3; i++) c.submitObservation(seg(i, 6), WALK);
 c.submitObservation(seg(1, 6), WALK);                          // same segment again → not re-sent
 await until(() => c.monitorState().uploaded === 4);
@@ -150,6 +150,39 @@ check('H5 after reconnection, valid segments verify the patch → case closed (s
 const bad2 = s.events.filter(d => C.checkMessage(CONTRACT, d, { delivered: true, role: d.sender.role }).length);
 check('H6 all scenario messages conform to contracts v1', bad2.length === 0, s.events.length + ' messages');
 c2.stop();
+
+console.log('\n== I. Scenario 2 follow-up: symptom assessment (proposed extension hud.symptoms) ==');
+await post('/mock/reset');
+const c3 = createBaseClient({ baseUrl: BASE, storage: memoryStorage() }); await c3.start(); await until(() => c3.state.conn === 'online');
+const runF = c3.ensureRun({ scenarioId: 'myomars-fatigue' });
+for (let i = 0; i < 3; i++) c3.submitObservation(seg('m' + i, 6), WALK);
+await until(() => c3.activeCase().retest);
+let cv = c3.activeCase();
+r = c3.submitSymptoms({ symptoms: [], noneReported: false });
+check('I1 empty selection is refused locally', !r.ok && r.error === 'selection-required');
+const bad3 = await raw({ schema: 'myomars/v1', eventId: 'sym-bad', sessionId: 'demo', runId: runF, caseId: cv.alert.caseId, sentAt: new Date().toISOString(), source: 'hud', type: 'hud.symptoms',
+  payload: { messageId: cv.alert.noticeMessageId, symptoms: ['muscle-pain'], noneReported: true, assessedAt: new Date().toISOString() } }, 'hud');
+await until(async () => ofType(await state(), 'station.receipt').some(e => e.payload.receivedEventId === 'sym-bad'));
+s = await state();
+check('I2 "none" together with a symptom is rejected by the station (station.receipt rejected)', bad3.status === 200 && ofType(s, 'station.receipt').find(e => e.payload.receivedEventId === 'sym-bad').payload.status === 'rejected');
+const badSchema = await raw({ schema: 'myomars/v1', eventId: 'sym-bad2', sessionId: 'demo', runId: runF, caseId: cv.alert.caseId, sentAt: new Date().toISOString(), source: 'hud', type: 'hud.symptoms',
+  payload: { messageId: cv.alert.noticeMessageId, symptoms: ['headache'], noneReported: false, assessedAt: new Date().toISOString() } }, 'hud');
+check('I3 relay validates the extension payload (unknown symptom → 400)', badSchema.status === 400);
+r = c3.submitSymptoms({ symptoms: ['muscle-cramping'], noneReported: false });
+await until(() => c3.activeCase().medical);
+cv = c3.activeCase(); s = await state();
+check('I4 accepted only after base receipt; reported symptom → medical review notice (demo rule)', cv.symptoms.state === 'accepted' && /medical review/.test(cv.symptoms.reason) && cv.medical && !cv.medical.cleared);
+r = c3.submitSymptoms({ symptoms: [], noneReported: true });
+check('I5 duplicate assessment is not sent again', r.duplicate === true && ofType(await state(), 'hud.symptoms').filter(e => e.sender.clientId === 'hud-a02').length === 1);
+await c3.respond(cv.retest.retestId, 'accept'); c3.submitResult(cv.retest.retestId, RETEST);
+await until(() => c3.activeCase().retest.status === 'rejected');
+check('I6 station refuses a retest result while medical review is pending', /medical review pending/.test(c3.activeCase().retest.receipt.reason));
+await post('/mock/medical-clear'); await until(() => c3.activeCase().medical.cleared);
+check('I7 crew-medical clearance arrives as a station notice; case stays open (AMBER)', c3.activeCase().medical.cleared && c3.activeCase().alert.status === 'published');
+s = await state();
+const bad4 = s.events.filter(d => C.checkMessage(CONTRACT, d, { delivered: true, role: d.sender.role }).length);
+check('I8 all messages (incl. extension) conform', bad4.length === 0, s.events.length + ' messages');
+c3.stop();
 
 c.stop(); await stop();
 const failed = results.filter(x => !x.ok);

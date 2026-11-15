@@ -1,0 +1,18 @@
+{
+  "_note": "PROPOSED EXTENSION to MyoMars shared message contracts v1 — not part of contracts/ on main. Added because v1 has no way for the HUD to report a symptom assessment. Additive only (new type), as CONTRACTS.md allows; needs a PR reviewed by the HUD, Trigger and Station owners before anyone else relies on it. The station acknowledges it with the existing station.receipt (receivedType = \"hud.symptoms\").",
+  "type": "hud.symptoms",
+  "rule": { "publishers": ["hud"], "needsCaseId": true, "needsRetestId": false, "status": "proposed-extension" },
+  "payloadSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "payload.hud.symptoms (proposed extension)",
+    "type": "object",
+    "properties": {
+      "messageId": { "type": "string", "minLength": 1, "maxLength": 200 },
+      "symptoms": { "type": "array", "maxItems": 3, "items": { "type": "string", "enum": ["muscle-pain", "unusual-weakness", "muscle-cramping"] } },
+      "noneReported": { "type": "boolean" },
+      "assessedAt": { "type": "string" }
+    },
+    "required": ["messageId", "symptoms", "noneReported", "assessedAt"],
+    "additionalProperties": false
+  }
+}
