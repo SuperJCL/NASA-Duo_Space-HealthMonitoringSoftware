@@ -50,3 +50,26 @@ AI assistance
 -------------
 The code and documentation of this feature were written with an AI coding assistant (Claude
 Code, Anthropic) under the project owner's direction.
+
+Geist and Geist Mono fonts
+--------------------------
+design/fonts/geist-latin.woff2 and design/fonts/geist-mono-latin.woff2 (copied by
+`npm run design:sync` to myomars-hud/assets/fonts/ and astra-patch/showcase/assets/fonts/) are
+the Geist and Geist Mono variable fonts (weights 100–900, Latin subset, version 1.401),
+Copyright The Geist Project Authors (https://github.com/vercel/geist-font), taken unchanged from
+the copy shipped in next@16.4.5 (next/dist/next-devtools/server/font/). They are licensed under
+the SIL Open Font License, Version 1.1; the licence text, copied from the upstream repository's
+OFL.txt on 2026-11-15, is in LICENSES/OFL-1.1-Geist.txt. The Mars Base loads the same family
+through next/font.
+
+three.js (astronaut HUD 3D scene)
+---------------------------------
+myomars-hud/scene/mars-scene.js, the illustrative 3D Mars scene of the astronaut HUD (integration mode),
+is a generated bundle that includes parts of three.js 0.186.1 (https://github.com/mrdoob/three.js),
+Copyright © 2010-2026 three.js authors, licensed under the MIT License; the licence text, copied
+unchanged from node_modules/three/LICENSE, is in LICENSES/MIT-three.js.txt. The bundle is built by
+scripts/build-hud-scene.mjs (`npm run hud:scene`) from myomars-hud/scene/mars-scene.src.js. Modified
+2026-11-15 at build time only: the three.js modules the scene never reaches (built-in material shader
+library, WebXR manager, PMREM generator) are replaced by small stubs; the code that is bundled is
+otherwise unchanged. The scene uses no external assets: terrain, rocks, habitat and textures are
+generated in code. The Mars Base uses the same npm package (three) from node_modules.

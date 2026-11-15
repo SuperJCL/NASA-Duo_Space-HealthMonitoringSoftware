@@ -4,7 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'dist');
-const files = ['hud.html', 'hud/base-client.js', 'hud/contract-v1.js', 'assets/mars-pano-360.webp', 'contract/v1-integration.md',
+const files = ['hud.html', 'hud/base-client.js', 'hud/contract-v1.js', 'assets/mars-pano-360.webp',
+  // shared design resources (npm run design:sync) and the integration-mode 3D scene bundle (npm run hud:scene in the repo root)
+  'assets/myomars-tokens.css', 'assets/myomars-fonts.css', 'assets/fonts/geist-latin.woff2', 'assets/fonts/geist-mono-latin.woff2', 'scene/mars-scene.js',
+  'contract/v1-integration.md',
   'contract/samples/retest-result.sample.json', 'contract/extensions/hud.symptoms.json', 'contract/samples/walking-normal.sample.json', 'contract/samples/walking-fatigue.sample.json', 'contract/samples/walking-sensor-fault.sample.json', 'server/mock-base.mjs', 'server/console.html', 'package.json', 'README.md', 'start-base.command'];
 // vendored shared contract (schemas + rules + examples) needed by the mock relay
 for (const d of ['schema', 'examples', 'scenarios']) for (const f of fs.readdirSync(path.join(ROOT, 'contracts-v1', d))) files.push('contracts-v1/' + d + '/' + f);

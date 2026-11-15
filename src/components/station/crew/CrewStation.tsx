@@ -17,7 +17,9 @@ import { useNow } from "./motion";
 import { HealthOverlay, type OverlayLink } from "./HealthOverlay";
 import { RelayDevDrawer } from "./RelayDevDrawer";
 import { MissionMapView, type MissionGlassData } from "./MissionMapView";
-import { EndEvaDialog, MissionBar, MissionStrip, StartEvaDialog, type StationView } from "./MissionPanels";
+import { EndEvaDialog, MissionBar, StartEvaDialog, type StationView } from "./MissionPanels";
+import { MissionCrewPanel } from "./MissionCrewPanel";
+import { missionCrewView } from "@/lib/station/mission-crew";
 
 /** The mission the station prepares and runs: the existing Mission Glass scenario (loaded on the server). */
 export type StationMission = { data: MissionGlassData; def: MissionDef };
@@ -139,6 +141,8 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
     requestAnimationFrame(() => toggleRef.current?.focus());
   };
   const [mgTaskId, setMgTaskId] = useState<string | null>(null);
+  // Advanced planning (Mission Glass scores, budget, route, steps) instead of the Mission & Crew panel.
+  const [advanced, setAdvanced] = useState(false);
   const selectedTask = def?.tasks.find((t) => t.taskId === mgTaskId) ?? null;
   const [astronautId, setAstronautId] = useState<string>(MISSION_CREW[0].id);
   const [dialog, setDialog] = useState<null | "start" | "end">(null);
@@ -159,6 +163,7 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
   };
 
   const cards = crewCards(state, { mock });
+  const crewView = missionCrewView(state, cards, { mock, now });
   const notes = notifications(state, { mock });
   // The person shown in the overlay: the one chosen, else the first crew member of the run (stable:
   // a message for someone else only notifies, it never moves the overlay to that person).
@@ -331,9 +336,36 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
         {mission ? (
           // The map is always the mission background. While the overlay is open it is inert (no click-through).
           <div inert={overlayOpen} className="flex min-h-0 flex-1 flex-col" data-testid="map-view">
-            <MissionStrip def={def} state={state} phase={phase} selectedTask={selectedTask} astronautId={astronautId} setAstronautId={setAstronautId} onSummary={() => (setDialogError(null), setDialog("start"))} onJump={jump} onOpenPerson={(id) => jump(id)} cards={cards} canAct={canAct} mode={relay ? "relay" : "mock"} openCount={openCount} onResendStart={(id) => api.resend(id)} />
             <div className="relative flex min-h-0 flex-1 flex-col">
-              <MissionMapView data={mission.data} onSelectTask={setMgTaskId} activeTaskId={state.run?.task.id ?? null} crewMarkers={crewMarkers} onSelectCrew={(id) => jump(id)} />
+              <MissionMapView
+                data={mission.data}
+                onSelectTask={setMgTaskId}
+                activeTaskId={state.run?.task.id ?? null}
+                crewMarkers={crewMarkers}
+                onSelectCrew={(id) => jump(id)}
+                advanced={advanced}
+                onAdvanced={setAdvanced}
+                side={({ pickTask }) => (
+                  <MissionCrewPanel
+                    def={def}
+                    state={state}
+                    phase={phase}
+                    view={crewView}
+                    selectedTask={selectedTask}
+                    pickTask={pickTask}
+                    astronautId={astronautId}
+                    setAstronautId={setAstronautId}
+                    onSummary={() => (setDialogError(null), setDialog("start"))}
+                    onJump={jump}
+                    canAct={canAct}
+                    mode={relay ? "relay" : "mock"}
+                    openCount={openCount}
+                    onResendStart={(id) => api.resend(id)}
+                    onAdvanced={() => setAdvanced(true)}
+                    now={now}
+                  />
+                )}
+              />
             </div>
           </div>
         ) : null}

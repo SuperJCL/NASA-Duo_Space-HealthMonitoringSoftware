@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Shared MyoMars design tokens (Base, HUD, patch showcase): design/tokens.css, rules in design/DESIGN.md. */
+@import "../../design/tokens.css";
 
 /*
  * Design tokens. The app uses a single dark "mission console" theme for now;
@@ -82,34 +84,53 @@ body {
  * for geography, larger type. Motion is short and only follows interaction.
  */
 .mission-glass {
-  --mg-bg: #0b111c;
-  --mg-bg-2: #131d2d;
-  --mg-surface: #172235;
-  --mg-glass: rgba(22, 33, 52, 0.74);
-  --mg-glass-strong: rgba(18, 27, 43, 0.92);
-  --mg-line: rgba(160, 186, 218, 0.16);
-  --mg-line-strong: rgba(160, 186, 218, 0.32);
-  --mg-text: #eaf1f9;
-  --mg-dim: #a3b3c8;
-  --mg-faint: #74869e;
-  --mg-coral: #ff8066;
-  --mg-coral-soft: rgba(255, 128, 102, 0.14);
-  --mg-cyan: #62d4e6;
-  --mg-cyan-soft: rgba(98, 212, 230, 0.13);
-  --mg-ok: #84d8a6;
-  --mg-caution: #f1c878;
+  /* The Mission Glass names, resolved to the shared MyoMars tokens (design/tokens.css). */
+  --mg-bg: var(--mm-bg);
+  --mg-bg-2: var(--mm-bg-2);
+  --mg-surface: var(--mm-surface);
+  --mg-glass: var(--mm-glass);
+  --mg-glass-strong: var(--mm-glass-strong);
+  --mg-line: var(--mm-line);
+  --mg-line-strong: var(--mm-line-strong);
+  --mg-text: var(--mm-text);
+  --mg-dim: var(--mm-dim);
+  --mg-faint: var(--mm-faint);
+  /* "coral" is the shared ORANGE: pending human action and the primary button. */
+  --mg-coral: var(--mm-action);
+  --mg-coral-soft: var(--mm-action-soft);
+  --mg-cyan: var(--mm-data);
+  --mg-cyan-soft: var(--mm-data-soft);
+  --mg-ok: var(--mm-ok);
+  --mg-caution: var(--mm-caution);
+  --mg-alert: var(--mm-alert);
   color: var(--mg-text);
-  background: radial-gradient(120% 120% at 75% -10%, #1a2740 0%, var(--mg-bg) 62%);
-  font-size: 15px;
-  line-height: 1.45;
+  background: radial-gradient(120% 120% at 75% -10%, #172338 0%, var(--mg-bg) 62%);
+  font-family: var(--mm-font-sans);
+  font-size: var(--mm-text-md);
+  line-height: var(--mm-leading);
+}
+
+/* One keyboard focus ring for every control (design/DESIGN.md §4). */
+.mission-glass :is(button, a, select, input, textarea, summary, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--mm-focus-ring);
+}
+.mission-glass :is(button, select, input, textarea):disabled {
+  cursor: not-allowed;
+}
+/* Numbers line up in tables, timers and indicators. */
+.mission-glass .mm-num,
+.mission-glass time,
+.mission-glass table {
+  font-variant-numeric: tabular-nums;
 }
 
 .mission-glass .mg-glass {
   background: var(--mg-glass);
   border: 1px solid var(--mg-line);
-  border-radius: 18px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(14px) saturate(120%);
+  border-radius: var(--mm-radius-lg);
+  box-shadow: var(--mm-shadow);
+  backdrop-filter: blur(var(--mm-blur)) saturate(120%);
 }
 
 .mission-glass .ol-zoom {
@@ -151,6 +172,7 @@ body {
     transform: none;
   }
 }
+/* Mission Glass's own rise timing (kept as it was; the shared tokens do not retime existing animations). */
 .mission-glass .mg-rise {
   animation: mg-rise 220ms ease-out both;
 }

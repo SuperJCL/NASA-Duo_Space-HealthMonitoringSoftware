@@ -4320,3 +4320,104 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - `e2e:two-end` 48/48; `test:hud` 49/49 + 46/46; `npm run build` OK; lint clean.
   - The other suites were not re-run: the app code is unchanged since `3762faf`, where they passed.
 - **Pending:** the owner's Windows acceptance. LAN multi-device is not verified (not developed).
+
+## Unified experience round: shared design language, Mission & Crew, HUD 3D scene, patch showcase, map data
+
+- **Time (UTC):** 2026-11-15, about 08:10 to 10:20. Branch `feat/myomars-unified-experience` from
+  `main` `d52b463`. Draft PR, not merged.
+- **Phased commits:**
+  1. `e999b72` **Visual foundation:**
+     - `design/tokens.css`, `fonts.css`, `components.css` and `DESIGN.md`;
+     - Geist and Geist Mono vendored under OFL 1.1;
+     - `npm run design:sync` / `design:check` (the check is part of `npm run check`);
+     - the Base's `--mg-*` variables are now aliases of the tokens.
+  2. `982d13d` **Base layout:**
+     - the Mission & Crew panel replaces the planning panel on the Mission Map, in three phases
+       (preparing, EVA, ended);
+     - unknowns stay "Unknown" or "No source in this demo";
+     - `mission-crew.ts` is unit-tested;
+     - scores, budget, route and steps sit behind "Advanced planning".
+  3. `bb21bd6` **Patch showcase:**
+     - `python -m astra_patch showcase build|serve`;
+     - the data is generated from the same replay code path;
+     - waveforms come from the existing synthetic capture path and are labelled as such.
+  4. `2b8daa3` and `00f8b33` **Map:**
+     - JMARS findings (blocked: desktop client, hosts refused by the proxy);
+     - HiRISE 1 m DTM, every 5th post kept unchanged (5 m mesh), fetched with HTTP Range from the
+       USGS S3 copy;
+     - PDS differences −0.15 / −0.12 / −1.15 m;
+     - offline 2D copy of the mission area;
+     - contours and profile on demand;
+     - Low quality by default on software WebGL.
+  5. `a35fc38` **HUD:** fixed-viewpoint three.js Mars scene in integration mode:
+     - bundle 354 KB minified / 101 KB gzip;
+     - quality levels, render on demand, pause when hidden;
+     - image fallback (`?scene=off`);
+     - three.js MIT notice.
+  - Docs and checks: `79a9470`, `5670319`, `8e55770`.
+- **Checks on the production build (`next start -H 127.0.0.1`, fresh relay per suite; build ids
+  `5670319` and, for the 3D-quality change, `00f8b33`):**
+  - `npm run check`: 397 unit tests and build;
+  - `e2e:mission` 29/29;
+  - `e2e:two-end` 48/48 in three variants:
+    - default (HUD auto Low on SwiftShader);
+    - `HUD_SCENE=off` (image fallback);
+    - `REDUCED_MOTION=1` with `HUD_QUALITY=standard`;
+  - `hud-scene-check` 27/27;
+  - `smoke:crew` 72/72, `smoke:station` 121/121, `smoke:mission-glass` 228, `smoke:eva-route` 50,
+    `smoke` 118;
+  - `test:hud` 49/49 + 46/46;
+  - `contracts:check` up to date;
+  - patch `pytest` 96 passed; `showcase/check.mjs` 98/98;
+  - `verify:terrain:hirise` byte-identical rebuild.
+- **All three interfaces open at once** (one headless Chromium, SwiftShader, no GPU):
+  - load 0.8 s; Base 3D (HiRISE) 2.6 s; HUD join 0.08 s;
+  - idle CPU: renderers about 5–6 %, GPU process about 8 %, relay / Next / patch server about 0 %;
+  - overlay open / close 39 / 27 ms; patch scenario switch 110–165 ms;
+  - UI-only actions (overlay, 2D/3D, Advanced planning) published 0 relay events.
+- **Not verified:** the owner's Windows PC, real GPUs or integrated graphics, LAN multi-device.
+  Performance numbers are from software rendering in a Linux container.
+
+## Restore round: original effects kept, shared design for Base and HUD only, patch unbound
+
+- **Time (UTC):** 2026-11-15, about 18:20 to 19:10.
+- **Owner check on Windows:** the Base/HUD loop works, but some original animations and display
+  effects had changed.
+- **Decision:**
+  - the shared design covers the Mars Base and the HUD only;
+  - modules keep their own animations;
+  - the patch demo keeps its own look;
+  - restore only what has a code reference.
+- **Audit:** `docs/myomars/RESTORE-AUDIT.md` compares `main` `d52b463`, `feat/astra-standalone-demo`
+  and this branch.
+- **Restored:**
+  - `f54d2d9` **HUD (integration mode):**
+    - cyan text glow;
+    - status-badge glow and red blink;
+    - continuous base-marker ping (was 2 pulses);
+    - queued-packet blink;
+    - edge hint;
+    - mini-map, position and speed readouts;
+    - on the panorama fallback: the waypoints and the base distance;
+    - the amber base-marker colours.
+  - `d7803c9` **Base:** Mission Glass rise back to 220 ms ease-out. The event-chain, data-flow and
+    dispatch animations were never touched.
+  - `a9f3ecc` **Patch:**
+    - `design:sync` / `design:check` no longer bind `astra-patch`;
+    - the showcase keeps its look with its own `showcase-*.css`;
+    - the teammate's inline `replay` code in `__main__.py` and their README sentence are restored.
+- **Not restorable or not restored:**
+  - **Patch:** the teammate's branch has no visual page (Python only, identical to `main`). The
+    showcase page is new on this branch, not a restoration. The upstream React product UI was never
+    in this repository. The separate 45-second package on `origin/feature/myomars-45s-demo` was not
+    touched.
+  - **HUD:** waypoints and base distance in the 3D scene (no original 3D placement); suit power and
+    O₂ placeholders (decision for the owner); walking (the fixed viewpoint was requested).
+- **Checks on the production build of `a9f3ecc`** (Linux container, headless Chromium, software WebGL):
+  - `npm run check`: 397 unit tests and build;
+  - `hud-effects-check` 10/10; `hud-scene-check` 27/27;
+  - `e2e:two-end` 48/48, default and HUD image fallback; `e2e:mission` 29/29;
+  - `smoke:crew` 72/72; `smoke:mission-glass` 228; `test:hud` 49 + 46;
+  - patch `pytest` 96, replay output unchanged, `showcase/check.mjs` 98/98.
+  - The patch page looks the same before and after (mean frame difference ≈ 1/255).
+- **Not verified:** the Windows acceptance of this version (owner and teammates, after the merge).

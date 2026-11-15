@@ -1,0 +1,111 @@
+/*
+ * MyoMars design tokens v1 — the ONE source of the shared visual language of the Mars Base and
+ * the astronaut HUD. Rules: design/DESIGN.md. (The patch showcase is not bound to it.)
+ *
+ * Canonical file: design/tokens.css. Copies (byte-identical, made by `npm run design:sync`,
+ * checked by `npm run design:check`):
+ *   myomars-hud/assets/myomars-tokens.css         (HUD, served by the relay as a static file)
+ * The Mars Base imports this file directly (src/app/globals.css). No module loads another
+ * module's files at run time.
+ *
+ * Variables only. Fonts: design/fonts.css (the Base uses next/font with the same Geist family).
+ * Tokens restyle; they never retime or remove a module's own animations (DESIGN.md §5).
+ */
+:root {
+  /* ---- type ---- */
+  --mm-font-sans: "MyoMars Sans", "Geist", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mm-font-mono: "MyoMars Mono", "Geist Mono", ui-monospace, "SF Mono", Consolas, Menlo, monospace;
+  --mm-text-2xs: 11px; /* legal / provenance lines only */
+  --mm-text-xs: 12px; /* captions, chips */
+  --mm-text-sm: 13px; /* secondary text, table cells */
+  --mm-text-md: 15px; /* body (Base default) */
+  --mm-text-lg: 18px; /* panel titles */
+  --mm-text-xl: 22px; /* page / dialog titles */
+  --mm-text-2xl: 30px; /* key numbers */
+  --mm-leading: 1.45;
+  --mm-leading-tight: 1.2;
+  --mm-tracking-label: 0.12em; /* UPPERCASE section labels only */
+  --mm-weight-regular: 400;
+  --mm-weight-medium: 500;
+  --mm-weight-strong: 600;
+
+  /* ---- surfaces (deep mission console) ---- */
+  --mm-bg: #0a0f18;
+  --mm-bg-2: #111a28;
+  --mm-surface: #162133;
+  --mm-surface-2: #1d2a40;
+  --mm-glass: rgba(15, 24, 38, 0.8);
+  --mm-glass-strong: rgba(11, 18, 30, 0.93);
+  --mm-scrim: rgba(4, 8, 14, 0.6);
+  --mm-line: rgba(160, 186, 218, 0.16);
+  --mm-line-strong: rgba(160, 186, 218, 0.32);
+
+  /* ---- text ---- */
+  --mm-text: #eaf1f9;
+  --mm-dim: #a3b3c8;
+  --mm-faint: #7d8fa6;
+
+  /* ---- semantic colour (never the only carrier of a state: always a word or an icon too) ---- */
+  --mm-data: #62d4e6; /* cyan: data, measurement, connection, geography */
+  --mm-data-soft: rgba(98, 212, 230, 0.13);
+  --mm-action: #ff8a5b; /* orange: pending human action, the primary button */
+  --mm-action-soft: rgba(255, 138, 91, 0.14);
+  --mm-action-ink: #1c0f09; /* text on an orange fill */
+  --mm-alert: #ff6b6b; /* red: an explicit alert or failure only */
+  --mm-alert-soft: rgba(255, 107, 107, 0.14);
+  --mm-ok: #84d8a6; /* green: done, received, within range (never "healthy") */
+  --mm-ok-soft: rgba(132, 216, 166, 0.13);
+  --mm-caution: #f1c878; /* amber: degraded, waiting too long, unknown that matters */
+  --mm-caution-soft: rgba(241, 200, 120, 0.13);
+  --mm-sim: #c9a8ff; /* violet: "simulated" / demo-only labels */
+  --mm-mars: #c8643c; /* scene colour (terrain, sky tint); never a status */
+
+  /* ---- charts ---- */
+  --mm-chart-1: #62d4e6; /* primary series (cyan) */
+  --mm-chart-2: #f1c878; /* comparison / baseline (amber) */
+  --mm-chart-3: #c9a8ff; /* third series (violet) */
+  --mm-chart-4: #84d8a6; /* fourth series (green) */
+  --mm-chart-grid: rgba(160, 186, 218, 0.12);
+  --mm-chart-axis: #7d8fa6;
+  --mm-chart-band: rgba(132, 216, 166, 0.1); /* reference range band */
+
+  /* ---- shape & space ---- */
+  --mm-radius-sm: 6px;
+  --mm-radius: 10px;
+  --mm-radius-lg: 16px;
+  --mm-radius-pill: 999px;
+  --mm-space-1: 4px;
+  --mm-space-2: 8px;
+  --mm-space-3: 12px;
+  --mm-space-4: 16px;
+  --mm-space-5: 24px;
+  --mm-space-6: 32px;
+  --mm-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --mm-blur: 14px;
+
+  /* ---- interaction ---- */
+  --mm-focus-ring: 0 0 0 2px var(--mm-bg), 0 0 0 4px var(--mm-data);
+  --mm-disabled-opacity: 0.42;
+  --mm-hit-min: 36px; /* minimum target height (pointer) */
+
+  /* ---- motion (only on a real event or a user action; no idle loops) ---- */
+  --mm-dur-fast: 120ms; /* hover, press */
+  --mm-dur: 200ms; /* open / close, state change */
+  --mm-dur-slow: 420ms; /* one-off event marker */
+  --mm-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --mm-dur-fast: 0ms;
+    --mm-dur: 0ms;
+    --mm-dur-slow: 0ms;
+  }
+}
+
+/* A page can force reduced motion for a demo or a test: <html data-motion="reduced">. */
+:root[data-motion="reduced"] {
+  --mm-dur-fast: 0ms;
+  --mm-dur: 0ms;
+  --mm-dur-slow: 0ms;
+}

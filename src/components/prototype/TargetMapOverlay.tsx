@@ -26,6 +26,7 @@ export function TargetList({
   onPick,
   leading,
   rightInset = "right-3 lg:right-[29.5rem]",
+  plain = false,
 }: {
   markers: readonly TargetMarker[];
   selectedTaskId: string | null;
@@ -34,17 +35,20 @@ export function TargetList({
   leading?: ReactNode;
   /** Right edge, so the row stays clear of controls on the map's right. */
   rightInset?: string;
+  /** The station's plain mission map: targets in name order, no priority numbers. */
+  plain?: boolean;
 }) {
   return (
     <div className={`absolute left-14 top-3 z-[3] flex gap-1.5 overflow-x-auto pb-1 ${rightInset}`} data-testid="mg-map-toolbar">
       {leading}
-      <div role="group" aria-label="Simulated targets, in provisional priority order" className="flex gap-1.5" data-testid="mg-target-list">
+      <div role="group" aria-label={plain ? "Simulated targets" : "Simulated targets, in provisional priority order"} className="flex gap-1.5" data-testid="mg-target-list">
       {markers.map((m) => (
         <button
           key={m.id}
           type="button"
           aria-pressed={m.taskId === selectedTaskId}
-          aria-label={`${m.name}: ${m.taskTitle}. ${m.stateText}`}
+          aria-label={plain ? `${m.name}: ${m.taskTitle} (simulated target)` : `${m.name}: ${m.taskTitle}. ${m.stateText}`}
+          title={plain ? `${m.taskTitle} · simulated target` : undefined}
           onClick={() => onPick(m.taskId)}
           data-testid={`mg-target-${m.id}`}
           data-tone={m.tone}

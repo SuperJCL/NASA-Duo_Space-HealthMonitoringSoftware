@@ -151,13 +151,13 @@ resolve to IPv6 on Windows. Use **one** station tab. A second station tab is a r
 
 | # | Do | Expect |
 |---|---|---|
-| 1 | Station: look at the page | Mission Map (2D) with Target A, B, C (coral diamonds, "SIM"). Mission bar: "Mission preparation". Health Monitoring is collapsed. ("ⓘ About" shows the build id.) |
-| 2 | Optional: "3D terrain", then "2D map" | Local 3D terrain loads; back to 2D |
-| 3 | Click **Target B** (target button or diamond) | Strip: "Task: Abrade and analyse a rock → Target B (simulated target …)" |
+| 1 | Station: look at the page | Mission Map (2D) with Target A, B, C (coral diamonds, "SIM", no priority numbers). Right side: **Mission & Crew** (① Task, ② Astronaut A-02, ③ Summary). Mission bar: "Mission preparation". Health Monitoring is collapsed. ("ⓘ About" shows the build id.) |
+| 2 | Optional: "3D terrain", then "2D map" | HiRISE 3D terrain loads ("Elevation: HiRISE 5 m mesh", 1× true scale, contours off); back to 2D. **Advanced planning** (panel footer) shows the old planning tools; **← Mission & Crew** returns |
+| 3 | Click **Abrade and analyse a rock** in the panel (or Target B on the map) | Panel: "Selected: Abrade and analyse a rock → Target B" |
 | 4 | **Review summary, start EVA** | Summary dialog: mission, task, simulated target, astronaut A-02, "not a real EVA", health conditions unknown |
 | 5 | **Confirm Start EVA** | Phase "Simulated EVA in progress". Health Monitoring opens over the map **once**. "Case events" shows "Waiting for data…". |
-| 6 | HUD: **Enter HUD** | "Connected · no base messages yet …" |
-| 7 | Optional: station **Esc** | Overlay collapses. The map shows "A-02 · simulated position · not tracked" near Target B. Reopen with the "A-02 simulated position" chip or **Health Monitoring ▸ Open**. |
+| 6 | HUD: **Enter HUD** | "Connected · no base messages yet …" over a 3D Mars scene (caption "Illustrative Mars scene · not a reconstruction of the task site"). Drag on empty sky to look around a little; **Reset view** returns. On a PC without WebGL the HUD shows the old picture instead and works the same. |
+| 7 | Optional: station **Esc** | Overlay collapses. The map shows "A-02 · simulated position · not tracked" near Target B. The panel shows the A-02 card: device link "Unknown", HUD message, latest data, "Vital signs: No source in this demo". Reopen with **Open Health Monitoring · A-02** or **Health Monitoring ▸ Open**. |
 | 8 | Station header: **Dev entry (data replay)** → sample **Comparable change (full flow)** → **Replay and open Health Monitoring** | Event chain: "Data source" ✓, then "Base analysis" processing (steps 1 to 4, about 10 s). Inside the analysis: Data Received → Signal Quality → Comparability → Comparison. |
 | 9 | Wait | "Base review · Base decision needed". Right side: "Indicators beyond the individual baseline variation", key evidence, the exact notice and retest text ("Draft only"), "Next: Base staff: approve or reject the candidate". The page itself does not scroll. |
 | 10 | Optional: **Full flow ⤢** | The data-flow canvas opens on the left; the decision area stays visible on the right. **← Back to steps** returns. |
@@ -184,15 +184,15 @@ Press **Ctrl+C** in Terminal 2 and in Terminal 1 (answer `Y` if asked "Terminate
 
 ## C. Patch demo (independent Python program)
 
-- **What it is:** a command-line program that prints JSON.
-- **There is no visual demo page.** The optional API has a Swagger page (`/docs`), which is an API
-  explorer: the API starting successfully does not mean a demo page exists.
+- **What it is:** a command-line program that prints JSON, plus a **showcase page** (since the
+  unified-experience round) that shows the same program output visually.
+- The optional API has a Swagger page (`/docs`), which is an API explorer. It is not the showcase.
 - **Independence:** it never contacts the relay, the Base or the HUD.
 
 ### Requirements
 
 - **Python 3.12 or newer** (`py -3.12 --version`, or `python --version`).
-- Free port 8142, only for the optional API.
+- Free port 8150 for the showcase page; 8142 only for the optional API.
 
 ### Set up (once), from the `astra-patch` folder
 
@@ -231,6 +231,26 @@ py -3.12 -m venv .venv
 | `fatigue_suspected` | 43/85, 48/80, 54/73, 61/66 (RMS up, frequency down) | acceptable, no flags. The name is test metadata; no fatigue conclusion is drawn. |
 | `sensor_fault` | 42/86, 43/85, 132/18, 175/11 | windows 3–4 `unsuitable`, flags `motion_artifact` and `electrode_contact_fault` |
 
+### Showcase page (visual; for the introduction video)
+
+```powershell
+.\.venv\Scripts\python.exe -m astra_patch showcase serve
+```
+
+1. Open `http://127.0.0.1:8150/`. It needs no network, Base, HUD or relay.
+2. **Header:** "Synthetic data · Standalone demo".
+3. **Left:** the patch diagram (left thigh), the sEMG and IMU cards and short synthetic waveforms.
+   The waveforms are labelled "Synthetic illustrative signal from the demo's capture path" and
+   "not the source of these numbers".
+4. **Right:** switch `normal` / `fatigue_suspected` / `sensor_fault`. The window values and signal
+   quality must equal the CLI table above.
+   - In `sensor_fault`, windows 3–4 are hatched "Unsuitable" with their flags and are not plotted.
+   - The name `fatigue_suspected` is shown as a simulated label, not a diagnosis.
+5. Stop with **Ctrl+C**.
+
+The data file `showcase\data\showcase.json` is committed. To regenerate it, run
+`.\.venv\Scripts\python.exe -m astra_patch showcase build` (the result is identical).
+
 ### Tests
 
 ```powershell
@@ -238,7 +258,7 @@ $env:PYTHONPATH = "."
 .\.venv\Scripts\python.exe -m pytest -q tests
 ```
 
-Expected: **84 passed** (a warning may be printed).
+Expected: **96 passed** (a warning may be printed).
 
 ### Optional: local API explorer
 
@@ -265,8 +285,8 @@ $env:MYOMARS_ACQUISITION_TOKEN
 
 ### Running both demos on the same PC
 
-- Ports do not collide: Base 3000 and relay/HUD 8787 for demo B; the patch replay uses no port, and
-  its optional API uses 8142.
+- Ports do not collide: Base 3000 and relay/HUD 8787 for demo B; the patch replay uses no port,
+  its showcase page 8150 and its optional API 8142.
 - Use a separate terminal for the patch (three terminals in total if the API is running).
 - Nothing needs to be stopped or reconfigured on either side, because the programs never talk to
   each other.
@@ -277,7 +297,7 @@ $env:MYOMARS_ACQUISITION_TOKEN
 
 | Item | Status |
 |---|---|
-| Automated checks on the merged code (Linux CI-style run, production build) | **Passed**: `npm run check` (386 unit tests and build); `e2e:two-end` 48/48; `e2e:mission` 29/29; `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50; `smoke` 118; `test:hud` 49 + 46; patch `pytest` 84 passed; patch replay of all 3 scenarios exits 0 |
+| Automated checks (Linux container, headless Chromium with software WebGL, production build; unified-experience round incl. the restore fixes) | **Passed**: `npm run check` (397 unit tests and build); `e2e:two-end` 48/48 (default, HUD image fallback, reduced motion); `e2e:mission` 29/29; `hud-scene-check` 27/27; `hud-effects-check` 10/10; `smoke:crew` 72/72; `smoke:station` 121/121; `smoke:mission-glass` 228; `smoke:eva-route` 50; `smoke` 118; `test:hud` 49 + 46; patch `pytest` 96 passed; patch `showcase/check.mjs` 98/98 |
 | Owner's manual acceptance on Windows (this guide, final `main`) | **Pending** |
 
 **Not verified, and not part of this round's development:**

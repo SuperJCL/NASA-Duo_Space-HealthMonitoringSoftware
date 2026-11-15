@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MyoMars EVA HUD · Base Link</title>
+<!-- shared MyoMars design resources (copies made by `npm run design:sync`; variables and @font-face only, used by integration mode) -->
+<link rel="stylesheet" href="assets/myomars-fonts.css">
+<link rel="stylesheet" href="assets/myomars-tokens.css">
+<script>
+/* integration mode: mark <html> before the first paint. data-scene: loading → webgl | fallback (set by the page script);
+   ?scene=off forces the image fallback. Standalone mode is untouched. */
+(function(){var q=new URLSearchParams(location.search),d=document.documentElement.dataset;if(q.get('mode')!=='integration')return;
+  d.mode='integration';if(q.get('scene')==='off'){d.scene='fallback';d.sceneReason='off'}else d.scene='loading'})();
+</script>
 <style>
 :root{
   --hud:#8eeaff;--hud-dim:rgba(142,234,255,.58);--hud-faint:rgba(142,234,255,.2);
@@ -240,6 +249,96 @@ body.int #rcard.hist{border-color:var(--hud-faint);box-shadow:none}
 body.int #rcard.hist h4,body.int #rcard.hist h4 .tag{color:var(--hud-dim)!important}
 
 @media (max-width:860px){#left,#demo,#bottom{display:none}#right{width:46vw}#rcard{width:46vw}#keys{bottom:3vh}}
+
+/* ===== integration mode · shared design language (assets/myomars-tokens.css, design/DESIGN.md). The HUD's own colour
+   variables map onto the semantic tokens: cyan = data / connection, orange = pending human action / primary button,
+   red = explicit alert, green = done, amber = degraded. Text sits on glass; one keyboard focus ring; no glowing panels. */
+body.int{--hud:var(--mm-data);--hud-dim:var(--mm-dim);--hud-faint:var(--mm-line-strong);--panel:var(--mm-glass);
+  --ok:var(--mm-ok);--warn:var(--mm-caution);--amber:var(--mm-action);--bad:var(--mm-alert);--mars:var(--mm-mars);
+  color:var(--mm-text);font-family:var(--mm-font-sans)}   /* --glow kept: the HUD's own cyan text glow (restored) */
+body.int .mono{font-family:var(--mm-font-mono)}
+body.int #topL .sub,body.int #topR,body.int #heading{font-family:var(--mm-font-sans);font-variant-numeric:tabular-nums}
+body.int .panel{background:var(--mm-glass);border-color:var(--mm-line);border-radius:var(--mm-radius-lg);padding:14px 16px;
+  backdrop-filter:blur(var(--mm-blur));-webkit-backdrop-filter:blur(var(--mm-blur));box-shadow:var(--mm-shadow)}
+body.int .panel h4{font-size:var(--mm-text-xs);letter-spacing:.08em;color:var(--mm-dim)}
+body.int .tag{color:var(--mm-dim)}
+body.int .card{background:rgba(4,8,14,.4);border-color:var(--mm-line-strong);border-radius:var(--mm-radius)}
+body.int .card.alert{border-color:var(--mm-action)}body.int .card.alert h5{color:var(--mm-action)}
+body.int .card.alert.v2{border-color:var(--mm-ok)}body.int .card.alert.v2 h5{color:var(--mm-ok)}
+body.int .itext{color:var(--mm-text)}
+body.int .inow.todo{color:var(--mm-action)}
+body.int .inote .tag{color:var(--mm-sim)!important;border-style:dashed}   /* SIMULATED: dashed violet */
+body.int #status{border-color:var(--mm-line-strong);border-radius:var(--mm-radius)}
+body.int .lvl.amber{color:var(--mm-action-ink)}
+body.int .lvl.green{color:#0b2416}
+body.int #rcard{border-color:var(--mm-action);box-shadow:var(--mm-shadow)}
+body.int button{font-family:inherit;font-size:var(--mm-text-sm);font-weight:var(--mm-weight-strong);color:var(--mm-text);background:var(--mm-surface);
+  border:1px solid var(--mm-line-strong);border-radius:var(--mm-radius);min-height:36px;padding:0 14px;
+  transition:background-color var(--mm-dur-fast) var(--mm-ease),border-color var(--mm-dur-fast) var(--mm-ease)}
+body.int button:hover:not(:disabled){background:var(--mm-surface-2);border-color:var(--mm-dim)}
+body.int button.go,body.int #bAck{background:var(--mm-action);border-color:var(--mm-action);color:var(--mm-action-ink)}
+body.int button.go:hover:not(:disabled),body.int #bAck:hover:not(:disabled){background:#ff9d76;border-color:#ff9d76}
+body.int button:disabled{opacity:var(--mm-disabled-opacity)}
+body.int #alert button,body.int #rcBody button{min-height:40px;font-size:var(--mm-text-sm);padding:0 16px}
+body.int #status .vt{min-height:32px;padding:0 12px;font-size:var(--mm-text-xs)}
+body.int .scn button{padding:10px 16px}
+body.int .scn button small{color:inherit;opacity:.8}
+body.int select{background:var(--mm-bg);color:var(--mm-text);border:1px solid var(--mm-line-strong);border-radius:var(--mm-radius-sm);min-height:36px}
+body.int button:focus-visible,body.int select:focus-visible,body.int summary:focus-visible,body.int [tabindex]:focus-visible{outline:none;box-shadow:var(--mm-focus-ring)}
+body.int #intro .in{background:var(--mm-glass-strong);border-color:var(--mm-line-strong);border-radius:var(--mm-radius-lg)}
+body.int #intro h1{letter-spacing:.04em;font-weight:600}
+body.int #intro p{color:var(--mm-dim)}
+/* the top bars sit on glass (text never directly on the scene); the mini-map and walking position are standalone only */
+body.int #topL,body.int #topR{background:var(--mm-glass);border:1px solid var(--mm-line);border-radius:var(--mm-radius-lg);padding:10px 14px;
+  backdrop-filter:blur(var(--mm-blur));-webkit-backdrop-filter:blur(var(--mm-blur));pointer-events:auto}
+body.int #topL b{letter-spacing:.08em}
+/* the top-right block (telemetry + restored mini-map) sits on glass and is taller than before: start the base messages below it */
+body.int #right{top:calc(3.2vh + 236px);max-height:min(52vh,calc(100vh - 3.2vh - 236px - 150px))}
+body.int #topL .sub{color:var(--mm-dim)}
+body.int #compass{background:var(--mm-glass);border-radius:var(--mm-radius-pill)}
+body.int #heading{top:calc(3vh + 40px);padding:2px 10px;background:var(--mm-glass);border-radius:var(--mm-radius-pill);color:var(--mm-text)}
+body.int #guideOverlay:not(:empty){padding:12px 18px;background:var(--mm-glass);border:1px solid var(--mm-line);border-radius:var(--mm-radius-lg);
+  backdrop-filter:blur(var(--mm-blur));-webkit-backdrop-filter:blur(var(--mm-blur))}
+body.int #guideOverlay .big{letter-spacing:.02em;font-size:var(--mm-text-xl)}
+body.int #guideOverlay .sm{color:var(--mm-dim)}
+body.int #stab{padding:2px 10px;background:var(--mm-glass);border-radius:var(--mm-radius-pill)}
+body.int .wm .box{background:var(--mm-glass);border-color:var(--mm-line-strong);border-radius:var(--mm-radius-sm);color:var(--mm-text);font-size:var(--mm-text-xs)}
+body.int .wm small{color:var(--mm-dim)}
+body.int .wm.base:not(.amber) .box{border-color:var(--mm-mars);color:var(--mm-text)}   /* the amber (task / reassessing) state keeps its own colours */
+html[data-scene="webgl"] body.int #wmRidge,html[data-scene="webgl"] body.int #wmPoint,html[data-scene="webgl"] body.int #wmRover{display:none}   /* panorama waypoints: shown on the panorama (fallback); no original 3D placement exists */
+/* the HUD keeps its own motion (base-marker ping, status blink, queued-packet blink, edge hint); reduced motion stops it */
+@media (prefers-reduced-motion:reduce){body.int *,body.int *::before,body.int *::after{animation:none!important;transition:none!important}}
+html[data-motion="reduced"] body.int *,html[data-motion="reduced"] body.int *::before,html[data-motion="reduced"] body.int *::after{animation:none!important;transition:none!important}
+
+/* ===== integration mode · illustrative 3D scene (scene/mars-scene.js, three.js) with the panorama image as fallback ===== */
+html[data-mode="integration"],html[data-mode="integration"] body{background:#2a160d}
+html[data-scene="loading"] #outer,html[data-scene="loading"] #ground,html[data-scene="webgl"] #outer,html[data-scene="webgl"] #ground{display:none}
+html[data-scene="webgl"] body.grab,html[data-scene="webgl"] body.grabbing{cursor:default}
+#scene3d{position:fixed;left:0;top:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#scene3d.drag{cursor:grabbing}
+#sceneMarks{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#sceneMarks .wm{z-index:1}
+#sceneMarks .wm.open{z-index:2}
+#sceneMarks .wm .box{pointer-events:auto;cursor:pointer}
+#sceneMarks .wm .box:hover{border-color:var(--mm-dim)}
+#sceneMarks .wm.task .box{border-color:var(--mm-data)}
+#sceneMarks .wm.task .ring{border-color:var(--mm-data)}
+.wm .mcard{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:260px;white-space:normal;text-align:left;
+  pointer-events:auto;padding:10px 12px;background:var(--mm-glass-strong);border:1px solid var(--mm-line-strong);border-radius:var(--mm-radius);
+  box-shadow:var(--mm-shadow);color:var(--mm-text);font-size:var(--mm-text-sm);line-height:var(--mm-leading);text-shadow:none;cursor:default}
+.wm .mcard b{display:block;font-size:var(--mm-text-md);font-weight:600;padding-right:28px}
+.wm .mcard p{margin:4px 0 0;color:var(--mm-dim)}
+.wm .mcard .sim{display:inline-block;margin-top:6px;padding:0 8px;border:1px dashed var(--mm-sim);border-radius:var(--mm-radius-pill);color:var(--mm-sim);font-size:var(--mm-text-xs)}
+.wm .mcard button.x{position:absolute;right:4px;top:4px;min-height:32px;width:32px;padding:0;background:transparent;border-color:transparent;color:var(--mm-dim);font-size:16px;line-height:1}
+#sceneCtl{position:absolute;left:50%;bottom:calc(4vh + 124px);transform:translateX(-50%);display:flex;gap:8px;align-items:center}
+#sceneCtl button{min-height:36px;padding:0 14px;font-size:var(--mm-text-xs);background:var(--mm-glass);backdrop-filter:blur(var(--mm-blur));-webkit-backdrop-filter:blur(var(--mm-blur))}
+#sceneCaption{position:absolute;right:3vw;bottom:8px;padding:2px 8px;border-radius:var(--mm-radius-pill);background:rgba(10,15,24,.55);
+  color:var(--mm-faint);font-size:var(--mm-text-2xs);letter-spacing:.02em;white-space:nowrap}
+#sceneTools{margin-top:10px;padding-top:8px;border-top:1px solid var(--mm-line);display:grid;gap:6px;font-size:var(--mm-text-xs);color:var(--mm-dim)}
+#sceneTools label{display:flex;gap:8px;align-items:center;margin:0;color:var(--mm-dim)}
+#sceneTools select{min-height:36px;font-size:var(--mm-text-xs)}
+#sceneState{color:var(--mm-text)}
+@media (max-width:860px){#sceneCtl{bottom:calc(3vh + 8px)}#sceneCaption{right:12px}}
 </style>
 </head>
 <body class="grab">
@@ -394,6 +493,8 @@ const FILE_MODE=location.protocol==='file:';
 const QS=new URLSearchParams(location.search),INTEGRATION=QS.get('mode')==='integration';
 const UI_KEY=INTEGRATION?'myomars.hud.int.ui':'myomars.hud.ui';
 const INT_SAMPLE_KEY=/^retest-(normal|changed|invalid)$/.test(QS.get('retestSample')||'')?QS.get('retestSample'):'retest-normal';
+/* integration mode: illustrative 3D scene state (sceneBoot below). webgl = the three.js scene is drawing; otherwise the panorama shows */
+const SC={state:'off',webgl:false,api:null,yaw:0,pitch:0,heading0:0,want:'auto',open:'',cardHtml:''};
 'use strict';
 const $=id=>document.getElementById(id);
 const IMG_W=1983,IMG_H=793,A=IMG_W/IMG_H;
@@ -426,7 +527,7 @@ const clampX=x=>x;   // 360° panorama: yaw wraps
 const clampY=y=>Math.min(0,Math.max(-(v.H-innerHeight),y));
 addEventListener('resize',layout);
 addEventListener('pointerdown',e=>{
-  if(!started||e.target.closest('.p'))return;
+  if(!started||SC.webgl||e.target.closest('.p'))return;   // the 3D scene handles its own drag, on its canvas only
   drag={x:e.clientX,y:e.clientY};v.locating=false;document.body.classList.replace('grab','grabbing');
 });
 addEventListener('pointermove',e=>{
@@ -436,7 +537,7 @@ addEventListener('pointermove',e=>{
 });
 addEventListener('pointerup',()=>{drag=null;document.body.classList.replace('grabbing','grab')});
 addEventListener('keydown',e=>{
-  if(!started)return;
+  if(!started||INTEGRATION)return;   // integration mode: fixed standing viewpoint, no walking
   const m=keyOf(e);if(!m)return;
   keys[m]=true;e.preventDefault();
 });
@@ -476,24 +577,25 @@ function frame(ts){
   v.x+=(v.tx-v.x)*lf;v.y+=(v.ty-v.y)*lf;
   if(v.locating&&Math.abs(v.tx-v.x)<1.5&&Math.abs(v.ty-v.y)<1.5)v.locating=false;
   const sx0=mod(-v.x,v.W);            // wrapped pan offset (two copies side by side cover the seam)
-  $('outer').style.transform='translate3d('+(-sx0)+'px,'+v.y+'px,0)';
+  if(!SC.webgl)$('outer').style.transform='translate3d('+(-sx0)+'px,'+v.y+'px,0)';
   const ox=sx0+vw/2, oy=vh/2-v.y;     // strip coords of view centre; zoom toward what you are looking at
   // ground position (metres, x=east y=north) for the mini-map
   {const h=bearingX(ox)*Math.PI/180, s=WALK.mps*dt*8;   // ×8 so movement is visible in a short demo
    v.px+=(Math.sin(h)*v.vf+Math.cos(h)*v.vs)*s; v.py+=(Math.cos(h)*v.vf-Math.sin(h)*v.vs)*s;
    if(v.speed>.05){const t=v.trail,l=t[t.length-1];if(!l||Math.hypot(l[0]-v.px,l[1]-v.py)>2){t.push([v.px,v.py]);if(t.length>60)t.shift()}}}
-  const inner=$('inner');inner.style.transformOrigin=ox+'px '+oy+'px';
   const fx=S.flex||0;   // 0 standing -> 1 deepest knee bend
+  if(!SC.webgl){const inner=$('inner');inner.style.transformOrigin=ox+'px '+oy+'px';
   inner.style.transform='translate3d('+bobX+'px,'+(bobY-fx*vh*.07)+'px,0) scale('+(scale*(1-fx*.015))+')';
   {const sc=scale*(1-fx*.015), oyw=vh/2-v.y, hyW=HORIZON*v.H;
-   drawGround(dt,vw,vh,v.y+oyw+(hyW-oyw)*sc+bobY-fx*vh*.07, bobX);}
+   drawGround(dt,vw,vh,v.y+oyw+(hyW-oyw)*sc+bobY-fx*vh*.07, bobX);}}
   const kn=$('knees');kn.style.transform='translate(-50%,'+(100-fx*78)+'%)';kn.style.opacity=Math.min(1,fx*1.6);
-  $('glare').style.transform='translate('+(-sx0/v.P*120)+'px,0)';
+  $('glare').style.transform='translate('+(SC.webgl?-SC.yaw*3:-sx0/v.P*120)+'px,0)';
+  if(!SC.webgl){   // panorama markers (the 3D scene positions its own markers when it renders)
   const near=X=>X+v.W*Math.round((ox-X)/v.W);   // marker copy closest to where you look
   for(const k in MK){const m=MK[k],el=$(m.id);el.style.left=near(stripX(m.t,m.u))+'px';el.style.top=(m.v*v.H)+'px'}
-  {const o=$('baseOutline').style;o.left=(near(stripX(0,OUT.u0)))+'px';o.top=(OUT.v0*v.H)+'px';o.width=((OUT.u1-OUT.u0)*v.W)+'px';o.height=((OUT.v1-OUT.v0)*v.H)+'px'}
+  {const o=$('baseOutline').style;o.left=(near(stripX(0,OUT.u0)))+'px';o.top=(OUT.v0*v.H)+'px';o.width=((OUT.u1-OUT.u0)*v.W)+'px';o.height=((OUT.v1-OUT.v0)*v.H)+'px'}}
   // compass + speed
-  const hd=bearingX(ox);
+  const hd=SC.webgl?mod(SC.heading0+SC.yaw,360):bearingX(ox);
   $('cstrip').style.transform='translateX('+($('compass').clientWidth/2-(hd+90)*6)+'px)';
   $('heading').firstChild.nodeValue=String(Math.round(hd)).padStart(3,'0')+'°';
   const dir=v.speed<=.05?'':(Math.abs(v.vs)>Math.abs(v.vf)?(v.vs>0?'Strafe R':'Strafe L'):(v.vf>0?'Forward':'Back'));
@@ -547,6 +649,8 @@ function drawGround(dt,vw,vh,hy,bx){
 const OUT={u0:.59,u1:.78,v0:.285,v1:.475};
 let edgeSide='';
 function locateBase(){
+  if(SC.webgl&&SC.api){SC.api.lookAt('base');log('Locate base: turning view to base');flash($('wmBase'),'hl',2400);
+    const cb=document.querySelector('.cbase');if(cb)flash(cb,'hl',2400);return}
   const vw=innerWidth,vh=innerHeight;
   const target=stripX(MK.base.t,MK.base.u)-vw/2, pos=-v.x;   // turn the shortest way round
   v.tx=-(target+v.W*Math.round((pos-target)/v.W));v.ty=clampY(vh/2-MK.base.v*v.H+60);v.locating=true;
@@ -559,6 +663,7 @@ function flash(el,cls,ms){el.classList.remove(cls);void el.getBoundingClientRect
 /* ===== amber message: from base marker (in view) or from the edge arrow side (out of view) ===== */
 let msgF=null;
 function startMsgFlight(){
+  if(INTEGRATION&&reducedMotion())return;
   const vw=innerWidth,vh=innerHeight,b=$('baseRing').getBoundingClientRect(),bx=b.left+b.width/2,by=b.top+b.height/2;
   const inView=bx>=0&&bx<=vw&&by>=0&&by<=vh;
   const side=bx>vw/2?'r':'l';
@@ -581,6 +686,8 @@ function drawMsg(){
 const BASE_BRG=bearingT(MK.base.t,MK.base.u)*Math.PI/180;
 const BASE_XY=[Math.sin(BASE_BRG)*BASE_KM*1000,Math.cos(BASE_BRG)*BASE_KM*1000];
 function baseDistKm(){return Math.hypot(BASE_XY[0]-v.px,BASE_XY[1]-v.py)/1000}
+// the panorama (standalone, and the integration fallback) keeps the original distance; the 3D scene's base is not at that distance
+function baseSub(){return INTEGRATION&&SC.webgl?S.baseLabel:baseDistKm().toFixed(2)+' km · '+S.baseLabel}
 let radarAcc=0;
 function drawRadar(hd){
   const c=$('radar');if(!c)return;const g=c.getContext('2d'),w=c.width,R=w/2-4,cx=w/2,cy=w/2,sc=R/60,h=hd*Math.PI/180;
@@ -602,7 +709,7 @@ const nn=[cx+Math.sin(-h)*(R-6),cy-Math.cos(-h)*(R-6)];
   g.fillStyle='#8eeaff';g.beginPath();g.moveTo(cx,cy-7);g.lineTo(cx+5,cy+5);g.lineTo(cx,cy+2);g.lineTo(cx-5,cy+5);g.closePath();g.fill();
   if((radarAcc=(radarAcc+1)%10)===0){
     $('posVal').textContent='E '+v.px.toFixed(0)+'  N '+v.py.toFixed(0)+' m';
-    $('wmBaseSub').textContent=baseDistKm().toFixed(2)+' km · '+S.baseLabel;
+    $('wmBaseSub').textContent=baseSub();
   }
 }
 function stepGlove(){
@@ -615,6 +722,7 @@ function stepGlove(){
 let flight=null;
 function drawFly(ts){
   const f=$('fly');
+  if(flight&&INTEGRATION&&reducedMotion())flight=null;
   if(!flight){f.classList.remove('on');return}
   const k=Math.min(1,(performance.now()-flight.t0)/flight.dur);
   const a=$('localIcon').getBoundingClientRect(),b=$('baseRing').getBoundingClientRect();
@@ -1040,7 +1148,7 @@ function render(){
   if(mootRt)S.flagBase=false;
   S.baseLabel=!online?'Link down':res==='reassessing'?'Reassessing':(rt&&!mootRt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])?'Retest task sent':'Link OK';
   S.baseCls=res==='reassessing'?'busy':S.flagBase?'amber':'';
-  $('wmBase').className='wm base '+S.baseCls;$('wmBaseSub').textContent=baseDistKm().toFixed(2)+' km · '+S.baseLabel;
+  $('wmBase').className='wm base '+S.baseCls+(INTEGRATION&&SC.open==='wmBase'?' open':'');$('wmBaseSub').textContent=baseSub();
   $('cacheVal').textContent=client.monitorState().uploaded+' · '+st.outbox.length;
   $('stab').style.display=S.phase==='collecting'?'block':'none';
   $('visor').classList.toggle('focus',S.phase==='collecting'||(rt&&!mootRt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)]));
@@ -1184,6 +1292,7 @@ function render(){
   $('bstatL').textContent=rt?(rt.retestId+' · Round '+rt.round+' · '+(RT_LABEL[rt.status]||rt.status)):'No retest task';
   $('bstatR').textContent='Seq '+st.lastSeq+' · dedup '+st.duplicates;
   $('log').innerHTML=S.log.join('<br>');
+  if(INTEGRATION)sceneLabels();
 }
 
 /* ================= wiring ================= */
@@ -1199,17 +1308,151 @@ if(INTEGRATION){   // integration: no scenario choice; join the run the data rep
   const dl=$('bottom');if(dl){dl.querySelector('h4').textContent='Retest result link · stored simulated sample → HUD → Base';const pn=dl.querySelector('.cn');if(pn)pn.lastChild.textContent='Sample (sim.)'}
   const bm=document.querySelector('svg.body');if(bm)bm.setAttribute('aria-label','Body map');
   const ii=document.querySelector('#intro .in');
-  if(ii)ii.innerHTML='<h1>MyoMars HUD · Integration mode</h1><p>Two-end run with the Mars Station. You are astronaut A-02.<br><b>Drag</b> to look around, <b>W / S</b> to move, <b>A / D</b> to step sideways.</p>'
+  if(ii)ii.innerHTML='<h1>MyoMars HUD · Integration mode</h1><p>Two-end run with the Mars Station. You are astronaut A-02, standing still.<br><b>Drag</b> on the scene to look around; <b>Reset view</b> returns to the default view.</p>'
     +'<p style="color:var(--hud-dim);font-size:12px">Measurements come from the base data replay (simulated samples). This page uploads no walking segments<br>and draws no conclusions of its own: it shows base messages and sends your receipts, confirmations and the retest result.</p>'
     +'<div class="scn"><button class="go g" id="bJoin">Enter HUD<small>Join the run started by the base data replay (or wait for it).</small></button></div>';
   if($('bJoin'))$('bJoin').onclick=()=>{if($('intro'))$('intro').remove();started=true;S.flagBase=false;log('Integration mode: joined');render()};
+  // suit telemetry is not part of the integration contract: unknown stays unknown (no placeholder values)
+  const tr=$('topR');if(tr&&tr.children.length>1){tr.children[0].innerHTML='Suit power <span style="color:var(--mm-dim)">Not reported</span>';
+    tr.children[1].innerHTML='O₂ remaining <span style="color:var(--mm-dim)">Not reported</span>'}
+}
+/* ================= integration mode · illustrative 3D scene ================= */
+/* scene/mars-scene.js (three.js bundle, built from scene/mars-scene.src.js by `npm run hud:scene`) draws a fixed standing
+   viewpoint over a procedural Mars landscape. It is an illustration, never the task site or measured terrain (caption).
+   Drag on empty scene area to look around (yaw ±35°, small pitch range); Reset view returns to the default view (eased,
+   instant under reduced motion). It renders on demand only and pauses while the page is hidden. If WebGL 2 is missing,
+   context creation fails, the bundle does not load or the context is lost, the panorama image stays
+   (<html data-scene="fallback">). ?scene=off forces the fallback; ?quality=low|standard|high overrides the auto level.
+   Markers give task context only (the base; the task named in the base's EVA start, else "Task target"): no distances,
+   no decisions. Nothing here touches the base messages or the client. */
+const SCENE_Q_KEY='myomars.hud.int.sceneQuality',QLEVELS=['low','standard','high'];
+const FALLBACK_WHY={off:'turned off (?scene=off)','no-webgl':'WebGL 2 is unavailable','load-failed':'the scene file did not load','load-timeout':'the scene file did not load',
+  'init-failed':'the scene could not start','context-lost':'the WebGL context was lost','shader-error':'a scene shader did not compile on this GPU'};
+function reducedMotion(){return document.documentElement.dataset.motion==='reduced'||!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)}
+function sceneSet(state,reason){
+  const d=document.documentElement.dataset;SC.state=state;SC.webgl=state==='webgl';d.scene=state;
+  if(reason)d.sceneReason=reason;else delete d.sceneReason;
+  if(SC.webgl&&SC.api)d.quality=SC.api.quality;else delete d.quality;
+  const el=$('sceneState');
+  if(el)el.textContent=SC.webgl&&SC.api?'3D (WebGL) · '+SC.api.quality[0].toUpperCase()+SC.api.quality.slice(1)+(SC.api.auto?' (auto)':'')+(SC.api.software?' · software renderer':'')
+    :state==='fallback'?'Image fallback · '+(FALLBACK_WHY[reason]||'the 3D scene is unavailable'):'Loading…';
+  const q=$('sceneQuality');if(q)q.disabled=state==='fallback';
+}
+function sceneDom(){
+  const hud=$('hud'),marks=document.createElement('div');marks.id='sceneMarks';
+  document.body.insertBefore(marks,hud);
+  const task=document.createElement('div');task.className='wm task';task.id='wmTask';task.style.visibility='hidden';
+  task.innerHTML='<div class="box" role="button" tabindex="0" aria-expanded="false"></div><div class="stem"></div><div class="ring"></div>';
+  marks.appendChild(task);
+  const ctl=document.createElement('div');ctl.id='sceneCtl';ctl.className='p';
+  ctl.innerHTML='<button type="button" id="bResetView" title="Return to the default view">⟲ Reset view</button>';
+  hud.appendChild(ctl);
+  const cap=document.createElement('div');cap.id='sceneCaption';cap.textContent='Illustrative Mars scene · not a reconstruction of the task site';
+  hud.appendChild(cap);
+  // quality and scene state live in the collapsed tools panel, not on the first layer
+  const demo=$('demo'),sm=demo.querySelector('summary');if(sm)sm.textContent='▸ Link & scene tools';
+  const tools=document.createElement('div');tools.id='sceneTools';
+  tools.innerHTML='<div><span class="lab">Scene</span> <span id="sceneState">Loading…</span></div>'
+    +'<label>Quality <select id="sceneQuality"><option value="auto">Auto</option><option value="low">Low</option><option value="standard">Standard</option><option value="high">High</option></select></label>';
+  demo.insertBefore(tools,$('log'));
+  $('bResetView').onclick=sceneReset;
+  $('sceneQuality').onchange=e=>sceneQuality(e.target.value);
+  for(const id of ['wmBase','wmTask']){const box=$(id).querySelector('.box');
+    box.onclick=e=>{e.stopPropagation();if(SC.webgl)sceneCard(SC.open===id?'':id)};
+    box.onkeydown=e=>{if(SC.webgl&&(e.key==='Enter'||e.key===' ')){e.preventDefault();sceneCard(SC.open===id?'':id)}}}
+  addEventListener('keydown',sceneKeys);
+  sceneLabels();
+}
+function sceneMarkers(on){   // the base marker lives in the 3D marker layer while the scene draws, in the panorama otherwise
+  const wb=$('wmBase'),box=wb.querySelector('.box');
+  if(on){$('sceneMarks').appendChild(wb);box.setAttribute('role','button');box.tabIndex=0;box.setAttribute('aria-expanded','false');box.setAttribute('aria-label','Mars Base. Show details')}
+  else{sceneCard('');$('inner').appendChild(wb);for(const a of ['role','tabindex','aria-expanded','aria-label'])box.removeAttribute(a);wb.style.visibility='';$('wmTask').style.visibility='hidden'}
+}
+function sceneCardHtml(id){   // recorded state only: connection words, the task title the base sent; no numbers, no judgement
+  const run=client.activeCase().run,x='<button type="button" class="x" aria-label="Close">×</button>';
+  if(id==='wmBase')return x+'<b>Mars Base · habitat</b><p>Base link: '+esc({online:'online',connecting:'connecting',reconnecting:'reconnecting',offline:'offline'}[client.state.conn]||'not connected')+'</p>'
+    +'<p>Direction marker in an illustrative scene. The position is not measured.</p>';
+  const t=run&&run.task&&run.task.title;
+  return x+'<b>'+esc(t||'Task target')+'</b><p>'+(t?'Task named in the base\'s EVA start message.':'No EVA task from the base yet.')+'</p>'
+    +'<p>The marker is illustrative: it is not the task site.</p><span class="sim">Simulated position</span>';
+}
+function sceneCard(id){
+  for(const m of ['wmBase','wmTask']){const el=$(m);if(!el)continue;const c=el.querySelector('.mcard');if(c)c.remove();el.classList.remove('open');
+    const b=el.querySelector('.box');if(b&&b.hasAttribute('aria-expanded'))b.setAttribute('aria-expanded','false')}
+  SC.open=SC.webgl&&id?id:'';SC.cardHtml='';if(!SC.open)return;
+  const el=$(SC.open),card=document.createElement('div');card.className='mcard';card.setAttribute('role','group');
+  card.setAttribute('aria-label',SC.open==='wmBase'?'Mars Base details':'Task target details');
+  card.innerHTML=SC.cardHtml=sceneCardHtml(SC.open);
+  card.onpointerdown=e=>e.stopPropagation();
+  card.querySelector('button.x').onclick=e=>{e.stopPropagation();sceneCard('');el.querySelector('.box').focus()};
+  el.appendChild(card);el.classList.add('open');el.querySelector('.box').setAttribute('aria-expanded','true');
+}
+function sceneLabels(){
+  const tk=$('wmTask');if(!tk)return;
+  const run=client.activeCase().run,t=run&&run.task&&run.task.title;
+  const h=t?esc(t)+'<small>Task target · simulated</small>':'Task target<small>simulated</small>',box=tk.querySelector('.box');
+  if(box._h!==h){box.innerHTML=h;box._h=h;box.setAttribute('aria-label',(t||'Task target')+', simulated position. Show details')}
+  if(SC.open&&SC.cardHtml!==sceneCardHtml(SC.open))sceneCard(SC.open);   // keep an open card current
+}
+function sceneKeys(e){
+  if(!SC.webgl||!SC.api||!started)return;
+  if(e.key==='Escape'&&SC.open){const id=SC.open;sceneCard('');const b=$(id).querySelector('.box');if(b)b.focus();return}
+  const a=document.activeElement;if(a&&a!==document.body&&a.id!=='scene3d')return;   // never steal keys from controls
+  const st={ArrowLeft:[-3,0],ArrowRight:[3,0],ArrowUp:[0,2],ArrowDown:[0,-2]}[e.key];
+  if(st){e.preventDefault();SC.api.nudge(st[0],st[1])}
+}
+function sceneReset(){
+  if(SC.webgl&&SC.api){SC.api.reset();return}
+  const vw=innerWidth,vh=innerHeight;v.tx=-(v.W-vw)*.42;v.ty=clampY(-(v.H-vh)*.4);if(reducedMotion()){v.x=v.tx;v.y=v.ty}   // panorama default
+}
+function sceneRendered(view){SC.yaw=view.yaw;SC.pitch=view.pitch;SC.atDefault=view.atDefault}
+function sceneStart(){
+  if(SC.state==='fallback')return;
+  const M=window.MyoMarsScene;if(!M||typeof M.create!=='function'){sceneFallback('load-failed');return}
+  if(!SC.loadedAt)SC.loadedAt=performance.now();
+  sceneMarkers(true);
+  try{SC.api=M.create({before:$('outer'),quality:SC.want,markers:{base:$('wmBase'),task:$('wmTask')},reducedMotion,
+    onRender:sceneRendered,onTap:()=>sceneCard(''),onLost:r=>sceneFallback(r||'context-lost')})}
+  catch(e){SC.api=null;sceneFallback(e&&e.code||'init-failed');return}
+  SC.heading0=mod(bearingT(MK.base.t,MK.base.u)-SC.api.markerYaw('base'),360);   // compass ▼BASE lines up with the 3D base
+  sceneSet('webgl');
+}
+function sceneFallback(reason){
+  if(SC.state==='fallback')return;
+  if(SC.api){const a=SC.api;SC.api=null;try{a.dispose()}catch{}}
+  const left=$('scene3d');if(left)left.remove();   // never leave a dead canvas over the image
+  sceneSet('fallback',reason);sceneMarkers(false);layout();
+  if(reason!=='off')log('3D scene unavailable ('+reason+'): showing the panorama image');
+}
+function sceneQuality(q){
+  SC.want=QLEVELS.includes(q)?q:'auto';
+  try{if(SC.want==='auto')localStorage.removeItem(SCENE_Q_KEY);else localStorage.setItem(SCENE_Q_KEY,SC.want)}catch{}
+  if(!SC.webgl||!SC.api)return;
+  const keep=SC.api.view();sceneCard('');SC.api.dispose();SC.api=null;SC.state='loading';
+  sceneStart();if(SC.api)SC.api.setView(keep.yaw,keep.pitch);
+}
+function sceneBoot(){
+  sceneDom();
+  const p=(QS.get('quality')||'').toLowerCase();let stored='';try{stored=localStorage.getItem(SCENE_Q_KEY)||''}catch{}
+  SC.want=QLEVELS.includes(p)?p:QLEVELS.includes(stored)?stored:'auto';$('sceneQuality').value=SC.want;
+  SC.bootAt=performance.now();
+  window.__hudScene={get state(){return SC.state},get quality(){return SC.api?SC.api.quality:null},get frames(){return SC.api?SC.api.frames:0},
+    get api(){return SC.api},view:()=>SC.api?SC.api.view():null,reset:sceneReset,get bootAt(){return SC.bootAt},get loadedAt(){return SC.loadedAt}};
+  if(QS.get('scene')==='off'){sceneFallback('off');return}
+  sceneSet('loading');
+  if(window.MyoMarsScene){sceneStart();return}
+  const s=document.createElement('script');s.src='scene/mars-scene.js';
+  const to=setTimeout(()=>{s.onload=s.onerror=null;sceneFallback('load-timeout')},15000);
+  s.onload=()=>{clearTimeout(to);sceneStart()};
+  s.onerror=()=>{clearTimeout(to);sceneFallback('load-failed')};
+  document.head.appendChild(s);
 }
 $('bLink').onclick=()=>{if(client.state.conn==='offline')client.reconnect();else client.disconnect()};
 $('bClear').onclick=()=>{client.stop();client.clearLocal();localStorage.removeItem(UI_KEY);location.reload()};
 $('edge').onclick=e=>{if(e.target.closest('#bLocate'))locateBase()};
 {const th=$('thigh'),tog=()=>{S.legOpen=!S.legOpen;render()};th.onclick=tog;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tog()}}}
 window.__hud={client,get S(){return S},get view(){return v},flowStep:()=>flowStep(client.activeCase()),actRecView,actRecPause,actRecDone,actRecResume,actSymToggle,actSymSubmit,actStart,actAck,actSubmit,actAbort,actReconnect,emitSegment,startScenario,get walkReady(){return Object.keys(WALK_S).length===3}};
-layout();buildCompass();loadSamples();render();requestAnimationFrame(frame);requestAnimationFrame(progressLoop);
+layout();buildCompass();if(INTEGRATION)sceneBoot();loadSamples();render();requestAnimationFrame(frame);requestAnimationFrame(progressLoop);
 client.start().then(()=>{const {alert,retest}=client.activeCase();if(retest)seenUi.add(keyOfRt(retest));if(alert)seenUi.add(alert.alertId+'@'+alert.version);ready=true;
   if(retest&&retest.status==='requested'&&!LOCAL.viewed[keyOfRt(retest)])S.flagBase=true;render()});
 setInterval(render,5000);   // refresh "last sync" / time-based labels

@@ -8,6 +8,32 @@ imagery brightness), draped with the matching CTX orthomosaic. It shows:
 
 It is **not** a route, travel-time, traversability or safety model.
 
+## HiRISE model (Mars Base Mission Map, 2026-11-15)
+
+The station's Mission Map now shows a second, sharper model of the **same area** by default:
+- **Elevations:** every 5th post of the HiRISE 1 m DTM mosaic
+  (`JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40`, USGS, DOI
+  10.5066/P9REJ9JN), copied unchanged, giving a 5 m mesh.
+- **Drape:** the HiRISE orthomosaic at z14 (≈ 2.5 m/px).
+
+| | Value |
+|---|---|
+| Build | `npm run build:terrain:hirise` (`scripts/build-hirise-terrain.mjs`). It fetches only the needed rows from the USGS S3 copy with HTTP Range. |
+| Verify | `npm run verify:terrain:hirise` |
+| PDS check | −0.15 / −0.12 / −1.15 m (Pelican Point / Lefroy Bay / Comet Geyser) |
+| vs CTX | Mean −0.19 m, RMS 3.23 m |
+| Assets | `public/terrain/hirise-lefroy-bay/`, `src/data/terrain/hirise-lefroy-bay.json` |
+| Where it is used | The Base map's 3D view (default; CTX selectable under "Elevation"), and the 2D map's offline copy of the mission area |
+| Where CTX stays | The EVA route grid, the plan-sequence profiles and `/legacy/mission-glass` |
+| Grid | `crop.stride` (5): output post k is source post `col0 + 5k + 2`; `postSpacing(meta)` = 5 m |
+
+On the station map the 3D view opens:
+- without contours (a checkbox turns them on);
+- with the profile panel closed (**Show** opens it);
+- with the relief details under "About this 3D view".
+
+Investigation, the JMARS verdict and the alternatives: `docs/myomars/MAP-DATA-JMARS.md`.
+
 ## Data and provenance
 
 | | Value |

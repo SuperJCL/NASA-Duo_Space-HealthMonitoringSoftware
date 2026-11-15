@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import OlMap from "ol/Map";
 import View from "ol/View";
 import TileLayer from "ol/layer/Tile";
+import ImageLayer from "ol/layer/Image";
+import Static from "ol/source/ImageStatic";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import Feature from "ol/Feature";
@@ -127,6 +129,11 @@ export type MarsMapProps = {
   /** Crew members at simulated positions (MyoMars station). Clicking one calls `onSelectCrew`. */
   crewMarkers?: readonly CrewMarker[];
   onSelectCrew?: (id: string) => void;
+  /**
+   * A committed local image of the mission area (Mars degrees extent), drawn under the live HiRISE
+   * tiles: with the network, the live tiles cover it; without it, the mission area still shows.
+   */
+  localImagery?: { url: string; extent: readonly [number, number, number, number]; attribution: string };
 };
 
 const SIM = "#ff8a6b";
@@ -301,6 +308,7 @@ export function MarsMap({
   highlightIds = [],
   crewMarkers = [],
   onSelectCrew,
+  localImagery,
   ariaLabel = "Mars map of Jezero crater. Arrow keys pan, plus and minus zoom. Use the feature list in the layer panel to select features with the keyboard.",
 }: MarsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -487,9 +495,14 @@ export function MarsMap({
       properties: { crew: true },
     });
 
+    // Offline-safe copy of the mission area, between the CTX and the HiRISE live overlays.
+    const local = localImagery
+      ? new ImageLayer({ source: new Static({ url: localImagery.url, imageExtent: [...localImagery.extent], projection, attributions: localImagery.attribution, interpolate: true }), properties: { localImagery: true } })
+      : null;
+    const tileLayers = orderedKeys.flatMap((key) => (key === "jezeroHirise" && local ? [local, layers[key]!] : [layers[key]!]));
     const map = new OlMap({
       target,
-      layers: [...orderedKeys.map((key) => layers[key]!), ...GEO_LAYERS.map((g) => geoLayers[g.key]!), seqLayer, simLayer, crewLayer],
+      layers: [...tileLayers, ...GEO_LAYERS.map((g) => geoLayers[g.key]!), seqLayer, simLayer, crewLayer],
       controls: defaultControls({ rotate: false }).extend([
         new ScaleLine({ units: "metric" }),
         new MousePosition({
@@ -545,6 +558,8 @@ export function MarsMap({
       layersRef.current = {};
       geoLayersRef.current = {};
     };
+    // Built once per mount: props read here (initial overlays, local imagery) are creation-time inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load the features into their layers whenever the mission mode changes them.

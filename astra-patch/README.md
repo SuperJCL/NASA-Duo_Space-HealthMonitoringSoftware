@@ -53,6 +53,58 @@ that database. Playback is accelerated recorded time (6/12/18/24 seconds), not
 wall-clock transmission. Output is ASTRA's internal observation model, not a
 public-base message. Scenario labels are separate from measured fixture values.
 
+## Showcase page
+
+> Added on the MyoMars unified-experience branch (2026-11-15). It is **not** part of the original
+> ASTRA patch demo, which has no visual page (its upstream React product UI was not ported; see
+> `SOURCE.json`). The page only displays the output of the commands above. It keeps its own look:
+> it is not bound to the Mars Base / HUD design rules.
+
+A small visual page that explains the same demo: the patch and where it sits, what the
+sEMG and IMU sensors record, the three replay scenarios with their indicators and signal
+quality, and one plain sentence per scenario. Synthetic data, standalone demo.
+
+```bash
+.venv/bin/python3 -m astra_patch showcase serve            # http://127.0.0.1:8150/
+.venv/bin/python3 -m astra_patch showcase serve --port 8160 --rebuild
+.venv/bin/python3 -m astra_patch showcase build            # rewrite showcase/data/showcase.json
+```
+
+- **Server:** Python standard library only (`http.server`). It serves `showcase/` read-only (GET/HEAD,
+  no directory listings) and finds the folder from the package location, so it works from any
+  working directory. It builds the data file first only when it is missing, or with `--rebuild`.
+  Ctrl+C stops it.
+- **Page:** `showcase/index.html`, `app.js`, `style.css`; no framework, CDN or build step; works
+  offline. It uses the shared MyoMars design resources copied into `showcase/assets/` (do not edit
+  them here: edit `design/` and run `npm run design:sync`). A scenario can be linked with
+  `#scenario=sensor_fault` or `?scenario=sensor_fault`.
+- **Data:** `showcase build` runs the same code path as `replay` (`astra_patch.replay.replay_report`:
+  console create, start, four ticks, observations, in a temporary database) for all three scenarios
+  and writes `showcase/data/showcase.json` with sorted keys. Random ids and the wall-clock import
+  time are replaced with stable values (listed in the file's `normalization` block), so rebuilding
+  gives byte-identical output; every other field is the replay output unchanged. The page only
+  displays this file: no analysis rules in JavaScript.
+- **Waveforms:** a 1 s excerpt of the API capture path's seeded synthetic signal
+  (`acquisition.SyntheticSource.capture`, seed 42, `actual_sensor: false`): sEMG channel E01
+  decimated for display (2000 → 500 Hz) and IMU accelerometer X/Y at 100 Hz. It is labelled
+  "Synthetic illustrative signal from the demo's capture path" and the page says that the scenario
+  windows are summary features only, so the waveform is not the source of their numbers.
+- **Independence:** not connected to the Mars Base, the HUD or the relay. The page fetches only its
+  own data file (the server sends a `connect-src 'self'` Content-Security-Policy); there is no
+  adapter, protocol, baseline or field mapping. `fatigue_suspected` stays a simulated scenario
+  label, never a diagnosis.
+
+Browser check (Playwright from the repository's Node dependencies), with the server running:
+
+```bash
+node astra-patch/showcase/check.mjs        # SHOWCASE=http://127.0.0.1:8150/ by default
+SHOT_DIR=/tmp/showcase-shots node astra-patch/showcase/check.mjs   # also writes screenshots
+```
+
+It compares the data file with the `replay` CLI output, checks that the page shows exactly those
+numbers for all three scenarios, the labels, keyboard switching, no page scroll at 1440 × 900 and
+1920 × 1080, no console errors and no request outside the page's own origin.
+
 ## Tests
 
 ```bash
@@ -61,6 +113,8 @@ PYTHONPATH=. .venv/bin/python3 -m pytest -q tests
 
 The standalone tests copy the package without parent application files and verify
 all three CLI scenarios, API startup and rejection of unavailable contracts.
+`tests/test_showcase.py` checks that the showcase data file regenerates byte for byte, equals the
+`replay` output, agrees with the explanation sentences, and that the page server is read-only.
 Four optional target-contract integration cases skip when parent contracts are absent.
 
 ## Boundaries and limitations

@@ -26,6 +26,8 @@ import {
   type Exaggeration,
   type LonLat,
   type TerrainMeta,
+  isHirise,
+  postSpacing,
 } from "@/lib/terrain/terrain";
 import { PATH_COLORS, type RouteOverlay } from "@/lib/eva-route/overlay";
 
@@ -43,6 +45,17 @@ export type TerrainMarker = {
 
 export type TerrainViewerProps = {
   meta: TerrainMeta;
+  /** Contours on at first (the standalone page); the station's map starts without them (on demand). */
+  defaultContours?: boolean;
+  /**
+   * The station's docked map: the profile panel starts closed, the relief details sit under
+   * "About this 3D view", and the first camera keeps the crop clear of the docked panels.
+   */
+  compact?: boolean;
+  /** Elevation models the user may switch between (the parent remounts the viewer with the new meta). */
+  models?: readonly { id: string; label: string }[];
+  modelId?: string;
+  onModel?: (id: string) => void;
   markers: readonly TerrainMarker[];
   /** Verified historical rover traverse (lines), clipped to the crop. */
   traverse?: readonly (readonly LonLat[])[];
@@ -184,10 +197,29 @@ function terrainMaterial(minM: number, maxM: number) {
   });
 }
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const defaultQuality = (): "standard" | "low" => {
+/** A software WebGL renderer (no GPU): SwiftShader, llvmpipe, "Microsoft Basic Render". */
+const softwareGl = () => {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+    const r = gl && ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "";
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    return /swiftshader|llvmpipe|software|basic render/i.test(r);
+  } catch {
+    return false;
+  }
+};
+/**
+ * Small screens and low-memory devices start at Low. The station's map (`compact`) also starts at
+ * Low on a software renderer or a CPU with ≤ 4 threads (ordinary laptops with integrated graphics
+ * stay at Standard); Quality can always be changed by hand.
+ */
+const defaultQuality = (compact = false): "standard" | "low" => {
   if (typeof window === "undefined") return "standard";
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  return window.innerWidth < 768 || (mem !== undefined && mem <= 4) ? "low" : "standard";
+  if (window.innerWidth < 768 || (mem !== undefined && mem <= 4)) return "low";
+  if (compact && ((navigator.hardwareConcurrency ?? 8) <= 4 || softwareGl())) return "low";
+  return "standard";
 };
 const fmtDeg = ([lon, lat]: LonLat) => `${lon.toFixed(4)}° E, ${lat.toFixed(4)}° N`;
 const RAMP_CSS = "linear-gradient(to right, rgb(26,77,107), rgb(107,148,122), rgb(209,179,115), rgb(242,230,209))";
@@ -199,12 +231,12 @@ const RAMP_CSS = "linear-gradient(to right, rgb(26,77,107), rgb(107,148,122), rg
  * simulated targets are drawn with distinct markers. Not a route, travel-time
  * or traversability model.
  */
-export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSelect, onFallback, sequence = null, selectedSegmentId = null, onSelectSegment, highlightIds = [], routeOverlay = null, showProfile = true, followSelection = true }: TerrainViewerProps) {
+export function TerrainViewer({ meta, defaultContours = true, compact = false, models, modelId, onModel, markers, traverse = [], selectedId, onSelect, onFallback, sequence = null, selectedSegmentId = null, onSelectSegment, highlightIds = [], routeOverlay = null, showProfile = true, followSelection = true }: TerrainViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [heights, setHeights] = useState<Float32Array | null>(null);
   const [imageryOk, setImageryOk] = useState<boolean | null>(null);
   const [exaggeration, setExaggeration] = useState<Exaggeration>(DEFAULT_EXAGGERATION);
-  const [quality, setQuality] = useState<"standard" | "low">(defaultQuality);
+  const [quality, setQuality] = useState<"standard" | "low">(() => defaultQuality(compact));
   const [pointerElev, setPointerElev] = useState<number | null>(null);
   // Caveats are always available; on narrow screens they start collapsed so the terrain stays visible.
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -216,14 +248,14 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
   const [camState, setCamState] = useState({ azDeg: 0, polarDeg: 0, distM: 0 });
   // MAP-3A.1: surface rendering, presets and the straight-line profile.
   const [surface, setSurface] = useState<Surface>("relief");
-  const [contours, setContours] = useState(true);
+  const [contours, setContours] = useState(defaultContours);
   // Read when the terrain mesh is (re)built, so a rebuild keeps the chosen surface.
   const surfaceRef = useRef(surface);
   const contoursRef = useRef(contours);
   const [preset, setPreset] = useState<CameraPreset | "custom">("custom");
   type End = { id: string | null; name: string; position: LonLat };
   const [profileEnds, setProfileEnds] = useState<{ from: End; to: End } | null>(null);
-  const [profileOpen, setProfileOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 640);
+  const [profileOpen, setProfileOpen] = useState(() => !compact && (typeof window === "undefined" || window.innerWidth >= 640));
   const [picking, setPicking] = useState<LonLat[] | null>(null);
   const pickingRef = useRef<LonLat[] | null>(null);
   useEffect(() => {
@@ -271,6 +303,8 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
   );
   const reference = markerData.find((m) => m.id === "sample-lefroy-bay");
   const relief = useMemo(() => (heights && reference ? reliefSummary(meta, heights, reference.position) : null), [heights, meta, reference]);
+  /** Elevation differences below this are not meaningful at this model's resolution (vs PDS: CTX up to 3.2 m, HiRISE up to 1.2 m). */
+  const sigM = isHirise(meta) ? 2 : 5;
   // Default profile until the user chooses: Comet Geyser → Pelican Point (verified sites across the crop).
   const defaultEnds = useMemo(() => {
     const a = markerData.find((m) => m.id === "sample-comet-geyser");
@@ -405,8 +439,14 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
     renderer.domElement.addEventListener("webglcontextlost", () => onFallbackRef.current("the WebGL context was lost"));
 
     // Initial camera: looking north-east-ish at the crop centre, tilted, the whole crop in view.
-    camera.position.set(-1400, 2200, 2400);
-    controls.target.set(0, 0, 0);
+    // Compact (station): further back and aimed south of centre, so the crop sits above the docked panels.
+    if (compact) {
+      camera.position.set(-1250, 2650, 3550);
+      controls.target.set(80, 0, 560);
+    } else {
+      camera.position.set(-1400, 2200, 2400);
+      controls.target.set(0, 0, 0);
+    }
     controls.update();
     sceneRef.current = { renderer, scene, camera, controls, terrain: null, markerGroup, ring, render };
     resize();
@@ -494,7 +534,7 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
       renderer.domElement.remove();
       sceneRef.current = null;
     };
-  }, [heights, meta]);
+  }, [heights, meta, compact]);
 
   // 3. Terrain mesh, markers and traverse; rebuilt when exaggeration or quality changes.
   useEffect(() => {
@@ -1088,19 +1128,19 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
               : sel
                 ? `${sel.name}: ${fmt(sel.elevation)} (DTM)${
                     reference && sel.id !== reference.id
-                      ? Math.abs(sel.elevation - reference.elevation) < 5
-                        ? " · within 5 m of the Lefroy Bay site (not a meaningful difference at this resolution)"
+                      ? Math.abs(sel.elevation - reference.elevation) < sigM
+                        ? ` · within ${sigM} m of the Lefroy Bay site (not a meaningful difference at this resolution)`
                         : ` · ${Math.abs(Math.round(sel.elevation - reference.elevation))} m ${sel.elevation >= reference.elevation ? "above" : "below"} the Lefroy Bay site (DTM)`
                       : ""
                   }`
                 : `Elevations in this crop: ${fmt(meta.heights.minM)} to ${fmt(meta.heights.maxM)} (areoid)`}
           </p>
-          {local && localOf ? (
+          {local && localOf && !compact ? (
             <p className="mt-0.5" data-testid="terrain-local-range">
               {`Local range within ${LOCAL_RADIUS_M} m of ${localOf.name}: ${fmt(local.minM)} to ${fmt(local.maxM)} (${Math.round(local.reliefM)} m).`}
             </p>
           ) : null}
-          {relief ? (
+          {relief && !compact ? (
             <>
               <p className="mt-1 text-[var(--mg-text)] max-sm:hidden" data-testid="terrain-relief-note">
                 {reliefStatement(relief, "Lefroy Bay")}
@@ -1124,12 +1164,14 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
             </button>
           </p>
           <div hidden={!aboutOpen} className="mt-0.5 space-y-0.5 text-[var(--mg-faint)]">
+            {compact && local && localOf ? <p className="text-[var(--mg-dim)]" data-testid="terrain-local-range">{`Local range within ${LOCAL_RADIUS_M} m of ${localOf.name}: ${fmt(local.minM)} to ${fmt(local.maxM)} (${Math.round(local.reliefM)} m).`}</p> : null}
+            {compact && relief ? <p className="text-[var(--mg-dim)]" data-testid="terrain-relief-note">{reliefStatement(relief, "Lefroy Bay")}</p> : null}
             {relief ? <p className="sm:hidden">{`${reliefStatement(relief, "Lefroy Bay")} DTM product: ${meta.dtm.productLabel}.`}</p> : null}
             <p data-testid="terrain-caveats">
-              {`Differences under about 5 m are not meaningful (DTM vs PDS sample elevations: ${meta.validation.pdsSampleSites.map((p) => p.differenceM.toFixed(1)).join(", ")} m). Coral: simulated targets (scenario-defined); priorities provisional, not validated. Cyan: verified NASA/PDS sample sites and traverse. Amber: the profile's straight sampling line.`}
+              {`Differences under about ${sigM} m are not meaningful (DTM vs PDS sample elevations: ${meta.validation.pdsSampleSites.map((p) => p.differenceM.toFixed(1)).join(", ")} m). Coral: simulated targets (scenario-defined); priorities provisional, not validated. Cyan: verified NASA/PDS sample sites and traverse. Amber: the profile's straight sampling line.`}
             </p>
             <p data-testid="terrain-shading-note">
-              {`Relief shading uses a fixed low sun from the north-west and is contrast-enhanced so gentle slopes are readable; it changes colours only, never heights. Elevation colours and ${CONTOUR_INTERVAL_M} m contours use the true DTM elevations, so they do not change with exaggeration. The profile samples the 20 m DTM bilinearly every 10 m.`}
+              {`Relief shading uses a fixed low sun from the north-west and is contrast-enhanced so gentle slopes are readable; it changes colours only, never heights. Elevation colours and ${CONTOUR_INTERVAL_M} m contours use the true DTM elevations, so they do not change with exaggeration. The profile samples the ${postSpacing(meta)} m DTM posts bilinearly every 10 m. Source: ${sourceLine(meta)}.`}
             </p>
           </div>
           {imageryOk === false ? <p className="mt-0.5 text-[var(--mg-caution)]">{"Orthoimage unavailable: the terrain is shown with slope shading only."}</p> : null}
@@ -1284,6 +1326,18 @@ export function TerrainViewer({ meta, markers, traverse = [], selectedId, onSele
               {"⟲"}
             </button>
           </div>
+          {models && models.length > 1 && onModel ? (
+            <label className="flex items-center justify-between gap-2 px-1">
+              <span>{"Elevation"}</span>
+              <select value={modelId} onChange={(e) => onModel(e.target.value)} className="min-w-0 rounded bg-[var(--mg-bg)] px-1" aria-label="Elevation model" data-testid="terrain-model">
+                {models.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label className="flex items-center justify-between gap-2 px-1">
             <span>{"Vertical"}</span>
             <select value={exaggeration} onChange={(e) => setExaggeration(Number(e.target.value) as Exaggeration)} className="min-w-0 rounded bg-[var(--mg-bg)] px-1" aria-label="Vertical exaggeration" data-testid="terrain-exaggeration">

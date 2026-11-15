@@ -2,10 +2,12 @@
 
 Your branch is untouched: `feat/myomars-hud` is still at the locked commit
 `239d253048a594c2debb4d0021011465b1478bc6`. It was merged unchanged into `integration/myomars`. All
-changes below are on the integration branch only, in two files:
+changes below are on the integration branch only:
 
 - `myomars-hud/hud/base-client.js` (+19/−5)
-- `myomars-hud/hud.html` (+202/−19 against `239d253`, including the progressive-disclosure layout below)
+- `myomars-hud/hud.html` (the progressive-disclosure layout below, the 3D scene glue and the design-language styles)
+- `myomars-hud/scene/` (new: the illustrative 3D scene, source and generated bundle; see "Illustrative 3D scene" below)
+- `myomars-hud/scripts/build.mjs` (your `dist/` copy now includes the design resources and the scene bundle)
 
 To see the exact changes:
 
@@ -27,6 +29,7 @@ state never mixes with your standalone demo's.
 
 | Area | Standalone (yours) | Integration mode |
 |---|---|---|
+| Background | Panorama image + walking (W / S / A / D) | Illustrative 3D scene, fixed standing viewpoint, drag to look, Reset view; the panorama image is the fallback (see "Illustrative 3D scene") |
 | Run start | Intro: choose Scenario 1 / 2 / 3; the HUD publishes `scenario.start` (role `trigger`) | Intro: "Enter HUD" joins the run that the **data replay** started. The HUD publishes no `scenario.start` or `scenario.reset` (`ensureRun` returns the current run). |
 | Observations | Walking segments every 3 s, plus patch-reconnect captures (`observation.submitted`, role `trigger`) | None: `submitObservation` returns `integration-mode`. The replay module is the single data producer. |
 | Local patch panel | Left thigh, live sEMG/IMU traces, contact estimate, local sensor-fault (RED) | Hidden. It belongs to this page's standalone scenarios; in the Base/HUD demo the data come from the base's data replay. |
@@ -71,9 +74,94 @@ Everything else is your code as you wrote it:
 - the relay client (publish, history, SSE, outbox, receipts, ack / defer / result);
 - the retest capture flow;
 - the reconnect handling;
-- the 3D scene.
+- the panorama scene with walking (standalone mode; in integration mode it is only the image fallback, see below).
 
 - **Data-link panel:** in integration mode it reads "Retest result link · stored simulated sample → HUD → Base", and its first node is "Sample (sim.)". The page's own standalone patch scenario is not part of the Base/HUD demo. The separate ASTRA patch demo (`astra-patch/`) is an independent program ([DEMOS.md](DEMOS.md)).
+
+## Illustrative 3D scene (integration mode only)
+
+In `?mode=integration` the panorama background is replaced by a real WebGL scene (three.js) seen from a **fixed
+standing viewpoint**: ground with rocks and pebbles in front, dark sand dunes and low rises in the mid-ground, a butte
+and a crater wall on the horizon, a butterscotch sky with distance haze, a small habitat (the base) and a light-toned
+outcrop (the task target). Everything is procedural (noise heightfields, self-built rock and habitat geometry, textures
+generated in code): no external assets, no network at run time. A faint caption in the bottom-right corner reads
+**"Illustrative Mars scene · not a reconstruction of the task site"**: it is never measured terrain of the mission area.
+Standalone mode is unchanged (panorama + walking).
+
+| | |
+|---|---|
+| Movement | None: W / S / A / D walking is off in integration mode (no collision, no game system). |
+| Look around | Drag on **empty scene area** (yaw ±35°, pitch −16…+7°); arrow keys do the same when no control has focus. The drag starts only on the scene canvas, so HUD panels, buttons and dialogs never start it. No auto-rotation, no idle sway. |
+| Reset view | Button above the data-link panel. Eases back in 420 ms; instant under `prefers-reduced-motion` or `<html data-motion="reduced">`. "Locate base" (shown when the base is out of view) turns to the base the same way. |
+| Markers | **Mars Base** (with the link label the HUD already shows, no distance) and the **task target** (the task title from the base's `scenario.start`, otherwise "Task target · simulated"). Click or Enter opens a small card; ×, Esc or a tap on the scene closes it. Cards state context only: no distances, no numbers, no decisions, no health wording. |
+| Readability | Panels and both top bars sit on `--mm-glass`; the visor vignette stays. `scripts/hud-scene-check.mjs` measures text contrast against the brightest pixel behind each panel (body text ≥ 7:1, secondary ≥ 4.5:1). |
+| Rendering | Sunlight, sky light, terrain cast shadows, rock contact shadows and distance haze are computed once into vertex colours (the sun and the eye never move), so every material is a tiny `ShaderMaterial`. Frames render **on demand only** (a drag, a resize, a Reset ease); nothing renders while idle, while `document.hidden`, or while the canvas is not visible. |
+
+**Quality levels** (no real-time shadows at any level):
+
+| Level | Pixel ratio cap | MSAA | Terrain grid (near · far) | Rocks · pebbles | Ground texture |
+|---|---|---|---|---|---|
+| `low` | 1 | off | 70×120 · 40×260 | 160 · 420 | 256² |
+| `standard` | 1.5 | on | 100×176 · 56×400 | 340 · 900 | 512² |
+| `high` | 2 | on | 136×240 · 72×560 | 560 · 1,700 | 1024² |
+
+Auto picks `low` on a software renderer (SwiftShader, llvmpipe… read through `WEBGL_debug_renderer_info`) or with ≤ 4
+logical cores, otherwise `standard`; `high` is opt-in. Override with `?quality=low|standard|high` or **Link & scene
+tools → Quality** (kept per browser in `localStorage` key `myomars.hud.int.sceneQuality`; "Auto" clears it). The URL
+parameter wins.
+
+**Fallback.** If WebGL 2 is unavailable, context creation fails, the bundle does not load (or takes over 15 s), the
+scene cannot start, a scene shader does not compile, or the context is lost, the page shows the existing panorama image (drag to look; no walking) and
+the HUD works exactly the same. `?scene=off` forces it. The tools panel states the reason.
+
+| Test hook | Values |
+|---|---|
+| `<html data-scene>` | `loading` → `webgl` or `fallback` |
+| `<html data-scene-reason>` | `off`, `no-webgl`, `load-failed`, `load-timeout`, `init-failed`, `context-lost`, `shader-error` (fallback only) |
+| `<html data-quality>` | `low`, `standard`, `high` (WebGL only) |
+| `window.__hudScene` | `state`, `quality`, `frames` (render counter), `view()`, `reset()`, `api` (scene API: `setView`, `markerYaw`, `stats`, `profile(n)`) |
+
+**Files and rebuild.** Source `myomars-hud/scene/mars-scene.src.js` (an ES module importing `three`); generated,
+committed bundle `myomars-hud/scene/mars-scene.js` (about 354 KB minified, 101 KB gzip), loaded by `hud.html` only in
+integration mode. After editing the source run `npm run hud:scene` (`scripts/build-hud-scene.mjs`, rolldown);
+`node scripts/build-hud-scene.mjs --check` fails if the committed bundle is stale. three.js 0.186.1 is bundled from
+`node_modules/three` under the MIT licence (`NOTICE`, `LICENSES/MIT-three.js.txt`) as a ShaderMaterial-only build: the
+modules the scene never reaches (built-in material shaders, WebXR, PMREM) are stubbed, and the build fails if the
+scene starts to import something that needs them. Check the scene with `node scripts/hud-scene-check.mjs` (relay
+running; `OUT=/dir` writes screenshots, `PERF=0` skips the timings).
+
+## Design language in integration mode
+
+`hud.html` loads the shared `assets/myomars-fonts.css` and `assets/myomars-tokens.css` (copies made by
+`npm run design:sync`; variables and fonts only, so standalone mode looks the same). Under `body.int` the HUD's own
+colour variables map onto the semantic tokens: cyan `--mm-data` = data and connection, orange `--mm-action` = pending
+human action and the primary button (Acknowledge, View task, Start, Submit, Enter HUD), red `--mm-alert` = explicit
+alert, green `--mm-ok` = done, amber `--mm-caution` = degraded, dashed violet `--mm-sim` = SIMULATED. Panels use
+`--mm-glass`, buttons are at least 36 px (40 px for the card actions), keyboard focus shows the shared 2 px cyan ring,
+fonts are Geist (Geist Mono for identifiers). States keep their words and icons. Element ids and test hooks are
+unchanged.
+
+**The HUD's own effects are kept** (owner decision after the Windows check, 2026-11-15): the shared tokens restyle
+colours, fonts, buttons, panels and spacing, but never remove or retime the HUD's animations. In integration mode:
+- the cyan text glow;
+- the status-badge glow and the red blink;
+- the continuous base-marker ping;
+- the queued-packet blink;
+- the edge hint;
+- the mini-map (base pip turns with the view), the position readout and the speed readout ("Still" while
+  standing);
+- on the panorama fallback (`?scene=off`, or no WebGL), the original waypoint markers (Dune C-1, Waypoint B-3,
+  Return route) and the base distance.
+
+Under reduced motion the animations stop. Base messages start below the top-right block so the mini-map stays
+visible. `node scripts/hud-effects-check.mjs` checks all of this.
+
+Still different from the panorama, by design or for lack of a reference:
+- In the 3D scene the waypoints and the base distance are not shown. They exist only as panorama positions and
+  walking-model distances; there is no original 3D placement for them, so none was invented.
+- Suit power and O₂ read "Not reported" (nothing in the contract reports them). The previous values were fixed
+  placeholders (82 %, 6.1 h); restore them only if the owner wants placeholders shown.
+- Walking (W/S/A/D) is off in integration mode: the requested fixed standing viewpoint.
 
 ## Client option (`hud/base-client.js`)
 
@@ -102,6 +190,7 @@ With `integration: false` (the default) the client is byte-for-byte your behavio
 ```
 npm run test:hud        # your two suites (standalone mode), result files restored afterwards
 npm run e2e:two-end     # real station page + this page in integration mode (relay and station running)
+node scripts/hud-scene-check.mjs   # the 3D scene and its fallbacks (relay running)
 ```
 
 The station's ESLint skips `myomars-hud/**`; your suites are the check for this folder.

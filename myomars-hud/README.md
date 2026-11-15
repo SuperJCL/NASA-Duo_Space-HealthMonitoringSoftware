@@ -48,3 +48,20 @@ node test/hud-page-test.mjs     # 运行真实 hud.html 脚本、点击按钮：
 | `contract/v1-integration.md` | HUD 流程与契约事件的映射、剩余缺口 V1-01…10 |
 | `contract/samples/retest-result.sample.json` | 占位模拟复测样例（待底座替换） |
 | `test/` | 联调测试脚本与结果 |
+
+## 3D scene (integration mode) · English
+
+With `hud.html?mode=integration` (the page the relay opens at `/`) the background is an illustrative WebGL Mars scene
+(three.js) seen from a fixed standing viewpoint: no walking; drag on empty scene area to look around (yaw ±35°, small
+pitch range), **Reset view** returns to the default, markers for the base and the task target open a small card. It is
+procedural (no external assets) and captioned "Illustrative Mars scene · not a reconstruction of the task site".
+Standalone mode (no `?mode=integration`, your demo and suites) keeps the panorama and walking.
+
+- Source `scene/mars-scene.src.js` → committed bundle `scene/mars-scene.js`. Rebuild from the repo root with
+  `npm run hud:scene` (`scripts/build-hud-scene.mjs`, rolldown; three.js 0.186.1, MIT, see the repo's `NOTICE`).
+- Quality `low` / `standard` / `high`: automatic (low on a software renderer or ≤ 4 cores), `?quality=…`, or
+  "Link & scene tools → Quality". Renders on demand only; pauses while the page is hidden.
+- Fallback to the panorama image when WebGL 2, the bundle or the context fails; `?scene=off` forces it.
+  `<html data-scene="webgl|fallback">` and `data-quality` expose the state.
+- Checks: `node scripts/hud-scene-check.mjs` (repo root, relay running). Details:
+  `docs/myomars/HUD-INTEGRATION-MODE.md` in the repo.
