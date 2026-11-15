@@ -1,0 +1,26 @@
+{
+  "package": "myomars-flexarray-45s-demo.zip",
+  "sha256": "662cc7247218c4e1d390330243f89a887fe76122c8bb9ac8408d0b2c8a10a82d",
+  "bytes": 37691310,
+  "files": 117,
+  "built_utc": "2026-11-15T08:21:56Z",
+  "source": "ASTRA Health AI working copy, FlexArray-MN V2.1 with the 45-second guided demo revision. The source is not a git repository, so there is no source commit; per-file SHA-256 values are in MANIFEST.sha256 inside the ZIP.",
+  "contents": {
+    "frontend": "React 18 + TypeScript + Vite source, unit and Playwright browser tests, pnpm and npm lockfiles, prebuilt dist/",
+    "backend": "FastAPI + SQLite code and tests; optional, only for the full ASTRA app (--full)",
+    "assets/3d": "6 GLB models (presentation and engineering scale) and 4 preview images",
+    "docs": "demo, bay and redesign notes with screenshots",
+    "launcher": "start-demo.mjs (Node.js 18+, no dependencies)"
+  },
+  "excluded": ["node_modules", "virtual environments", ".env files", "credentials", "databases", "caches", "build-info files", "test-run screenshots"],
+  "verification": {
+    "clean_extraction": "MANIFEST.sha256 116/116 OK; no excluded items present",
+    "secret_scan": "no keys, tokens, passwords, emails or personal paths in any file; image metadata limited to render settings",
+    "default_mode_node_only": "served with no install; tests/flexarray-demo.cjs 17/17, tests/flexarray-browser.cjs 20/20",
+    "npm_ci_and_pnpm_frozen_install": "both rebuild dist byte-identical to the shipped dist (11/11 files)",
+    "unit_tests": "64/64; typecheck OK; GLB re-import validator passed",
+    "full_mode": "launcher created the venv from requirements.lock.txt; backend pytest 65/65; tests/browser.cjs 5/5; tests/muscle-browser.cjs PASS",
+    "environment": "macOS, Node.js 24.22.1, Python 3.12.10, Playwright 1.62.1 Chromium"
+  },
+  "scope": "Independent demo. No runtime dependency on, and no changes to, the Next.js app, HUD, Station, Relay, contracts or astra-patch/."
+}
