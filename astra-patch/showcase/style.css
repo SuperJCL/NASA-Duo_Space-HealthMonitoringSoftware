@@ -1,0 +1,661 @@
+/*
+ * ASTRA patch showcase: explanatory layout (design/DESIGN.md §6, "Patch showcase").
+ * Uses only the shared tokens (assets/myomars-tokens.css) and components
+ * (assets/myomars-components.css); no colour outside the token set.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--mm-bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 700px at 78% -10%, rgba(98, 212, 230, 0.07), transparent 60%),
+    radial-gradient(900px 600px at -10% 110%, rgba(201, 168, 255, 0.05), transparent 60%),
+    var(--mm-bg);
+  color: var(--mm-text);
+  font-family: var(--mm-font-sans);
+  font-size: var(--mm-text-md);
+  line-height: var(--mm-leading);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--mm-text-xl);
+  font-weight: var(--mm-weight-strong);
+  line-height: var(--mm-leading-tight);
+}
+
+h2 {
+  font-size: var(--mm-text-lg);
+  font-weight: var(--mm-weight-strong);
+  line-height: var(--mm-leading-tight);
+}
+
+h3 {
+  font-size: var(--mm-text-sm);
+  font-weight: var(--mm-weight-strong);
+}
+
+code,
+.mono {
+  font-family: var(--mm-font-mono);
+  font-size: 0.92em;
+}
+
+/* ---- page frame: header · grid · footer, one screen at 1440 × 900 ---- */
+.page {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--mm-space-3);
+  min-height: 100vh;
+  max-width: 1760px;
+  margin: 0 auto;
+  padding: var(--mm-space-4) var(--mm-space-5) var(--mm-space-3);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: var(--mm-space-4);
+  flex-wrap: wrap;
+}
+
+.top__chips {
+  display: flex;
+  gap: var(--mm-space-2);
+}
+
+.top__note {
+  margin-left: auto;
+  color: var(--mm-dim);
+  font-size: var(--mm-text-sm);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(400px, 37fr) minmax(0, 63fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "patch scenario"
+    "signals scenario";
+  gap: var(--mm-space-4);
+  min-height: 0;
+}
+
+.patch { grid-area: patch; }
+.scenario { grid-area: scenario; }
+.signals { grid-area: signals; }
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mm-space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--mm-space-4) var(--mm-space-5);
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--mm-space-3);
+  flex-wrap: wrap;
+}
+
+.panel__head h2 {
+  margin-right: auto;
+}
+
+/* ---- 1. patch diagram and sensor cards ---- */
+.diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: clamp(150px, calc(100vh - 736px), 210px);
+}
+
+.diagram__body {
+  fill: url(#leg-fill);
+  stroke: var(--mm-line-strong);
+  stroke-width: 1.2;
+}
+
+.diagram__hint {
+  fill: none;
+  stroke: var(--mm-line);
+  stroke-width: 1;
+}
+
+.diagram__side {
+  fill: var(--mm-faint);
+  font-size: 10px;
+  font-weight: var(--mm-weight-strong);
+  letter-spacing: 0.1em;
+}
+
+.diagram__patch rect:first-child {
+  fill: var(--mm-data-soft);
+  stroke: var(--mm-data);
+  stroke-width: 1.4;
+}
+
+.diagram__imu {
+  fill: var(--mm-surface-2);
+  stroke: var(--mm-chart-2);
+  stroke-width: 1.2;
+}
+
+.diagram__electrode {
+  fill: var(--mm-data);
+}
+
+.diagram__leader {
+  fill: none;
+  stroke: var(--mm-line-strong);
+  stroke-width: 1;
+}
+
+.diagram__label {
+  fill: var(--mm-text);
+  font-size: 13px;
+  font-weight: var(--mm-weight-strong);
+}
+
+.diagram__sub {
+  fill: var(--mm-dim);
+  font-size: 11px;
+}
+
+.diagram__id {
+  fill: var(--mm-data);
+  font-family: var(--mm-font-mono);
+}
+
+.diagram__note {
+  fill: var(--mm-faint);
+  font-size: 10px;
+}
+
+.signals__note {
+  color: var(--mm-dim);
+  font-size: var(--mm-text-sm);
+}
+
+.sensor {
+  display: grid;
+  grid-template-rows: auto auto minmax(44px, 1fr) auto;
+  gap: 6px;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: var(--mm-space-3);
+  border: 1px solid var(--mm-line);
+  border-radius: var(--mm-radius);
+  background: rgba(22, 33, 51, 0.55);
+  font-size: var(--mm-text-sm);
+  color: var(--mm-dim);
+}
+
+.sensor__head {
+  display: flex;
+  align-items: center;
+  gap: var(--mm-space-2);
+  flex-wrap: wrap;
+}
+
+.sensor h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--mm-space-2);
+  margin-right: auto;
+  color: var(--mm-text);
+}
+
+.sensor__spec {
+  color: var(--mm-text);
+  font-size: var(--mm-text-sm);
+}
+
+.sensor strong {
+  color: var(--mm-text);
+  font-weight: var(--mm-weight-medium);
+}
+
+.sensor__tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 7px;
+  border-radius: var(--mm-radius-sm);
+  font-size: var(--mm-text-xs);
+  font-weight: var(--mm-weight-strong);
+  letter-spacing: 0.04em;
+}
+
+.sensor--emg .sensor__tag {
+  color: var(--mm-data);
+  background: var(--mm-data-soft);
+}
+
+.sensor--imu .sensor__tag {
+  color: var(--mm-chart-2);
+  background: var(--mm-caution-soft);
+}
+
+.sensor__fine {
+  color: var(--mm-faint);
+  font-size: var(--mm-text-xs);
+}
+
+/* ---- 2. scenario switch (segmented control) ---- */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--mm-line);
+  border-radius: calc(var(--mm-radius) + 3px);
+  background: var(--mm-bg-2);
+}
+
+.segmented .mm-btn {
+  border-color: transparent;
+  background: transparent;
+  color: var(--mm-dim);
+  font-family: var(--mm-font-mono);
+  font-weight: var(--mm-weight-medium);
+}
+
+.segmented .mm-btn:hover {
+  color: var(--mm-text);
+  border-color: var(--mm-line-strong);
+}
+
+.segmented .mm-btn[aria-pressed="true"] {
+  color: var(--mm-text);
+  background: var(--mm-data-soft);
+  border-color: var(--mm-data);
+}
+
+.scenario__facts {
+  display: flex;
+  align-items: center;
+  gap: var(--mm-space-2);
+  flex-wrap: wrap;
+}
+
+.scenario__meta {
+  margin-left: auto;
+  color: var(--mm-dim);
+  font-size: var(--mm-text-xs);
+}
+
+.scenario__fields {
+  color: var(--mm-faint);
+  font-size: var(--mm-text-xs);
+  margin-top: calc(-1 * var(--mm-space-1));
+}
+
+/* ---- indicators strip: shared window columns for both charts and the quality row ---- */
+.strip {
+  --label-w: 136px;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--label-w) repeat(4, minmax(0, 1fr));
+  grid-template-rows: auto minmax(96px, 1fr) minmax(96px, 1fr) auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-top: 1px solid var(--mm-line);
+}
+
+.strip__fault {
+  grid-row: 1 / -1;
+  z-index: 0;
+  border-left: 1px solid var(--mm-line);
+  border-right: 1px solid var(--mm-line);
+  background:
+    repeating-linear-gradient(135deg, rgba(160, 186, 218, 0.09) 0 2px, transparent 2px 9px),
+    rgba(10, 15, 24, 0.45);
+}
+
+.strip__window,
+.strip__label,
+.strip__plot,
+.strip__quality {
+  position: relative;
+  z-index: 1;
+}
+
+.strip__window {
+  display: grid;
+  justify-items: center;
+  padding: var(--mm-space-2) 0 var(--mm-space-1);
+  font-size: var(--mm-text-xs);
+  color: var(--mm-dim);
+}
+
+.strip__window strong {
+  color: var(--mm-text);
+  font-weight: var(--mm-weight-strong);
+  font-size: var(--mm-text-sm);
+}
+
+.strip__label {
+  grid-column: 1;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding-right: var(--mm-space-3);
+  border-top: 1px solid var(--mm-line);
+}
+
+.strip__label b {
+  font-size: var(--mm-text-sm);
+  font-weight: var(--mm-weight-strong);
+}
+
+.strip__label span {
+  font-size: var(--mm-text-xs);
+  color: var(--mm-dim);
+}
+
+.strip__plot {
+  grid-column: 2 / -1;
+  min-height: 0;
+  border-top: 1px solid var(--mm-line);
+}
+
+.strip__plot svg,
+.trace__plot svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.strip__quality {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 4px;
+  padding: var(--mm-space-3) var(--mm-space-2);
+  border-top: 1px solid var(--mm-line);
+  text-align: center;
+  font-size: var(--mm-text-xs);
+  color: var(--mm-dim);
+}
+
+.strip__quality .flag {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: var(--mm-font-mono);
+  font-size: var(--mm-text-2xs);
+  color: var(--mm-text);
+}
+
+.q-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--mm-text-sm);
+  font-weight: var(--mm-weight-strong);
+}
+
+.q-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.q-status--ok {
+  color: var(--mm-ok);
+}
+
+.q-status--bad {
+  color: var(--mm-caution);
+}
+
+.q-status--bad .q-icon {
+  border-radius: 4px;
+}
+
+/* chart marks (inline SVG drawn by app.js) */
+.c-grid {
+  stroke: var(--mm-chart-grid);
+  stroke-width: 1;
+}
+
+.c-tick {
+  fill: var(--mm-chart-axis);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.c-line {
+  fill: none;
+  stroke: var(--mm-chart-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.c-point {
+  fill: var(--mm-chart-1);
+  stroke: var(--mm-bg);
+  stroke-width: 2;
+}
+
+.c-value {
+  fill: var(--mm-text);
+  font-size: 13px;
+  font-weight: var(--mm-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.c-value-unit {
+  fill: var(--mm-dim);
+  font-size: 11px;
+}
+
+.c-reported {
+  fill: var(--mm-dim);
+  font-size: 13px;
+  font-weight: var(--mm-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.c-reported-note {
+  fill: var(--mm-faint);
+  font-size: 11px;
+}
+
+.c-trace {
+  fill: none;
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+}
+
+.c-trace--1 { stroke: var(--mm-chart-1); }
+.c-trace--2 { stroke: var(--mm-chart-2); stroke-width: 1.75; }
+.c-trace--3 { stroke: var(--mm-chart-3); stroke-width: 1.75; }
+
+.c-zero {
+  stroke: var(--mm-line-strong);
+  stroke-width: 1;
+}
+
+.plot-in {
+  animation: plot-in var(--mm-dur) var(--mm-ease);
+}
+
+@keyframes plot-in {
+  from { opacity: 0.25; }
+  to { opacity: 1; }
+}
+
+.strip__caption {
+  color: var(--mm-faint);
+  font-size: var(--mm-text-xs);
+}
+
+.story {
+  display: grid;
+  gap: 4px;
+  padding: var(--mm-space-3) var(--mm-space-4);
+  border: 1px solid var(--mm-line);
+  border-left: 3px solid var(--mm-data);
+  border-radius: var(--mm-radius);
+  background: rgba(22, 33, 51, 0.55);
+}
+
+.story__text {
+  font-size: var(--mm-text-md);
+  max-width: 92ch;
+}
+
+/* ---- synthetic traces (inside the sensor cards) ---- */
+.trace__plot {
+  position: relative;
+  min-height: 0;
+  border: 1px solid var(--mm-line);
+  border-radius: var(--mm-radius-sm);
+  background: rgba(10, 15, 24, 0.5);
+}
+
+.key {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  margin-right: 6px;
+  border-radius: 1px;
+  vertical-align: middle;
+}
+
+.key--1 { background: var(--mm-chart-1); }
+.key--2 { background: var(--mm-chart-2); }
+.key--3 { background: var(--mm-chart-3); margin-left: 4px; }
+
+.signals .panel__head h2 {
+  margin-right: 0;
+}
+
+.signals .panel__head {
+  justify-content: space-between;
+}
+
+.provenance {
+  color: var(--mm-faint);
+  font-size: var(--mm-text-2xs);
+}
+
+/* ---- footer ---- */
+.foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--mm-space-2) var(--mm-space-4);
+  flex-wrap: wrap;
+  color: var(--mm-dim);
+  font-size: var(--mm-text-xs);
+}
+
+.foot__prov {
+  color: var(--mm-faint);
+  font-size: var(--mm-text-2xs);
+  align-self: center;
+}
+
+.foot code {
+  color: var(--mm-text);
+}
+
+.load-error {
+  padding: var(--mm-space-4);
+  border: 1px solid var(--mm-alert);
+  border-radius: var(--mm-radius);
+  color: var(--mm-text);
+}
+
+.noscript {
+  padding: var(--mm-space-5);
+}
+
+/* ---- large screens (e.g. 1920 × 1080 recordings): the same layout, scaled up uniformly ---- */
+@media (min-width: 1800px) and (min-height: 1000px) {
+  .page {
+    zoom: 1.2;
+    min-height: calc(100vh / 1.2);
+  }
+  .diagram {
+    max-height: clamp(150px, calc(100vh / 1.2 - 736px), 210px);
+  }
+}
+
+/* ---- narrower screens: stack, allow scrolling ---- */
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: "patch" "scenario" "signals";
+  }
+  .strip {
+    --label-w: 110px;
+    grid-template-rows: auto 160px 160px auto;
+  }
+  .sensor {
+    flex: none;
+    grid-template-rows: auto auto 96px auto;
+  }
+  .top__note {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--mm-space-3) var(--mm-space-4);
+  }
+  .segmented {
+    flex-wrap: wrap;
+  }
+  .segmented .mm-btn {
+    padding: 0 var(--mm-space-2);
+  }
+  .strip {
+    --label-w: 72px;
+  }
+  .w-word {
+    display: none;
+  }
+  .q-status {
+    flex-direction: column;
+    gap: 2px;
+    font-size: var(--mm-text-xs);
+  }
+  .top__chips {
+    flex-wrap: wrap;
+  }
+}

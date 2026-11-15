@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASTRA patch showcase</title>
+  <meta name="description" content="Standalone explanatory page for the ASTRA sEMG/IMU patch demo. Synthetic data only; not connected to the Mars Base or the HUD.">
+  <link rel="stylesheet" href="assets/myomars-fonts.css">
+  <link rel="stylesheet" href="assets/myomars-tokens.css">
+  <link rel="stylesheet" href="assets/myomars-components.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <h1>ASTRA patch · how the sensor demo works</h1>
+      <div class="top__chips" role="group" aria-label="Synthetic data · Standalone demo">
+        <span class="mm-chip mm-chip--sim" data-testid="chip-synthetic">Synthetic data</span>
+        <span class="mm-chip" data-testid="chip-standalone">Standalone demo</span>
+      </div>
+      <p class="top__note">MyoMars patch demo · not connected to the Mars Base or the HUD</p>
+    </header>
+
+    <main class="grid">
+      <!-- 1. What the patch is and where it sits -->
+      <section class="mm-panel panel patch" aria-labelledby="patch-title">
+        <div class="panel__head">
+          <h2 id="patch-title">The patch</h2>
+          <span class="mm-chip mm-chip--sim"><span>Simulated device <span class="mono" data-bind="device"></span></span></span>
+        </div>
+        <svg class="diagram" viewBox="0 0 420 176" role="img" aria-labelledby="diagram-title diagram-desc">
+          <title id="diagram-title">Patch placement diagram</title>
+          <desc id="diagram-desc">Schematic front view of both legs. The patch sits on the outer side of the left thigh. It carries four sEMG electrodes and an IMU.</desc>
+          <defs>
+            <linearGradient id="leg-fill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stop-color="#1d2a40" stop-opacity="0.9"/>
+              <stop offset="1" stop-color="#162133" stop-opacity="0.35"/>
+            </linearGradient>
+          </defs>
+          <g transform="translate(14 2) scale(0.74)">
+            <path class="diagram__body" d="M 62 14 C 55 66, 63 112, 75 144 C 72 170, 78 200, 82 226 L 99 226 C 101 200, 103 172, 105 146 C 108 116, 113 72, 116 40 Q 120 32, 124 40 C 127 72, 132 116, 135 146 C 137 172, 139 200, 141 226 L 158 226 C 162 200, 168 170, 165 144 C 177 112, 185 66, 178 14 Z"/>
+            <path class="diagram__hint" d="M 80 140 Q 90 146, 101 140 M 139 140 Q 150 146, 161 140"/>
+            <text class="diagram__side" x="90" y="9" text-anchor="middle">R</text>
+            <text class="diagram__side" x="150" y="9" text-anchor="middle">L</text>
+            <g class="diagram__patch" transform="rotate(-7 168 78)">
+              <rect x="156" y="50" width="25" height="58" rx="7"/>
+              <rect class="diagram__imu" x="162.5" y="55" width="12" height="9" rx="2"/>
+              <circle class="diagram__electrode" cx="163" cy="73" r="3.2"/>
+              <circle class="diagram__electrode" cx="174" cy="73" r="3.2"/>
+              <circle class="diagram__electrode" cx="163" cy="93" r="3.2"/>
+              <circle class="diagram__electrode" cx="174" cy="93" r="3.2"/>
+            </g>
+          </g>
+          <path class="diagram__leader" d="M 143 45 L 184 22 L 192 22"/>
+          <path class="diagram__leader" d="M 146 63 L 184 70 L 192 70"/>
+          <path class="diagram__leader" d="M 146 80 L 184 118 L 192 118"/>
+          <text class="diagram__label" x="196" y="19">IMU</text>
+          <text class="diagram__sub" x="196" y="34">accelerometer + gyroscope</text>
+          <text class="diagram__label" x="196" y="67"><tspan data-bind="channel-count"></tspan> sEMG electrodes</text>
+          <text class="diagram__sub" x="196" y="82"><tspan data-bind="channel-range"></tspan> · layout illustrative</text>
+          <text class="diagram__label" x="196" y="115">Left thigh, outer side</text>
+          <text class="diagram__sub" x="196" y="131">fixtures: <tspan class="diagram__id" data-bind="fixture-muscle" data-testid="fixture-muscle"></tspan></text>
+          <text class="diagram__sub" x="196" y="146">capture default: <tspan class="diagram__id" data-bind="capture-muscle" data-testid="capture-muscle"></tspan></text>
+          <text class="diagram__note" x="196" y="171">front view · schematic, not to scale</text>
+        </svg>
+      </section>
+
+      <!-- 2. The two sensors, each with a short synthetic trace from the capture path -->
+      <section class="mm-panel panel signals" aria-labelledby="signals-title">
+        <div class="panel__head">
+          <h2 id="signals-title">Sensors</h2>
+          <span class="mm-chip mm-chip--sim" data-testid="waveform-label" data-bind="waveform-label"></span>
+        </div>
+        <p class="signals__note" data-bind="waveform-relation" data-testid="waveform-relation"></p>
+        <article class="sensor sensor--emg" aria-labelledby="emg-title">
+          <div class="sensor__head">
+            <h3 id="emg-title"><span class="sensor__tag">sEMG</span> Muscle electrical activity</h3>
+            <span class="sensor__spec mm-num" data-testid="emg-spec"><span data-bind="channel-count"></span> channels · <span data-bind="emg-rate"></span> · µV</span>
+          </div>
+          <p>Per window: <strong>RMS amplitude</strong> (µV) and <strong>median frequency</strong> (Hz).</p>
+          <div class="trace__plot" id="trace-emg"></div>
+          <p class="sensor__fine mm-num"><span class="key key--1" aria-hidden="true"></span>Channel <span data-bind="emg-channel"></span> · µV · first <span data-bind="excerpt-seconds"></span> · <span data-bind="emg-decimation" data-testid="emg-decimation"></span></p>
+        </article>
+        <article class="sensor sensor--imu" aria-labelledby="imu-title">
+          <div class="sensor__head">
+            <h3 id="imu-title"><span class="sensor__tag">IMU</span> Movement</h3>
+            <span class="sensor__spec mm-num" data-testid="imu-spec"><span data-bind="imu-axes"></span> axes · <span data-bind="imu-rate"></span></span>
+          </div>
+          <p>Accelerometer (m/s²) + gyroscope (rad/s), used to separate movement from muscle signal. Capture path: dynamic acceleration above <span class="mm-num" data-bind="motion-threshold"></span> RMS flags a motion artifact.</p>
+          <div class="trace__plot" id="trace-imu"></div>
+          <p class="sensor__fine mm-num"><span class="key key--2" aria-hidden="true"></span>Accelerometer X <span class="key key--3" aria-hidden="true"></span>Y · m/s² · first <span data-bind="excerpt-seconds"></span> · <span data-bind="imu-trace-rate"></span></p>
+        </article>
+        <p class="provenance mm-num" data-bind="capture-provenance" data-testid="capture-provenance"></p>
+      </section>
+
+      <!-- 2. Scenario replay: switch, indicators, quality, one sentence -->
+      <section class="mm-panel panel scenario" aria-labelledby="scenario-title">
+        <div class="panel__head scenario__head">
+          <h2 id="scenario-title">Scenario replay</h2>
+          <div class="segmented" role="group" aria-label="Scenario" id="scenario-switch"></div>
+        </div>
+        <div class="scenario__facts">
+          <span class="mm-chip mm-chip--sim" data-testid="scenario-chip"><span>Scenario: <span class="mono" data-bind="scenario-name"></span> · simulated label, not a diagnosis</span></span>
+          <span class="mm-chip" data-testid="honesty-chip"><span aria-hidden="true">?</span> <span data-bind="honesty"></span></span>
+          <span class="scenario__meta mm-num" data-bind="meta"></span>
+        </div>
+        <p class="scenario__fields mm-num" data-bind="fields"></p>
+        <div class="strip" id="strip" aria-label="Indicators and signal quality per window"></div>
+        <p class="strip__caption">Lines join only windows that pass the quality check. A window that fails is hatched, keeps its reported values as text and is not drawn as a data point. <span data-bind="missing"></span></p>
+        <div class="story" aria-live="polite">
+          <p class="mm-label">What this scenario shows</p>
+          <p class="story__text" data-bind="explanation" data-testid="explanation"></p>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="foot">
+      <p>Synthetic data generated by <code>python -m astra_patch showcase build</code> · not connected to the Mars Base or the HUD</p>
+      <p class="foot__prov mm-num" data-bind="provenance"></p>
+    </footer>
+  </div>
+  <noscript><p class="noscript">This page needs JavaScript to display the synthetic demo data.</p></noscript>
+</body>
+</html>
