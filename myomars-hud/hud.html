@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyoMars EVA HUD · Base Link</title>
+<style>
+:root{
+  --hud:#8eeaff;--hud-dim:rgba(142,234,255,.58);--hud-faint:rgba(142,234,255,.2);
+  --panel:rgba(6,18,30,.5);--ok:#5cf2a8;--warn:#ffc04d;--amber:#ffb340;--bad:#ff6b7a;--mars:#ff9a6a;
+  --glow:0 0 6px rgba(142,234,255,.55);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#1a0d07;color:var(--hud);
+  font:13px/1.45 -apple-system,"PingFang SC","Noto Sans SC",sans-serif;user-select:none;-webkit-user-select:none}
+body.grab{cursor:grab}body.grabbing{cursor:grabbing}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
+
+/* ===== world: outer = mouse yaw/pitch, inner = walk zoom + bob; markers live with the background ===== */
+#outer{position:fixed;left:0;top:0;will-change:transform}
+#ground{position:fixed;left:0;top:0;pointer-events:none}
+#inner{position:absolute;left:0;top:0;width:100%;height:100%;will-change:transform}
+.tile{position:absolute;top:0;height:100%;background:center/100% 100% no-repeat}
+.tile.fade{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 var(--ov),#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 var(--ov),#000 100%)}
+.wm{position:absolute;transform:translate(-50%,-100%);text-align:center;pointer-events:none;white-space:nowrap}
+.wm .box{display:inline-block;padding:3px 8px;border:1px solid var(--hud-dim);background:rgba(6,18,30,.45);border-radius:3px;text-shadow:var(--glow);font-size:12px;transition:border-color .3s,color .3s}
+.wm small{display:block;color:var(--hud-dim);font-size:10px}
+.wm .stem{width:1px;height:44px;margin:0 auto;background:linear-gradient(var(--hud-dim),transparent)}
+.wm .ring{width:14px;height:14px;margin:-7px auto 0;border:1.5px solid var(--hud);border-radius:50%}
+.wm.base .box{border-color:var(--mars);color:#ffd9c4}
+.wm.base .ring{border-color:var(--mars)}
+.wm.base.busy small{color:var(--hud)}
+.wm.base.busy .ring{animation:ping 1.2s ease-out infinite}
+.wm.base.amber .box{border-color:var(--amber);color:#ffe0a8}
+.wm.base.amber .ring{border-color:var(--amber);animation:pingA 1.2s ease-out infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(142,234,255,.8)}100%{box-shadow:0 0 0 20px rgba(142,234,255,0)}}
+@keyframes pingA{0%{box-shadow:0 0 0 0 rgba(255,179,64,.85)}100%{box-shadow:0 0 0 22px rgba(255,179,64,0)}}
+
+/* ===== helmet ===== */
+#visor{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 74% at 50% 47%,transparent 60%,rgba(0,8,14,.5) 80%,rgba(0,0,0,.94) 100%),
+             linear-gradient(180deg,rgba(80,200,255,.06),transparent 28%,transparent 72%,rgba(80,200,255,.05))}
+#visor.focus{background:radial-gradient(ellipse 80% 74% at 50% 47%,transparent 50%,rgba(0,8,14,.62) 78%,rgba(0,0,0,.96) 100%)}
+#glare{position:fixed;inset:-20%;pointer-events:none;mix-blend-mode:screen;opacity:.35;background:radial-gradient(ellipse 40% 25% at 30% 20%,rgba(255,255,255,.12),transparent 70%)}
+#scan{position:fixed;inset:0;pointer-events:none;opacity:.06;background:repeating-linear-gradient(0deg,#9ef 0 1px,transparent 1px 3px)}
+
+/* gloves */
+.glove{position:fixed;bottom:-6vh;width:min(26vw,300px);pointer-events:none;opacity:0;filter:blur(1.6px) brightness(.9)}
+.glove.l{left:-2vw;transform:translate(-60%,70%) rotate(28deg)}
+.glove.r{right:-2vw;transform:translate(60%,70%) rotate(-28deg) scaleX(-1)}
+.glove.l.go{animation:gl .9s ease-in-out}
+.glove.r.go{animation:gr .9s ease-in-out}
+@keyframes gl{0%{opacity:0;transform:translate(-60%,70%) rotate(28deg)}45%{opacity:.95;transform:translate(-8%,22%) rotate(18deg)}100%{opacity:0;transform:translate(-60%,70%) rotate(28deg)}}
+@keyframes gr{0%{opacity:0;transform:translate(60%,70%) rotate(-28deg) scaleX(-1)}45%{opacity:.95;transform:translate(8%,22%) rotate(-18deg) scaleX(-1)}100%{opacity:0;transform:translate(60%,70%) rotate(-28deg) scaleX(-1)}}
+
+/* ===== HUD ===== */
+#hud{position:fixed;inset:0;pointer-events:none}
+.p{pointer-events:auto}
+.panel{background:var(--panel);border:1px solid var(--hud-faint);border-radius:6px;padding:10px 12px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);box-shadow:inset 0 0 18px rgba(142,234,255,.06)}
+.panel h4{margin:0 0 6px;font-size:11px;letter-spacing:.14em;color:var(--hud-dim);font-weight:600;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.tag{font-size:10px;letter-spacing:0;border:1px solid currentColor;border-radius:3px;padding:0 4px;font-weight:500}
+.tag.preset{color:var(--mars)}.tag.sim{color:var(--warn)}
+.t-ok{color:var(--ok)}.t-warn{color:var(--warn)}.t-bad{color:var(--bad)}
+
+#topL{position:absolute;left:4vw;top:3.2vh;text-shadow:var(--glow)}
+#topL b{font-size:15px;letter-spacing:.12em}
+#topL .sub{color:var(--hud-dim);font-size:11px}
+.simbadge{display:inline-block;margin-top:6px;color:var(--warn);border:1px solid var(--warn);border-radius:3px;padding:1px 6px;font-size:11px;font-weight:600;text-shadow:none;background:rgba(40,25,0,.45)}
+#topR{position:absolute;right:4vw;top:3.2vh;text-align:right;text-shadow:var(--glow);font-size:12px}
+#topR div{margin-bottom:2px}
+#radar{width:120px;height:120px;margin:6px 0 2px auto;border-radius:50%;background:radial-gradient(rgba(6,18,30,.55),rgba(6,18,30,.3));border:1px solid var(--hud-faint)}
+
+#compass{position:absolute;left:50%;top:3vh;transform:translateX(-50%);width:min(40vw,520px);height:36px;overflow:hidden;
+  -webkit-mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+#cstrip{position:absolute;top:0;left:0;height:100%}
+.tick{position:absolute;bottom:7px;width:1px;height:6px;background:var(--hud-dim)}
+.tick.l{height:11px;background:var(--hud)}
+.tick span{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--hud)}
+.cbase{position:absolute;bottom:0;transform:translateX(-50%);color:var(--mars);font-size:10px}
+#heading{position:absolute;left:50%;top:calc(3vh + 36px);transform:translateX(-50%);font-size:11px;text-shadow:var(--glow);text-align:center}
+#speed{display:block;color:var(--hud-dim);font-size:10px}
+
+#left{position:absolute;left:3vw;top:19vh;width:min(22vw,260px)}
+canvas{display:block;width:100%;height:30px}
+.row{display:flex;justify-content:space-between;gap:8px;font-size:11px;margin:2px 0}
+.row span:first-child{color:var(--hud-dim)}
+
+#right{position:absolute;right:3vw;top:19vh;width:min(27vw,340px);max-height:52vh;overflow:auto}
+#status{font-weight:600;font-size:13px;padding:7px 10px;border:1px solid var(--hud-faint);border-radius:4px;text-shadow:var(--glow)}
+#status.warn{border-color:var(--warn);color:var(--warn)}#status.bad{border-color:var(--bad);color:var(--bad)}
+#status.ok{border-color:var(--ok);color:var(--ok)}#status.amber{border-color:var(--amber);color:var(--amber)}
+#status .vt{margin-left:8px;padding:2px 8px;font-size:11px}
+.card{border:1px solid var(--hud-faint);border-radius:5px;padding:8px 10px;margin-top:8px;background:rgba(0,10,20,.35)}
+.card h5{margin:0 0 3px;font-size:13px}
+.card p{margin:2px 0;color:#cfefff;font-size:12px}
+.card .ver{color:var(--hud-dim);font-size:10px}
+.card.alert{border-color:var(--warn)}.card.alert h5{color:var(--warn)}
+.card.alert.v2{border-color:var(--ok)}.card.alert.v2 h5{color:var(--ok)}
+.card.alert.red{border-color:var(--bad)}.card.alert.red h5{color:var(--bad)}
+.lvl{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:700;letter-spacing:.08em;border:1px solid var(--hud-dim);color:var(--hud-dim);text-shadow:none;background:rgba(6,18,30,.5)}
+.lvl.green{color:#062;background:var(--ok);border-color:var(--ok);box-shadow:0 0 12px rgba(92,242,168,.6)}
+.lvl.amber{color:#3a2400;background:var(--amber);border-color:var(--amber);box-shadow:0 0 12px rgba(255,179,64,.6)}
+.lvl.red{color:#fff;background:var(--bad);border-color:var(--bad);box-shadow:0 0 14px rgba(255,107,122,.7);animation:blink 1s ease-in-out infinite}
+.scn{display:grid;gap:8px;margin-top:12px;text-align:left}
+.scn button{display:block;width:100%;text-align:left;padding:8px 12px;font-size:13px}
+.scn button small{display:block;color:var(--hud-dim);font-weight:400;font-size:11px;margin-top:2px;text-shadow:none}
+.scn .g{border-color:var(--ok)}.scn .a{border-color:var(--amber)}.scn .r{border-color:var(--bad)}
+.card.alert.updated{animation:upd 1.2s ease-out 2}
+@keyframes upd{30%{background:rgba(92,242,168,.22)}}
+.card.notice{border-color:var(--bad)}.card.notice h5{color:var(--bad)}
+.card.notice.ok{border-color:var(--ok)}.card.notice.ok h5{color:var(--ok)}
+.empty{color:var(--hud-dim);font-size:12px;margin-top:8px}
+button{font:inherit;font-size:12px;color:var(--hud);background:rgba(10,40,60,.6);border:1px solid var(--hud-dim);border-radius:4px;padding:5px 12px;cursor:pointer;text-shadow:var(--glow)}
+button:hover:not(:disabled){background:rgba(40,110,150,.6)}
+button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.go{border-color:var(--amber);color:#fff0d6;background:rgba(120,70,10,.6);font-weight:600}
+button.go:hover:not(:disabled){background:rgba(170,100,20,.75)}
+.btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+ol.guide{margin:6px 0 0;padding-left:18px;color:#cfefff;font-size:12px}
+.chk{display:grid;gap:4px;margin:6px 0;font-size:12px;color:#e4f7ff}.chk label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.card.notice.amber{border-color:var(--amber)}.card.notice.amber h5{color:var(--amber)}
+
+@keyframes drop{0%{top:-40px;opacity:0}60%{opacity:1}100%{top:20vh;opacity:1}}
+@keyframes blink{50%{opacity:.35}}
+
+/* retest card (bottom-left) */
+#rcard{position:absolute;left:3vw;bottom:4vh;width:min(30vw,350px);border-color:var(--amber);box-shadow:0 0 0 1px rgba(255,179,64,.2),0 0 24px rgba(255,179,64,.18);
+  transform:translateY(30px) scale(.96);opacity:0;transition:transform .5s cubic-bezier(.2,1.2,.4,1),opacity .4s;visibility:hidden}
+#rcard.show{transform:none;opacity:1;visibility:visible}
+#rcard h4{color:var(--amber)}
+.rc{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:start}
+.rc svg{width:78px;height:auto}
+.body path,.body rect,.body circle{fill:rgba(142,234,255,.08);stroke:var(--hud-dim);stroke-width:1.2}
+.body .hot{fill:rgba(255,179,64,.55);stroke:var(--amber);animation:hot 1.3s ease-in-out infinite}
+@keyframes hot{50%{fill:rgba(255,179,64,.2)}}
+dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:4px 0;font-size:12px}
+dt{color:var(--hud-dim)}dd{margin:0;color:#e4f7ff}
+.prog{height:5px;background:var(--hud-faint);border-radius:3px;overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;width:0;background:var(--hud);box-shadow:0 0 6px var(--hud)}
+.stopHint{font-size:11px;color:var(--amber)}
+
+/* transport chain */
+#bottom{position:absolute;left:50%;bottom:4vh;transform:translateX(-50%);width:min(36vw,460px)}
+.chain{position:relative;height:44px;margin:0 22px}
+.cn{position:absolute;top:2px;transform:translateX(-50%);text-align:center;font-size:11px;width:70px}
+.cn i{display:block;width:22px;height:22px;margin:0 auto 2px;border:1.5px solid var(--hud-dim);border-radius:50%;font-style:normal;font-size:12px;line-height:19px}
+.cn.base i{border-color:var(--mars)}
+.wire{position:absolute;top:13px;border-top:1.5px dashed var(--hud-dim)}
+.wire.down{border-color:var(--bad)}
+.wire .x{position:absolute;left:50%;top:-10px;transform:translateX(-50%);color:var(--bad);font-weight:700;background:rgba(6,18,30,.9);padding:0 3px;font-size:12px}
+.pk{position:absolute;top:7px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--hud);box-shadow:0 0 8px var(--hud);transition:left 1s linear}
+.pk.cached{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:blink 1s infinite}
+.pk.poor{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+.steps{display:flex;gap:3px;margin-top:5px}
+.steps div{flex:1;text-align:center;font-size:10px;padding:2px 1px;border:1px solid var(--hud-faint);border-radius:3px;color:var(--hud-dim)}
+.steps .run{border-color:var(--hud);color:var(--hud)}.steps .done{color:var(--ok);border-color:rgba(92,242,168,.5)}.steps .fail{color:var(--bad);border-color:var(--bad)}
+#bstat{font-size:11px;color:var(--hud-dim);margin-top:3px;display:flex;justify-content:space-between;gap:8px}
+
+/* flying cyan packet (screen space: local device icon -> base label) */
+#fly{position:fixed;left:0;top:0;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#bff6ff;box-shadow:0 0 6px 2px #8eeaff,0 0 18px 6px rgba(142,234,255,.5);pointer-events:none;opacity:0}
+#fly.on{opacity:1}
+
+#reticle{position:absolute;left:50%;top:50%;width:40px;height:40px;transform:translate(-50%,-50%);border:1px solid var(--hud-faint);border-radius:50%}
+#reticle:before,#reticle:after{content:"";position:absolute;background:var(--hud-faint)}
+#reticle:before{left:50%;top:-6px;bottom:-6px;width:1px}#reticle:after{top:50%;left:-6px;right:-6px;height:1px}
+.edge{position:absolute;top:46%;color:var(--mars);border-color:var(--mars);font-size:12px;font-weight:600;padding:6px 10px;background:rgba(40,15,5,.55);text-shadow:0 0 8px rgba(255,154,106,.7)}
+.edge.r{right:calc(3vw + min(27vw,340px) + 16px)}.edge.l{left:calc(3vw + min(22vw,260px) + 16px)}   /* sit just inside the side panels */
+.edge.amber{color:var(--amber);border-color:var(--amber);animation:blink 1.2s ease-in-out infinite}
+.outline{position:absolute;border:1.5px dashed var(--amber);border-radius:10px;opacity:0;pointer-events:none;box-shadow:0 0 18px rgba(255,179,64,.45),inset 0 0 18px rgba(255,179,64,.25)}
+.outline.hl{animation:olh 2.4s ease-in-out}
+@keyframes olh{0%,100%{opacity:0}15%,70%{opacity:1}}
+.wm.base.hl .box{box-shadow:0 0 14px var(--amber);border-color:var(--amber);color:#fff0d6}
+.cbase.hl{color:var(--amber);text-shadow:0 0 8px var(--amber);font-weight:700;animation:blink .5s 4}
+#msgfly{position:fixed;left:0;top:0;padding:3px 9px;border:1px solid var(--amber);border-radius:12px;background:rgba(60,30,0,.75);color:#ffe0a8;font-size:11px;font-weight:600;
+  box-shadow:0 0 10px rgba(255,179,64,.8),0 0 26px rgba(255,179,64,.35);pointer-events:none;opacity:0;white-space:nowrap}
+#msgfly.on{opacity:1}
+.body .hot{cursor:pointer;pointer-events:all}
+.body .hot.after{fill:rgba(92,242,168,.4);stroke:var(--ok);animation:none}
+#legCard{margin-top:8px;border:1px solid var(--amber);border-radius:5px;padding:7px 9px;background:rgba(60,30,0,.3);font-size:12px}
+#legCard.after{border-color:var(--ok);background:rgba(10,50,30,.3)}
+#legCard .k{color:var(--hud-dim);font-size:10px}
+#legCard .now{color:#fff0d6;font-weight:600}
+#legCard.after .now{color:var(--ok)}
+#legCard .was{color:var(--hud-dim);text-decoration:line-through;font-size:11px}
+.lab{color:var(--hud-dim);margin-right:6px;font-size:11px}
+select{font:inherit;font-size:12px;color:var(--hud);background:rgba(10,40,60,.8);border:1px solid var(--hud-dim);border-radius:4px;padding:4px 6px}
+.simres{border:1px dashed var(--warn);border-radius:5px;padding:6px 8px;margin-top:2px}
+.panel.flashc{box-shadow:0 0 0 2px var(--amber),0 0 28px rgba(255,179,64,.6)}
+.legTip{font-size:10px;color:var(--amber);text-align:center;margin-top:2px}
+#keys{position:absolute;left:50%;bottom:calc(4vh + 112px);transform:translateX(-50%);font-size:11px;color:var(--hud-dim);text-shadow:var(--glow);white-space:nowrap;transition:opacity .5s}
+kbd{border:1px solid var(--hud-dim);border-radius:3px;padding:0 5px;font:inherit;color:var(--hud)}
+#guideOverlay{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+#guideOverlay .big{font-size:24px;font-weight:600;text-shadow:var(--glow);letter-spacing:.06em}
+#guideOverlay .sm{color:var(--hud-dim);font-size:12px;margin-top:4px}
+#legFig{display:block;margin:6px auto 0;width:120px;height:110px}
+#legFig line,#legFig circle.j{stroke:var(--hud);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(142,234,255,.7))}
+#legFig .thighL{stroke:var(--amber);filter:drop-shadow(0 0 4px rgba(255,179,64,.8))}
+#legFig .gnd{stroke:var(--hud-faint);stroke-width:1.5}
+#legFig path.arc{fill:none;stroke:var(--amber);stroke-width:1.2;stroke-dasharray:3 2}
+#legFig text{fill:var(--amber);font-size:10px}
+#knees{position:fixed;left:50%;bottom:0;width:min(62vw,760px);transform:translate(-50%,100%);pointer-events:none;filter:blur(2px) brightness(.85);opacity:0}
+#stab{position:absolute;left:50%;top:calc(3vh + 64px);transform:translateX(-50%);font-size:11px;color:var(--ok);display:none}
+
+#demo{position:absolute;right:3vw;bottom:4vh;width:min(22vw,250px);font-size:12px}
+#demo summary{cursor:pointer;color:var(--hud-dim);letter-spacing:.1em;font-size:11px;list-style:none}
+#demo summary::-webkit-details-marker{display:none}
+#demo label{display:flex;gap:6px;align-items:center;margin-top:6px;color:#cfefff}
+#log{margin-top:8px;max-height:110px;overflow:auto;font-size:10px;color:var(--hud-dim);line-height:1.5}
+
+#intro{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,4,2,.55);backdrop-filter:blur(4px);z-index:10}
+#intro .in{max-width:520px;margin:16px;padding:26px 28px;border:1px solid var(--hud-dim);border-radius:8px;background:rgba(6,18,30,.78);text-align:center;text-shadow:var(--glow)}
+#intro h1{margin:0 0 6px;font-size:20px;letter-spacing:.1em}
+#intro p{color:#cfefff;margin:8px 0}
+#intro button{font-size:14px;padding:8px 22px;margin-top:10px}
+
+@media (max-width:860px){#left,#demo,#bottom{display:none}#right{width:46vw}#rcard{width:46vw}#keys{bottom:3vh}}
+</style>
+</head>
+<body class="grab">
+
+<div id="outer" aria-hidden="true">
+  <div id="inner">
+    <div id="tiles"></div>
+    <div class="wm" id="wmRidge"><div class="box">Dune C-1<small>Alt. sample site · 0.7 km</small></div><div class="stem"></div><div class="ring"></div></div>
+    <div class="wm" id="wmPoint"><div class="box">Waypoint B-3<small>Rock mound sample · 0.4 km</small></div><div class="stem"></div><div class="ring"></div></div>
+    <div class="wm" id="wmRover"><div class="box">Return route<small>Marker R-2</small></div><div class="stem"></div><div class="ring"></div></div>
+    <div class="outline" id="baseOutline"></div>
+    <div class="wm base" id="wmBase"><div class="box">Mars Base<small id="wmBaseSub">2.4 km · Link OK</small></div><div class="stem"></div><div class="ring" id="baseRing"></div></div>
+  </div>
+</div>
+<canvas id="ground" aria-hidden="true"></canvas>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <linearGradient id="gg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1ece3"/><stop offset="1" stop-color="#9c958a"/></linearGradient>
+  <symbol id="gloveSym" viewBox="0 0 220 240">
+    <rect x="70" y="150" width="110" height="90" rx="18" fill="#4a4f57"/>
+    <rect x="70" y="160" width="110" height="10" fill="#e07b3c"/>
+    <path d="M60 150 C40 120 40 80 58 60 L150 50 C175 60 190 95 185 150 Z" fill="url(#gg)"/>
+    <rect x="62" y="6" width="24" height="70" rx="12" fill="url(#gg)"/>
+    <rect x="92" y="0" width="24" height="72" rx="12" fill="url(#gg)"/>
+    <rect x="122" y="6" width="24" height="68" rx="12" fill="url(#gg)"/>
+    <rect x="150" y="22" width="22" height="58" rx="11" fill="url(#gg)"/>
+    <rect x="10" y="88" width="62" height="26" rx="13" transform="rotate(-35 40 100)" fill="url(#gg)"/>
+    <path d="M70 70 L170 64" stroke="#7d776d" stroke-width="3" fill="none" opacity=".6"/>
+  </symbol>
+</defs></svg>
+<svg class="glove l" id="gloveL" viewBox="0 0 220 240"><use href="#gloveSym"/></svg>
+<svg class="glove r" id="gloveR" viewBox="0 0 220 240"><use href="#gloveSym"/></svg>
+
+<svg id="knees" viewBox="0 0 760 260" aria-hidden="true">
+  <defs><radialGradient id="kg" cx=".5" cy=".3" r=".8"><stop offset="0" stop-color="#f3eee6"/><stop offset="1" stop-color="#8f877c"/></radialGradient></defs>
+  <path d="M40 260 C40 120 110 40 200 40 C290 40 340 120 340 260 Z" fill="url(#kg)"/>
+  <path d="M420 260 C420 120 470 40 560 40 C650 40 720 120 720 260 Z" fill="url(#kg)"/>
+  <ellipse cx="200" cy="110" rx="70" ry="34" fill="#c9c2b6"/><ellipse cx="560" cy="110" rx="70" ry="34" fill="#c9c2b6"/>
+  <rect x="150" y="160" width="90" height="38" rx="8" fill="#2a3340"/><circle cx="228" cy="172" r="5" fill="#8eeaff"/>
+  <rect x="40" y="225" width="300" height="10" fill="#e07b3c" opacity=".8"/><rect x="420" y="225" width="300" height="10" fill="#e07b3c" opacity=".8"/>
+</svg>
+<div id="glare"></div>
+<div id="visor"></div>
+<div id="scan"></div>
+<div id="fly"></div>
+
+<div id="hud">
+  <div id="topL">
+    <b>MYOMARS · EVA HUD</b>
+    <div class="sub mono">Astronaut A-02 · SOL 214 · EVA leg 3 · <span id="scnName">—</span></div>
+    <div id="level" class="lvl" role="status">● MONITORING</div>
+  </div>
+  <div id="topR" class="mono">
+    <div>Suit power <span class="t-ok">82%</span></div>
+    <div>O₂ remaining <span class="t-ok">6.1 h</span></div>
+    <div id="linkChip"></div>
+    <canvas id="radar" width="120" height="120" aria-label="Mini-map"></canvas>
+    <div id="posVal" class="mono" style="font-size:10px;color:var(--hud-dim)">E 0  N 0 m</div>
+  </div>
+  <div id="compass"><div id="cstrip"></div></div>
+  <div id="heading" class="mono">000°<span id="speed">Still</span></div>
+  <div id="stab">◎ View stabilized · stay standing during retest</div>
+  <div id="reticle"></div>
+  <div id="edge"></div>
+  <div id="guideOverlay"></div>
+  <div id="msgfly">✉ Retest task</div>
+
+  <section id="left" class="panel p" aria-label="Patch status">
+    <h4>Patch · Left thigh</h4>
+    <div class="row"><span>sEMG</span><span id="emgVal" class="mono">—</span></div>
+    <canvas id="cvEmg" width="260" height="30"></canvas>
+    <div class="row" style="margin-top:4px"><span>IMU</span><span id="imuVal" class="mono">—</span></div>
+    <canvas id="cvImu" width="260" height="30"></canvas>
+    <div class="row" style="margin-top:4px"><span>Contact (local est.)</span><span id="contact" class="t-ok">● Good</span></div>
+    <div class="row"><span>Walking segment</span><span id="segVal" class="mono">idle</span></div>
+    <div class="row"><span>Uploaded · queued</span><span id="cacheVal" class="mono">0 · 0</span></div>
+  </section>
+
+  <section id="right" class="panel p" aria-label="Base messages">
+    <h4>Base messages <span class="tag">Base-published only</span></h4>
+    <div id="status" role="status" aria-live="polite"></div>
+    <div id="notice"></div>
+    <div id="alert"></div>
+  </section>
+
+  <section id="rcard" class="panel p" aria-label="Retest task">
+    <h4><span id="rcTitle">📡 Base retest task</span> <span class="tag" style="color:var(--amber)">Reviewed</span></h4>
+    <div class="rc">
+      <svg class="body" viewBox="0 0 80 170" aria-label="Body map: left thigh">
+        <circle cx="40" cy="14" r="10"/>
+        <rect x="24" y="27" width="32" height="52" rx="9"/>
+        <rect x="12" y="30" width="10" height="46" rx="5"/>
+        <rect x="58" y="30" width="10" height="46" rx="5"/>
+        <rect x="26" y="81" width="13" height="40" rx="6"/>
+        <rect x="41" y="81" width="13" height="40" rx="6" class="hot" id="thigh" tabindex="0" role="button" aria-label="Left thigh: view before/after retest"><title>Click to view before/after retest</title></rect>
+        <rect x="27" y="123" width="11" height="40" rx="5"/>
+        <rect x="42" y="123" width="11" height="40" rx="5"/>
+        <text x="6" y="168" font-size="8" fill="#8eeaff" opacity=".6">R</text>
+        <text x="68" y="168" font-size="8" fill="#8eeaff" opacity=".6">L</text>
+      </svg>
+      <div id="rcBody"></div>
+    </div>
+    <div class="legTip" id="legTip">↑ Click the highlighted left thigh to see changes</div>
+    <div id="legCard" hidden></div>
+  </section>
+
+  <section id="bottom" class="panel p" aria-label="Data link">
+    <h4>Data link · Patch → Local device → Base</h4>
+    <div class="chain" id="chain">
+      <div class="wire" style="left:0;width:50%"></div><div class="wire" id="wire2" style="left:50%;width:50%"></div>
+      <div class="cn" style="left:0"><i>◉</i>Patch</div><div class="cn" style="left:50%"><i id="localIcon">▣</i>Local device</div><div class="cn base" style="left:100%"><i>⌂</i>Base</div>
+    </div>
+    <div class="steps" id="steps"></div>
+    <div id="bstat"><span id="bstatL"></span><span id="bstatR"></span></div>
+  </section>
+
+  <details id="demo" class="panel p">
+    <summary>▸ Link test tools</summary>
+    <div class="btns"><button data-scn="normal">Scenario 1 · Normal</button><button data-scn="fatigue">Scenario 2 · Fatigue</button><button data-scn="sensor">Scenario 3 · Sensor fault</button></div>
+    <div class="btns"><button id="bLink">Disconnect base</button><button id="bClear">Clear local cache</button></div>
+    <div id="log" class="mono"></div>
+  </details>
+</div>
+
+<div id="intro">
+  <div class="in">
+    <h1>Mars Walking Patrol · First Person</h1>
+    <p>You are astronaut A-02 on patrol outside the base.<br><b>Drag</b> to look around, <b>W / S</b> to move forward/back, <b>A / D</b> to step sideways.</p>
+    <p style="color:var(--hud-dim);font-size:12px">Just walk as usual. The patch records sEMG and IMU continuously; walking segments upload automatically<br>and the base compares them with your personal walking baseline. If the base recommends a retest, you confirm it.</p>
+    <div class="scn">
+      <button class="go g" data-scn="normal">Scenario 1 · Normal<small>Healthy muscle signals, patch transmits fine → GREEN, continue the patrol.</small></button>
+      <button class="go a" data-scn="fatigue">Scenario 2 · Muscle fatigue<small>Patch works, but muscle activity suggests fatigue → AMBER, rest and retest.</small></button>
+      <button class="go r" data-scn="sensor">Scenario 3 · Sensor malfunction<small>Muscle condition is normal, but the patch output is corrupted → RED, reconnect and verify.</small></button>
+    </div>
+  </div>
+</div>
+
+<script src="hud/base-client.js"></script>
+<script id="hud-main">
+(function(){
+const createBaseClient=(window.MyoMarsBaseClient||{}).createBaseClient;
+// Served by the mock base → same origin. Opened by double-click (file://) → talk to the local base directly.
+const BASE_URL=location.protocol==='file:'?'http://127.0.0.1:8787':location.origin;
+const FILE_MODE=location.protocol==='file:';
+'use strict';
+const $=id=>document.getElementById(id);
+const IMG_W=1983,IMG_H=793,A=IMG_W/IMG_H;
+/* one continuous 360° panorama: left and right edges join, so yaw wraps around forever */
+const PANO='assets/mars-pano-360.webp', SPAN=360, B0=9;   // image = full circle; base (tower) ends up at ~260°
+const MK={base:{t:0,u:.697,v:.305,id:'wmBase'},point:{t:0,u:.21,v:.38,id:'wmPoint'},rover:{t:0,u:.5,v:.8,id:'wmRover'},ridge:{t:0,u:.43,v:.42,id:'wmRidge'}};   // base anchor = comms tower
+const mod=(a,n)=>((a%n)+n)%n;
+function bearingT(t,u){return mod(B0+u*SPAN,360)}
+function bearingX(X){return mod(B0+X/v.W*SPAN,360)}
+function stripX(t,u){return u*v.W}
+const T={msg:800,firstUpload:4500,toLocal:1000,upload:1600,step:850,deliver:1200,noticeDelay:1300,collect:3000,recollect:3200};   // demo pacing: msg flight 0.8 s, retest capture 3 s
+const WALK={maxScale:1.12,fullAfter:10,bob:3.2,stepHz:1.7,strafe:.10,mps:1.2,turnKey:.45};
+const BASE_KM=2.4;
+
+/* ================= view: outer (yaw/pitch) + inner (walk) ================= */
+const v={x:0,y:0,tx:0,ty:0,W:0,H:0,vf:0,vs:0,speed:0,dist:0,phase:0,lastSide:0,px:0,py:0,trail:[]};
+const keys={};let drag=null,started=false;
+const KEYMAP={keyw:'f',arrowup:'f',keys:'b',arrowdown:'b',keya:'l',keyd:'r',arrowleft:'tl',arrowright:'tr',keyq:'tl',keye:'tr',
+  w:'f',s:'b',a:'l',d:'r',q:'tl',e:'tr'};
+const keyOf=e=>KEYMAP[(e.code||'').toLowerCase()]||KEYMAP[(e.key||'').toLowerCase()];
+function layout(){
+  const vw=innerWidth,vh=innerHeight;
+  const keep=v.W?mod(-v.x,v.W)/v.W:null;
+  v.H=Math.max(vh*1.12,vw*1.4/A);v.W=v.H*A;v.ov=0;v.P=v.W;
+  $('outer').style.width=(2*v.W)+'px';$('outer').style.height=v.H+'px';
+  $('tiles').innerHTML=[0,1].map(i=>'<div class="tile" style="left:'+(i*v.W)+'px;width:'+v.W+'px;background-image:url('+PANO+')"></div>').join('');
+  v.tx=v.x=-(keep==null?(v.W-vw)*.42:keep*v.W);v.ty=v.y=clampY(-(v.H-vh)*.4);
+}
+const clampX=x=>x;   // 360° panorama: yaw wraps
+const clampY=y=>Math.min(0,Math.max(-(v.H-innerHeight),y));
+addEventListener('resize',layout);
+addEventListener('pointerdown',e=>{
+  if(!started||e.target.closest('.p'))return;
+  drag={x:e.clientX,y:e.clientY};v.locating=false;document.body.classList.replace('grab','grabbing');
+});
+addEventListener('pointermove',e=>{
+  if(!drag)return;
+  v.tx=clampX(v.tx+(e.clientX-drag.x)*1.15);v.ty=clampY(v.ty+(e.clientY-drag.y)*.5);
+  drag={x:e.clientX,y:e.clientY};
+});
+addEventListener('pointerup',()=>{drag=null;document.body.classList.replace('grabbing','grab')});
+addEventListener('keydown',e=>{
+  if(!started)return;
+  const m=keyOf(e);if(!m)return;
+  keys[m]=true;e.preventDefault();
+});
+addEventListener('keyup',e=>{const m=keyOf(e);if(m)keys[m]=false});
+function clearKeys(){for(const k in keys)keys[k]=false}
+addEventListener('blur',()=>{clearKeys();drag=null});
+
+function buildCompass(){
+  let h='';
+  for(let d=-90;d<=450;d+=5){const dd=mod(d,360),l=dd%15===0,lab={0:'N',90:'E',180:'S',270:'W',45:'NE',135:'SE',225:'SW',315:'NW'}[dd]||(l?String(dd):'');
+    h+='<div class="tick'+(l?' l':'')+'" style="left:'+((d+90)*6)+'px">'+(lab?'<span>'+lab+'</span>':'')+'</div>'}
+  const bb=bearingT(MK.base.t,MK.base.u);
+  [bb-360,bb,bb+360].filter(d=>d>=-90&&d<=450).forEach(d=>h+='<div class="cbase" style="left:'+((d+90)*6)+'px">▼BASE</div>');
+  $('cstrip').innerHTML=h;$('cstrip').style.width=(540*6)+'px';
+}
+
+let last=0;
+function frame(ts){
+  const dt=Math.min(.05,(ts-(last||ts))/1000);last=ts;
+  const vw=innerWidth,vh=innerHeight;
+  // movement: forward/back (W/S) and strafe (A/D) ease toward targets -> smooth start / stop
+  const can=started&&S.phase!=='collecting';
+  const tf=can?(keys.f?1:0)-(keys.b?.7:0):0, ts_=can?(keys.r?.8:0)-(keys.l?.8:0):0;
+  const ease=(cur,t)=>cur+(t-cur)*(Math.abs(t)>Math.abs(cur)?2.2:3.2)*dt;
+  v.vf=ease(v.vf,tf);v.vs=ease(v.vs,ts_);
+  if(Math.abs(v.vf)<.002)v.vf=0;if(Math.abs(v.vs)<.002)v.vs=0;
+  v.speed=Math.min(1,Math.hypot(v.vf,v.vs));
+  v.dist=Math.max(0,Math.min(WALK.fullAfter,v.dist+v.vf*dt));          // forward zooms in, back zooms out
+  if(v.vs)v.tx=clampX(v.tx-v.vs*dt*vw*WALK.strafe);                      // strafe slides the horizon
+  if(can&&(keys.tl||keys.tr))v.tx=clampX(v.tx+((keys.tl?1:0)-(keys.tr?1:0))*dt*vw*WALK.turnKey);
+  const prevPhase=v.phase; v.phase+=v.speed*dt*WALK.stepHz*Math.PI*2;
+  if(Math.floor(prevPhase/Math.PI)!==Math.floor(v.phase/Math.PI)&&v.speed>.35)stepGlove();
+  const scale=1+(WALK.maxScale-1)*v.dist/WALK.fullAfter;
+  const bobY=-Math.abs(Math.sin(v.phase))*WALK.bob*v.speed, bobX=Math.sin(v.phase*.5)*1.5*v.speed-v.vs*6;
+  // mouse yaw (outer)
+  const lf=v.locating?Math.min(1,dt*3):Math.min(1,dt*9);
+  v.x+=(v.tx-v.x)*lf;v.y+=(v.ty-v.y)*lf;
+  if(v.locating&&Math.abs(v.tx-v.x)<1.5&&Math.abs(v.ty-v.y)<1.5)v.locating=false;
+  const sx0=mod(-v.x,v.W);            // wrapped pan offset (two copies side by side cover the seam)
+  $('outer').style.transform='translate3d('+(-sx0)+'px,'+v.y+'px,0)';
+  const ox=sx0+vw/2, oy=vh/2-v.y;     // strip coords of view centre; zoom toward what you are looking at
+  // ground position (metres, x=east y=north) for the mini-map
+  {const h=bearingX(ox)*Math.PI/180, s=WALK.mps*dt*8;   // ×8 so movement is visible in a short demo
+   v.px+=(Math.sin(h)*v.vf+Math.cos(h)*v.vs)*s; v.py+=(Math.cos(h)*v.vf-Math.sin(h)*v.vs)*s;
+   if(v.speed>.05){const t=v.trail,l=t[t.length-1];if(!l||Math.hypot(l[0]-v.px,l[1]-v.py)>2){t.push([v.px,v.py]);if(t.length>60)t.shift()}}}
+  const inner=$('inner');inner.style.transformOrigin=ox+'px '+oy+'px';
+  const fx=S.flex||0;   // 0 standing -> 1 deepest knee bend
+  inner.style.transform='translate3d('+bobX+'px,'+(bobY-fx*vh*.07)+'px,0) scale('+(scale*(1-fx*.015))+')';
+  {const sc=scale*(1-fx*.015), oyw=vh/2-v.y, hyW=HORIZON*v.H;
+   drawGround(dt,vw,vh,v.y+oyw+(hyW-oyw)*sc+bobY-fx*vh*.07, bobX);}
+  const kn=$('knees');kn.style.transform='translate(-50%,'+(100-fx*78)+'%)';kn.style.opacity=Math.min(1,fx*1.6);
+  $('glare').style.transform='translate('+(-sx0/v.P*120)+'px,0)';
+  const near=X=>X+v.W*Math.round((ox-X)/v.W);   // marker copy closest to where you look
+  for(const k in MK){const m=MK[k],el=$(m.id);el.style.left=near(stripX(m.t,m.u))+'px';el.style.top=(m.v*v.H)+'px'}
+  {const o=$('baseOutline').style;o.left=(near(stripX(0,OUT.u0)))+'px';o.top=(OUT.v0*v.H)+'px';o.width=((OUT.u1-OUT.u0)*v.W)+'px';o.height=((OUT.v1-OUT.v0)*v.H)+'px'}
+  // compass + speed
+  const hd=bearingX(ox);
+  $('cstrip').style.transform='translateX('+($('compass').clientWidth/2-(hd+90)*6)+'px)';
+  $('heading').firstChild.nodeValue=String(Math.round(hd)).padStart(3,'0')+'°';
+  const dir=v.speed<=.05?'':(Math.abs(v.vs)>Math.abs(v.vf)?(v.vs>0?'Strafe R':'Strafe L'):(v.vf>0?'Forward':'Back'));
+  $('speed').textContent=v.speed>.05?dir+' '+(v.speed*WALK.mps).toFixed(1)+' m/s':(S.phase==='collecting'?'Stable':'Still');
+  drawRadar(hd);
+  // base edge hint (only a hint; flow never waits for gaze)
+  const br=$('baseRing').getBoundingClientRect(),bx=br.left+br.width/2;
+  edgeSide='';if(started&&!v.locating){if(bx>vw*.985)edgeSide='r';else if(bx<vw*.015)edgeSide='l'}
+  const am=S.flagBase?' amber':'';
+  let eg=edgeSide==='r'?'<button class="edge p r'+am+'" id="bLocate">Locate base ▶</button>':edgeSide==='l'?'<button class="edge p l'+am+'" id="bLocate">◀ Locate base</button>':'';
+  if($('edge')._v!==eg){$('edge').innerHTML=eg;$('edge')._v=eg}
+  drawFly(ts);drawMsg();
+  drawWaves(dt);
+  segTick(dt);
+  if(SEG.cur&&(ts|0)%10===0)$('segVal').textContent='recording '+SEG.cur.t.toFixed(1)+' / '+SEG.LEN+' s';
+  // "View retest" waits until you stop walking
+  const vb=$('bView');if(vb){const moving=v.speed>.08;vb.disabled=moving;$('stopHint').textContent=moving?'Stop first to view':''}
+  {const moving=v.speed>.08;let any=false;for(const id of ['bPause','bRecDone']){const b=$(id);if(b){any=true;b.disabled=moving||b.dataset.off==='1'}}
+   const rh=$('recHint');if(rh&&any)rh.textContent=moving?'Stop moving to confirm':''}
+  requestAnimationFrame(frame);
+}
+/* ===== near-ground rubble: ground-plane particles, move faster than distant hills ===== */
+const HORIZON=.41, CAM_H=1.7, ZMAX=40;
+const rocks=[];let lastGX=null;
+function spawnRock(r,mode){
+  r.X=(Math.random()-.5)*(mode==='near'?8:30);
+  r.Z=mode==='far'?ZMAX*.6+Math.random()*ZMAX*.4:mode==='near'?.8+Math.random()*2:1+Math.random()*(ZMAX-1);
+  r.s=.04+Math.pow(Math.random(),2)*.16;r.c=Math.random();r.e=.45+Math.random()*.25;
+}
+for(let i=0;i<140;i++){const r={};spawnRock(r);rocks.push(r)}
+function drawGround(dt,vw,vh,hy,bx){
+  const c=$('ground');if(c.width!==vw||c.height!==vh){c.width=vw;c.height=vh}
+  const g=c.getContext('2d');g.clearRect(0,0,vw,vh);
+  const spanR=SPAN*Math.PI/180, f=v.W/spanR, mv=WALK.mps*3*dt;   // focal length matched to the panorama so rocks turn with the hills
+  const dyaw=lastGX==null?0:(v.x-lastGX)/v.W*spanR;lastGX=v.x;
+  for(const r of rocks){
+    r.Z-=v.vf*mv; r.X-=v.vs*mv; r.X+=r.Z*dyaw;
+    if(r.Z<.6)spawnRock(r,'far');else if(r.Z>ZMAX)spawnRock(r,'near');
+    if(r.X>15)r.X-=30;else if(r.X<-15)r.X+=30;
+    const sx=vw/2+bx+r.X/r.Z*f, sy=hy+CAM_H/r.Z*f, rad=r.s/r.Z*f;
+    if(rad<.7||sy>vh+30||sx<-60||sx>vw+60)continue;
+    g.globalAlpha=Math.min(1,(ZMAX-r.Z)/12)*.92;
+    g.fillStyle='rgba(30,12,4,.35)';g.beginPath();g.ellipse(sx+rad*.25,sy+rad*.25,rad*1.1,rad*r.e*.6,0,0,7);g.fill();
+    g.fillStyle=r.c<.5?'#5e3320':'#7b4a30';g.beginPath();g.ellipse(sx,sy,rad,rad*r.e,0,0,7);g.fill();
+    g.fillStyle='rgba(214,150,105,.55)';g.beginPath();g.ellipse(sx-rad*.3,sy-rad*.25*r.e,rad*.45,rad*r.e*.35,0,0,7);g.fill();
+  }
+  g.globalAlpha=1;
+}
+
+/* ===== locate base: smooth turn + highlight ===== */
+const OUT={u0:.59,u1:.78,v0:.285,v1:.475};
+let edgeSide='';
+function locateBase(){
+  const vw=innerWidth,vh=innerHeight;
+  const target=stripX(MK.base.t,MK.base.u)-vw/2, pos=-v.x;   // turn the shortest way round
+  v.tx=-(target+v.W*Math.round((pos-target)/v.W));v.ty=clampY(vh/2-MK.base.v*v.H+60);v.locating=true;
+  log('Locate base: turning view to base');
+  flash($('baseOutline'),'hl',2400);flash($('wmBase'),'hl',2400);
+  const cb=document.querySelector('.cbase');if(cb)flash(cb,'hl',2400);
+}
+function flash(el,cls,ms){el.classList.remove(cls);void el.getBoundingClientRect();el.classList.add(cls);clearTimeout(el['_'+cls]);el['_'+cls]=setTimeout(()=>el.classList.remove(cls),ms)}
+
+/* ===== amber message: from base marker (in view) or from the edge arrow side (out of view) ===== */
+let msgF=null;
+function startMsgFlight(){
+  const vw=innerWidth,vh=innerHeight,b=$('baseRing').getBoundingClientRect(),bx=b.left+b.width/2,by=b.top+b.height/2;
+  const inView=bx>=0&&bx<=vw&&by>=0&&by<=vh;
+  const side=bx>vw/2?'r':'l';
+  msgF={t0:performance.now(),dur:T.msg,mode:inView?'base':'edge',sx:inView?bx:(side==='r'?vw+40:-140),sy:inView?by:vh*.46};
+  log(inView?'Retest message flew in from the base marker':'Retest message slid in from the '+(side==='r'?'right':'left')+' edge');
+}
+function drawMsg(){
+  const f=$('msgfly');if(!msgF){f.classList.remove('on');return}
+  const k=Math.min(1,(performance.now()-msgF.t0)/msgF.dur),vw=innerWidth,vh=innerHeight;
+  const ex=vw*.03+40,ey=vh*.96-150;
+  let X,Y;
+  if(msgF.mode==='base'){const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2,cx=(msgF.sx+ex)/2,cy=Math.min(msgF.sy,ey)-vh*.12;
+    X=(1-e)*(1-e)*msgF.sx+2*(1-e)*e*cx+e*e*ex;Y=(1-e)*(1-e)*msgF.sy+2*(1-e)*e*cy+e*e*ey}
+  else{const e=1-Math.pow(1-k,3);X=msgF.sx+(ex-msgF.sx)*e;Y=msgF.sy+(ey-msgF.sy)*e}
+  f.style.transform='translate('+X+'px,'+Y+'px) scale('+(1-.25*k)+')';f.classList.add('on');
+  if(k>=1)msgF=null;
+}
+
+/* ===== mini-map: heading-up, 60 m range, base bearing pip ===== */
+const BASE_BRG=bearingT(MK.base.t,MK.base.u)*Math.PI/180;
+const BASE_XY=[Math.sin(BASE_BRG)*BASE_KM*1000,Math.cos(BASE_BRG)*BASE_KM*1000];
+function baseDistKm(){return Math.hypot(BASE_XY[0]-v.px,BASE_XY[1]-v.py)/1000}
+let radarAcc=0;
+function drawRadar(hd){
+  const c=$('radar');if(!c)return;const g=c.getContext('2d'),w=c.width,R=w/2-4,cx=w/2,cy=w/2,sc=R/60,h=hd*Math.PI/180;
+  g.clearRect(0,0,w,w);
+  g.strokeStyle='rgba(142,234,255,.25)';g.lineWidth=1;
+  [R,R*.5].forEach(r=>{g.beginPath();g.arc(cx,cy,r,0,7);g.stroke()});
+  g.beginPath();g.moveTo(cx-R,cy);g.lineTo(cx+R,cy);g.moveTo(cx,cy-R);g.lineTo(cx,cy+R);g.stroke();
+  const rot=(dx,dy)=>[cx+(dx*Math.cos(h)-dy*Math.sin(h))*sc, cy-(dx*Math.sin(h)+dy*Math.cos(h))*sc];
+  // north marker
+const nn=[cx+Math.sin(-h)*(R-6),cy-Math.cos(-h)*(R-6)];
+  g.fillStyle='rgba(142,234,255,.7)';g.font='9px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('N',nn[0],nn[1]);
+  // trail
+  g.fillStyle='rgba(142,234,255,.45)';
+  v.trail.forEach(([x,y])=>{const p=rot(x-v.px,y-v.py);g.fillRect(p[0]-1,p[1]-1,2,2)});
+  // base pip on rim
+  const bx=BASE_XY[0]-v.px,by=BASE_XY[1]-v.py,ang=Math.atan2(bx,by)-h;
+  g.fillStyle=S.flagBase?'#ffb340':'#ff9a6a';g.beginPath();g.arc(cx+Math.sin(ang)*R,cy-Math.cos(ang)*R,4,0,7);g.fill();
+  // player
+  g.fillStyle='#8eeaff';g.beginPath();g.moveTo(cx,cy-7);g.lineTo(cx+5,cy+5);g.lineTo(cx,cy+2);g.lineTo(cx-5,cy+5);g.closePath();g.fill();
+  if((radarAcc=(radarAcc+1)%10)===0){
+    $('posVal').textContent='E '+v.px.toFixed(0)+'  N '+v.py.toFixed(0)+' m';
+    $('wmBaseSub').textContent=baseDistKm().toFixed(2)+' km · '+S.baseLabel;
+  }
+}
+function stepGlove(){
+  if(SEG.cur)SEG.cur.steps++;
+  const side=v.lastSide=1-v.lastSide, g=$(side?'gloveR':'gloveL');
+  g.classList.remove('go');void g.getBoundingClientRect();g.classList.add('go');
+}
+
+/* ===== cyan packet flight: local device icon -> base label (live target) ===== */
+let flight=null;
+function drawFly(ts){
+  const f=$('fly');
+  if(!flight){f.classList.remove('on');return}
+  const k=Math.min(1,(performance.now()-flight.t0)/flight.dur);
+  const a=$('localIcon').getBoundingClientRect(),b=$('baseRing').getBoundingClientRect();
+  const sx=a.left+a.width/2,sy=a.top+a.height/2;
+  let ex=b.left+b.width/2,ey=b.top+b.height/2;
+  ex=Math.min(innerWidth-12,Math.max(12,ex));ey=Math.min(innerHeight-12,Math.max(12,ey));
+  const cx=(sx+ex)/2,cy=Math.min(sy,ey)-innerHeight*.18, e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+  const X=(1-e)*(1-e)*sx+2*(1-e)*e*cx+e*e*ex, Y=(1-e)*(1-e)*sy+2*(1-e)*e*cy+e*e*ey;
+  f.style.transform='translate('+X+'px,'+Y+'px)';f.classList.add('on');
+  if(k>=1)flight=null;
+}
+
+/* ===== waveforms ===== */
+const emg=new Array(130).fill(0),imu=new Array(130).fill(0);let wt=0,acc=0;
+function drawWaves(dt){
+  acc+=dt;if(acc<.033)return;acc=0;wt++;
+  const col=S.phase==='collecting',poor=(col&&S.curPoor)||liveFault();
+  let e;
+  if(poor)e=Math.random()<.35?0:(Math.random()-.5)*(Math.random()<.1?1.8:.3);
+  else if(col){const b=S.flex||0;e=(Math.random()-.5)*(.25+1.4*b)}
+  else e=(Math.random()-.5)*(.18+.5*v.speed*Math.abs(Math.sin(v.phase)));
+  emg.push(e);emg.shift();
+  const m=col?(S.flex||0)*.8:Math.sin(v.phase)*.5*v.speed;imu.push(m+(Math.random()-.5)*.04);imu.shift();
+  plot($('cvEmg'),emg,poor?'#ff6b7a':'#8eeaff');plot($('cvImu'),imu,'#5cf2a8');
+  const rms=Math.sqrt(emg.slice(-30).reduce((s,x)=>s+x*x,0)/30);
+  $('emgVal').textContent=poor?'Signal fault':(rms*100).toFixed(0)+' µV';
+  $('imuVal').textContent=col?'Knee '+Math.round((S.flex||0)*KNEE_MAX)+'°':(v.speed>.05?'Gait · steady':'Still');
+}
+function plot(c,arr,col){
+  const g=c.getContext('2d'),w=c.width,h=c.height;g.clearRect(0,0,w,h);
+  g.strokeStyle=col;g.lineWidth=1.2;g.beginPath();
+  arr.forEach((x,i)=>{const X=i/(arr.length-1)*w,Y=h/2-x*h*.38;i?g.lineTo(X,Y):g.moveTo(X,Y)});g.stroke();
+}
+
+/* ================= base-driven engine: HUD shows only what the base station publishes ================= */
+const SAMPLE_URL='contract/samples/retest-result.sample.json';
+let S={phase:'idle',flagBase:false,flex:0,baseLabel:'Connecting',baseCls:'',curPoor:false,collectT0:0,collectMs:0,log:[],legOpen:false,busy:{},err:{},deferOpen:false,alertFlash:false};
+let LOCAL;try{LOCAL=JSON.parse(localStorage.getItem('myomars.hud.ui')||'{}')}catch{LOCAL={}}
+LOCAL.collect=LOCAL.collect||{};LOCAL.viewed=LOCAL.viewed||{};LOCAL.aborted=LOCAL.aborted||{};
+function saveLocal(){try{localStorage.setItem('myomars.hud.ui',JSON.stringify(LOCAL))}catch{}}
+let SAMPLE=null;
+/* three demo scenarios: each feeds different SIMULATED patch data; the station decides from the data */
+const SCN={normal:{id:'myomars-normal',name:'Scenario 1 · Normal',file:'walking-normal'},
+  fatigue:{id:'myomars-fatigue',name:'Scenario 2 · Muscle fatigue',file:'walking-fatigue'},
+  sensor:{id:'myomars-sensor-fault',name:'Scenario 3 · Sensor malfunction',file:'walking-sensor-fault'}};
+const WALK_S={};
+LOCAL.patchOk=LOCAL.patchOk||{};
+/* Scenario 2 follow-up: AMBER → Acknowledge → Recovery Guidance → Symptom Check → existing Retest → existing Reassessment.
+   Recovery progress has no contract event, so it is kept per case in LOCAL (never marked complete without an explicit tap);
+   ack / defer / symptoms / medical review come from relay history via the client view. */
+LOCAL.rec=LOCAL.rec||{};LOCAL.symDraft=LOCAL.symDraft||{};
+const RECOVERY_DEFER_REASONS=['Operational task cannot be interrupted','Unsafe terrain or position','Other crew safety judgment'];
+const SYMPTOMS=[['muscle-pain','Muscle pain'],['unusual-weakness','Unusual muscle weakness'],['muscle-cramping','Muscle cramping']];
+function flowStep(c){                         // only for an AMBER fatigue case; returns null otherwise
+  const a=c.alert;if(!a||a.kind!=='review'||!a.noticeMessageId)return null;
+  const ak=client.ackState({messageId:a.noticeMessageId});
+  if(!ak||ak.status!=='confirmed')return 'ACK_PENDING';
+  const rec=LOCAL.rec[a.caseId]||{};
+  if(!rec.completed){const d=c.recoveryDefer;return d&&d.seq>(rec.resumedSeq||0)?'RECOVERY_DEFERRED':'RECOVERY_PENDING'}
+  const sy=c.symptoms;
+  if(!sy||sy.state==='failed'||sy.state==='rejected')return 'SYMPTOM_CHECK_PENDING';
+  if(sy.state==='queued'||sy.state==='submitted')return 'SYMPTOM_CHECK_SUBMITTED';
+  if(c.medical&&!c.medical.cleared)return 'MEDICAL_REVIEW_PENDING';
+  return 'RETEST';                            // prerequisites done and base permits testing
+}
+function recState(){const a=client.activeCase().alert;if(!a)return null;return LOCAL.rec[a.caseId]||(LOCAL.rec[a.caseId]={})}
+function actRecView(){const r=recState();if(!r)return;r.viewed=true;saveLocal();log('Recovery instructions viewed');render()}
+function actRecPause(){const r=recState();if(!r||!r.viewed||v.speed>.08)return;r.paused=true;saveLocal();log('Astronaut: safe to pause');render()}
+function actRecDone(){const r=recState();if(!r||!r.paused||v.speed>.08)return;r.completed=true;saveLocal();log('Recovery procedure confirmed complete');render()}
+async function actRecDefer(){
+  const sel=$('recDeferReason'),reason=sel?sel.value:'';if(!reason){S.err.rec=errText('reason-required');render();return}
+  S.busy.rec=true;render();const r=await client.deferNotice('Unsafe to stop: '+reason);S.busy.rec=false;
+  if(r.ok){S.recDeferOpen=false;S.err.rec=null;const x=recState();if(x){x.paused=false;saveLocal()}log('Recovery deferred: '+reason)}else S.err.rec=errText(r.error);render();
+}
+function actRecResume(){const c=client.activeCase(),x=recState();if(!x||!c.recoveryDefer)return;x.resumedSeq=c.recoveryDefer.seq;saveLocal();log('Recovery resumed');render()}
+function actSymToggle(id){
+  const a=client.activeCase().alert;if(!a)return;const d=LOCAL.symDraft[a.caseId]||(LOCAL.symDraft[a.caseId]={sel:[]});
+  if(id==='none')d.sel=d.sel.includes('none')?[]:['none'];                     // "None of the above" is exclusive
+  else{d.sel=d.sel.filter(x=>x!=='none');d.sel=d.sel.includes(id)?d.sel.filter(x=>x!==id):[...d.sel,id]}
+  saveLocal();render();
+}
+function actSymSubmit(){
+  const a=client.activeCase().alert;if(!a||S.busy.sym)return;const d=(LOCAL.symDraft[a.caseId]||{sel:[]}).sel;
+  if(!d.length){S.err.sym='Select at least one option';render();return}
+  const none=d.includes('none'),r=client.submitSymptoms({symptoms:none?[]:d,noneReported:none});
+  S.err.sym=r.ok?null:errText(r.error);if(r.ok&&!r.duplicate)log('Symptom assessment sent: '+(none?'none of the above':d.join(', ')));render();
+}
+function actSymBack(){const x=recState();if(!x)return;x.completed=false;saveLocal();render()}
+function scenarioKey(){const r=client.activeCase().run;if(r)for(const k in SCN)if(SCN[k].id===r.scenarioId)return k;return LOCAL.scenario||'normal'}
+function runId(){const r=client.activeCase().run;return r?r.runId:null}
+function patchOk(){return !!LOCAL.patchOk[runId()]}
+function liveFault(){return started&&scenarioKey()==='sensor'&&!patchOk()}      // local device sees corrupted patch output
+function deviceSample(){const k=scenarioKey();return WALK_S[k==='sensor'&&patchOk()?'normal':k]}
+// protocol samples come from the base's contract files; retry until the base is reachable
+function loadSamples(){
+  const get=f=>fetch(BASE_URL+'/'+f,{cache:'no-store'}).then(r=>{if(!r.ok)throw 0;return r.json()});
+  if(!SAMPLE)get(SAMPLE_URL).then(j=>{SAMPLE=j;S.err.submit=null;render()}).catch(()=>{});
+  for(const k in SCN)if(!WALK_S[k])get('contract/samples/'+SCN[k].file+'.sample.json').then(j=>{WALK_S[k]=j;render()}).catch(()=>{});
+  if(!SAMPLE||Object.keys(WALK_S).length<3)setTimeout(loadSamples,3000);
+}
+/* auto patrol monitoring: the local device cuts walking into segments and queues them for upload */
+const SEG={cur:null,idle:0,LEN:3,MIN:1.5};   // demo pacing: one walking segment every 3 s of walking
+const COND={task:'EVA patrol',load:'standard suit',terrain:'flat regolith'};
+function segTick(dt){
+  if(!started||S.phase==='collecting'){if(SEG.cur)closeSegment();return}
+  const walking=v.speed>.35;
+  if(walking){if(!SEG.cur)SEG.cur={startedAt:new Date().toISOString(),t:0,steps:0};SEG.cur.t+=dt;SEG.idle=0;if(SEG.cur.t>=SEG.LEN)closeSegment()}
+  else if(SEG.cur){SEG.idle+=dt;if(SEG.idle>.6)closeSegment()}
+}
+function closeSegment(){
+  const c=SEG.cur;SEG.cur=null;SEG.idle=0;if(!c)return;
+  if(c.t<SEG.MIN){log('Walking bout too short ('+c.t.toFixed(1)+' s); not uploaded');return}
+  emitSegment(c.t,c.steps,c.startedAt);
+}
+function emitSegment(sec,steps,startedAt){
+  const smp=deviceSample();
+  if(!smp){log('Walking sample not loaded; segment kept local','t-warn');return}
+  const dur=+sec.toFixed(1),st=steps||Math.round(sec*WALK.stepHz*2);
+  client.ensureRun({scenarioId:SCN[scenarioKey()].id});   // local device starts the run (scenario.start) if none is active
+  // walking segment → observation.submitted (Trigger role); timing from the device, values from the contract sample
+  const r=client.submitObservation({segmentId:'seg-'+Date.now().toString(36)+'-'+(SEG.n=(SEG.n||0)+1),startedAt:startedAt||new Date(Date.now()-sec*1000).toISOString(),durationSec:dur},smp);
+  if(smp===WALK_S.sensor)log('Local device: corrupted patch signal (impedance '+smp.signal.electrodeImpedanceKOhm+' kΩ, dropout '+smp.signal.dropoutPct+'%)','t-bad');
+  if(r.ok&&client.state.conn==='online')flight={t0:performance.now(),dur:900};
+  render();
+}
+
+function log(m,c){const t=new Date().toLocaleTimeString('zh-CN',{hour12:false});S.log.unshift('<span class="'+(c||'')+'">'+t+' '+esc(m)+'</span>');S.log.length=Math.min(S.log.length,60)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+const keyOfRt=rt=>rt.retestId+'#'+rt.round;
+const ERR={'reason-required':'Please choose a reason to defer','state-conflict':'Task state changed; synced latest from base','round-mismatch':'Round changed; synced latest from base',
+  network:'Not connected to base; queued, will send when reconnected','unknown-message':'Message no longer available','unknown-retest':'Task not found','no-service-receipt':'No receipt from base'};
+ERR['selection-required']='Select at least one option';ERR['no-fatigue-notice']='No fatigue notice to answer';
+const errText=e=>ERR[e]||('Not confirmed by base ('+e+')');
+
+const client=createBaseClient({baseUrl:BASE_URL,sessionId:'demo',storage:localStorage,
+  onChange:()=>onStore(),log:(m,l)=>log(m,l==='warn'?'t-warn':'')});
+let ready=false;const seenUi=new Set();
+function onStore(){
+  const {alert,retest:rt}=client.activeCase();
+  if(rt){const k=keyOfRt(rt);if(!seenUi.has(k)){seenUi.add(k);if(ready&&rt.status==='requested'){$('msgfly').textContent='✉ Retest task · '+rt.bodySite;startMsgFlight();S.flagBase=true}}}
+  if(alert){const k=alert.alertId+'@'+alert.version;if(!seenUi.has(k)){seenUi.add(k);if(ready&&alert.version>1)S.alertFlash=true}}
+  render();
+}
+
+/* ---- scenarios ---- */
+function startScenario(k){
+  if(!SCN[k])return;LOCAL.scenario=k;saveLocal();
+  if($('intro'))$('intro').remove();started=true;S.flagBase=false;S.reconnect=null;
+  client.ensureRun({scenarioId:SCN[k].id});log('Started '+SCN[k].name);render();
+}
+/* Scenario 3: reconnect the patch, then verify with two short standing captures (no walking needed) */
+function actReconnect(){
+  if(S.reconnect)return;S.reconnect='running';log('Reconnecting patch…');render();
+  setTimeout(()=>{LOCAL.patchOk[runId()]=true;saveLocal();S.reconnect='verifying';log('Patch reconnected · verifying signal');render();
+    emitSegment(3,6);setTimeout(()=>{emitSegment(3,6)},500);},700);
+}
+
+/* ---- actions (each reports success only after a service response) ---- */
+function actView(){const {retest:rt}=client.activeCase();if(!rt||v.speed>.08)return;LOCAL.viewed[keyOfRt(rt)]=1;saveLocal();S.flagBase=false;log('Astronaut opened retest task');}
+async function actAck(){
+  const {alert}=client.activeCase();if(!alert||S.busy.ack)return;
+  S.busy.ack=true;render();await client.ack(alert.alertId);S.busy.ack=false;render();
+}
+async function actStart(){
+  const {retest:rt}=client.activeCase();if(!rt||S.busy.start)return;
+  const fs=flowStep(client.activeCase());if(fs&&fs!=='RETEST'){S.err.start='Complete the recovery and symptom check first';render();return}
+  S.err.start=null;
+  // starting = astronaut acknowledges the request (hud.ack); contracts v1 has no separate "accept" event
+  if(rt.status!=='accepted'){S.busy.start=true;render();const r=await client.respond(rt.retestId,'accept');S.busy.start=false;
+    if(!r.ok){S.err.start=errText(r.error);render();return}}
+  delete LOCAL.aborted[keyOfRt(rt)];
+  beginCollect(client.activeCase().retest);
+}
+function beginCollect(rt){
+  S.phase='collecting';S.collectT0=performance.now();S.collectMs=T.collect;clearKeys();S.deferOpen=false;
+  LOCAL.collect[keyOfRt(rt)]={phase:'collecting'};saveLocal();log('Retest capture started '+keyOfRt(rt));
+  const token=S.collectToken=(S.collectToken||0)+1;
+  setTimeout(()=>{if(S.phase!=='collecting'||S.collectToken!==token)return;S.phase='idle';
+    LOCAL.collect[keyOfRt(rt)]={phase:'collected'};saveLocal();log('Retest capture done · result ready to submit');render()},T.collect);
+  render();
+}
+async function actAbort(){
+  const {retest:rt}=client.activeCase();if(!rt||S.phase!=='collecting'||S.busy.abort)return;
+  S.busy.abort=true;render();const r=await client.respond(rt.retestId,'abort','Aborted by astronaut');S.busy.abort=false;
+  // contracts v1 has no abort event: the capture is discarded locally and nothing is uploaded
+  if(r.ok){S.phase='idle';S.collectToken++;delete LOCAL.collect[keyOfRt(rt)];LOCAL.aborted[keyOfRt(rt)]=1;saveLocal();S.err.abort=null;log('Retest aborted locally; nothing uploaded')}else S.err.abort=errText(r.error);
+  render();
+}
+async function actDefer(){
+  const {retest:rt}=client.activeCase();if(!rt||S.busy.defer)return;
+  const sel=$('deferReason'),reason=sel?sel.value:'';
+  if(!reason){S.err.defer=errText('reason-required');render();return}
+  S.busy.defer=true;render();const r=await client.respond(rt.retestId,'defer',reason);S.busy.defer=false;
+  if(r.ok){S.deferOpen=false;S.err.defer=null}else S.err.defer=errText(r.error);render();
+}
+function actSubmit(){
+  const {retest:rt}=client.activeCase();if(!rt)return;
+  if(!SAMPLE){S.err.submit='Protocol sample not loaded; cannot submit';render();return}
+  const r=client.submitResult(rt.retestId,SAMPLE);
+  if(!r.ok){S.err.submit=errText(r.error);render();return}
+  S.err.submit=null;if(client.state.conn==='online')flight={t0:performance.now(),dur:1000};render();
+}
+
+/* ---- collecting progress (HUD only, view stays stable) ---- */
+
+/* ---- side-view leg: ankle fixed, hip lowers as knee bends ---- */
+const KNEE_MAX=80;
+function legSvg(f){
+  const L=28,a=f*KNEE_MAX/2*Math.PI/180, ax=58,ay=100;   // knee flexion = 2a
+  const hy=ay-2*L*Math.cos(a), kx=ax+L*Math.sin(a), ky=hy+L*Math.cos(a), hx=ax;
+  const tx=hx-8*f, ty=hy-26;   // torso leans slightly forward
+  const deg=Math.round(f*KNEE_MAX);
+  return '<line class="gnd" x1="20" y1="102" x2="100" y2="102"/>'
+   +'<line x1="'+hx+'" y1="'+hy+'" x2="'+(tx+6*f)+'" y2="'+ty+'"/><circle class="j" cx="'+(tx+6*f)+'" cy="'+(ty-7)+'" r="6" fill="none"/>'
+   +'<line class="thighL" x1="'+hx+'" y1="'+hy+'" x2="'+kx+'" y2="'+ky+'"/>'
+   +'<line x1="'+kx+'" y1="'+ky+'" x2="'+ax+'" y2="'+ay+'"/>'
+   +'<line x1="'+ax+'" y1="'+ay+'" x2="'+(ax+12)+'" y2="'+ay+'"/>'
+   +'<circle cx="'+kx+'" cy="'+ky+'" r="3.2" fill="#ffb340"/>'
+   +'<text x="'+(kx+8)+'" y="'+(ky+4)+'">'+deg+'°</text>';
+}
+/* ---- collecting progress (HUD only, view stays stable) ---- */
+function progressLoop(){
+  const g=$('guideOverlay');
+  if(S&&S.phase==='collecting'){
+    const k=Math.min(1,(performance.now()-S.collectT0)/S.collectMs),rep=Math.min(3,1+Math.floor(k*3));
+    S.flex=Math.pow(Math.sin(Math.PI*k*3),2);
+    if(!g.firstChild||!$('legFig'))g.innerHTML='<div class="big" id="repTxt"></div><svg id="legFig" viewBox="0 0 120 110"></svg><div class="sm">Protocol RT-P1 v1 · standing · keep patch still</div>';
+    $('repTxt').textContent='Slow knee bend '+rep+' / 3';
+    $('legFig').innerHTML=legSvg(S.flex);
+    const bar=$('rcProg');if(bar)bar.style.width=(k*100)+'%';
+  }else{if(S)S.flex=Math.max(0,(S.flex||0)-.04);if(g.innerHTML)g.innerHTML=''}
+  requestAnimationFrame(progressLoop);
+}
+
+/* ================= render (base state -> HUD) ================= */
+const fmtT=iso=>{if(!iso)return '—';const d=new Date(iso);return isNaN(d)?'—':d.toISOString().slice(11,19)+' UTC'};
+const RT_LABEL={requested:'Not started',accepted:'In progress',deferred:'Deferred',aborted:'Aborted · can restart',submitted:'Result submitted · awaiting station receipt',reassessing:'Received · awaiting reassessment',rejected:'Result rejected by station',completed:'Completed'};
+const AL_LABEL={published:'Published',reassessed:'Reassessed',closed:'Closed'};
+const DEFER_REASONS=['Patrol task in progress','Environment not suitable','Suit or equipment needs checking','Need to recover energy'];
+function levelOf(alert){
+  const k=alert&&alert.kind,closed=alert&&alert.status==='closed';
+  if(liveFault()||(k==='sensor'&&!closed))return 'red';
+  if(k==='review')return closed?'green':'amber';
+  if(k==='ok'||(k==='sensor'&&closed))return 'green';
+  return '';
+}
+function statusLine(st,alert,rt,res,loc){
+  const mon=client.monitorState(),site=rt?rt.bodySite:'',k=alert&&alert.kind,open=alert&&alert.status!=='closed',sync=' · last sync '+fmtT(mon.lastAckAt||st.lastSync);
+  if(st.conn==='offline'||st.conn==='reconnecting')
+    return ['Recording locally · pending upload'+(st.outbox.length?' ('+st.outbox.length+')':'')+'. Will resend when reconnected','warn'];
+  if(st.conn==='connecting'&&!alert)return ['Connecting to base…','run'];
+  // Scenario 3 — sensor malfunction (technical, never a muscle diagnosis)
+  if(S.reconnect==='running')return ['RED · Reconnecting patch…','bad'];
+  if(k==='sensor'&&!open)return ['GREEN · Sensor verified · monitoring resumed'+sync,'ok'];
+  if(S.reconnect==='verifying'||(k==='sensor'&&patchOk()))return ['RED · Verifying patch signal · waiting for base','bad'];
+  if(liveFault()||k==='sensor')return ['RED · Sensor fault · reconnect the patch and verify','bad'];
+  // Scenario 2 — muscle fatigue follow-up steps before the retest
+  if(open&&S.flow&&S.flow!=='RETEST'){
+    if(S.flow==='ACK_PENDING')return ['AMBER · Muscle fatigue suspected · acknowledge the base alert','amber'];
+    if(S.flow==='RECOVERY_PENDING')return ['AMBER · Muscle fatigue suspected · recovery guidance','amber',true];
+    if(S.flow==='RECOVERY_DEFERRED')return ['AMBER · Recovery deferred · unsafe to stop','amber',true];
+    if(S.flow==='SYMPTOM_CHECK_PENDING')return ['AMBER · Muscle symptom check pending','amber',true];
+    if(S.flow==='SYMPTOM_CHECK_SUBMITTED')return ['AMBER · Symptom check sent · waiting for base acknowledgement','amber'];
+    if(S.flow==='MEDICAL_REVIEW_PENDING')return ['AMBER — Medical Review Pending','amber'];
+  }
+  // Scenario 2 — muscle fatigue: existing retest
+  if(open&&rt){
+    if(S.phase==='collecting')return ['AMBER · Retest capturing · view stabilized','amber'];
+    if(res==='rejected')return ['AMBER · Retest result rejected · please resubmit','bad'];
+    if(res==='pending')return ['AMBER · Result pending · waiting for base receipt','amber'];
+    if(res==='reassessing')return ['AMBER · Awaiting base reassessment','amber'];
+    if(res==='completed')return ['AMBER · Reassessment delivered · pending medical review','amber'];
+    if(rt.status==='requested')return ['AMBER · Muscle fatigue suspected · rest and retest · '+site,'amber',true];
+    if(rt.status==='accepted'&&loc&&loc.phase==='collected')return ['AMBER · Retest captured · result ready to submit','amber'];
+    if(rt.status==='deferred')return ['AMBER · Retest deferred · synced with base','amber',true];
+    if(rt.status==='aborted')return ['AMBER · Retest aborted · can restart','amber',true];
+    return ['AMBER · Retest · '+(RT_LABEL[rt.status]||rt.status),'amber',true];
+  }
+  if(k==='review'&&!open)return ['GREEN · Case closed by base'+sync,'ok'];
+  // Scenario 1 — normal
+  if(k==='ok')return ['GREEN · Normal · continue patrol'+sync,'ok'];
+  return ['Auto-monitoring'+sync,'ok'];
+}
+function render(){
+  const st=client.state,{alert}=client.activeCase();let rt=client.activeCase().retest;
+  if(rt&&rt.status==='accepted'&&LOCAL.aborted[keyOfRt(rt)])rt={...rt,status:'aborted'};   // local abort (no protocol event)
+  const res=client.resultStatus(rt),up=client.upload(rt);
+  const loc=rt?LOCAL.collect[keyOfRt(rt)]:null,online=st.conn==='online';
+  // connection + data time
+  const ct={online:'<span class="t-ok">● Online</span>',connecting:'<span class="t-warn">◌ Connecting</span>',reconnecting:'<span class="t-warn">◌ Reconnecting</span>',offline:'<span class="t-bad">✕ Offline</span>',idle:'—'}[st.conn]||st.conn;
+  $('linkChip').innerHTML='Base link '+ct+'<div style="font-size:10px;color:var(--hud-dim)">Last sync '+fmtT(st.lastSync)+(st.stale?' · cached':'')+'</div>'
+    +(!online&&FILE_MODE?'<div style="font-size:10px;color:var(--warn)">Start the base: npm start (127.0.0.1:8787)</div>':'');
+  $('wire2').className='wire'+(online?'':' down');$('wire2').innerHTML=online?'':'<span class="x">✕</span>';
+  S.baseLabel=!online?'Link down':res==='reassessing'?'Reassessing':(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])?'Retest task sent':'Link OK';
+  S.baseCls=res==='reassessing'?'busy':S.flagBase?'amber':'';
+  $('wmBase').className='wm base '+S.baseCls;$('wmBaseSub').textContent=baseDistKm().toFixed(2)+' km · '+S.baseLabel;
+  $('cacheVal').textContent=client.monitorState().uploaded+' · '+st.outbox.length;
+  $('stab').style.display=S.phase==='collecting'?'block':'none';
+  $('visor').classList.toggle('focus',S.phase==='collecting'||(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)]));
+  $('bLink').textContent=st.conn==='offline'?'Reconnect base':'Disconnect base';
+  const cv=client.activeCase();S.flow=flowStep(cv);
+  const lv=levelOf(alert),le=$('level');
+  le.className='lvl'+(lv?' '+lv:'');le.textContent=lv?'● '+lv.toUpperCase():'● MONITORING';
+  $('scnName').textContent=started?SCN[scenarioKey()].name:'—';
+  const ce=$('contact');if(liveFault()){ce.textContent='● Fault';ce.className='t-bad'}else{ce.textContent='● Good';ce.className='t-ok'}
+  // sensor-fault card (local detection + base notice) with reconnect / verify
+  if(liveFault()||(alert&&alert.kind==='sensor')){
+    const closed=alert&&alert.kind==='sensor'&&alert.status==='closed';
+    const act=closed?'<p class="t-ok" style="margin:6px 0 0">✓ Patch verified · monitoring resumed</p>'
+      :S.reconnect==='running'?'<p style="margin:6px 0 0">Reconnecting patch…</p>'
+      :(S.reconnect==='verifying'||patchOk())?'<p style="margin:6px 0 0">Verifying signal · '+Math.min(2,client.monitorState().uploaded)+' captures sent · waiting for base</p>'
+      :'<div class="btns"><button id="bReconnect" class="go">Reconnect patch &amp; verify</button></div>';
+    $('notice').innerHTML='<div class="card notice'+(closed?' ok':'')+'"><h5>'+(closed?'✓ Sensor verified':'⚠ Sensor fault · not a muscle finding')+'</h5>'
+      +'<p>'+esc(alert&&alert.kind==='sensor'?alert.reason:'Local device: corrupted patch signal (high impedance, dropouts, saturation). The data is not used to judge muscle condition.')+'</p>'
+      +(alert&&alert.kind==='sensor'&&!closed?'':alert&&alert.kind==='sensor'?'':'<p class="ver">Waiting for base confirmation…</p>')+act+'</div>';
+    if($('bReconnect'))$('bReconnect').onclick=actReconnect;
+  }else if(cv.medical&&alert&&alert.status!=='closed'){
+    const md=cv.medical,mak=client.ackState({messageId:md.messageId});
+    $('notice').innerHTML=md.cleared
+      ?'<div class="card notice ok"><h5>✓ Medical review complete</h5><p>'+esc(md.clearText)+'</p></div>'
+      :'<div class="card notice amber"><h5>Medical Review Required</h5><p>'+esc(md.text)+'</p><p class="ver">AMBER — Medical Review Pending · '+esc((md.basis||[]).join(' '))+'</p>'
+        +'<div class="btns">'+(mak&&mak.status==='confirmed'?'<span class="t-ok" style="font-size:12px">✓ Acknowledged</span>':'<button id="bAckMed"'+(mak&&mak.status==='pending'?' disabled':'')+'>Acknowledge</button>')+'</div></div>';
+    if($('bAckMed'))$('bAckMed').onclick=async()=>{await client.ack(md.messageId);render()};
+  }else $('notice').innerHTML='';
+  const [sl,sc,vt]=statusLine(st,alert,rt,res,loc);const se=$('status');
+  se.innerHTML=esc(sl)+(vt?' · <button class="vt" id="bViewTask">View task</button>':'');se.className=sc;
+  if($('bViewTask'))$('bViewTask').onclick=()=>{if(rt&&rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])actView();flash($('rcard'),'flashc',1200);render()};
+  const mon=client.monitorState();
+  $('segVal').textContent=SEG.cur?'recording '+SEG.cur.t.toFixed(1)+' / '+SEG.LEN+' s':S.phase==='collecting'?'paused (retest)':'idle';
+
+  // alert card: reason, next action, data time, receipt vs human ack
+  if(alert){
+    const ak=client.ackState(alert),rc=client.receiptState(alert.messageId),done=alert.status!=='published';
+    let ackHtml;
+    if(ak&&ak.status==='confirmed')ackHtml='<span class="t-ok" style="font-size:12px">✓ Acknowledged v'+alert.version+' (not task completion)</span>';
+    else ackHtml='<button id="bAck"'+(ak&&ak.status==='pending'?' disabled':'')+'>'+(ak&&ak.status==='pending'?'Acknowledging…':'Acknowledge')+'</button>'
+      +(ak&&ak.status==='failed'?'<span class="t-bad" style="font-size:11px">No base receipt; acknowledgement not applied</span>':'');
+    $('alert').innerHTML='<div class="card alert'+(alert.kind==='sensor'&&alert.status!=='closed'?' red':(done||alert.kind==='ok')?' v2':'')+(S.alertFlash?' updated':'')+'"><h5>'+((done&&alert.kind!=='sensor')||alert.kind==='ok'||(alert.kind==='sensor'&&alert.status==='closed')?'✓ ':'▲ ')+esc(alert.levelLabel)+' · '+esc(alert.title)+'</h5>'
+      +(alert.kind==='sensor'?'':'<p><span class="lab">Reason</span>'+esc(alert.reason)+'</p>')   // sensor text is already in the fault card
+      +(alert.nextAction&&alert.nextAction!=='—'?'<p><span class="lab">Next</span>'+esc(alert.nextAction)+'</p>':'')
+      +'<p class="ver">'+esc(alert.alertId)+' · v'+alert.version+' · '+(AL_LABEL[alert.status]||alert.status)+' · Data time '+fmtT(alert.dataTime)+'</p>'
+      +'<p class="ver">Device receipt: '+({confirmed:'sent ✓',sending:'sending…',failed:'unconfirmed · retrying'}[rc]||'—')+'</p>'
+      +'<div class="btns">'+ackHtml+'</div></div>';
+    S.alertFlash=false;
+    if($('bAck'))$('bAck').onclick=actAck;
+  }else $('alert').innerHTML='<div class="empty">No alerts published by base</div>';
+
+  // retest card
+  const rc=$('rcard'),fs=S.flow;rc.classList.toggle('show',!!rt||!!fs);
+  const err=k=>S.err[k]?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">'+esc(S.err[k])+'</p>':'';
+  const on=(id,fn)=>{if($(id))$(id).onclick=fn};
+  if(fs&&fs!=='RETEST'){
+    const site=rt?rt.bodySite:'Left quadriceps',rec=LOCAL.rec[alert.caseId]||{};let h,title;
+    if(fs==='ACK_PENDING'){title='Muscle Recovery Guidance';
+      h='<p style="margin:0;color:#ffe0a8">Acknowledge the AMBER alert in Base Messages to begin.</p>'+(rt?'<p class="ver">Base retest task received · pending until the checks below are complete.</p>':'');}
+    else if(fs==='RECOVERY_PENDING'||fs==='RECOVERY_DEFERRED'){title='Muscle Recovery Guidance';
+      h='<dl><dt>Target</dt><dd>'+esc(site)+'</dd></dl>'
+        +(rec.viewed?'<ol class="guide"><li>Pause nonessential strenuous activity when operationally safe.</li><li>Follow the approved mission recovery procedure.</li><li>Check for unusual muscle pain, weakness, or cramping.</li><li>Complete the symptom assessment before retesting.</li></ol>'
+          +(rt&&rt.inHabitat?'<p class="ver">Base protocol: the retest itself must be done in the habitat.</p>':''):'');
+      if(fs==='RECOVERY_DEFERRED')h+='<p style="margin:4px 0 0;color:#ffe0a8">Deferred · '+esc(cv.recoveryDefer.reason)+'</p><div class="btns"><button id="bRecResume" class="go">Resume recovery</button></div>';
+      else if(S.recDeferOpen)h+='<div class="btns"><select id="recDeferReason"><option value="">Why is stopping unsafe?</option>'+RECOVERY_DEFER_REASONS.map(x=>'<option>'+x+'</option>').join('')+'</select>'
+        +'<button id="bRecDeferOk" class="go"'+(S.busy.rec?' disabled':'')+'>'+(S.busy.rec?'Sending…':'Confirm defer')+'</button><button id="bRecDeferNo">Cancel</button></div>'+err('rec');
+      else if(rec.paused)h+='<p style="margin:4px 0 0;color:#cfefff">Paused. Follow the approved recovery procedure, then confirm.</p><div class="btns"><button id="bRecDone" class="go">Recovery procedure completed</button><span class="stopHint" id="recHint"></span></div>';
+      else h+='<div class="btns"><button id="bRecView">'+(rec.viewed?'Instructions viewed ✓':'View Instructions')+'</button><button id="bPause" class="go"'+(rec.viewed?'':' data-off="1" disabled')+'>Safe to Pause</button><button id="bRecDefer">Defer — Unsafe to Stop</button><span class="stopHint" id="recHint"></span></div>'+err('rec');}
+    else if(fs==='SYMPTOM_CHECK_PENDING'){title='Muscle Symptom Check';
+      const sel=(LOCAL.symDraft[alert.caseId]||{sel:[]}).sel;
+      h='<p style="margin:0 0 2px;color:#e4f7ff">Are you experiencing any of the following symptoms?</p><div class="chk">'
+        +SYMPTOMS.map(([id,l])=>'<label><input type="checkbox" id="sy-'+id+'"'+(sel.includes(id)?' checked':'')+'> '+l+'</label>').join('')
+        +'<label><input type="checkbox" id="sy-none"'+(sel.includes('none')?' checked':'')+'> None of the above</label></div>'
+        +(cv.symptoms&&cv.symptoms.state==='rejected'?'<p class="t-bad" style="font-size:11px;margin:2px 0">Base rejected: '+esc(cv.symptoms.reason)+'</p>':'')
+        +'<div class="btns"><button id="bSymSubmit" class="go"'+(sel.length?'':' disabled')+'>Submit Assessment</button><button id="bSymBack">Back</button></div>'+err('sym');}
+    else if(fs==='SYMPTOM_CHECK_SUBMITTED'){title='Muscle Symptom Check';
+      h='<p style="margin:0;color:#cfefff">Assessment '+(cv.symptoms.noneReported?'· none of the above':'· '+esc(cv.symptoms.symptoms.join(', ')))+'</p><p class="ver">'+(client.state.conn==='online'?'Sent · waiting for base acknowledgement…':'Queued offline · will send when reconnected')+'</p>';}
+    else {title='Retest on hold';
+      h='<p style="margin:0;color:#ffe0a8">Medical review required. Await instructions from the crew medical team.</p>'+(rt?'<div class="btns"><button disabled>▶ Start retest</button></div>':'')+'<p class="ver">Patch monitoring stays active.</p>';}
+    $('rcTitle').textContent=title;$('rcBody').innerHTML=h;
+    on('bRecView',actRecView);on('bPause',actRecPause);on('bRecDone',actRecDone);on('bRecResume',actRecResume);
+    on('bRecDefer',()=>{S.recDeferOpen=true;S.err.rec=null;render()});on('bRecDeferOk',actRecDefer);on('bRecDeferNo',()=>{S.recDeferOpen=false;render()});
+    on('bSymSubmit',actSymSubmit);on('bSymBack',actSymBack);
+    for(const [id] of [...SYMPTOMS,['none']]){const cb=$('sy-'+id);if(cb)cb.onchange=()=>actSymToggle(id)}
+  }else if(fs==='RETEST'&&!rt){$('rcTitle').textContent='📡 Base retest';$('rcBody').innerHTML='<p style="margin:0;color:#cfefff">Checks complete · waiting for the base retest task.</p>';}
+  else if(rt){
+    $('rcTitle').textContent='📡 Base retest · Round '+rt.round;
+    const dl='<dl><dt>Status</dt><dd>'+esc(RT_LABEL[rt.status]||rt.status)+'</dd><dt>Protocol</dt><dd>'+esc(rt.protocol.id)+' · '+esc(rt.protocol.posture)+'</dd><dt>Site</dt><dd>'+esc(rt.bodySite)+'</dd><dt>Action</dt><dd>'+esc(rt.action)+'</dd><dt>Instructions</dt><dd>'+esc(rt.instructions)+'</dd><dt>Retest</dt><dd>'+esc(rt.retestId)+'</dd></dl>';
+    let h;
+    if(rt.status==='requested'&&!LOCAL.viewed[keyOfRt(rt)])
+      h='<p style="margin:0 0 4px;color:#ffe0a8">The base requests one standardized retest of <b>'+esc(rt.bodySite)+'</b>: '+esc(rt.instructions)+' Auto-monitoring keeps running.</p><div class="btns"><button id="bView" class="go">View task</button><span class="stopHint" id="stopHint"></span></div>';
+    else if(res==='completed'){
+      h=dl+'<p style="margin:4px 0 0;color:#cfefff"><span class="lab">Final</span>'+esc(alert&&alert.disposition||'Reassessed')+'</p>'
+        +'<p class="ver">'+(alert&&alert.status==='closed'?'Case closed by base':'Submitting a result does not close the case · pending medical review')+'</p>';
+    }else if(res==='reassessing')h=dl+'<p class="ver" style="margin-top:4px">◔ Awaiting base reassessment…</p>';
+    else if(res==='persisted'||res==='received')h=dl+'<p class="ver" style="margin-top:4px">✓ Result received by base '+fmtT(up&&up.ackAt)+'</p>';
+    else if(res==='pending')h=dl+'<p class="ver" style="margin-top:4px">Result pending · '+(online?'waiting for base receipt…':'offline, will submit when reconnected')+'</p>';
+    else if(S.phase==='collecting')
+      h=dl+'<div class="btns" style="flex-wrap:nowrap"><div class="prog" style="flex:1;margin:0"><i id="rcProg"></i></div><button id="bAbort"'+(S.busy.abort?' disabled':'')+'>'+(S.busy.abort?'Aborting…':'Abort retest')+'</button></div>'+err('abort');
+    else if(rt.status==='accepted'&&loc&&loc.phase==='collecting')
+      h=dl+'<p style="color:#ffe0a8;margin:4px 0 0">Capture was interrupted (page reload or disconnect). Please capture again.</p><div class="btns"><button id="bRecollect" class="go">↻ Capture again</button></div>';
+    else if(rt.status==='accepted'&&loc&&loc.phase==='collected'){
+      const ms=SAMPLE?('<dt>Duration</dt><dd>'+esc(SAMPLE.signal.durationS)+' s</dd><dt>Median freq.</dt><dd>'+esc(SAMPLE.features.medianFreqHz)+' Hz</dd><dt>RMS</dt><dd>'+esc(SAMPLE.features.rmsPctMvc)+' %MVC</dd><dt>Signal</dt><dd>'+esc(SAMPLE.signal.sampleRateHz)+' Hz · '+esc(SAMPLE.signal.electrodeImpedanceKOhm)+' kΩ</dd>'):'';
+      h='<div class="simres"><span class="tag" style="color:var(--warn)">SIMULATED</span> <span class="ver">'+esc(SAMPLE?SAMPLE.sampleId:'sample not loaded')+' · Protocol '+esc(rt.protocol.id)+'</span><dl>'+ms+'</dl></div>'
+        +(res==='rejected'?'<p class="t-bad" style="font-size:11px;margin:4px 0 0">Rejected by base: '+esc(up&&up.error)+'</p>':'')
+        +'<div class="btns"><button id="bSubmit" class="go"'+(SAMPLE?'':' disabled')+'>Submit simulated retest result</button></div>'+err('submit');
+    }else{
+      h=dl+(rt.status==='deferred'?'<p style="margin:2px 0;color:#ffe0a8">Defer reason: '+esc(rt.deferReason)+'</p>':'')
+        +(rt.status==='aborted'?'<p style="margin:2px 0;color:#ffe0a8">Aborted · can restart. This capture was not uploaded.</p>':'');
+      if(S.deferOpen)h+='<div class="btns"><select id="deferReason"><option value="">Choose a reason…</option>'+DEFER_REASONS.map(x=>'<option>'+x+'</option>').join('')+'</select>'
+        +'<button id="bDeferOk" class="go"'+(S.busy.defer?' disabled':'')+'>'+(S.busy.defer?'Submitting…':'Confirm defer')+'</button><button id="bDeferNo">Cancel</button></div>'+err('defer');
+      else h+='<div class="btns"><button id="bGo" class="go"'+(S.busy.start?' disabled':'')+'>'+(S.busy.start?'Waiting for base…':rt.status==='aborted'?'↻ Restart':'▶ Start retest')+'</button>'
+        +(['requested','accepted'].includes(rt.status)?'<button id="bDefer">Defer</button>':'')+'</div>'+err('start');
+    }
+    $('rcBody').innerHTML=h;
+    on('bView',()=>{actView();render()});on('bGo',actStart);on('bAbort',actAbort);on('bSubmit',actSubmit);
+    on('bRecollect',()=>beginCollect(rt));on('bDefer',()=>{S.deferOpen=true;S.err.defer=null;render()});
+    on('bDeferOk',actDefer);on('bDeferNo',()=>{S.deferOpen=false;render()});
+  }
+
+  // left-thigh card: published findings before / after reassessment
+  const hist=alert?alert.history:[],after=!!(alert&&alert.version>1),lc=$('legCard');
+  $('thigh').classList.toggle('after',after);$('legTip').hidden=!!S.legOpen;lc.hidden=!S.legOpen;lc.className=after?'after':'';
+  lc.innerHTML='<div class="k">'+esc(rt?rt.bodySite:'Left thigh')+'</div>'
+    +(after?'<div class="now">✓ '+esc(alert.finding)+'</div><div class="was">'+esc(hist[0]&&hist[0].finding)+'</div>'
+           :'<div class="now">▲ '+esc(alert?alert.finding:'No base finding yet')+'</div><div class="k">Updates when reassessment arrives</div>');
+
+  // result pipeline
+  const order=['Pending','Received','Reassessing','Final'],idx={pending:0,rejected:0,persisted:1,received:1,reassessing:2,completed:3}[res];
+  const showSteps=res!=null||(loc&&loc.phase==='collected');
+  $('steps').innerHTML=showSteps?order.map((n,i)=>{const cur=idx==null?0:idx;let c=i<cur?'done':i===cur?(res==='completed'?'done':res==='rejected'?'fail':'run'):'';return '<div class="'+c+'">'+({done:'✓ ',run:'◔ ',fail:'✕ '}[c]||'')+n+'</div>'}).join(''):'';
+  const ch=$('chain');let d=ch.querySelector('.pk');
+  if(up){if(!d){d=document.createElement('div');d.className='pk';d.style.left='0%';ch.appendChild(d);void d.offsetWidth}
+    const pos=res==='pending'?(online?75:50):100;d.className='pk'+(res==='pending'&&!online?' cached':'')+(res==='rejected'?' poor':'');d.style.left=pos+'%'}
+  else if(d)d.remove();
+  $('bstatL').textContent=rt?(rt.retestId+' · Round '+rt.round+' · '+(RT_LABEL[rt.status]||rt.status)):'No retest task';
+  $('bstatR').textContent='Seq '+st.lastSeq+' · dedup '+st.duplicates;
+  $('log').innerHTML=S.log.join('<br>');
+}
+
+/* ================= wiring ================= */
+document.querySelectorAll('[data-scn]').forEach(b=>b.onclick=()=>startScenario(b.dataset.scn));
+$('bLink').onclick=()=>{if(client.state.conn==='offline')client.reconnect();else client.disconnect()};
+$('bClear').onclick=()=>{client.stop();client.clearLocal();localStorage.removeItem('myomars.hud.ui');location.reload()};
+$('edge').onclick=e=>{if(e.target.closest('#bLocate'))locateBase()};
+{const th=$('thigh'),tog=()=>{S.legOpen=!S.legOpen;render()};th.onclick=tog;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tog()}}}
+window.__hud={client,get S(){return S},get view(){return v},flowStep:()=>flowStep(client.activeCase()),actRecView,actRecPause,actRecDone,actRecResume,actSymToggle,actSymSubmit,actStart,actAck,actSubmit,actAbort,actReconnect,emitSegment,startScenario,get walkReady(){return Object.keys(WALK_S).length===3}};
+layout();buildCompass();loadSamples();render();requestAnimationFrame(frame);requestAnimationFrame(progressLoop);
+client.start().then(()=>{const {alert,retest}=client.activeCase();if(retest)seenUi.add(keyOfRt(retest));if(alert)seenUi.add(alert.alertId+'@'+alert.version);ready=true;
+  if(retest&&retest.status==='requested'&&!LOCAL.viewed[keyOfRt(retest)])S.flagBase=true;render()});
+setInterval(render,5000);   // refresh "last sync" / time-based labels
+})();
+</script>
+</body>
+</html>

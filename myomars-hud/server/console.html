@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mock Base Console</title>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--tx:#e6edf3;--mut:#8b949e;--ok:#3fb950;--warn:#d29922;--acc:#58a6ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 -apple-system,"Segoe UI",sans-serif}
+header{padding:14px 16px;border-bottom:1px solid var(--line)}h1{margin:0;font-size:16px}header p{margin:4px 0 0;color:var(--mut);font-size:12px}
+main{padding:16px;display:grid;gap:14px;max-width:1200px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto}
+.card h2{margin:0 0 8px;font-size:13px;color:var(--mut)}
+button{font:inherit;color:var(--tx);background:#21262d;border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;margin:0 6px 6px 0}
+button:hover{border-color:var(--acc)}button.pri{background:#1f6feb;border-color:#1f6feb}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:500}.mono{font-family:ui-monospace,Menlo,monospace}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:760px){.grid{grid-template-columns:1fr}}
+#msg{color:var(--warn);font-size:12px;min-height:18px;word-break:break-all}
+.r-station{color:#ffb86c}.r-hud{color:#8be9fd}.r-trigger{color:#50fa7b}
+</style>
+</head>
+<body>
+<header><h1>Mock Base Console · contracts myomars/v1</h1><p>Mock relay (HTTP publish + SSE) and mock Mars Station, session <b>demo</b>. Every message is validated against the shared contract schemas. Open <a href="/hud.html" target="_blank" style="color:var(--acc)">/hud.html</a> as the astronaut client.</p></header>
+<main>
+  <section class="card">
+    <h2>Actions</h2>
+    <button data-a="/mock/start">Trigger: start run</button>
+    <button data-a="/mock/reset-run">Trigger: reset run</button>
+    <button id="bApprove" data-a="/mock/approve">Station: approve detection now (skip auto-review)</button>
+    <button data-a="/mock/close">Station: close case</button>
+    <button id="bMedClear" data-a="/mock/medical-clear">Crew medical: clear retest</button>
+    <button data-a="/mock/duplicate">Relay: re-deliver last station message</button>
+    <button data-a="/mock/drop">Relay: drop SSE connections</button>
+    <button data-a="/mock/reset">Wipe session</button>
+    <div id="medHint" style="display:none;margin:4px 0 8px;padding:6px 10px;border:1px solid var(--warn);border-radius:6px;color:var(--warn);font-size:12px">Medical review pending on the HUD → click <b>Crew medical: clear retest</b> to permit the retest.</div>
+    <div id="msg"></div>
+  </section>
+  <div class="grid">
+    <section class="card"><h2>Run &amp; cases</h2><div id="cases"></div></section>
+    <section class="card"><h2>Walking observations (station analysis)</h2><div id="obs"></div></section>
+  </div>
+  <section class="card"><h2>Station audit (internal, not published)</h2><div id="audit"></div></section>
+  <section class="card"><h2>Relay history (delivered envelopes)</h2><div id="events"></div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const t=iso=>iso?new Date(iso).toISOString().slice(11,19):'';
+document.querySelectorAll('[data-a]').forEach(b=>b.onclick=async()=>{const r=await fetch(b.dataset.a,{method:'POST',headers:{'content-type':'application/json'},body:'{}'}).then(r=>r.json());$('msg').textContent=b.textContent+' → '+JSON.stringify(r);refresh()});
+function summary(e){const p=e.payload||{};
+  switch(e.type){case 'observation.submitted':return p.observationId+' · '+p.protocol.id+' · '+p.signal.durationS+' s';
+    case 'retest.result':return p.observation.observationId+' · '+p.observation.protocol.id;
+    case 'station.notice.approved':return p.noticeId+' · v'+p.evaluationVersion+' · '+p.reviewedBy;
+    case 'station.retest.requested':return p.retestId+' · '+p.protocol.label;
+    case 'station.receipt':return p.status+' · '+p.receivedType+(p.reason?' · '+p.reason:'');
+    case 'station.reassessment':return 'v'+p.evaluationVersion+' · '+p.reviewDecision+' · '+p.caseStatus;
+    case 'hud.received':case 'hud.ack':return '→ '+p.messageId.slice(0,14)+'…';
+    case 'hud.defer':return '→ '+p.messageId.slice(0,14)+'… · '+p.reason;
+    case 'hud.symptoms':return p.noneReported?'none of the above':p.symptoms.join(', ');
+    case 'scenario.start':return p.astronaut.callsign+' · '+p.task.title;default:return ''}}
+async function refresh(){
+  const s=await fetch('/mock/state').then(r=>r.json());
+  const medPending=s.cases.some(c=>c.medical&&c.medical.pending);
+  $('medHint').style.display=medPending?'block':'none';$('bMedClear').className=medPending?'pri':'';$('bMedClear').disabled=!medPending;
+  $('bApprove').disabled=!s.cases.some(c=>c.pending)&&s.cases.some(c=>c.notice||c.ok||c.sensor);
+  $('cases').innerHTML='<p style="margin:0 0 6px;font-size:12px;color:var(--mut)">Active run <span class="mono">'+esc(s.activeRun||'—')+'</span> · last seq '+s.lastSeq+' · SSE clients '+s.clients+'</p>'
+    +'<table><tr><th>Case</th><th>Status</th><th>Eval v</th><th>Pending review</th><th>Retest</th></tr>'+s.cases.map(c=>'<tr><td class="mono">'+esc(c.caseId)+'</td><td>'+c.status+'</td><td>'+c.version+'</td><td>'+(c.pending?'<b style="color:var(--warn)">yes</b>':'no')+'</td><td class="mono">'+esc(c.request?c.request.retestId:'')+'</td></tr>').join('')+'</table>';
+  const ob=s.cases.flatMap(c=>c.observations);
+  $('obs').innerHTML='<p style="margin:0 0 6px;font-size:12px;color:var(--mut)">'+ob.length+' received · '+ob.filter(o=>o.quality==='valid').length+' valid · '+ob.filter(o=>o.comparable).length+' comparable</p><table><tr><th>Observation</th><th>Duration</th><th>Quality</th><th>Used</th></tr>'
+    +ob.slice().reverse().map(o=>'<tr><td class="mono">'+esc(o.observationId)+'</td><td>'+o.durationS+' s</td><td>'+o.quality+'</td><td>'+(o.comparable?'yes':'no')+'</td></tr>').join('')+'</table>';
+  $('audit').innerHTML='<table><tr><th>Time</th><th>Actor</th><th>Action</th><th>Object</th><th>Result</th></tr>'+s.audit.slice().reverse().map(x=>'<tr><td>'+t(x.at)+'</td><td>'+esc(x.actor)+'</td><td>'+esc(x.action)+'</td><td class="mono">'+esc(String(x.object).slice(0,40))+'</td><td>'+esc(x.result)+(x.reason?' · '+esc(x.reason):'')+'</td></tr>').join('')+'</table>';
+  $('events').innerHTML='<table><tr><th>seq</th><th>Received</th><th>Sender</th><th>Type</th><th>caseId / retestId</th><th>Summary</th></tr>'+s.events.slice().reverse().map(e=>'<tr><td>'+e.seq+'</td><td>'+t(e.receivedAt)+'</td><td class="r-'+e.sender.role+'">'+e.sender.role+' · '+esc(e.sender.clientId)+'</td><td>'+e.type+'</td><td class="mono">'+esc(e.caseId||'')+(e.retestId?'<br>'+esc(e.retestId):'')+'</td><td>'+esc(summary(e))+'</td></tr>').join('')+'</table>';
+}
+refresh();setInterval(refresh,1500);
+</script>
+</body>
+</html>

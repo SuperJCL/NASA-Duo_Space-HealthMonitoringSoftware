@@ -1,0 +1,8 @@
+{
+  "_note": "SIMULATED placeholder (contracts v1 observation shape). Scenario 3 — Sensor malfunction: the astronaut's simulated muscle condition is normal, but the patch output is corrupted (high impedance, dropouts, saturation, motion artifact). Feature values are meaningless and must not be read as fatigue.",
+  "sampleId": "walk-sensor-fault-v1",
+  "protocol": { "id": "walk-auto-v1", "label": "Left quadriceps · auto walking segment", "targetPctMvc": 0, "posture": "standing", "glove": "eva-glove" },
+  "signal": { "sampleRateHz": 2000, "durationS": 6, "electrodeImpedanceKOhm": 185, "saturationPct": 9.5, "motionArtifactPct": 41, "dropoutPct": 23 },
+  "features": { "medianFreqHz": 31, "rmsPctMvc": 63, "gripForceN": null },
+  "imu": { "accelRmsG": 0.42, "gyroRmsDps": 61, "movementPct": 88 }
+}

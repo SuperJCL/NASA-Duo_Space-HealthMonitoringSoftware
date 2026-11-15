@@ -1,0 +1,7 @@
+{
+  "_note": "SIMULATED placeholder in the shape of a contracts v1 retest.result observation (signal/features/imu). The protocol is copied from the station's station.retest.requested, never from here. Replace with the shared base's sample when it exists.",
+  "sampleId": "knee-bend-v1-sample-01",
+  "signal": { "sampleRateHz": 2000, "durationS": 20, "electrodeImpedanceKOhm": 12, "saturationPct": 0.2, "motionArtifactPct": 5, "dropoutPct": 0.3 },
+  "features": { "medianFreqHz": 86, "rmsPctMvc": 31.5, "gripForceN": null },
+  "imu": { "accelRmsG": 0.21, "gyroRmsDps": 38, "movementPct": 40 }
+}

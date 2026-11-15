@@ -1,0 +1,18 @@
+{
+  "schema": "myomars/v1",
+  "eventId": "example-station-reassessment",
+  "sessionId": "demo",
+  "runId": "run-example-1",
+  "caseId": "case-change",
+  "sentAt": "2026-11-14T10:00:00.000Z",
+  "source": "station",
+  "type": "station.reassessment",
+  "payload": {
+    "evaluationVersion": 2,
+    "outcome": "within-baseline",
+    "summary": "复测在个体基线范围内",
+    "reviewDecision": "close",
+    "caseStatus": "closed",
+    "simulated": true
+  }
+}

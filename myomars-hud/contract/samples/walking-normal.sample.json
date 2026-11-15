@@ -1,0 +1,8 @@
+{
+  "_note": "SIMULATED placeholder (contracts v1 observation shape). Scenario 1 — Normal: good patch contact, walking EMG within the personal baseline (bl-walk-a02-v3: medianFreqHz 84, rmsPctMvc 15). The local device fills only timing.",
+  "sampleId": "walk-normal-v1",
+  "protocol": { "id": "walk-auto-v1", "label": "Left quadriceps · auto walking segment", "targetPctMvc": 0, "posture": "standing", "glove": "eva-glove" },
+  "signal": { "sampleRateHz": 2000, "durationS": 6, "electrodeImpedanceKOhm": 13, "saturationPct": 0.1, "motionArtifactPct": 8, "dropoutPct": 0.3 },
+  "features": { "medianFreqHz": 85, "rmsPctMvc": 15.2, "gripForceN": null },
+  "imu": { "accelRmsG": 0.41, "gyroRmsDps": 60, "movementPct": 87 }
+}

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myomars.local/contracts/v1/payload.scenario.reset.schema.json",
+  "title": "payload.scenario.reset",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

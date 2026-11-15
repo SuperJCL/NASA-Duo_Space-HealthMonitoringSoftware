@@ -1,0 +1,253 @@
+{
+  "runAt": "2026-11-15T00:40:45.033Z",
+  "node": "v26.12.1",
+  "contract": "myomars/v1 (contracts-v1 @ 58b5a08)",
+  "relay": "mock",
+  "results": [
+    {
+      "name": "A1 SSE stream connected",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A2 no health content before the station publishes",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A3 local device (Trigger role) published scenario.start",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B1 walking segments published as observation.submitted (Trigger) and counted once",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B2 station uses only quality-checked, comparable segments",
+      "ok": true,
+      "detail": "too-short, valid/c, valid/c, valid/c"
+    },
+    {
+      "name": "B3 HUD receives station.notice.approved + station.retest.requested only after human approval",
+      "ok": true,
+      "detail": "run-mwh3z0k3-lq-rt1"
+    },
+    {
+      "name": "B4 fatigue notice + retest: site and \"rest, then retest\" come from station content",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B5 automatic hud.received for each station message (messageId = its eventId)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B6 device receipt is not an acknowledgement (no hud.ack yet)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C1 astronaut acknowledgement sent separately as hud.ack",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C2 acknowledging does not complete the task",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C3 defer without a reason is refused locally, nothing published",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C4 hud.defer with reason goes to the right case and request",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C5 starting the retest sends hud.ack for the request",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D1 reload restores the current task and acknowledgement from relay history",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D2 duplicate deliveries create no new task",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "D3 no extra receipts after reload or duplicates",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E1 offline: result and segment wait in the outbox; status stays \"pending\", never done",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E2 outbox survived the reload and was resent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E3 retest.result carries caseId + retestId and the requested protocol",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E4 station.receipt accepted → HUD shows received / awaiting reassessment",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E5 result stored once despite resend",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E6 station.reassessment v2 updates the original case; not closed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E7 new version needs a new acknowledgement",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E8 segment queued offline was resent",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "E9 only the station closes the case",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "F1 every delivered message passes delivered.schema + payload schema + event-rules",
+      "ok": true,
+      "detail": "21 messages"
+    },
+    {
+      "name": "F2 eventIds are unique",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "F3 relay rejects a message that breaks the rules (hud.ack without caseId)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "F4 relay rejects a HUD publishing observations (Trigger only)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "F5 same eventId with different content is refused",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "F6 identical resend is accepted as duplicate",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "F7 messages for an ended run are stale",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "F8 HUD drops the case when the run is reset",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "G1 relay unreachable: run start stays queued, nothing shown as done",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H1 normal data → GREEN \"within baseline\" notice, no retest, no fatigue",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H2 switching scenario resets the old run (scenario.reset) and starts a new one",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H3 corrupted patch data → RED sensor-fault notice; no retest request",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H4 corrupted segments are never read as fatigue (quality failed, no pattern)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H5 after reconnection, valid segments verify the patch → case closed (signal restored)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H6 all scenario messages conform to contracts v1",
+      "ok": true,
+      "detail": "16 messages"
+    },
+    {
+      "name": "I1 empty selection is refused locally",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I2 \"none\" together with a symptom is rejected by the station (station.receipt rejected)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I3 relay validates the extension payload (unknown symptom → 400)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I4 accepted only after base receipt; reported symptom → medical review notice (demo rule)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I5 duplicate assessment is not sent again",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I6 station refuses a retest result while medical review is pending",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I7 crew-medical clearance arrives as a station notice; case stays open (AMBER)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I8 all messages (incl. extension) conform",
+      "ok": true,
+      "detail": "22 messages"
+    }
+  ]
+}
