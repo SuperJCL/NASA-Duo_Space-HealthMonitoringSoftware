@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useReducer, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useReducer, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { BriefingView } from "@/lib/briefing/view";
 import { DEFAULT_WEIGHTS } from "@/lib/decision/criteria";
 import { defaultConstraints } from "@/lib/decision/engine";
@@ -61,7 +61,20 @@ type Props = {
    * task is reported to the station (it never starts anything), and the EVA's task is pre-selected
    * when the map is first opened during an EVA. Without it, the page behaves as before.
    */
-  embedded?: { onSelectTask?: (taskId: string | null) => void; activeTaskId?: string | null; crewMarkers?: readonly CrewMarker[]; onSelectCrew?: (id: string) => void };
+  embedded?: {
+    onSelectTask?: (taskId: string | null) => void;
+    activeTaskId?: string | null;
+    crewMarkers?: readonly CrewMarker[];
+    onSelectCrew?: (id: string) => void;
+    /**
+     * The station's Mission & Crew panel, shown in place of the planning panel. While it is shown
+     * ("plain" map), planning scores, ranks and the effort budget stay out of the map; they are
+     * one click away in Advanced planning (`advanced`), which shows Mission Glass unchanged.
+     */
+    side?: (api: { pickTask: (taskId: string) => void; selectedTaskId: string | null }) => ReactNode;
+    advanced?: boolean;
+    onAdvanced?: (open: boolean) => void;
+  };
 };
 
 const LABEL_KINDS = ["sample-site"] as const;
@@ -85,6 +98,8 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const { snapshot } = useMemo(() => selectEvidenceAsOf(scenario, asOf), [scenario, asOf]);
   const defaultBudget = snapshot.resources[0]?.budget ?? 100;
   const activeTaskId = embedded?.activeTaskId ?? null;
+  // Embedded with the station's own side panel: the plain mission map (no scores, ranks or budget).
+  const plain = !!embedded?.side && !embedded.advanced;
   const [state, dispatch] = useReducer(missionReducer, defaultBudget, (b) => ({ ...initialMissionState(b), selectedTaskId: activeTaskId }));
   // Embedded: report the selection (display context for the station; selecting never starts an EVA).
   const onSelectTask = embedded?.onSelectTask;
@@ -159,9 +174,18 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
         : "No EVA route approved yet (EVA route tab)"}
     </span>
   );
-  const mapTargets = useMemo(() => targets.map((t) => ({ ...t, badge: markerById.get(t.id)?.badge, status: markerById.get(t.id)?.status, tone: markerById.get(t.id)?.tone })), [targets, markers]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Plain map: no priority number or plan state on the targets; only the running EVA's target is filled.
+  const mapTargets = useMemo(
+    () =>
+      targets.map((t) =>
+        plain
+          ? { ...t, badge: undefined, status: undefined, tone: t.taskId === activeTaskId ? ("active" as const) : ("candidate" as const) }
+          : { ...t, badge: markerById.get(t.id)?.badge, status: markerById.get(t.id)?.status, tone: markerById.get(t.id)?.tone },
+      ),
+    [targets, markers, plain, activeTaskId], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const selectedMarker = markers.find((m) => m.taskId === state.selectedTaskId);
-  const summaryOpen = Boolean(selectedMarker) && !verifiedPick && summaryFor === state.selectedTaskId && state.mode === "planning";
+  const summaryOpen = !plain && Boolean(selectedMarker) && !verifiedPick && summaryFor === state.selectedTaskId && state.mode === "planning";
   const terrainMarkers = useMemo<TerrainMarker[]>(
     () => [
       ...features.flatMap((f): TerrainMarker[] => (f.kind === "sample-site" && f.geometry.type === "Point" ? [{ id: f.id, kind: "verified", name: f.name, position: [f.geometry.coordinates[0], f.geometry.coordinates[1]] }] : [])),
@@ -239,7 +263,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
     if (id) setFocus((f) => ({ id, n: (f?.n ?? 0) + 1 }));
   };
   const evaCurrent = state.plan?.items.find((i) => i.status === "active") ?? state.plan?.items.find((i) => i.status === "planned");
-  const focusTask = state.mode === "eva" ? (evaCurrent?.taskId ?? null) : state.selectedTaskId;
+  const focusTask = state.mode === "eva" && !plain ? (evaCurrent?.taskId ?? null) : state.selectedTaskId;
   const mapSelected = verifiedPick ?? (focusTask ? (targetByTask.get(focusTask)?.id ?? null) : null);
   const onMapSelect = (id: string | null) => {
     setSegmentSel(null);
@@ -321,7 +345,18 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
 
   return (
     <div className={embedded ? "mission-glass flex h-full min-h-0 flex-col lg:overflow-hidden" : "mission-glass flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden"} data-testid="mission-glass" data-embedded={embedded ? "1" : undefined}>
+      {plain ? null : (
       <header className={`flex flex-wrap items-center justify-between gap-3 border-b border-[var(--mg-line)] ${embedded ? "px-4 py-2" : "px-5 py-3"}`}>
+        {embedded?.side ? (
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => embedded.onAdvanced?.(false)} className="min-h-9 rounded-lg border border-[var(--mg-line-strong)] px-3 text-[13px] font-semibold" data-testid="advanced-planning-close">
+              {"← Mission & Crew"}
+            </button>
+            <span className="text-[13px] text-[var(--mg-dim)]" data-testid="advanced-planning-label">
+              {"Advanced planning · simulated scenario scores and budgets (not health)"}
+            </span>
+          </div>
+        ) : null}
         {embedded ? null : (
           <div className="flex items-baseline gap-3">
             <span className="text-lg font-semibold tracking-tight">{"MDI 2.0"}</span>
@@ -375,10 +410,11 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           )}
         </div>
       </header>
+      )}
 
-      {screen === "route" ? (
+      {screen === "route" && !plain ? (
         <RouteWorkspace r={route} scenario={routeScenario} targets={routeTargets} verifiedSites={verifiedSites} traverse={traverseLines} />
-      ) : state.mode === "planning" ? (
+      ) : state.mode === "planning" || plain ? (
         <main className="relative flex flex-1 flex-col lg:min-h-0 lg:block">
           <section aria-label="Investigation map" className={`relative shrink-0 lg:absolute lg:inset-0 lg:h-auto ${mapView === "3d" ? "h-[66dvh]" : "h-[42dvh]"}`}>
             {map("minimal")}
@@ -420,8 +456,14 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                   <span aria-hidden className="inline-block size-3 rotate-45 border-2 border-dashed border-[var(--mg-coral)]" />
                   {"Simulated target (scenario-defined position)"}
                 </span>
-                <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Number: provisional priority (existing engine, not validated)"}</span>
-                <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · ½ ended with skipped steps · yellow: not feasible"}</span>
+                {plain ? (
+                  activeTaskId ? <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Filled: the target of the running EVA"}</span> : null
+                ) : (
+                  <>
+                    <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Number: provisional priority (existing engine, not validated)"}</span>
+                    <span className="pl-5 text-[12px] text-[var(--mg-dim)]">{"Solid: in plan · ✓ done · ½ ended with skipped steps · yellow: not feasible"}</span>
+                  </>
+                )}
                 {embedded?.crewMarkers?.length ? (
                   <span className="flex items-center gap-2" data-testid="mg-legend-crew">
                     <span aria-hidden className="inline-block size-3 rounded-full border-2 border-[#0e1520] bg-white outline-dashed outline-1 outline-offset-1 outline-white" />
@@ -447,7 +489,8 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
               </p>
             ) : null}
             <TargetList
-              markers={markers}
+              plain={plain}
+              markers={plain ? [...markers].sort((a, b) => a.name.localeCompare(b.name)).map((m) => ({ ...m, tone: m.taskId === activeTaskId ? ("active" as const) : ("candidate" as const), badge: "", status: "" })) : markers}
               selectedTaskId={state.selectedTaskId}
               onPick={pickTask}
               rightInset={mapView === "3d" ? "right-3 sm:right-56 lg:right-[42rem]" : undefined}
@@ -507,6 +550,15 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
             />
           ) : null}
 
+          {plain && embedded?.side ? (
+            <aside
+              aria-labelledby="mission-crew-title"
+              className="mg-glass relative z-10 m-3 flex flex-col overflow-hidden lg:absolute lg:inset-y-4 lg:right-4 lg:m-0 lg:w-[27.5rem]"
+              data-testid="mission-crew-panel"
+            >
+              {embedded.side({ pickTask, selectedTaskId: state.selectedTaskId })}
+            </aside>
+          ) : (
           <aside
             aria-labelledby="mg-plan-title"
             className="mg-glass relative z-10 m-3 flex flex-col overflow-hidden lg:absolute lg:inset-y-4 lg:right-4 lg:m-0 lg:w-[27.5rem]"
@@ -684,6 +736,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
               onClose={() => setReviewOpen(false)}
             />
           </aside>
+          )}
         </main>
       ) : (
         <EvaHud

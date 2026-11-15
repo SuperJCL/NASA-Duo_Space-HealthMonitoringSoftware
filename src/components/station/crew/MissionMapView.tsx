@@ -52,14 +52,15 @@ class MapBoundary extends Component<{ children: (attempt: number) => ReactNode }
  * The existing Mission Glass as the station's Mission Map (embedded mode): always the background of
  * the station, under the Health Monitoring overlay. Crew markers are SIMULATED positions (labelled).
  */
-export function MissionMapView({ data, onSelectTask, activeTaskId, crewMarkers, onSelectCrew }: { data: MissionGlassData; onSelectTask: (taskId: string | null) => void; activeTaskId: string | null; crewMarkers: readonly CrewMarker[]; onSelectCrew: (id: string) => void }) {
+type Embedded = NonNullable<Parameters<typeof MissionGlass>[0]["embedded"]>;
+export function MissionMapView({ data, onSelectTask, activeTaskId, crewMarkers, onSelectCrew, side, advanced, onAdvanced }: { data: MissionGlassData; onSelectTask: (taskId: string | null) => void; activeTaskId: string | null; crewMarkers: readonly CrewMarker[]; onSelectCrew: (id: string) => void; side: Embedded["side"]; advanced: boolean; onAdvanced: (open: boolean) => void }) {
   return (
     <MapBoundary>
       {(attempt) => {
         const MissionGlassLazy = missionGlassFor(attempt);
         return (
           <Suspense fallback={loading}>
-            <MissionGlassLazy {...data} embedded={{ onSelectTask, activeTaskId, crewMarkers, onSelectCrew }} />
+            <MissionGlassLazy {...data} embedded={{ onSelectTask, activeTaskId, crewMarkers, onSelectCrew, side, advanced, onAdvanced }} />
           </Suspense>
         );
       }}

@@ -12,6 +12,24 @@ module. The ASTRA patch demo is a separate, independent program and is not part 
 
 ## What changed
 
+**Mission & Crew panel (right side of the Mission Map).** It replaces the planning panel (scores,
+effort budget, recommendations) in the default view. The panel changes with the mission phase:
+
+| Phase | Panel content |
+|---|---|
+| Preparing | ① Task: the three tasks, selectable here or on the map. ② Astronaut. ③ A short summary. Then **Review summary, start EVA**. |
+| EVA active | Task, start time and elapsed time. One card per crew member:<br>- **Device link**: as reported, otherwise "Unknown".<br>- **HUD**: the last HUD message and its time, otherwise "No HUD message yet".<br>- **Latest data**: measurement time and age, with a Fresh / Aging / Stale tag (display only; nothing is inferred from it), plus usability.<br>- **Vital signs**: "No source in this demo".<br>- **Position**: simulated, not tracked.<br>- **Open health cases**: each with whom it waits for and since when.<br>- **Open Health Monitoring**. |
+| EVA ended | The EVA summary (times, duration, cases open and closed), the open cases with **Continue →**, then the preparation for the next EVA. |
+
+- **Advanced planning** (panel footer) shows Mission Glass unchanged: scenario priorities, effort
+  budget, compare, EVA route and steps. **← Mission & Crew** returns.
+- On the default map, targets have no priority numbers or plan state. Only the running EVA's
+  target is filled.
+- Terrain, route or planning scores are never turned into health information.
+- New messages update counts and badges; they never move focus.
+- The preparation strip above the map is gone. Its steps live in the panel.
+- Shared visual language for all three interfaces: `design/DESIGN.md`.
+
 **Layout.** The Mission Map is always the background. Health Monitoring is an overlay on it.
 
 | | |
