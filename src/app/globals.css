@@ -172,8 +172,9 @@ body {
     transform: none;
   }
 }
+/* Mission Glass's own rise timing (kept as it was; the shared tokens do not retime existing animations). */
 .mission-glass .mg-rise {
-  animation: mg-rise var(--mm-dur) var(--mm-ease) both;
+  animation: mg-rise 220ms ease-out both;
 }
 @media (prefers-reduced-motion: reduce) {
   .mission-glass .mg-rise {
