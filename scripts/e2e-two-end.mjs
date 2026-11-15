@@ -104,11 +104,26 @@ await st.getByTestId("full-flow-back").click();
 await st.waitForTimeout(500);
 check("collapse, reopen, full flow and back: same case, still awaiting review, nothing sent", (await history()).lastSeq === seqReview && (await st.getByTestId("decision-panel").getAttribute("data-phase")) === "review", `lastSeq ${seqReview} → ${(await history()).lastSeq}`);
 check("1440×900: the review needs no page scroll", await st.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight));
+// The HUD goes offline before the approval: the station must show "sent, awaiting receipt", never a delivery.
+await hud.goto("about:blank");
+// Review with the full flow open: the decision area stays usable next to it.
+await st.getByTestId("full-flow-open").click();
+await st.waitForSelector('[data-testid="flow-canvas"]', { timeout: 10000 });
 await st.getByTestId("decide-approve").click();
 await st.getByTestId("reason-template").first().click();
 const reason1 = await st.getByTestId("confirm-reason").inputValue();
+check("full flow open: the review form and Confirm are on screen, no page scroll", (await st.getByTestId("confirm-submit").isVisible()) && (await st.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight)));
 await st.getByTestId("confirm-submit").click();
+await st.waitForTimeout(6000);
+const stepHud = await st.getByTestId("step-hud").getAttribute("data-state");
+check("HUD offline: approved messages are relay-accepted but the HUD step keeps waiting (no false delivery)", stepHud === "waiting" && (await st.getByTestId("track-hud").first().getAttribute("data-state")) === "pending" && /awaiting receipt/.test(await st.getByTestId("step-hud-summary").innerText()), `step-hud ${stepHud}`);
+await st.getByTestId("full-flow-back").click();
+await hud.goto(`${RELAY}/`, { waitUntil: "load" });
+await hud.locator("#bJoin").click();
+await hud.waitForFunction(() => window.__hud?.client.state.conn === "online", null, { timeout: 15000 });
 await hud.waitForFunction(() => { const a = window.__hud.client.activeCase(); return a.alert && a.retest; }, null, { timeout: 15000 });
+await st.waitForFunction(() => document.querySelector('[data-testid="step-hud"]')?.dataset.state === "done", null, { timeout: 15000 });
+check("HUD back online: its real receipt arrives and only then the HUD step is done", true, await st.getByTestId("step-hud-summary").innerText());
 await hud.waitForTimeout(1200);
 const t1 = await hudText();
 const a1 = await hud.evaluate(() => window.__hud.client.activeCase());
@@ -170,6 +185,8 @@ await hud.waitForFunction(() => window.__hud.client.activeCase().alert?.status =
 await hud.waitForTimeout(800);
 const t2 = await hudText();
 check("HUD shows the final status from the base (case closed)", /Case closed by base/.test(await hudStatus()), await hudStatus());
+await st.waitForFunction(() => document.querySelector('[data-testid="chain-closure-notice"]')?.dataset.state === "received", null, { timeout: 15000 });
+check("station: Case Closed and the closing notice's HUD receipt are shown as two separate facts", (await st.getByTestId("chain-closure-case").getAttribute("data-state")) === "closed" && (await st.getByTestId("event-chain").getAttribute("data-current")) === "");
 check("HUD final view still hides internal reasons", !t2.includes(reason2) && !t2.includes(reason1));
 if (D) await hud.screenshot({ path: `${D}/6-hud-closed.png` });
 await hud.locator("#bAck").click();   // the astronaut acknowledges the final status update
@@ -301,7 +318,7 @@ await hud.waitForFunction(() => window.__hud.client.activeCase().alert?.status =
 await hud.waitForTimeout(600);
 check("keep watching: HUD shows the base's status update, case not closed", /Base update/.test(await hudStatus()), await hudStatus());
 const rcKeep = await hud.locator("#rcard").innerText();
-check("keep watching: the finished retest is shown as done (history), no task buttons", /done \(history\)/.test(rcKeep) && /Instructions \(done\)/.test(rcKeep) && (await hud.locator("#bGo, #bView, #bSubmit").count()) === 0);
+check("keep watching: the finished retest is shown as done (history), no task buttons", /done \(history\)/.test(rcKeep) && /Instructions \(done\)/.test(await hud.locator("#rcard").textContent()) && (await hud.locator("#bGo, #bView, #bSubmit").count()) === 0);
 if (D) await hud.screenshot({ path: `${D}/8-hud-keep-open.png` });
 await decide("close");
 await hud.waitForFunction(() => window.__hud.client.activeCase().alert?.status === "closed", null, { timeout: 15000 });

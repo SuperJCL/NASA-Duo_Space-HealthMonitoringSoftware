@@ -36,6 +36,10 @@ const where = (p) => attr(p, "decision-panel", "data-where");
 const who = (p) => attr(p, "decision-panel", "data-who");
 const person = (p) => attr(p, "health-overlay", "data-astronaut");
 const overlay = (p) => attr(p, "crew-station", "data-overlay");
+// The case event chain: Data source → Base analysis → Base review → HUD → Crew response → Retest → Reassessment.
+const stepState = (p, id) => attr(p, `step-${id}`, "data-state");
+const steps = async (p) => Object.fromEntries(await Promise.all(["source", "analysis", "review", "hud", "crew", "retest", "reassessment"].map(async (id) => [id, await stepState(p, id)])));
+const same = (got, want) => Object.entries(want).every(([k, v]) => got[k] === v);
 const waitPhase = (p, ph, timeout = 30_000) => p.waitForFunction((x) => document.querySelector('[data-testid="decision-panel"]')?.dataset.phase === x, ph, { timeout });
 async function drawer(p, fn) {
   if (!(await tid(p, "demo-drawer").count())) await tid(p, "demo-toggle").evaluate((el) => el.click());
@@ -93,16 +97,19 @@ try {
   check((await person(p)) === "ev1" && (await phase(p)) === "analysing" && (await who(p)) === "System", "EV1's case analyses by itself: decision area says the system acts, no action needed");
   check(/Single observation · no earlier data, no trend/.test(await text(tid(p, "obs-history"))) && /Simulated sample/.test(await text(tid(p, "obs-summary"))), "observation: one simulated sample, no invented history or trend");
   check((await attr(p, "crew-card-ev1", "data-unread")) === "0", "the case shown in the open overlay is marked viewed by the base (unread 0)");
-  check((await tid(p, "chain-marker").count()) === 1 && ["running", "done"].includes(await attr(p, "chain-0", "data-state")), "compact chain follows the station's steps (with a data marker element)");
+  check((await tid(p, "chain-marker").count()) === 1 && ["running", "done"].includes(await attr(p, "chain-0", "data-state")), "inside the analysis: the internal steps follow the station (with a data marker element)");
+  check(same(await steps(p), { source: "done", analysis: "running", review: "todo", hud: "todo", crew: "todo", retest: "todo", reassessment: "todo" }) && (await attr(p, "event-chain", "data-current")) === "analysis" && (await tid(p, "event-marker").count()) === 1, "event chain: data source done, base analysis processing, later steps not reached");
   await shot(p, "1-overlay-analysing");
   await waitPhase(p, "review");
   check((await who(p)) === "Base staff" && /Awaiting Base Review/.test(await where(p)), "stops at Awaiting Base Review; base staff act next");
   check((await attr(p, "chain-4", "data-state")) === "human" && (await tid(p, "chain-branch").count()) === 0, "normal path: the chain stops at Base Review; no failure branch");
+  check(same(await steps(p), { analysis: "done", review: "human", hud: "todo" }) && /waiting for base staff/.test(await text(tid(p, "chain-now"))), "event chain: base review needs a decision; the chain says whom it waits for");
+  check(/approve or reject/.test(await text(tid(p, "decision-next"))), "decision area states the next step");
   for (const id of ["decision-conclusion", "decision-evidence", "decision-outgoing", "decide-approve", "compact-chain"]) check(await onScreen(p, id), `review at 1440×900 without page scroll: ${id} visible`);
   check(await p.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight), "the page itself does not scroll");
   check((await p.locator('[data-testid="indicator-chart"] [data-testid^="indicator-"]').count()) === 3 && /grip meter/.test(await text(tid(p, "indicator-gripForceN"))) && /no raw sEMG waveform/.test(await text(tid(p, "indicator-chart"))), "summary indicators only; grip from the grip meter; no fake waveform");
   check((await p.locator('[data-testid="outgoing-action"]').count()) === 2 && /Draft only: nothing is sent before you confirm/.test(await text(tid(p, "decision-outgoing"))), "the actual notice and retest text are previewed as a draft");
-  check((await p.locator('[data-testid="comm-action"]').count()) === 0 && /not sent/.test(await text(tid(p, "comm-list"))), "nothing sent before approval; the analysis is marked not sent");
+  check((await p.locator('[data-testid="panel-comms"] [data-testid="comm-action"]').count()) === 0 && /not sent/.test(await text(tid(p, "panel-comms").getByTestId("comm-list"))), "nothing sent before approval; the analysis is marked not sent");
   await shot(p, "2-review");
 
   // ---------- Collapse / reopen keeps the review form and the draft ----------
@@ -122,23 +129,27 @@ try {
   check((await tid(p, "confirm-reason").inputValue()) === "Draft: to be completed", "unsent draft kept across cancel");
   await tid(p, "confirm-reason").fill("");
   await tid(p, "confirm-submit").click();
-  check(/reason/i.test(await text(tid(p, "confirm-error"))) && (await p.locator('[data-testid="comm-action"]').count()) === 0, "no reason → refused, nothing published");
+  check(/reason/i.test(await text(tid(p, "confirm-error"))) && (await p.locator('[data-testid="panel-comms"] [data-testid="comm-action"]').count()) === 0, "no reason → refused, nothing published");
   await tid(p, "reason-template").first().click();
   await tid(p, "confirm-submit").click();
   await p.waitForTimeout(300);
 
   // ---------- Waiting for feedback: only real (simulated) replies move it ----------
-  check((await p.locator('[data-testid="comm-action"]').count()) === 2 && /Received by HUD/.test(await where(p)) && (await who(p)) === "HUD", "approved: 2 action messages; waits for the HUD receipt");
+  check((await p.locator('[data-testid="panel-comms"] [data-testid="comm-action"]').count()) === 2 && /Received by HUD/.test(await where(p)) && (await who(p)) === "HUD", "approved: 2 action messages; waits for the HUD receipt");
   check(/local sim/.test(await text(tid(p, "track-sent"))) && (await attr(p, "track-hud", "data-state")) === "pending" && /since/.test(await text(tid(p, "current-waiting"))), "hand-off shown as local simulation; no receipt shown; waiting says whom and since when");
+  check(same(await steps(p), { review: "done", hud: "waiting", crew: "todo" }) && /Sent \(local simulation\) · awaiting receipt/.test(await text(tid(p, "step-hud-summary"))), "event chain: HUD step waits for a receipt — no success shown before it arrives");
   await shot(p, "3-waiting-feedback");
   await p.waitForTimeout(4000);
-  check(/Received by HUD/.test(await where(p)), "no receipt is inferred from time (auto feedback off)");
+  check(/Received by HUD/.test(await where(p)) && (await stepState(p, "hud")) === "waiting", "no receipt is inferred from time (auto feedback off)");
   await hud(p, "received");
-  check(/Acknowledged by Crew/.test(await where(p)) && (await p.locator('[data-testid="comm-receipt"]').count()) === 2, "simulated HUD receipt recorded; next: crew acknowledgement");
+  check(/Acknowledged by Crew/.test(await where(p)) && (await p.locator('[data-testid="panel-comms"] [data-testid="comm-receipt"]').count()) === 2 && same(await steps(p), { hud: "done", crew: "waiting" }), "simulated HUD receipt recorded; next: crew acknowledgement");
+  await tid(p, "step-hud").click();
+  check((await attr(p, "step-detail", "data-step")) === "hud" && (await tid(p, "step-messages").count()) === 1 && (await phase(p)) === "dispatched", "clicking a step shows its messages; the decision area is unchanged");
+  await tid(p, "step-follow").click();
   await hud(p, "defer");
-  check((await phase(p)) === "deferred" && (await who(p)) === "Base staff" && /Deferred by the crew/.test(await text(tid(p, "decision-panel"))), "deferral stops the flow with the reason, back to base staff");
+  check((await phase(p)) === "deferred" && (await who(p)) === "Base staff" && /Deferred by the crew/.test(await text(tid(p, "decision-panel"))) && (await stepState(p, "crew")) === "stopped", "deferral stops the flow with the reason, back to base staff");
   await hud(p, "ack");
-  check(/Awaiting retest result/.test(await where(p)), "acknowledgement recorded; waiting for the retest result");
+  check(/Awaiting retest result/.test(await where(p)) && same(await steps(p), { crew: "done", retest: "waiting" }), "acknowledgement recorded; waiting for the retest result");
 
   // Another astronaut's message while EV1 is handled: notify only.
   await launch(p, "ev2", "normal");
@@ -147,13 +158,13 @@ try {
 
   await hud(p, "retest-normal");
   await p.waitForTimeout(300);
-  check((await phase(p)) === "analysing" && /Round 1 result \(kept unchanged\)/.test(await text(tid(p, "decision-panel"))), "retest result starts round 2 automatically; round 1 kept");
+  check((await phase(p)) === "analysing" && /Round 1 result \(kept unchanged\)/.test(await text(tid(p, "decision-panel"))) && same(await steps(p), { retest: "done", reassessment: "running" }), "retest result starts round 2 automatically; round 1 kept");
   await waitPhase(p, "reassessed");
   check(/original alert is still open/.test(await text(tid(p, "decision-first-result"))) && /v2 · retest/.test(await text(tid(p, "panel-eval-status"))) && /Within Reference Range/.test(await text(tid(p, "decision-conclusion"))) && /Alert open/.test(await text(tid(p, "panel-case-status"))), "re-evaluation: in range, original alert still open, shown as two statuses");
   check((await attr(p, "indicator-chart", "data-paired")) === "yes" && (await p.locator('[data-testid="indicator-chart"] span[title^="v1"]').count()) === 3, "v1 and v2 side by side only because both are comparable");
 
   // Full flow inside the overlay: visual replay only.
-  const commBefore = await p.locator('[data-testid="comm-list"] li').count();
+  const commBefore = await p.locator('[data-testid="panel-comms"] [data-testid="comm-list"] li').count();
   await tid(p, "full-flow-open").click();
   await tid(p, "flow-canvas").waitFor();
   await tid(p, "canvas-speed").selectOption("2");
@@ -166,18 +177,25 @@ try {
   await tid(p, "canvas-pause").click();
   await tid(p, "full-flow-back").click();
   await p.waitForTimeout(250);
-  check((await p.locator('[data-testid="comm-list"] li').count()) === commBefore && (await phase(p)) === "reassessed", "full flow and Back publish nothing and change no state");
+  check((await p.locator('[data-testid="panel-comms"] [data-testid="comm-list"] li').count()) === commBefore && (await phase(p)) === "reassessed", "full flow and Back publish nothing and change no state");
+  await tid(p, "full-flow-open").click();
+  await tid(p, "flow-canvas").waitFor();
+  for (const id of ["decision-conclusion", "decision-next", "decide-close"]) check(await onScreen(p, id), `full flow open: decision area still usable (${id} visible)`);
 
-  // ---------- Close: status notice, delivery tracked separately ----------
+  // ---------- Close (from the decision area while the full flow is open): status notice, delivery tracked separately ----------
   await tid(p, "decide-close").click();
   check(/Case Closed by base staff/.test(await text(tid(p, "outgoing-status"))) && (await p.locator('[data-testid="outgoing-action"]').count()) === 0, "close: the status-notice text is shown before confirming; no action message");
   await tid(p, "reason-template").first().click();
   await tid(p, "confirm-submit").click();
   await p.waitForTimeout(300);
   check((await phase(p)) === "closed" && (await who(p)) === "None" && /Case Closed does not mean the astronaut is healthy/.test(await text(tid(p, "decision-closed"))), "closed: handling complete, nothing left to do, no health claim");
-  check(/awaiting the HUD receipt/.test(await text(tid(p, "panel-notice-pending"))) && (await p.locator('[data-testid="comm-status"]').count()) === 1, "case closed, notice delivery still pending — recorded apart");
+  check(/awaiting the HUD receipt/.test(await text(tid(p, "panel-notice-pending"))), "case closed, notice delivery still pending — recorded apart");
+  check((await attr(p, "chain-closure-case", "data-state")) === "closed" && (await attr(p, "chain-closure-notice", "data-state")) === "sent", "event chain: Case Closed and closing notice delivered are separate (notice not yet received)");
   await hud(p, "received");
-  check(/Received by HUD/.test(await text(tid(p, "panel-notice-pending"))), "notice receipt recorded");
+  check(/Received by HUD/.test(await text(tid(p, "panel-notice-pending"))) && (await attr(p, "chain-closure-notice", "data-state")) === "received", "notice receipt recorded");
+  await tid(p, "full-flow-back").click();
+  await p.waitForTimeout(250);
+  check((await p.locator('[data-testid="panel-comms"] [data-testid="comm-status"]').count()) === 1, "exactly one closing status notice in the communication record");
   await shot(p, "4-complete");
   check((await attr(p, "crew-card-ev1", "data-needs-base")) === "no" && (await attr(p, "crew-card-ev2", "data-needs-base")) === "yes", "crew chips updated: EV1 nothing to review; EV2 has a case for base staff");
 
@@ -207,7 +225,7 @@ try {
   await p.waitForTimeout(250);
   check((await tid(p, "panel-case-switch").count()) === 1 && /Astronaut report/.test(await text(tid(p, "obs-summary"))), "HUD report: its own case (switcher), shown as the astronaut's own words");
   check((await phase(p)) === "review" && /Approve: reply and schedule a measurement/.test(await text(tid(p, "decide-approve"))), "HUD report: base decides whether to reply and request a standardised measurement");
-  check((await p.locator('[data-testid="comm-report"]').count()) === 1, "report shown in the message stream");
+  check((await p.locator('[data-testid="panel-comms"] [data-testid="comm-report"]').count()) === 1, "report shown in the message stream");
 
   // ---------- English only ----------
   const cjk = (await p.evaluate(() => document.body.innerText)).match(/[一-鿿]/g) ?? [];
