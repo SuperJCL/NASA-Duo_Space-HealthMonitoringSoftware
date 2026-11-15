@@ -197,10 +197,29 @@ function terrainMaterial(minM: number, maxM: number) {
   });
 }
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const defaultQuality = (): "standard" | "low" => {
+/** A software WebGL renderer (no GPU): SwiftShader, llvmpipe, "Microsoft Basic Render". */
+const softwareGl = () => {
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const ext = gl?.getExtension("WEBGL_debug_renderer_info");
+    const r = gl && ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "";
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+    return /swiftshader|llvmpipe|software|basic render/i.test(r);
+  } catch {
+    return false;
+  }
+};
+/**
+ * Small screens and low-memory devices start at Low. The station's map (`compact`) also starts at
+ * Low on a software renderer or a CPU with ≤ 4 threads (ordinary laptops with integrated graphics
+ * stay at Standard); Quality can always be changed by hand.
+ */
+const defaultQuality = (compact = false): "standard" | "low" => {
   if (typeof window === "undefined") return "standard";
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  return window.innerWidth < 768 || (mem !== undefined && mem <= 4) ? "low" : "standard";
+  if (window.innerWidth < 768 || (mem !== undefined && mem <= 4)) return "low";
+  if (compact && ((navigator.hardwareConcurrency ?? 8) <= 4 || softwareGl())) return "low";
+  return "standard";
 };
 const fmtDeg = ([lon, lat]: LonLat) => `${lon.toFixed(4)}° E, ${lat.toFixed(4)}° N`;
 const RAMP_CSS = "linear-gradient(to right, rgb(26,77,107), rgb(107,148,122), rgb(209,179,115), rgb(242,230,209))";
@@ -217,7 +236,7 @@ export function TerrainViewer({ meta, defaultContours = true, compact = false, m
   const [heights, setHeights] = useState<Float32Array | null>(null);
   const [imageryOk, setImageryOk] = useState<boolean | null>(null);
   const [exaggeration, setExaggeration] = useState<Exaggeration>(DEFAULT_EXAGGERATION);
-  const [quality, setQuality] = useState<"standard" | "low">(defaultQuality);
+  const [quality, setQuality] = useState<"standard" | "low">(() => defaultQuality(compact));
   const [pointerElev, setPointerElev] = useState<number | null>(null);
   // Caveats are always available; on narrow screens they start collapsed so the terrain stays visible.
   const [aboutOpen, setAboutOpen] = useState(false);

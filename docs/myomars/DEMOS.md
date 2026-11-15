@@ -36,7 +36,11 @@ Details: [PATCH-AUDIT.md](PATCH-AUDIT.md) (patch scope and data),
    - "The patch demo stands on its own. The mission software next is a separate program; it uses its
      own simulated sample data, not the patch output."
 3. **Mission Map (≈ 30 s, Base).**
-   - Simulated targets near Lefroy Bay in Jezero crater on NASA imagery, in 2D and 3D.
+   - Simulated targets near Lefroy Bay in Jezero crater on NASA imagery, in 2D and 3D. The 3D
+     view uses the HiRISE elevation model (5 m mesh from the 1 m DTM, 1× true scale).
+   - The right side is **Mission & Crew**: task, astronaut, then (during the EVA) what is known
+     about the crew. Unknowns say "Unknown" or "No source in this demo". Planning scores are behind
+     "Advanced planning".
    - Select Target B, review the summary, **Confirm Start EVA**. Health Monitoring opens over the map.
    - The HUD joins the run.
 4. **Health loop (≈ 90 s, Base + HUD).**
@@ -44,7 +48,8 @@ Details: [PATCH-AUDIT.md](PATCH-AUDIT.md) (patch scope and data),
      → Base review.
    - The decision area shows the conclusion, the evidence and the exact text to send. The human
      approves with a reason.
-   - The HUD shows the notice: Acknowledge → View task → Start → Submit.
+   - The HUD shows the notice over its fixed-viewpoint 3D Mars scene (illustrative, not the task
+     site): Acknowledge → View task → Start → Submit.
    - The Base re-evaluates; round 1 is kept. "Retest Within Reference Range; one result in range
      does not show recovery."
    - **Close case**: the Base shows *Case Closed* and, separately, *Closing notice: Received by

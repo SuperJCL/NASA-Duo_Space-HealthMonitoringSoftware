@@ -151,13 +151,13 @@ resolve to IPv6 on Windows. Use **one** station tab. A second station tab is a r
 
 | # | Do | Expect |
 |---|---|---|
-| 1 | Station: look at the page | Mission Map (2D) with Target A, B, C (coral diamonds, "SIM"). Mission bar: "Mission preparation". Health Monitoring is collapsed. ("ⓘ About" shows the build id.) |
-| 2 | Optional: "3D terrain", then "2D map" | Local 3D terrain loads; back to 2D |
-| 3 | Click **Target B** (target button or diamond) | Strip: "Task: Abrade and analyse a rock → Target B (simulated target …)" |
+| 1 | Station: look at the page | Mission Map (2D) with Target A, B, C (coral diamonds, "SIM", no priority numbers). Right side: **Mission & Crew** (① Task, ② Astronaut A-02, ③ Summary). Mission bar: "Mission preparation". Health Monitoring is collapsed. ("ⓘ About" shows the build id.) |
+| 2 | Optional: "3D terrain", then "2D map" | HiRISE 3D terrain loads ("Elevation: HiRISE 5 m mesh", 1× true scale, contours off); back to 2D. **Advanced planning** (panel footer) shows the old planning tools; **← Mission & Crew** returns |
+| 3 | Click **Abrade and analyse a rock** in the panel (or Target B on the map) | Panel: "Selected: Abrade and analyse a rock → Target B" |
 | 4 | **Review summary, start EVA** | Summary dialog: mission, task, simulated target, astronaut A-02, "not a real EVA", health conditions unknown |
 | 5 | **Confirm Start EVA** | Phase "Simulated EVA in progress". Health Monitoring opens over the map **once**. "Case events" shows "Waiting for data…". |
-| 6 | HUD: **Enter HUD** | "Connected · no base messages yet …" |
-| 7 | Optional: station **Esc** | Overlay collapses. The map shows "A-02 · simulated position · not tracked" near Target B. Reopen with the "A-02 simulated position" chip or **Health Monitoring ▸ Open**. |
+| 6 | HUD: **Enter HUD** | "Connected · no base messages yet …" over a 3D Mars scene (caption "Illustrative Mars scene · not a reconstruction of the task site"). Drag on empty sky to look around a little; **Reset view** returns. On a PC without WebGL the HUD shows the old picture instead and works the same. |
+| 7 | Optional: station **Esc** | Overlay collapses. The map shows "A-02 · simulated position · not tracked" near Target B. The panel shows the A-02 card: device link "Unknown", HUD message, latest data, "Vital signs: No source in this demo". Reopen with **Open Health Monitoring · A-02** or **Health Monitoring ▸ Open**. |
 | 8 | Station header: **Dev entry (data replay)** → sample **Comparable change (full flow)** → **Replay and open Health Monitoring** | Event chain: "Data source" ✓, then "Base analysis" processing (steps 1 to 4, about 10 s). Inside the analysis: Data Received → Signal Quality → Comparability → Comparison. |
 | 9 | Wait | "Base review · Base decision needed". Right side: "Indicators beyond the individual baseline variation", key evidence, the exact notice and retest text ("Draft only"), "Next: Base staff: approve or reject the candidate". The page itself does not scroll. |
 | 10 | Optional: **Full flow ⤢** | The data-flow canvas opens on the left; the decision area stays visible on the right. **← Back to steps** returns. |
