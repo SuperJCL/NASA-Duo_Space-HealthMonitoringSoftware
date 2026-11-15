@@ -3,7 +3,9 @@
 // health-data teammate's data). Covers: observation → analysis → human approval → HUD receipt and
 // astronaut confirmation → retest result → re-evaluation → human close / keep watching → HUD final
 // status; refresh recovery, duplicates, old-run isolation, multiple station windows, missing grip,
-// keep watching then close, history display on the HUD, a task closed before any result.
+// keep watching then close, history display on the HUD, a task closed before any result; the
+// Health Monitoring overlay (collapse / reopen / full flow change nothing) and an English-only check
+// of both pages and of every station message.
 //
 // Needs, on one machine:
 //   npm run relay -- --static myomars-hud          (relay on 8787, serves the HUD; fresh session)
@@ -23,12 +25,19 @@ const check = (name, ok, detail = "") => {
 };
 const log = (m) => console.log(`      ${m}`);
 const history = async () => (await (await fetch(`${RELAY}/v1/sessions/demo/events?after=0`)).json());
-const openDrawer = async (pg) => { if (await pg.getByTestId("person-panel").isVisible().catch(() => false)) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); } if (!(await pg.getByTestId("relay-dev-drawer").isVisible().catch(() => false))) await pg.getByTestId("demo-toggle").click(); };
+const overlayOpen = async (pg) => (await pg.getByTestId("crew-station").getAttribute("data-overlay")) === "open";
+const collapse = async (pg) => { if (await overlayOpen(pg)) { await pg.getByTestId("panel-close").click(); await pg.waitForTimeout(300); } };
+const openOverlay = async (pg) => { if (!(await overlayOpen(pg))) { await pg.getByTestId("overlay-toggle").click(); await pg.waitForTimeout(300); } };
+/** The station's current step (decision area attributes: where the flow is, who acts). */
+const where = (pg) => pg.getByTestId("decision-panel").getAttribute("data-where");
+const waitWhere = (pg, re, timeout = 15000) => pg.waitForFunction((src) => new RegExp(src).test(document.querySelector('[data-testid="decision-panel"]')?.dataset.where ?? ""), re.source, { timeout });
+const waitPhase = (pg, ph, timeout = 40000) => pg.waitForFunction((x) => document.querySelector('[data-testid="decision-panel"]')?.dataset.phase === x, ph, { timeout });
+const shownCase = (pg) => pg.getByTestId("health-overlay").getAttribute("data-case");
+const openDrawer = async (pg) => { if (!(await pg.getByTestId("relay-dev-drawer").isVisible().catch(() => false))) await pg.getByTestId("demo-toggle").click(); };
 /** Task preparation on the mission map → summary → human confirmation (the only way an EVA run starts). */
 const startEva = async (pg, targetId) => {
-  if (await pg.getByTestId("person-panel").isVisible().catch(() => false)) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
   if (await pg.getByTestId("relay-dev-drawer").isVisible().catch(() => false)) await pg.getByTestId("relay-dev-close").click();
-  await pg.getByTestId("view-map").click();
+  await collapse(pg);
   await pg.waitForSelector(`[data-testid="mg-target-${targetId}"]`, { timeout: 60000 });
   await pg.getByTestId(`mg-target-${targetId}`).click();
   await pg.getByTestId("prep-summary").click();
@@ -36,7 +45,6 @@ const startEva = async (pg, targetId) => {
   await pg.waitForFunction(() => document.querySelector('[data-testid="crew-station"]')?.dataset.phase === "eva-active", null, { timeout: 15000 });
 };
 const endEva = async (pg) => {
-  if (await pg.getByTestId("person-panel").isVisible().catch(() => false)) { await pg.keyboard.press("Escape"); await pg.waitForTimeout(300); }
   await pg.getByTestId("eva-end-open").click();
   await pg.getByTestId("eva-end-confirm").click();
   await pg.waitForFunction(() => document.querySelector('[data-testid="crew-station"]')?.dataset.phase === "eva-ended", null, { timeout: 15000 });
@@ -81,10 +89,21 @@ if (D) await st.screenshot({ path: `${D}/1-station-replay-drawer.png` });
 // ---------- step 1: observation → analysis → human approval ----------
 await st.getByTestId("relay-dev-fixture").selectOption("change");
 await st.getByTestId("relay-dev-inject-open").click();
-await st.waitForFunction(() => document.querySelector('[data-testid="flow-canvas"]')?.dataset.phase === "end", null, { timeout: 40000 });
-check("station analysed the replayed observation and stopped at human review", true, await st.getByTestId("panel-eval-status").textContent());
+await waitPhase(st, "review");
+check("station analysed the replayed observation and stopped at human review", true, await st.getByTestId("decision-conclusion").textContent());
 if (D) await st.screenshot({ path: `${D}/2-station-review.png` });
-await st.getByTestId("canvas-node-review").click();
+// the overlay: collapse / reopen / full flow / back change nothing and send nothing
+const seqReview = (await history()).lastSeq;
+await collapse(st);
+check("Esc / Collapse only collapses the overlay (the map is the background again)", !(await overlayOpen(st)) && (await st.getByTestId("crew-station").getAttribute("data-phase")) === "eva-active");
+await openOverlay(st);
+await st.getByTestId("full-flow-open").click();
+await st.waitForSelector('[data-testid="flow-canvas"]', { timeout: 10000 });
+await st.waitForTimeout(800);
+await st.getByTestId("full-flow-back").click();
+await st.waitForTimeout(500);
+check("collapse, reopen, full flow and back: same case, still awaiting review, nothing sent", (await history()).lastSeq === seqReview && (await st.getByTestId("decision-panel").getAttribute("data-phase")) === "review", `lastSeq ${seqReview} → ${(await history()).lastSeq}`);
+check("1440×900: the review needs no page scroll", await st.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight));
 await st.getByTestId("decide-approve").click();
 await st.getByTestId("reason-template").first().click();
 const reason1 = await st.getByTestId("confirm-reason").inputValue();
@@ -97,18 +116,18 @@ check("HUD received the notice and the retest task", a1.alert && a1.retest, `${a
 check("HUD infers no category (kind 'notice', no fatigue / sensor wording)", a1.alert.kind === "notice" && !/fatigue|疲劳|sensor fault/i.test(t1), await hudStatus());
 check("HUD adds no actions (no habitat return, no recovery or symptom steps)", !/habitat|返回舱|Recovery Guidance|Symptom Check|Medical Review/i.test(t1));
 check("HUD never shows the base's internal review reason", !t1.includes(reason1), `reason "${reason1.slice(0, 24)}…"`);
-check("HUD shows the requested protocol, no invented body site", t1.includes("标准握持 40% MVC · 30 s") && !/quadriceps|Left thigh|knee bend/i.test(t1), (t1.match(/.{0,30}(quadriceps|Left thigh|knee bend).{0,30}/i) || [""])[0]);
+check("HUD shows the requested protocol, no invented body site", t1.includes("Standard grip 40% MVC · 30 s") && !/quadriceps|Left thigh|knee bend/i.test(t1), (t1.match(/.{0,30}(quadriceps|Left thigh|knee bend).{0,30}/i) || [""])[0]);
 if (D) await hud.screenshot({ path: `${D}/3-hud-notice.png` });
-await st.waitForFunction(() => /宇航员确认/.test(document.querySelector('[data-testid="panel-fact-where"]')?.textContent ?? ""), null, { timeout: 15000 });
-check("station shows HUD device receipts, still waiting for the astronaut", true, await st.getByTestId("panel-fact-where").textContent());
+await waitWhere(st, /Acknowledged by Crew/);
+check("station shows HUD device receipts, still waiting for the astronaut", (await st.getByTestId("track-hud").first().getAttribute("data-state")) === "done" && (await st.getByTestId("track-crew").first().getAttribute("data-state")) === "pending", await where(st));
 
 // ---------- HUD: astronaut confirmation, retest, result ----------
 await hud.locator("#bAck").click();
 await hud.locator("#bView").click();
 await hud.locator("#bGo").click();
 await hud.waitForSelector("#bSubmit", { timeout: 15000 });
-await st.waitForFunction(() => /等待复测结果/.test(document.querySelector('[data-testid="panel-fact-where"]')?.textContent ?? ""), null, { timeout: 15000 });
-check("station shows the astronaut's confirmation (hud.ack), separate from receipts", true, await st.getByTestId("panel-fact-where").textContent());
+await waitWhere(st, /Awaiting retest result/);
+check("station shows the astronaut's confirmation (hud.ack), separate from receipts", true, await where(st));
 if (D) await hud.screenshot({ path: `${D}/4-hud-retest-captured.png` });
 log(`HUD result card: ${(await hud.locator("#rcBody").innerText()).replace(/\n/g, " / ")}`);
 await hud.locator("#bSubmit").click();
@@ -122,7 +141,7 @@ const rr = results1[0];
 check("retest result: requested protocol, shared simulated values, grip present", rr.payload.observation.protocol.id === "std-grip-40" && rr.payload.observation.features.gripForceN === 156, JSON.stringify(rr.payload.observation.features));
 const repost = await fetch(`${RELAY}/v1/sessions/demo/events`, { method: "POST", headers: { "content-type": "application/json", "x-myomars-role": "hud", "x-myomars-client": "hud-a02" }, body: JSON.stringify(Object.fromEntries(Object.entries(rr).filter(([k]) => !["seq", "receivedAt", "sender"].includes(k)))) }).then((r) => r.json());
 check("re-posting the same result is a relay duplicate (not delivered again)", repost.duplicate === true);
-await st.waitForFunction(() => /复测/.test(document.querySelector('[data-testid="panel-eval-status"]')?.textContent ?? "") && !/分析中/.test(document.querySelector('[data-testid="panel-eval-status"]')?.textContent ?? ""), null, { timeout: 30000 });
+await waitPhase(st, "reassessed", 30000);
 list = await evs();
 check("station re-evaluated (v2) and sent one receipt for the result", list.filter((e) => e.type === "station.receipt" && e.payload.receivedEventId === rr.eventId).length === 1, await st.getByTestId("panel-eval-status").textContent());
 
@@ -130,7 +149,7 @@ check("station re-evaluated (v2) and sent one receipt for the result", list.filt
 const stationBefore = byRole(list, "station").length;
 await st.reload({ waitUntil: "domcontentloaded" });
 await st.waitForSelector('[data-testid="station-lease"][data-lease="holder"]', { timeout: 15000 });
-await st.locator('[data-crew-card="a-02"]').click();
+await openOverlay(st);
 await st.waitForSelector('[data-testid="panel-eval-status"]', { timeout: 15000 });
 await st.waitForTimeout(1500);
 list = await evs();
@@ -143,7 +162,6 @@ check("second station window is a read-only mirror", true, await st2.getByTestId
 
 // ---------- step 2: human close → HUD final status ----------
 if (D) await st.screenshot({ path: `${D}/5-station-v2.png` });
-if (!(await st.getByTestId("decide-close").isVisible().catch(() => false))) await st.getByTestId("canvas-node-review").click().catch(() => {});
 await st.getByTestId("decide-close").click();
 await st.getByTestId("reason-template").first().click();
 const reason2 = await st.getByTestId("confirm-reason").inputValue();
@@ -191,22 +209,22 @@ log(`station A-02 card in the new run: ${(await st.locator('[data-crew-card="a-0
 // ---------- acceptance 1: missing grip reading stays missing, result incomplete, case not closed ----------
 await openDrawer(st);
 await st.getByTestId("relay-dev-fixture").selectOption("grip-missing");
-log(`checklist (grip-missing): ${(await st.getByTestId("relay-dev-check").innerText()).split("\n").filter((l) => /缺失|假设/.test(l)).join(" / ")}`);
+log(`checklist (grip-missing): ${(await st.getByTestId("relay-dev-check").innerText()).split("\n").filter((l) => /Missing|Assumed/.test(l)).join(" / ")}`);
 await st.getByTestId("relay-dev-inject-open").click();
-await st.waitForFunction(() => /结果不完整/.test(document.querySelector('[data-testid="panel-eval-status"]')?.textContent ?? ""), null, { timeout: 40000 });
+await st.waitForFunction(() => /Incomplete Results/.test(document.querySelector('[data-testid="decision-conclusion"]')?.textContent ?? ""), null, { timeout: 40000 });
 list = await evs();
 const gm = list.filter((e) => e.type === "observation.submitted" && e.runId === run2).at(-1);
 const gripCase = gm.caseId;
-check("missing grip: published as null, station reports an incomplete result", gm.payload.features.gripForceN === null, await st.getByTestId("panel-eval-status").textContent());
-const why = await st.getByTestId("panel-fact-why").textContent();
-check("missing grip: the station names the missing reading, not invented, not zero", /缺少握力/.test(why) && /未补造、未填零/.test(why) && !/握力[^。]*\b0 N/.test(why), why);
-await st.waitForFunction(() => document.querySelector('[data-testid="flow-canvas"]')?.dataset.phase === "end", null, { timeout: 40000 });
+check("missing grip: published as null, station reports an incomplete result", gm.payload.features.gripForceN === null, await st.getByTestId("decision-conclusion").textContent());
+await waitPhase(st, "review");
+const why = `${await st.getByTestId("decision-conclusion").textContent()} ${await st.getByTestId("decision-evidence").innerText()}`;
+check("missing grip: the station names the missing reading, not invented, not zero", /missing grip force/.test(why) && /not invented or set to zero/.test(why) && !/grip force[^.]*\b0 N/i.test(why), why.replace(/\n/g, " ").slice(0, 160));
 if (D) await st.screenshot({ path: `${D}/7-station-incomplete.png` });
 await st.waitForTimeout(15000);
 const gripStatus = await st.getByTestId("panel-case-status").textContent();
 list = await evs();
 const gripSent = list.filter((e) => e.caseId === gripCase && e.sender.role === "station" && !e.type.startsWith("station.audit"));
-check("missing grip: 15 s later the case is still open and nothing went to the HUD", /未关闭/.test(gripStatus) && gripSent.length === 0 && /no base messages yet/.test(await hudStatus()), gripStatus);
+check("missing grip: 15 s later the case is still open and nothing went to the HUD", /open/.test(gripStatus) && !/Case Closed/.test(gripStatus) && gripSent.length === 0 && /no base messages yet/.test(await hudStatus()), gripStatus);
 
 // ---------- acceptance 2 + 3: keep watching, then close; refresh both ends mid-task and after close ----------
 await hud.goto(`${RELAY}/hud.html?mode=integration&retestSample=retest-changed`, { waitUntil: "load" });
@@ -218,21 +236,20 @@ await st.getByTestId("relay-dev-inject-open").click();
 await st.waitForTimeout(800);
 const case3 = (await evs()).filter((e) => e.type === "observation.submitted").at(-1).caseId;
 await st.getByTestId(`panel-case-${case3}`).click();   // the open grip-missing case is shown first; pick the new one
-await st.waitForFunction(() => /超出个体基线/.test(document.querySelector('[data-testid="panel-eval-status"]')?.textContent ?? ""), null, { timeout: 40000 });
-await st.waitForFunction(() => document.querySelector('[data-testid="flow-canvas"]')?.dataset.phase === "end", null, { timeout: 40000 });
-await st.getByTestId("canvas-node-review").click();
+await st.waitForFunction(() => /beyond the individual baseline/.test(document.querySelector('[data-testid="decision-conclusion"]')?.textContent ?? ""), null, { timeout: 40000 });
+await waitPhase(st, "review");
 await st.getByTestId("decide-approve").click();
 await st.getByTestId("reason-template").first().click();
 await st.getByTestId("confirm-submit").click();
 await hud.waitForFunction(() => window.__hud.client.activeCase().retest, null, { timeout: 15000 });
-await st.waitForFunction(() => /宇航员确认/.test(document.querySelector('[data-testid="panel-fact-where"]')?.textContent ?? ""), null, { timeout: 15000 });
+await waitWhere(st, /Acknowledged by Crew/);
 
 const reloadStation = async () => {
   await st.reload({ waitUntil: "domcontentloaded" });
   await st.waitForSelector('[data-testid="station-lease"][data-lease="holder"]', { timeout: 20000 });
-  await st.locator('[data-crew-card="a-02"]').click();
+  await openOverlay(st);
   await st.getByTestId(`panel-case-${case3}`).click().catch(() => {});
-  await st.waitForFunction((c) => document.querySelector('[data-testid="person-panel"]')?.dataset.case === c, case3, { timeout: 10000 });
+  await st.waitForFunction((c) => document.querySelector('[data-testid="health-overlay"]')?.dataset.case === c, case3, { timeout: 10000 });
   await st.waitForSelector('[data-testid="panel-eval-status"]', { timeout: 15000 });
 };
 const reloadHud = async () => {
@@ -241,13 +258,13 @@ const reloadHud = async () => {
   await hud.waitForFunction(() => window.__hud?.client.state.conn === "online", null, { timeout: 15000 });
 };
 const seqBefore = (await history()).lastSeq;
-const whereBefore = await st.getByTestId("panel-fact-where").textContent();
+const whereBefore = await where(st);
 await reloadStation();
 await reloadHud();
 await hud.waitForTimeout(2000);
 const rtAfter = await hud.evaluate(() => window.__hud.client.activeCase().retest?.status);
 check("refresh both ends with a pending task: task and state restored, nothing re-sent or re-processed",
-  (await history()).lastSeq === seqBefore && rtAfter === "requested" && (await st.getByTestId("panel-fact-where").textContent()) === whereBefore && /最新评估 v1/.test(await st.getByTestId("panel-eval-status").textContent()),
+  (await history()).lastSeq === seqBefore && rtAfter === "requested" && (await where(st)) === whereBefore && /v1/.test(await st.getByTestId("panel-eval-status").textContent()),
   `lastSeq ${seqBefore} → ${(await history()).lastSeq} · HUD task ${rtAfter} · station "${whereBefore}"`);
 
 await hud.locator("#bAck").click();
@@ -255,10 +272,9 @@ await hud.locator("#bView").click();
 await hud.locator("#bGo").click();
 await hud.waitForSelector("#bSubmit", { timeout: 15000 });
 await hud.locator("#bSubmit").click();
-await st.waitForFunction(() => /v2/.test(document.querySelector('[data-testid="panel-eval-status"]')?.textContent ?? "") && !/分析中/.test(document.querySelector('[data-testid="panel-eval-status"]')?.textContent ?? ""), null, { timeout: 40000 });
+await waitPhase(st, "reassessed");
 log(`station v2: ${await st.getByTestId("panel-eval-status").textContent()}`);
 const decide = async (d) => {
-  if (!(await st.getByTestId(`decide-${d}`).isVisible().catch(() => false))) await st.getByTestId("canvas-node-review").click().catch(() => {});
   await st.getByTestId(`decide-${d}`).click();
   await st.getByTestId("reason-template").first().click();
   await st.getByTestId("confirm-submit").click();
@@ -266,18 +282,18 @@ const decide = async (d) => {
   const e = await st.getByTestId("confirm-error").innerText().catch(() => null);
   if (e) throw new Error(`decision ${d} refused: ${e}`);
   // every one of these decisions publishes a station message; make sure the relay got it
-  const c = await st.getByTestId("person-panel").getAttribute("data-case");
+  const c = await shownCase(st);
   for (let i = 0; i < 50; i++) {
     if ((await evs()).some((x) => x.sender.role === "station" && x.caseId === c && x.type === "station.audit.review" && x.payload.decision === d && x.seq > seqMark)) { seqMark = (await history()).lastSeq; return; }
     await st.waitForTimeout(200);
   }
-  const diag = `lease ${await st.getByTestId("station-lease").getAttribute("data-lease")} · link ${await st.getByTestId("station-link").getAttribute("data-conn")} · ${(await st.getByTestId("panel-current").innerText().catch(() => "-")).replace(/\n/g, " / ")}`;
+  const diag = `lease ${await st.getByTestId("station-lease").getAttribute("data-lease")} · link ${await st.getByTestId("station-link").getAttribute("data-conn")} · ${(await st.getByTestId("decision-panel").innerText().catch(() => "-")).replace(/\n/g, " / ")}`;
   throw new Error(`decision ${d} on ${c} did not reach the relay · ${diag}`);
 };
 let seqMark = 0;
 const selectCase = async (caseId) => {
   await st.getByTestId(`panel-case-${caseId}`).click();
-  await st.waitForFunction((c) => document.querySelector('[data-testid="person-panel"]')?.dataset.case === c, caseId, { timeout: 10000 });
+  await st.waitForFunction((c) => document.querySelector('[data-testid="health-overlay"]')?.dataset.case === c, caseId, { timeout: 10000 });
   await st.waitForTimeout(500);
 };
 await decide("keep-open");
@@ -294,7 +310,7 @@ list = await evs();
 const statuses = list.filter((e) => e.caseId === case3 && e.type === "station.reassessment").map((e) => e.payload.caseStatus);
 const stCase = await st.getByTestId("panel-case-status").textContent();
 check("keep watching then close: one status notice each, HUD and station both closed",
-  JSON.stringify(statuses) === JSON.stringify(["monitoring", "closed"]) && /Case closed by base/.test(await hudStatus()) && /CASE CLOSED/.test(await hudStatus()) && /已关闭/.test(stCase),
+  JSON.stringify(statuses) === JSON.stringify(["monitoring", "closed"]) && /Case closed by base/.test(await hudStatus()) && /CASE CLOSED/.test(await hudStatus()) && /Case Closed/.test(stCase),
   `notices ${JSON.stringify(statuses)} · HUD "${(await hudStatus()).slice(0, 40)}…" · station "${stCase}"`);
 const alertCard = await hud.locator("#alert").innerText();
 const rcClosed = await hud.locator("#rcard").innerText();
@@ -306,7 +322,7 @@ await reloadStation();
 await reloadHud();
 await hud.waitForTimeout(2000);
 check("refresh both ends after close: same final state, nothing re-sent",
-  (await history()).lastSeq === seqClosed && /Case closed by base/.test(await hudStatus()) && /已关闭/.test(await st.getByTestId("panel-case-status").textContent()),
+  (await history()).lastSeq === seqClosed && /Case closed by base/.test(await hudStatus()) && /Case Closed/.test(await st.getByTestId("panel-case-status").textContent()),
   `lastSeq ${seqClosed} → ${(await history()).lastSeq}`);
 
 // ---------- a retest task without a notice, closed before any result ----------
@@ -327,6 +343,11 @@ const hudRejected = await hud.evaluate(() => window.__hud.client.state.rejected.
 check("no HUD message refused by the relay, no invalid deliveries", hudRejected === 0);
 const dupStatus = list.filter((e) => e.type === "station.reassessment").map((e) => `${e.caseId}|${e.payload.evaluationVersion}|${e.payload.caseStatus}`);
 check("no status notice published twice", new Set(dupStatus).size === dupStatus.length, `${dupStatus.length} status notices`);
+const cjk = (t) => (t.match(/[\u4e00-\u9fff]/g) ?? []).length;
+const stationMsgs = byRole(list, "station");
+check("English only: station page, HUD page and every station message carry no Chinese text",
+  cjk(await st.evaluate(() => document.body.innerText)) === 0 && cjk(await hud.evaluate(() => document.body.innerText)) === 0 && stationMsgs.every((e) => cjk(JSON.stringify(e.payload)) === 0),
+  `${stationMsgs.length} station messages checked`);
 check("no page errors", errs.length === 0, errs.join(" | "));
 console.log(`\n${results.filter((r) => r.ok).length}/${results.length} passed · relay events ${list.length}`);
 await b.close();

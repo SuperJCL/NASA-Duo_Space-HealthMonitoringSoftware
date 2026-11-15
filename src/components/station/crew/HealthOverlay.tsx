@@ -619,7 +619,7 @@ function DecisionPanel({ c, flow, card, state, mock, now, reviewing, setReviewin
   }
 
   return (
-    <aside aria-labelledby="decision-title" className="order-1 flex min-h-0 flex-col border-b border-[var(--mg-line)] bg-[var(--mg-bg)] lg:order-2 lg:border-b-0 lg:border-l" data-testid="decision-panel" data-phase={phase}>
+    <aside aria-labelledby="decision-title" className="order-1 flex min-h-0 flex-col border-b border-[var(--mg-line)] bg-[var(--mg-bg)] lg:order-2 lg:border-b-0 lg:border-l" data-testid="decision-panel" data-phase={phase} data-where={flow?.where ?? ""} data-who={flow?.who ?? ""}>
       <div className="border-b border-[var(--mg-line)] px-3 py-2.5">
         <div className="flex items-baseline gap-2">
           <h3 id="decision-title" ref={titleRef} tabIndex={-1} className="text-[14px] font-semibold outline-none">

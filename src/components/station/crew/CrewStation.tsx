@@ -317,7 +317,8 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
       ) : null}
       {mission ? <MissionBar def={def} state={state} phase={phase} view={view} onView={(v) => (v === "map" ? collapse() : chooseView(v))} cards={cards} onJump={jump} onEndEva={() => (setDialogError(null), setDialog("end"))} canAct={canAct} toggleRef={toggleRef} /> : null}
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      {/* Room for the compact demo bar (standalone demo) so it never covers the decision area. */}
+      <div className={`relative flex min-h-0 flex-1 flex-col ${!relay && drawer === "bar" ? "pb-12" : ""}`}>
         {mission ? (
           // The map is always the mission background. While the overlay is open it is inert (no click-through).
           <div inert={overlayOpen} className="flex min-h-0 flex-1 flex-col" data-testid="map-view">
