@@ -50,3 +50,14 @@ AI assistance
 -------------
 The code and documentation of this feature were written with an AI coding assistant (Claude
 Code, Anthropic) under the project owner's direction.
+
+Geist and Geist Mono fonts
+--------------------------
+design/fonts/geist-latin.woff2 and design/fonts/geist-mono-latin.woff2 (copied by
+`npm run design:sync` to myomars-hud/assets/fonts/ and astra-patch/showcase/assets/fonts/) are
+the Geist and Geist Mono variable fonts (weights 100–900, Latin subset, version 1.401),
+Copyright The Geist Project Authors (https://github.com/vercel/geist-font), taken unchanged from
+the copy shipped in next@16.4.5 (next/dist/next-devtools/server/font/). They are licensed under
+the SIL Open Font License, Version 1.1; the licence text, copied from the upstream repository's
+OFL.txt on 2026-11-15, is in LICENSES/OFL-1.1-Geist.txt. The Mars Base loads the same family
+through next/font.

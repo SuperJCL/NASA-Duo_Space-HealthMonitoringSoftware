@@ -1,0 +1,129 @@
+/*
+ * MyoMars shared component classes for the plain-HTML pages (HUD, patch showcase). The Mars Base
+ * builds the same components from Tailwind utilities on the same tokens (design/DESIGN.md §4).
+ * Requires tokens.css. Copied next to each page by `npm run design:sync`.
+ */
+
+/* ---- panel ---- */
+.mm-panel {
+  background: var(--mm-glass);
+  border: 1px solid var(--mm-line);
+  border-radius: var(--mm-radius-lg);
+  box-shadow: var(--mm-shadow);
+  -webkit-backdrop-filter: blur(var(--mm-blur));
+  backdrop-filter: blur(var(--mm-blur));
+  color: var(--mm-text);
+}
+.mm-label {
+  font-size: var(--mm-text-xs);
+  font-weight: var(--mm-weight-strong);
+  letter-spacing: var(--mm-tracking-label);
+  text-transform: uppercase;
+  color: var(--mm-dim);
+}
+.mm-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- buttons: primary (orange fill) · secondary (outline) · quiet (text) ---- */
+.mm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mm-space-2);
+  min-height: var(--mm-hit-min);
+  padding: 0 var(--mm-space-4);
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius);
+  background: var(--mm-surface);
+  color: var(--mm-text);
+  font: inherit;
+  font-size: var(--mm-text-sm);
+  font-weight: var(--mm-weight-strong);
+  cursor: pointer;
+  transition: background-color var(--mm-dur-fast) var(--mm-ease), border-color var(--mm-dur-fast) var(--mm-ease);
+}
+.mm-btn:hover {
+  border-color: var(--mm-dim);
+}
+.mm-btn--primary {
+  background: var(--mm-action);
+  border-color: var(--mm-action);
+  color: var(--mm-action-ink);
+}
+.mm-btn--primary:hover {
+  background: #ff9d76;
+  border-color: #ff9d76;
+}
+.mm-btn--quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--mm-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mm-btn[aria-pressed="true"],
+.mm-btn[aria-selected="true"] {
+  background: var(--mm-data-soft);
+  border-color: var(--mm-data);
+}
+.mm-btn:disabled,
+.mm-btn[aria-disabled="true"] {
+  opacity: var(--mm-disabled-opacity);
+  cursor: not-allowed;
+}
+
+/* ---- focus: one visible ring everywhere (keyboard only) ---- */
+.mm-focus:focus-visible,
+.mm-btn:focus-visible,
+.mm-chip:focus-visible,
+.mm-input:focus-visible {
+  outline: none;
+  box-shadow: var(--mm-focus-ring);
+}
+
+/* ---- chips & status pills: word + icon + colour, never colour alone ---- */
+.mm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius-pill);
+  font-size: var(--mm-text-xs);
+  font-weight: var(--mm-weight-medium);
+  color: var(--mm-dim);
+  background: transparent;
+  white-space: nowrap;
+}
+.mm-chip--data { border-color: var(--mm-data); color: var(--mm-data); }
+.mm-chip--action { border-color: var(--mm-action); color: var(--mm-action); background: var(--mm-action-soft); }
+.mm-chip--alert { border-color: var(--mm-alert); color: var(--mm-alert); background: var(--mm-alert-soft); }
+.mm-chip--ok { border-color: var(--mm-ok); color: var(--mm-ok); }
+.mm-chip--caution { border-color: var(--mm-caution); color: var(--mm-caution); }
+.mm-chip--sim { border-color: var(--mm-sim); color: var(--mm-sim); border-style: dashed; }
+
+/* ---- form ---- */
+.mm-input {
+  min-height: var(--mm-hit-min);
+  padding: 0 var(--mm-space-3);
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-bg);
+  color: var(--mm-text);
+  font: inherit;
+}
+
+/* ---- dialog ---- */
+.mm-dialog {
+  background: var(--mm-glass-strong);
+  border: 1px solid var(--mm-line-strong);
+  border-radius: var(--mm-radius-lg);
+  box-shadow: var(--mm-shadow);
+  color: var(--mm-text);
+  padding: var(--mm-space-5);
+}
+.mm-scrim {
+  background: var(--mm-scrim);
+}
