@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { intakeCheck, observationEnvelope, REPLAY_SAMPLES, sampleById, startEnvelope, type CheckStatus } from "@/lib/replay/replay";
+import { intakeCheck, observationEnvelope, REPLAY_SAMPLES, sampleById, type CheckStatus } from "@/lib/replay/replay";
 import type { RelayStationAdapter } from "@/lib/station/relay-adapter";
 import type { StationState } from "@/lib/station/station";
 
@@ -32,12 +32,6 @@ export function RelayDevDrawer({ relay, state, onClose, onOpenPerson }: { relay:
     setBusy(false);
   };
   // The note says WHICH action happened and what comes next (a run start and a replay are different steps).
-  const start = () =>
-    go(async () => {
-      const env = startEnvelope(state.sessionId, Date.now());
-      const r = await relay.publishAsReplay(env);
-      return { note: r.ok ? `已开始新运行 ${env.runId}（seq ${r.seq}）。A-02 的旧事件已清空；HUD 会自动切换到这个运行。下一步：选择样例并回放。` : r.note };
-    });
   const inject = (open: boolean) =>
     go(async () => {
       if (!runInfo || !check.publishable) return { note: "不能回放：见核查项" };
@@ -58,7 +52,7 @@ export function RelayDevDrawer({ relay, state, onClose, onOpenPerson }: { relay:
         </button>
       </div>
       <ol className="list-decimal space-y-0.5 rounded-lg border border-[var(--mg-line)] py-2 pl-6 pr-2 text-[11px] text-[var(--mg-dim)]" data-testid="relay-dev-steps">
-        <li>{"开始运行；HUD 页面点 Enter HUD 加入（此时 HUD 只显示已连接，没有消息是正常的）。"}</li>
+        <li>{"在“任务地图”中选择任务和宇航员，确认开始 EVA；HUD 页面点 Enter HUD 加入（此时 HUD 只显示已连接，没有消息是正常的）。"}</li>
         <li>{"选择样例并回放：基站分析约 10 秒，停在“等待基地审核”。"}</li>
         <li>{"打开 A-02 面板，点“等待基地审核”→ 批准并填写理由。只有批准后 HUD 才会收到提示和复测任务。"}</li>
         <li>{"HUD：Acknowledge → View task → Start retest → 采集结束后 Submit。"}</li>
@@ -67,11 +61,9 @@ export function RelayDevDrawer({ relay, state, onClose, onOpenPerson }: { relay:
       {run ? (
         <p className="text-[var(--mg-text)]" data-testid="relay-dev-run">{`当前运行：${run.astronaut.callsign} · ${run.task.title}（运行 ${run.runId}）`}</p>
       ) : (
-        <p className="text-[var(--mg-caution)]" data-testid="relay-dev-norun">{"没有进行中的运行。先开始一个运行（HUD 以集成模式加入）。"}</p>
+        <p className="text-[var(--mg-caution)]" data-testid="relay-dev-norun">{"没有进行中的 EVA。回放只发送观测，不开始运行：请在“任务地图”中确认开始 EVA。"}</p>
       )}
-      <button type="button" disabled={busy} onClick={() => void start()} className={`${btn} self-start border-[var(--mg-line-strong)]`} data-testid="relay-dev-start">
-        {run ? "开始新运行（结束当前运行）" : "开始运行（A-02）"}
-      </button>
+      {run?.evaEndedAt ? <p className="text-[11px] text-[var(--mg-caution)]">{"本次 EVA 已结束：仍可回放，例如结束后的测量（数据照常进入基站分析）。"}</p> : null}
       <label className="flex items-center gap-2">
         {"样例"}
         <select value={sampleId} onChange={(e) => setSampleId(e.target.value)} className="flex-1 rounded-md border border-[var(--mg-line)] bg-[var(--mg-bg)] px-2 py-1" data-testid="relay-dev-fixture">

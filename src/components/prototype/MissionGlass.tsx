@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useReducer, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useReducer, useState, useSyncExternalStore } from "react";
 import type { BriefingView } from "@/lib/briefing/view";
 import { DEFAULT_WEIGHTS } from "@/lib/decision/criteria";
 import { defaultConstraints } from "@/lib/decision/engine";
@@ -55,6 +55,12 @@ type Props = {
   compare: CompareView | null;
   /** EVA route & scouting: the simulated scenario (src/data/prototype/eva-scouting.json), resolved server-side. */
   routeScenario: ResolvedScouting;
+  /**
+   * Embedded as the MyoMars station's "任务地图" view: no global brand or research link, the selected
+   * task is reported to the station (it never starts anything), and the EVA's task is pre-selected
+   * when the map is first opened during an EVA. Without it, the page behaves as before.
+   */
+  embedded?: { onSelectTask?: (taskId: string | null) => void; activeTaskId?: string | null };
 };
 
 const LABEL_KINDS = ["sample-site"] as const;
@@ -74,10 +80,14 @@ const subscribeWide = (cb: () => void) => {
  * state (src/lib/prototype/mission-glass.ts). Ranks and feasibility come from
  * the existing engine; this component only renders and dispatches.
  */
-export function MissionGlass({ scenario, registry, sources, s, targets, features, asOf, briefing, compare, routeScenario }: Props) {
+export function MissionGlass({ scenario, registry, sources, s, targets, features, asOf, briefing, compare, routeScenario, embedded }: Props) {
   const { snapshot } = useMemo(() => selectEvidenceAsOf(scenario, asOf), [scenario, asOf]);
   const defaultBudget = snapshot.resources[0]?.budget ?? 100;
-  const [state, dispatch] = useReducer(missionReducer, defaultBudget, initialMissionState);
+  const activeTaskId = embedded?.activeTaskId ?? null;
+  const [state, dispatch] = useReducer(missionReducer, defaultBudget, (b) => ({ ...initialMissionState(b), selectedTaskId: activeTaskId }));
+  // Embedded: report the selection (display context for the station; selecting never starts an EVA).
+  const onSelectTask = embedded?.onSelectTask;
+  useEffect(() => onSelectTask?.(state.selectedTaskId), [onSelectTask, state.selectedTaskId]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [evidenceFor, setEvidenceFor] = useState<string | null>(null);
   const [verifiedPick, setVerifiedPick] = useState<string | null>(null);
@@ -86,7 +96,10 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const [compareOpen, setCompareOpen] = useState(false);
   const [comparePair, setComparePair] = useState<string[]>([]);
   // MAP-1: a focus request moves the map to a target; the summary closes independently.
-  const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
+  const [focus, setFocus] = useState<{ id: string; n: number } | null>(() => {
+    const id = activeTaskId ? targets.find((t) => t.taskId === activeTaskId)?.id : undefined;
+    return id ? { id, n: 1 } : null;
+  });
   const [summaryFor, setSummaryFor] = useState<string | null>(null);
   // MAP-3A: 2D map or local 3D terrain (planning only). The 2D map stays mounted, so its view is kept.
   const [mapView, setMapView] = useState<"2d" | "3d">("2d");
@@ -304,12 +317,14 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
   const evidenceTask = evidenceFor ? snapshot.tasks.find((t) => t.id === evidenceFor) : undefined;
 
   return (
-    <div className="mission-glass flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden" data-testid="mission-glass">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--mg-line)] px-5 py-3">
-        <div className="flex items-baseline gap-3">
-          <span className="text-lg font-semibold tracking-tight">{"MDI 2.0"}</span>
-          <span className="text-sm text-[var(--mg-dim)]">{"Mission Glass · interaction prototype"}</span>
-        </div>
+    <div className={embedded ? "mission-glass flex h-full min-h-0 flex-col lg:overflow-hidden" : "mission-glass flex min-h-dvh flex-col lg:h-dvh lg:overflow-hidden"} data-testid="mission-glass" data-embedded={embedded ? "1" : undefined}>
+      <header className={`flex flex-wrap items-center justify-between gap-3 border-b border-[var(--mg-line)] ${embedded ? "px-4 py-2" : "px-5 py-3"}`}>
+        {embedded ? null : (
+          <div className="flex items-baseline gap-3">
+            <span className="text-lg font-semibold tracking-tight">{"MDI 2.0"}</span>
+            <span className="text-sm text-[var(--mg-dim)]">{"Mission Glass · interaction prototype"}</span>
+          </div>
+        )}
         <div role="tablist" aria-label="Mode" className="flex rounded-xl border border-[var(--mg-line)] p-1 text-sm">
           {(["planning", "route", "eva"] as const).map((m) => {
             const selected = m === "route" ? screen === "route" : screen === "mission" && state.mode === m;
@@ -331,7 +346,7 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
                 data-testid={`mg-mode-${m}`}
                 className={`rounded-lg px-4 py-1.5 transition-colors duration-150 ${selected ? "bg-[var(--mg-surface)] text-[var(--mg-text)]" : "text-[var(--mg-dim)] hover:text-[var(--mg-text)]"}`}
               >
-                {m === "planning" ? "Mission planning" : m === "route" ? "EVA route" : "EVA HUD"}
+                {m === "planning" ? "Mission planning" : m === "route" ? "EVA route" : embedded ? "EVA steps" : "EVA HUD"}
               </button>
             );
           })}
@@ -350,9 +365,11 @@ export function MissionGlass({ scenario, registry, sources, s, targets, features
           >
             {evidenceFor !== null ? "Hide evidence" : "Evidence"}
           </button>
-          <Link href="/research" className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm text-[var(--mg-dim)] hover:border-[var(--mg-line-strong)] hover:text-[var(--mg-text)]" data-testid="mg-link-research">
-            {"Research"}
-          </Link>
+          {embedded ? null : (
+            <Link href="/research" className="rounded-xl border border-[var(--mg-line)] px-3 py-1.5 text-sm text-[var(--mg-dim)] hover:border-[var(--mg-line-strong)] hover:text-[var(--mg-text)]" data-testid="mg-link-research">
+              {"Research"}
+            </Link>
+          )}
         </div>
       </header>
 

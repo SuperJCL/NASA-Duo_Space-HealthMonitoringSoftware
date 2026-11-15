@@ -2,7 +2,8 @@
 // as the data producer (contract role "trigger"). Never analyses, approves or answers for the HUD.
 //
 //   npm run replay -- list                       samples and their intake checklist
-//   npm run replay -- start                      start a new run (ends the current one)
+//   npm run replay -- start --dev-run            DEVELOPMENT ONLY: a run without a mission (EVAs are
+//                                                started by base staff on the station: 任务地图 → 开始EVA)
 //   npm run replay -- send <sampleId>            publish one sample into the current run
 //   npm run replay -- check <file.json>          intake check of an external observation file (no publishing)
 // Options: --relay http://localhost:8787  --session demo   (a sample with a "blocked" item is never published)
@@ -56,6 +57,7 @@ async function main() {
     return;
   }
   if (cmd === "start") {
+    if (!args.includes("--dev-run")) throw new Error("EVA runs are started by base staff on the station (任务地图 → 开始EVA). For a development run without a mission, add --dev-run.");
     const env = startEnvelope(session, Date.now());
     const r = await publish(env);
     console.log(`started ${env.runId} (seq ${r.seq}) · astronaut A-02 · the HUD (?mode=integration) and the station join it`);

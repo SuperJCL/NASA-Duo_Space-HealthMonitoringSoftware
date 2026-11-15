@@ -565,7 +565,8 @@ export function step(state: StationState, action: Action): StepResult {
         if (s.pendingStart?.eventId === env.eventId) s.pendingStart = null;
         const ownStart = s.outbox.find((m) => m.eventId === env.eventId);
         if (ownStart && typeof meta.seq === "number") ownStart.relaySeq = meta.seq;
-        s.crew = { [p.astronaut.id]: { astronautId: p.astronaut.id, callsign: p.astronaut.callsign, task: { id: p.task.id, title: p.task.title }, evaStartedAt: null, deviceId: null, connection: "unknown", connectionAt: null } };
+        // EVA duration on the card: from the base staff's confirmed start (display only; unknown for other runs).
+        s.crew = { [p.astronaut.id]: { astronautId: p.astronaut.id, callsign: p.astronaut.callsign, task: { id: p.task.id, title: p.task.title }, evaStartedAt: startedBy === "station" ? at : null, deviceId: null, connection: "unknown", connectionAt: null } };
         s.cases = {};
         s.caseOrder = [];
         log(at, "in", startedBy === "station" ? `EVA 开始（模拟，基地人员确认）：${p.astronaut.callsign} · ${p.task.title}` : `场景开始：${p.astronaut.callsign} · ${p.task.title}`, null, env.eventId);

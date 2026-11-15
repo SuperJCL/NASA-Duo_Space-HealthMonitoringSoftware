@@ -852,7 +852,7 @@ function statusLineInt(st,alert,rt,res,loc){
   const mon=client.monitorState(),open=alert&&alert.status!=='closed',sync=' · last sync '+fmtT(mon.lastAckAt||st.lastSync),run=client.activeCase().run;
   if(st.conn==='offline'||st.conn==='reconnecting')return ['Not connected to base'+(st.outbox.length?' · '+st.outbox.length+' queued':'')+' · will resend when reconnected','warn'];
   if(st.conn==='connecting'&&!alert)return ['Connecting to base…','run'];
-  if(!run)return ['Connected · waiting for the base to start a run (station dev entry or npm run replay -- start)','run'];
+  if(!run)return ['Connected · waiting for the base to start the EVA (base staff confirm it on the station)','run'];
   if(alert&&!open)return ['Case closed by base · '+(alert.disposition||'')+sync,'ok'];
   if(rt){                                   // a retest task may come without a notice (e.g. after an incomplete result)
     const what=rt.protocol.label;
