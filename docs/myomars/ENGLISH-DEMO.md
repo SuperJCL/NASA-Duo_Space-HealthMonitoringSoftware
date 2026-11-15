@@ -3,10 +3,12 @@
 This is the English, single-language version of the Mars Base used for the international project
 video. Branch `feat/myomars-english-overlay`, draft PR
 [SuperJCL/NASA-11-Mars-Discovery-Intelligence#5](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/5).
-It is not merged until the owner approves the English video material and the interaction.
+The owner accepted the English UI and interaction; the PR is merged into `main`.
 
 All health data shown is **simulated**: shared contract demo fixtures, published by the data-replay
-module. It is not the health-data teammate's data. LAN multi-device use is not verified.
+module. The ASTRA patch demo is a separate, independent program and is not part of this loop
+([DEMOS.md](DEMOS.md)). LAN multi-device use is not verified. Windows run guide:
+[WINDOWS-ACCEPTANCE.md](WINDOWS-ACCEPTANCE.md).
 
 ## What changed
 

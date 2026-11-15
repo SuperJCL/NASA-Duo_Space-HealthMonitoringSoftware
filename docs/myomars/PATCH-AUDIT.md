@@ -1,78 +1,66 @@
-# ASTRA patch demo: integration audit (read-only)
+# ASTRA patch demo: an independent explanatory demo
 
-**Date:** 2026-11-15. **Audited source:** `feat/astra-standalone-demo` at `18f8cd6`.
+**Position (decided by the project owner, 2026-11-15):** `astra-patch/` is a **separate, independent
+program**. It explains what the sEMG/IMU patch is and how it works. Its independence is the current
+design, not a gap waiting to be filled.
 
-**Status (updated 2026-11-15T07:32Z):** the standalone patch demo is **merged into `main`**.
-- PR [#4](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/4) was retargeted from
-  `feat/myomars-patch-trigger` to `main` and merged as `d518aca`.
-- The merged tree is `astra-patch/` (33 files) plus a 4-line `DEVELOPMENT_LOG.md` entry. No app,
-  relay, station, HUD, contract, script, dependency or config files changed.
-- PR [#3](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/3) (the earlier
-  integration approach) is closed as superseded by #4, without merging. Its branch
-  `feat/myomars-patch-trigger` is kept.
-- `main` was then merged into PR #5 (`feat/myomars-english-overlay`).
+- It has no communication link with the Mars Base, the HUD or the relay.
+- It starts on its own (Python), and nothing in the Base, HUD or relay depends on it at run time.
+- No data adapter from the patch to the relay, Base or HUD is developed.
+- No new protocol, analysis baseline or field mapping is added for the patch.
+- The Base ↔ HUD demo keeps using its own simulated data replay. That covers analysis, human
+  review, retest and case closure. See [DEMOS.md](DEMOS.md).
 
-**Conclusion:** the patch demo is integrated as an independent tool; the data link is not connected
-yet. Nothing in it reaches the relay, the Mars Base analysis or the HUD.
-- Connecting it is follow-up work and needs the decisions at the end of this document.
-- No station or HUD page claims a patch connection. In integration mode the HUD's data-link panel
-  reads "simulated sample → HUD → Base (patch not connected)".
+**History:**
+- PR [#4](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/4) (`feat/astra-standalone-demo`)
+  was merged into `main` as `d518aca` on 2026-11-15. It added only `astra-patch/` (33 files) and a
+  4-line log entry.
+- PR [#3](https://github.com/SuperJCL/NASA-11-Mars-Discovery-Intelligence/pull/3) (an earlier
+  integration approach) is closed as superseded. Its branch `feat/myomars-patch-trigger` is kept.
 
-## What it is
+## How it runs
 
 | Item | Finding |
 |---|---|
-| Location | `astra-patch/` only: a Python 3.12+ package. It imports nothing from the Next.js app, relay or HUD. |
-| Entry, without a service | `python -m astra_patch replay --scenario normal \| fatigue_suspected \| sensor_fault`. It prints four observations as JSON, then deletes its temporary database. |
-| Entry, local API | `uvicorn astra_patch.service:app --host 127.0.0.1 --port 8142`, with a bearer token in `MYOMARS_ACQUISITION_TOKEN`. Swagger is at `/docs`. Endpoints cover sessions and state transitions, capture, recordings, processing, queueing, a trigger console and trigger streams. |
-| Checks | `python -m astra_patch check <message.json>` validates an envelope against the parent `contracts/schema/` when present. Missing schemas fail with exit code 2. |
-| Tests | On the `main` + #4 merge result: `pytest -q tests` gave **84 passed** (Python 3.12.3). `replay` exits 0 for all three scenarios, with 4 observations each. The local API answered `/docs` with 200 and showed 20 endpoints under `/api/myomars/v1`; it returned 401 without a token, and a console was created with a token. |
-| Transport | External transmission is **disabled**: no network client, no relay publisher, no enabling switch. The handoff review is a blocked local intake report (`contract_validation: not_performed`). |
+| Location | `astra-patch/` only: a Python 3.12+ package with its own `requirements.txt` and `.gitignore`. It imports nothing from the Next.js app, relay or HUD. |
+| Main entry: command line | `python -m astra_patch replay --scenario normal \| fatigue_suspected \| sensor_fault`. It prints four observations as JSON in the terminal, then deletes its temporary database. **This is the demo itself; there is no visual demo page.** |
+| Optional: local API | `uvicorn astra_patch.service:app --host 127.0.0.1 --port 8142`, with a bearer token in `MYOMARS_ACQUISITION_TOKEN`. `/docs` is the Swagger **API explorer**, not a demo page. Its 20 endpoints under `/api/myomars/v1` cover sessions, capture, recordings, processing, a console and trigger streams. |
+| Optional: offline check | `python -m astra_patch check <message.json>` checks a message file against the repository's `contracts/schema/` files when they are present. It sends nothing. |
+| Transport | External transmission is **disabled**: there is no network client, relay publisher or enabling switch. |
+| Verified (2026-11-15, on the `main` + #4 result and again inside PR #5) | `pytest -q tests` **84 passed** (Python 3.12.3). `replay` of all three scenarios exits 0 with 4 observations each. The API answered `/docs` with 200; it returned 401 without a token and created a console with a token. Windows not yet verified (owner's acceptance). |
 
-## Data
+## Data (what the demo shows)
 
 | Question | Finding |
 |---|---|
-| Hardware, recorded or simulated? | **Simulated.** No hardware measurement and no recorded dataset. `SyntheticSource` makes seeded illustrative waveforms (sine plus noise; `actual_sensor: false`). The replay scenarios read a 12-row synthetic CSV (4 windows per scenario, seed 20261114) labelled "synthetic summary features, not raw EMG or clinical thresholds". |
-| Raw signal or computed indicators? | **Both, separately.** The API capture path makes synthetic raw sEMG (4 channels) and IMU (6 axes) arrays. The replay emits summary features (`rms_microvolts`, `median_frequency_hz`), a quality score and flags, and states `raw_signal_validation: unavailable`. |
-| Body site | API default `left_quadriceps`; fixtures `vastus_lateralis_demo`. |
-| Device | `sim-patch-001` (simulated). |
-| Sample rate | sEMG 2000 Hz by default (allowed 1000–4096); IMU 100 Hz. The replay's summary rows carry no sample rate and list it as missing. |
-| Units | sEMG in **microvolts**. There is no %MVC and no grip force. |
-| Time | Fixtures give elapsed seconds 6 / 12 / 18 / 24 in "accelerated recorded time", with no UTC acquisition time (listed as missing). |
-| Conditions / protocol | API default `simulated_isometric_v1`, `simulated_seated`. Fixtures: `demo_walk_fixed`, activity walking. |
-| Missing, by its own report | subject identity, sensor configuration, sampling rates, raw EMG and IMU, acquisition UTC, baseline-compatibility metadata. |
+| Hardware, recorded or simulated? | **Simulated.** There is no hardware measurement and no recorded dataset. The replay reads a 12-row synthetic CSV (4 windows per scenario, seed 20261114), labelled "synthetic summary features, not raw EMG or clinical thresholds". The API capture path makes seeded illustrative waveforms (`actual_sensor: false`). |
+| Raw signal or computed indicators? | The replay shows **summary features** (`rms_microvolts`, `median_frequency_hz`), a quality score and flags, and says `raw_signal_validation: unavailable`. Only the API capture path makes synthetic raw sEMG (4 channels) and IMU (6 axes) arrays. |
+| Body site, device | API default `left_quadriceps`; fixtures `vastus_lateralis_demo`. Device `sim-patch-001` (simulated). |
+| Sample rate, units | sEMG 2000 Hz by default, IMU 100 Hz. sEMG in **microvolts**. The replay rows carry no sample rate and list it as missing. |
+| Time, conditions | 6-second walking windows in "accelerated recorded time", with no UTC acquisition time. Fixture protocol `demo_walk_fixed`. |
+| Its own "missing" list | subject identity, sensor configuration, sampling rates, raw EMG and IMU, acquisition UTC, baseline-compatibility metadata |
 
-## Why it is not connected to the current analysis
+**What each scenario shows** (4 observations each; `baseline_comparison: not_available` and
+`research_indicator: not_assessed` in all of them, so there is no diagnosis):
 
-The station's integration sample uses `std-grip-40`: forearm grip at 40 % MVC, with features `medianFreqHz`,
-`rmsPctMvc` and `gripForceN` compared against that protocol's individual baseline. Against that:
+| Scenario | RMS (µV) | Median frequency (Hz) | Signal quality |
+|---|---|---|---|
+| `normal` | 42 → 43 → 44 → 43 | 86 → 85 → 84 → 85 | acceptable, no flags |
+| `fatigue_suspected` | 43 → 48 → 54 → 61 (rising) | 85 → 80 → 73 → 66 (falling) | acceptable, no flags |
+| `sensor_fault` | 42, 43, then 132, 175 | 86, 85, then 18, 11 | windows 3–4 **unsuitable**: `motion_artifact` and `electrode_contact_fault` |
 
-- **Unit:** microvolt RMS cannot become %MVC without a compatible calibration.
-- **Grip force:** it cannot be derived from sEMG.
-- **Protocol:** walking, or quadriceps under `demo_walk_fixed`, is not the grip protocol. Relabelling it as
-  `std-grip-40` or using that baseline would be wrong.
-- **Missing fields:** the contract `Observation` needs a person, capture time, sample rate, duration,
-  impedance and artefact/dropout percentages, which the fixtures do not carry. Nothing may be invented.
-- **Scenario labels:** `fatigue_suspected` and `expected_classification` are test oracle metadata. They
-  must never be shown as health evidence.
+Notes:
+- In `fatigue_suspected`, the scenario name is test metadata; the demo itself draws no fatigue conclusion.
+- `sensor_fault` shows that a signal-quality fault is kept separate from physiology.
 
-As instructed, none of this was changed: the patch is not wired into `std-grip-40`, no label was changed
-to fit a baseline, and no missing value was filled in.
+## Boundaries (why the two demos stay separate)
 
-## Decisions for the team before any connection
-
-These concern the data protocol, the meaning of the analysis or the choice of data source, so they wait
-for the owner.
-
-1. **Input:** which patch output becomes station input — summary features (and which ones), or raw
-   signals with a feature-extraction step that is defined and validated first?
-2. **Protocol and baseline:** register a new protocol id (for example walking, quadriceps) with its own
-   individual baseline. A different protocol stays "not comparable" until that baseline exists.
-3. **Units:** either keep sEMG in µV with features defined for µV, or define an MVC calibration
-   procedure. Also decide whether grip force stays required for that protocol.
-4. **Person mapping:** how a patch session maps to `astronautId`, and who confirms it.
-5. **Transport:** whether the patch publishes `observation.submitted` to the relay as the data
-   producer (role `trigger`), in place of or next to the data-replay module (one producer per run,
-   or several).
-6. **Time:** the acquisition UTC and its source, since accelerated fixture time is not wall-clock time.
+These facts explain why the patch output is not meant to feed the Base analysis. They are context,
+not a to-do list:
+- The Base/HUD demo compares a standardised grip measurement (`std-grip-40`: %MVC, grip force from a
+  grip meter) against that protocol's individual baseline.
+- The patch shows walking / quadriceps sEMG in µV, with no %MVC and no grip force.
+- Rules for anyone changing the code:
+  - never relabel patch data as `std-grip-40`;
+  - never fill in its missing fields;
+  - never present its scenario names as health evidence.

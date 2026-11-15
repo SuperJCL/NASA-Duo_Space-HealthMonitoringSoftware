@@ -12,8 +12,12 @@
 
 - **Acceptance target:** the exact `integration/myomars` commit named in PR #2's description. A
   later change must be stated there, and the affected checks re-run.
-- **Not claimed:** the health-data teammate's data, and multi-device LAN access. Both are follow-up
-  tasks, see the end of this document.
+- **Data scope:** the Base ↔ HUD loop runs on simulated samples from the data replay module.
+  - The ASTRA patch demo (`astra-patch/`, merged via PR #4) is a separate, independent explanatory
+    program with no link to the Base, the HUD or the relay. This is by design; see
+    [DEMOS.md](DEMOS.md) and [PATCH-AUDIT.md](PATCH-AUDIT.md).
+  - Multi-device LAN access is not verified.
+- **Windows acceptance guide:** [WINDOWS-ACCEPTANCE.md](WINDOWS-ACCEPTANCE.md).
 - **HUD changes for the HUD teammate:** [HUD-INTEGRATION-MODE.md](HUD-INTEGRATION-MODE.md).
 - **English demo + Health Monitoring overlay (branch `feat/myomars-english-overlay`, draft PR, not
   merged):** the station UI is English-only and Health Monitoring is an overlay on the Mission Map.
@@ -335,7 +339,8 @@ The last results are stated in PR #2 with the commit they ran on.
 **Not verified yet**
 
 - Multi-device LAN access: addresses are printed, but no second device was tested.
-- The health-data teammate's data. This is the next acceptance and is reported separately.
+- (Scope, not a gap: the Base ↔ HUD loop uses simulated replay samples only, and the patch demo is
+  a separate program by design.)
 
 ## Manual acceptance (three steps)
 
@@ -456,9 +461,9 @@ Each item gives the concrete difference and a recommendation. Nothing below was 
    - It stays off in integration mode until then.
 6. **Retest result values in integration mode.**
    - Today: the HUD submits the shared contract fixture whose protocol matches the request.
-   - Recommendation: the health-data teammate provides retest windows, read through the replay
-     module. The HUD keeps publishing `retest.result` as the single source; it is not also sent by
-     the replay.
+   - Settled (2026-11-15): the retest result stays a stored shared simulated sample, and the HUD
+     keeps publishing `retest.result` as the single source. The patch demo is independent by
+     design, so it supplies no retest windows.
 7. **Demo assumptions the replay states:**
    - samples recorded for `ev1` are assigned to the run's astronaut A-02 (the station's A-02
      baseline has the same simulated values as EV1);
@@ -467,25 +472,15 @@ Each item gives the concrete difference and a recommendation. Nothing below was 
    - The station records it; it does not reopen anything.
    - Decide whether status updates need an acknowledgement at all.
 
-## Next acceptance: teammate data → replay → station analysis → HUD
+## Data scope (by design)
 
-When the health-data teammate pushes:
-
-1. Fetch their branch and read the files there. Do not merge into `main` first.
-2. Run `npm run replay -- check <file>` on each file. The checklist covers:
-   - format and source;
-   - person, body site, device;
-   - units, sample rate, time;
-   - protocol conditions;
-   - missing values;
-   - raw signals versus computed features.
-3. **Raw sEMG / IMU** needs a feature-extraction step that is defined and validated first. The
-   station today accepts only the summary features (median frequency Hz, RMS %MVC, grip N). Raw
-   values are never written into those fields.
-4. **Missing person, body site or conditions:** no baseline is applied. Any metadata the demo adds
-   is marked as an assumption.
-5. **Only after this:** add their samples to the replay module (source label = teammate data), then
-   run the same two-end acceptance.
+- **Base ↔ HUD:** observations come only from the data replay module, as simulated samples (the
+  shared contract demo fixtures). The retest result is a stored shared simulated sample, published
+  by the HUD.
+- **Patch demo:** `astra-patch/` is an independent explanatory program, run separately.
+  - It has no adapter, protocol, baseline or field mapping into the Base, and none is planned.
+  - The replay module's intake check (`npm run replay -- check <file>`) remains for any external
+    file someone wants to inspect. It never publishes such a file.
 
 ## Earlier preparation (reference)
 
@@ -523,10 +518,21 @@ When the health-data teammate pushes:
 - **Preservation tag:** this session cannot push tags. Create it once from any clone:
   `git tag -a archive/mission-glass-complete-2026-11-14 76e2888 -m "Complete Mission Glass map/EVA work before the MyoMars station integration"`,
   then `git push origin archive/mission-glass-complete-2026-11-14`.
-- **Follow-up 1, health-data intake:** when the teammate pushes, read their branch, run
-  `npm run replay -- check <file>`, then follow "Next acceptance" above. This is reported
-  separately.
-- **Follow-up 2, multi-device LAN:**
-  - the station on one machine, the HUD on another device, through `http://<LAN-IP>:8787/`;
-  - firewall and allowed origins (`--origins`) checked;
-  - reported separately.
+- **Not verified, and not developed this round: multi-device LAN.** The station would run on one
+  machine and the HUD on another device through `http://<LAN-IP>:8787/`, which needs the firewall
+  and allowed origins (`--origins`) set up.
+- **Optional later (not extended this round):** static export, Windows one-click start, packaging,
+  deploy templates.
+
+## Task status (2026-11-15)
+
+| Task | Status |
+|---|---|
+| F1 shared contracts v1 | Done (`contracts:check`) |
+| F2 Foundation relay (WIP `8f13fdf`, branch `feat/myomars-foundation`) | **Superseded** by the current relay and communication setup (`relay/`, `RelayStationAdapter`). Kept as an archive branch, not merged, not developed further. |
+| S1 station on contracts + relay | **Done and verified** (e2e:two-end, unit tests): contracts v1/v1.1 migration with generated artifacts, the relay adapter, the processing lease (one deciding window), a read-only second window, **page-refresh recovery** of station and HUD without re-sending, and duplicate / old-run rejection. **Not done:** login (demo identity only). **Not verified:** **relay-restart recovery**. The relay is in-memory by default, so a restart is a clean session by design; the `--data` append-only persistence exists but has no automated test. |
+| S2 deployment and E2E | **Done:** two-end E2E (`e2e:two-end` 48, `e2e:mission` 29). **Optional later:** static export, Windows one-click start, packaging, deploy templates. |
+| Patch | Standalone demo merged (#4); independent by design. Not a to-do. |
+| Owner's Windows acceptance on final `main` | Pending ([WINDOWS-ACCEPTANCE.md](WINDOWS-ACCEPTANCE.md)) |
+
+Historical branches are kept.
