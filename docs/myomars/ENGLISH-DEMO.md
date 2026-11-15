@@ -16,9 +16,10 @@ module. It is not the health-data teammate's data. LAN multi-device use is not v
 |---|---|
 | Size | About 85% of the viewport wide and 80% high. At 1440×900 the review needs no page scroll. |
 | Top bar | Mission summary, relay status, device status, the run's real crew (no padding members), Collapse (Esc). |
-| Left | Observation (one simulated sample; no invented history or trend); indicators against the individual baseline (summary features only, no raw sEMG waveform); compact chain Data Received → Signal Quality → Comparability → Comparison → Base Review; recent communications. |
-| Right (fixed) | Decision area: conclusion, key evidence, the actual text that would be sent, the main actions and an inline review form with editable reason templates. |
-| Full flow | "Full flow ⤢" opens the existing data-flow canvas inside the overlay; "← Back to overview and decision" restores it. Neither changes state, interrupts communication or resends anything. |
+| Left, top (always) | **Case events:** Data source → Base analysis → Base review → HUD → Crew response → Retest → Reassessment, followed by two separate closure facts: "Case Closed" (a base decision) and "Closing notice: Received by HUD" (a HUD receipt). Each step reads Not reached, Processing, Base decision needed, Waiting, Stopped, Failed, Done or Not needed. A line says whom the case waits for and since when. |
+| Left, below | The selected step's evidence and messages. "Base analysis" and "Reassessment" show the internal steps (Data Received → Signal Quality → Comparability → Comparison → Base Review). Then the indicator chart (one simulated sample, summary features only, no invented trend), then the collapsible communication log. |
+| Right (fixed) | Decision area: case status, **Next:** (who acts and what), the conclusion, key evidence, the actual text that would be sent, the main actions and an inline review form with editable reason templates. |
+| Full flow | "Full flow ⤢" opens the existing data-flow canvas in the left column. The decision area stays visible, so the review can be finished with the canvas open. Opening it changes no state, interrupts no communication and resends nothing. |
 
 **Opening and collapsing.**
 
@@ -37,10 +38,17 @@ its own legend row ("Crew · simulated position (no live tracking)"). It is show
 EVA, in the 2D map. A task target is never presented as the astronaut's position. Clicking the
 marker, the "A-02 simulated position" chip or a pending-case chip opens the overlay at that person.
 
-**Animation.**
+**Animation** (one-off, tied to recorded events, never timer-driven):
 
-- A data marker moves once along the compact chain, one hop per step the station reveals.
-- Sending, HUD receipt and crew acknowledgement flash once in the dispatch tracker.
+- Observation arrives: cyan marker Data source → Base analysis.
+- Analysis finished: Base analysis → Base review.
+- Approval sent (relay accepted): coral marker Base review → HUD.
+- HUD receipt: green marker HUD → Base review.
+- Crew reply: green marker Crew → HUD.
+- Retest result: cyan marker Retest → Reassessment.
+- Closing notice: sent, and receipt.
+- Inside the analysis, a marker moves one hop per step the station reveals.
+- The dispatch tracker flashes once on relay acceptance, receipt and acknowledgement.
 - While waiting for base staff, the HUD or the crew, nothing moves; the waiting party, the start
   time and the elapsed time are shown.
 - No looping edges. Reduced motion, a background tab or the replay speed never change a result.
@@ -100,31 +108,62 @@ For the video, start from an empty session:
    shows "Relay online · session demo" and "Base duty officer · this window decides".
 4. Use one station window. A second window is a read-only mirror by design.
 
-## Video walkthrough (about 2 minutes)
+## HUD: two layers (integration mode)
 
-1. **Mission Map.** 2D map, 3D terrain toggle, select Target B. Then "Review summary, start EVA" →
-   Confirm Start EVA. The overlay opens once.
-2. On the HUD: **Enter HUD**. It joins the run and waits for base messages.
-3. **Collapse (Esc).** The map shows the crew marker at its simulated position. Reopen with the
-   "A-02 simulated position" chip or "Health Monitoring ▸ Open".
-4. **Dev entry (data replay)** → sample "Comparable change (full flow)" → "Replay and open Health
-   Monitoring". The chain marker moves step by step; the decision area shows "Simulated analysis
-   in progress", then the conclusion.
-5. **Review.** Approve and send the retest… → pick a reason template → Confirm and publish. The
-   tracker shows Relay accepted and Received by HUD (real receipt).
-6. **HUD.** Acknowledge → View task → Start retest → Submit. The station shows Acknowledged by
-   Crew, then "Retest result received · re-evaluating", round 1 kept.
-7. **Re-evaluation.** "Retest Within Reference Range" with "the original alert is still open". Close
-   case… or Continue Monitoring… → the HUD shows the status (Case closed by base).
-8. Optional: **Full flow ⤢** and **← Back**; the quality-failed sample ("Signal quality failed") for
-   the branch; "Grip meter not read (missing-value demo)" for Incomplete Results.
+- **First layer** (large):
+  - the base-published text, unchanged;
+  - a "Now" line with the action really required;
+  - only the buttons that are available (Acknowledge, View task, Start, Defer, Submit).
+- **Second layer** ("Details" / "Task details", collapsed): the protocol and conditions, the station's
+  instructions, basis, ids, receipt and acknowledgement state, and history.
+- Finished or closed tasks stay as history with no buttons.
+- No category is inferred from the noticeId, and no fatigue, recovery or medical content is added.
+
+## Project introduction: English demo order (2–3 minutes)
+
+Use one clean build and one clean relay session for every recording (see above). Station at
+1440×900, HUD at 1280×800.
+
+1. **(0:00–0:20) Mission Map.**
+   - "This is the Mars Base. The Mission Map shows simulated targets near Lefroy Bay in Jezero crater, on
+     NASA imagery, in 2D and 3D."
+   - Toggle 3D terrain, return to 2D, select Target B.
+2. **(0:20–0:35) Start EVA.**
+   - "Review summary, start EVA" → read the honesty lines (simulated EVA, conditions unknown) →
+     **Confirm Start EVA**. Health Monitoring opens once over the map.
+   - On the HUD: **Enter HUD**. It joins the run and waits for base messages.
+3. **(0:35–0:45) Collapse.**
+   - Esc: the map shows A-02 at a *simulated* position (not tracked). Reopen from the chip.
+4. **(0:45–1:10) Data in, analysis.**
+   - Dev entry → "Comparable change (full flow)" → **Replay and open Health Monitoring**.
+   - "One simulated sample from the data replay: summary features only, no raw waveform."
+   - The marker enters Base analysis. Signal Quality → Comparability → Comparison fill in; the result
+     moves to Base review.
+5. **(1:10–1:35) Review.**
+   - Right side: conclusion, evidence, the exact notice and retest text, "Next: Base staff: approve or
+     reject".
+   - Optionally open **Full flow ⤢**: the decision area stays.
+   - **Approve and send the retest…** → pick a reason → **Confirm and publish**. The marker goes to the
+     HUD; the HUD step waits for a real receipt.
+6. **(1:35–2:05) HUD.**
+   - The notice arrives (first layer): **Acknowledge** → **View task** → **Start** → **Submit**.
+   - The station's chain turns Received by HUD → Acknowledged by Crew → Retest result received, then
+     re-evaluation, with round 1 kept.
+7. **(2:05–2:30) Decision.**
+   - "Retest Within Reference Range — one result in range does not show recovery; the alert stays
+     until a person closes it."
+   - **Close case…** → the chain shows *Case Closed*, then separately *Closing notice: Received by HUD*.
+     The HUD shows the case closed and the old task as history.
+8. **(2:30–2:45) Close.**
+   - "All data and analysis here are simulated; the base never diagnoses; every message to the crew
+     needs a human approval."
 
 ## Checks
 
 | Command | What it covers |
 |---|---|
 | `npm run check` | Lint, typecheck, unit tests, production build |
-| `npm run e2e:two-end` | Real station + real HUD through the relay, including the overlay, no page scroll and the English-only check (fresh relay) |
+| `npm run e2e:two-end` | Real station + real HUD through the relay: overlay, event chain, review with the full flow open, HUD offline (no false delivery), no page scroll, English-only check (fresh relay) |
 | `npm run e2e:mission` | Mission Map, overlay opening rules, crew marker, drafts across collapse, map failure isolation (fresh relay) |
 | `npm run smoke:crew` | Standalone demo (no relay): the overlay, all decision phases, reduced motion, phone |
 | `npm run smoke:station` | The legacy workbench at `/legacy/workbench` |

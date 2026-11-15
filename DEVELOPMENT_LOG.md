@@ -4204,3 +4204,41 @@ unchanged, and `verify:terrain` still matches a fresh build.
   - `test:hud` 49/49 + 46/46.
 - **Not verified:** the health-data teammate's data (none yet); multi-device LAN; the 3D terrain view
   shows no crew marker (2D map only).
+
+## MyoMars round 2: event chain, decision area, HUD layers, patch audit (PR #5, not merged)
+
+- **Started:** about 2026-11-15T06:05Z (remote fetch). The relay and dev servers started at 06:08:02Z.
+- **Baseline check:**
+  - `git fetch` + `ls-remote` + GitHub API: `origin/main` is still `a9f9646`, the same base as this
+    branch, so there was nothing to merge.
+  - The HUD branch is still `239d253`, which is already in `main`.
+  - The patch demo (`feat/astra-standalone-demo` `18f8cd6`) is **not** in `main`: PRs #4 → #3 are open.
+  - It was not merged into PR #5 without the owner. It was audited read-only:
+    `docs/myomars/PATCH-AUDIT.md`. Its 84 Python tests pass in a temporary worktree, which was then
+    removed.
+- **Commits:**
+  1. `c5fa73b` Station:
+     - `lib/station/event-chain.ts` (unit-tested): Data source → Base analysis → Base review →
+       HUD → Crew response → Retest → Reassessment, with "Case Closed" and "closing notice
+       delivered" as separate facts.
+     - Overlay changes: the chain always visible, step evidence and messages,
+       a one-off animation per recorded event, the full flow in the left column with the decision
+       area visible, a "Next:" line, less header repetition, and the build id under "About".
+  2. `aef35d6` HUD integration mode (written with a helper agent, reviewed here):
+     - First layer: base text, the "Now" action and the available buttons. Second layer: details,
+       collapsed.
+     - Finished tasks stay as history without buttons.
+     - The data-link panel no longer implies a patch link.
+  3. `8b4fff8` Acceptance:
+     - `e2e-two-end` 48 checks: HUD offline → no false delivery; review with the full flow open;
+       separate closure facts.
+     - `smoke-crew` 72 checks.
+  4. Docs: `PATCH-AUDIT.md`, `ENGLISH-DEMO.md` (event chain, HUD layers, 2–3 min demo order),
+     `CLAUDE.md` (current station / HUD / patch rules).
+- **Found while testing:**
+  - The 7 step labels were truncated → they wrap now, and the left column is wider.
+  - The full-flow canvas overflowed the narrower column → node results are shown on click
+    (container query).
+  - The communication list now appears twice (step detail and log) → script counts are scoped to
+    the log.
+- **Verification on the production build:** see the next entry.
