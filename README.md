@@ -1,5 +1,7 @@
 # Mars Discovery Intelligence (MDI)
 
+**▶ Live demo: [myomars-demo.vercel.app/demo](https://myomars-demo.vercel.app/demo)**: the MyoMars Mars Base and Astronaut HUD in one page, running in your browser (simulated data, simulated analysis; nothing to install).
+
 > Given incomplete scientific evidence and limited mission resources, what
 > should a Mars explorer investigate next, and why?
 
