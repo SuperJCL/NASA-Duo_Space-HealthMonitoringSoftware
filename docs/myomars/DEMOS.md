@@ -1,9 +1,10 @@
 # MyoMars: two official demos
 
-MyoMars is shown with **two official, independent demos** on **two separate websites**, each deployed
-and run on its own. They share a theme (muscle monitoring for an astronaut on EVA) but have **no
-communication link**: separate Vercel projects, separate code, separate data, no messages between
-them. Neither the interfaces nor the project introduction claim they are connected.
+MyoMars is shown with **two official, independent demos** on **two websites, deployed and run
+independently**. No data or messages pass between them during the demos. They share a theme (muscle
+monitoring for an astronaut on EVA) but have **no communication link**: separate Vercel projects,
+separate code, separate data. Neither the interfaces nor the project introduction claim they are
+connected.
 
 | | Mars Base ↔ Astronaut HUD (software loop) | FlexArray patch demo (sensor concept) |
 |---|---|---|
@@ -21,14 +22,17 @@ between the two demos.
 
 ## Deployment and acceptance status
 
-A successful deployment and a confirmed public walkthrough are recorded separately. Only what has
-actually been confirmed is marked as done.
+Deployment, the automated checks and the owner's manual acceptance are recorded separately. Only what
+has actually been confirmed is marked as done.
 
 | | Base ↔ HUD site | FlexArray site |
 |---|---|---|
 | Production deployment | **Ready** from `main` `d9bc89f`: Vercel reported success at 2026-11-16 04:43 UTC | **Ready** from `main` `d9bc89f`: Vercel reported success at 2026-11-16 04:49 UTC; the owner confirmed the Production Deployment is Ready |
 | Automated checks before deployment (Linux container, headless Chromium, software WebGL; local production build) | `e2e:browser-demo` 38/38: full loop, tab switches, resets, isolation, fallbacks | `flexarray-browser` 20/20 with 8 cores emulated. With the real 4 cores, the intended `lite` bay was chosen (a legitimate downgrade); the suite stops there. Review gate 11/11; paused navigation 6/6. **The full real-time playback suite did not complete** |
-| Public walkthrough on the live address | **Not yet confirmed** | **Not yet confirmed**: full playback on a real graphics card, including Windows |
+| Manual acceptance on the live address (project owner, reported 2026-11-16) | **Passed**: the full operating loop; the link opens anonymously, without a sign-in | **Passed**: full playback, including the 0:35 review pause and the continuation to 0:45 after the confirmation; the link opens anonymously, without a sign-in |
+
+The manual acceptance is the owner's report. The operating system, browser and graphics hardware were not reported; no other environment is claimed. The automated checks are local runs from before the
+deployment and are a separate record.
 
 How to check: [LIVE-DEMO.md](LIVE-DEMO.md) (Base/HUD) and the manual check in
 [DEPLOY.md](../../myomars-flexarray-demo/DEPLOY.md) (FlexArray).

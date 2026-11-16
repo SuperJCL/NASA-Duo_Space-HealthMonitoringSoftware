@@ -8,13 +8,14 @@ production branch `main`).
 - This website is separate from the FlexArray patch demo site
   (https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray, see
   `myomars-flexarray-demo/DEPLOY.md`).
-- The two share no code, data or messages; each is deployed and runs on its own.
+- The two websites are deployed and run independently; no data or messages pass between them during
+  the demos.
 
 | | |
 |---|---|
 | Production deployment | **Ready**, from `main` `d9bc89f`: Vercel reported success at 2026-11-16 04:43 UTC |
 | Automated checks before deployment | `e2e:browser-demo` 38/38 on a local production build (Linux container, headless Chromium, software WebGL, relay stopped) |
-| Public walkthrough on the live address | **Not yet confirmed** (the walkthrough below, on the production address) |
+| Manual acceptance on the live address (project owner, reported 2026-11-16) | **Passed**: the full operating loop; the link opens anonymously, without a sign-in. The operating system, browser and graphics hardware were not reported; no other environment is claimed. |
 
 **What runs and what doesn't:**
 - No relay process, no port 8787 and no server-side session.

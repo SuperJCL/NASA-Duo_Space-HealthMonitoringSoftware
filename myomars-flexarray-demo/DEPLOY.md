@@ -6,7 +6,7 @@ The teammate's package (`myomars-flexarray-45s-demo.zip`) is published unchanged
 website**, on its own Vercel project **`nasa-duo_space-healthmonitoringsoftware-myomars-flexarray-demo`**. It is independent of the MyoMars Base/HUD
 site (`myomars-demo`, https://myomars-demo.vercel.app/demo):
 - separate project and domain;
-- no shared code, data or messages;
+- deployed and run independently; no data or messages pass between the two sites during the demos;
 - no Python service.
 
 ## How it is built
@@ -29,7 +29,7 @@ them.
 |---|---|
 | Production deployment | **Ready**, from `main` `d9bc89f`. Vercel reported success at 2026-11-16 04:49 UTC (build about 6 s); the owner confirmed the Production Deployment is Ready |
 | Automated checks before deployment | `site/` served locally like Vercel static hosting: `flexarray-browser` 20/20 with 8 cores emulated. With the real 4 cores, the intended `lite` bay was chosen (a legitimate downgrade) and the suite stops at that check. Review gate 11/11; paused navigation 6/6. **The full real-time playback suite (`flexarray-demo`) did not complete** in that environment |
-| Public walkthrough on the live address | **Not yet confirmed**: full playback on a real graphics card, including Windows (the manual check below) |
+| Manual acceptance on the live address (project owner, reported 2026-11-16) | **Passed**: full playback, including the 0:35 review pause and the continuation to 0:45 after the confirmation; the link opens anonymously, without a sign-in. The operating system, browser and graphics hardware were not reported; no other environment is claimed. |
 
 ## Vercel project settings (`nasa-duo_space-healthmonitoringsoftware-myomars-flexarray-demo`)
 

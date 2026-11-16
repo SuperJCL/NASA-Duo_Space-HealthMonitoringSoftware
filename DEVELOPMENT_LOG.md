@@ -4632,3 +4632,22 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - `myomars-flexarray-demo/DEPLOY.md`: production address, actual project name, status table, the
     real address in the entry and in the manual check.
   - CLAUDE.md: actual project name and address.
+
+## Owner's manual acceptance of the two public sites
+
+- **Time (UTC):** 2026-11-16 05:01 to 05:01. Documentation only, on the PR #12 branch.
+- **Reported by the project owner** (manual acceptance on the live addresses):
+  - Base/HUD (https://myomars-demo.vercel.app/demo): the full operating loop passed.
+  - FlexArray (https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray): full playback passed,
+    including the 0:35 review pause and the continuation to 0:45 after the confirmation.
+  - Both links open anonymously, without a sign-in.
+- **Not inferred:** the operating system, browser and graphics hardware were not reported. The docs claim
+  no other environment.
+- **Kept separate:** the automated results stay as recorded (local runs before deployment). No test was
+  rerun in this step.
+- **Changed:**
+  - README, `DEMOS.md`, `LIVE-DEMO.md` and `DEPLOY.md`: the acceptance status is now "Passed (owner's
+    manual acceptance)".
+  - All of them say the two websites are deployed and run independently and exchange no data or
+    messages during the demos.
+  - CLAUDE.md wording aligned.

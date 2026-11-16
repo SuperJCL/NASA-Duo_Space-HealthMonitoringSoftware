@@ -1,7 +1,8 @@
 # Mars Discovery Intelligence (MDI)
 
-**▶ Live demos.** Two separate websites, each deployed and run on its own. They share no code, data
-or messages, and neither needs the other:
+**▶ Live demos.** Two websites, deployed and run independently. No data or messages pass between them
+during the demos. Both open without a sign-in and passed the project owner's manual acceptance on the
+live addresses (2026-11-16).
 - **Mars Base + Astronaut HUD:** [myomars-demo.vercel.app/demo](https://myomars-demo.vercel.app/demo).
   The health-monitoring loop in one page, running in your browser (simulated data, simulated
   analysis; nothing to install). Details: [LIVE-DEMO.md](docs/myomars/LIVE-DEMO.md).
