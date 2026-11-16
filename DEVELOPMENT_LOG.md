@@ -4541,25 +4541,64 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
     - On a static host, `/api` answers 404. The readiness assessment then shows "Server rejected the
       assessment; authorization is on hold" instead of the launcher's local mode (measured on both).
     - Minimal fix for the teammate (treat 404/405 like a network error), not applied.
-- **Checks (Linux container, 4 cores, headless Chromium, SwiftShader):**
+- **Checks (Linux container, headless Chromium, SwiftShader software WebGL):**
   - Package: ZIP SHA-256 OK; manifest 116/116; unit tests 64/64 (TypeScript 5.9.3 from this
     repository, package pins ~5.6.3).
-  - Built `site/` on a static server that answers like Vercel (404 for missing paths and `/api`):
-    - `flexarray-browser` 20/20, with 8 cores reported. With the container's real 4 cores, the
-      package picks its `lite` bay by design (`bayLayout.ts`: ≤ 4 cores), so the "on by default,
-      full" check fails there.
-    - Gate check 11/11 (paused, then scrubbed): clamps at 0:35, Next and Play disabled, nothing sent
-      without confirmation, focus on the confirmation; then instruction, acknowledgment,
+  - Built `site/` served like Vercel static hosting (404 for missing paths and `/api`).
+  - **Real 4 cores (no emulation):**
+    - `flexarray-browser` stopped at check 2 of 20: "bay backdrop on by default … full" expected
+      `full` and got `lite`. `lite` is the package's own downgrade for ≤ 4 cores or < 720 px
+      (`bayLayout.ts`). That is a legitimate quality choice, not a functional failure, and the
+      performance rule was not changed. The suite stops at its first failed check, so checks 3–20
+      did not run with real 4 cores.
+    - Review gate 11/11, paused then scrubbed: clamps at 0:35; Next and Play disabled; nothing sent
+      without confirmation; focus on the confirmation; then instruction, acknowledgment,
       reassessment. No `/api` request, localStorage unchanged, no page errors.
     - Paused scene navigation 6/6.
-  - `flexarray-demo` is timing-dependent here: it asserts state while real-time playback runs, and
-    software WebGL is slow.
-    - Run 1 (launcher) stopped at step 8 of 17: focus, because the clock had passed 0:35 during
-      step 7.
-    - Run 2 (`site/`) stopped at step 4: Previous, while playing.
-    - Both behaviours pass when paused (above). The teammate reports 17/17 on macOS.
+    - **`flexarray-demo` (the full real-time playback suite) did not complete:**
+      - run 1 (launcher) stopped at step 8 of 17 (focus: the clock had passed 0:35 during step 7);
+      - run 2 (`site/`) stopped at step 4 of 17 (Previous while playing).
+      - These steps assert state while playback runs; with software WebGL a frame takes about 380 ms
+        (17 ms without WebGL).
+      - Steps 9–17 of the suite were not run here. The teammate reports 17/17 on macOS. The full
+        real-time playback on a real graphics card (and on Windows) is the owner's acceptance after
+        deployment.
+  - **Emulated 8 cores** (`navigator.hardwareConcurrency` reported as 8 by a preload; test code
+    unchanged): `flexarray-browser` **20/20**, run twice (launcher and `site/`).
   - Main app: `npm run check` (402 unit tests, build, `/demo` static) on `22fb3ac` and `da5b8d4`.
     `e2e:browser-demo` 38/38 and the `/demo` panel checks on `22fb3ac` (relay stopped). The ZIP is not
     in the Next.js build output.
-- **Not done:** the Vercel project `myomars-patch-demo` (created by the owner). The public URL in the
-  README is the expected default domain; confirm it once the project exists.
+- **Not done:** the Vercel project `myomars-patch-demo` (created by the owner). The README marks the
+  patch demo as pending deployment until its domain is confirmed.
+
+## FlexArray closing round before merging PR #10
+
+- **Time (UTC):** 2026-11-16 04:50 to 05:20.
+- **Direction (owner):**
+  - The submission's patch demo is the teammate's original FlexArray page, `/#flexarray`.
+  - `astra-patch/showcase` is kept as a development and backup entry only.
+  - The two demos stay independent.
+  - No Python or API service is added, other console functions are not changed, and the review gate
+    is not bypassed.
+- **Changes:**
+  - README: the patch demo is marked *pending deployment* (no assumed domain), with a link to
+    `DEPLOY.md`.
+  - `docs/myomars/DEMOS.md`: rewritten for the two official demos (Base/HUD at
+    `https://myomars-demo.vercel.app/demo`; FlexArray at `/#flexarray`, address pending). It also has
+    a table of the console functions that are not available on the static site, the development and
+    backup entries, and the introduction script for the online demos.
+  - `DEPLOY.md`: status, official entry, the unavailable console functions, and manual checks for the
+    public address.
+  - CLAUDE.md rule extended.
+  - The test record separates real 4 cores from emulated 8 cores and keeps the incomplete real-time
+    playback suite as not completed.
+- **Checked before merging:** after the reviewer confirmation, a scrub to 0:37 showed the retest
+  instruction about 5 s later in one diagnostic. Investigated:
+  - the element is in the page at once with its text and fades in by its own animation;
+  - measured directly, it is present after 29 ms with WebGL and 34 ms without;
+  - with software WebGL a frame takes about 383 ms (17 ms without);
+  - the 5 s came from the diagnostic reading visible text on a slow main thread.
+  - **No FlexArray main-flow defect found.**
+- **Unchanged:** the package ZIP (SHA-256 `662cc724…a10a82d`), its checksum file and the build-site
+  checks; Base/HUD, `/demo`, the `myomars-demo` Vercel settings.
+
