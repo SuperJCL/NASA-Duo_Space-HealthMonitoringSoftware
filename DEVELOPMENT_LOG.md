@@ -4503,7 +4503,8 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
 
 ## FlexArray 45-second patch demo: integrated from `feature/myomars-45s-demo`; separate Vercel site
 
-- **Time (UTC):** 2026-11-16 03:44 to 04:35.
+- **Time (UTC):** 2026-11-16 03:44 to 04:28 (commits: merge `22fb3ac` 04:01, site `da5b8d4` 04:16, log
+  `1fc3296` 04:28).
 - **Branch:** `feat/myomars-flexarray-45s` from `main` `5245607` (includes #9). PR not merged.
 - **Source locked:** `origin/feature/myomars-45s-demo` at `c3fcaf5` (PR #7, open).
 - **History check:**
@@ -4573,7 +4574,9 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
 
 ## FlexArray closing round before merging PR #10
 
-- **Time (UTC):** 2026-11-16 04:50 to 05:20.
+- **Time (UTC):** 2026-11-16, about 04:30 to 04:43. The closing commit `78cee08` is at 04:43:07 and
+  PR #10 was merged at 04:43:27. The first version of this entry gave 04:50 to 05:20 by mistake
+  (estimated, not actual, times); corrected here.
 - **Direction (owner):**
   - The submission's patch demo is the teammate's original FlexArray page, `/#flexarray`.
   - `astra-patch/showcase` is kept as a development and backup entry only.
