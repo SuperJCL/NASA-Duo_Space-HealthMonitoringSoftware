@@ -189,10 +189,12 @@
   replay; no UI or introduction may imply the two programs are connected.
 - FlexArray PATCH DEMO SITE (`myomars-flexarray-demo/`, `DEPLOY.md`): the teammate's 45-second guided
   demo package, kept as one ZIP (with its SHA-256 file, README and SOURCE.json) and published UNCHANGED
-  as a separate Vercel project (`myomars-patch-demo`, Root Directory `myomars-flexarray-demo`). Never
-  edit or re-zip the package here; changes come from the teammate as a new package. `scripts/build-site.mjs`
+  as a separate Vercel project (`nasa-duo_space-healthmonitoringsoftware-myomars-flexarray-demo`, Root
+  Directory `myomars-flexarray-demo`, production https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray).
+  Never edit or re-zip the package here; changes come from the teammate as a new package. `scripts/build-site.mjs`
   only extracts the prebuilt `frontend/dist/` after checking the ZIP checksum and the package manifest;
-  `site/` is generated (git- and ESLint-ignored). The two sites share no code, data or messages, and its
+  `site/` is generated (git- and ESLint-ignored). The two sites are deployed and run independently and
+  exchange no data or messages, and its
   `vercel.json` never affects the `myomars-demo` project. No Python service is deployed. It is the
   submission's patch demo (entry `/#flexarray`); `astra-patch/showcase` is a development and backup entry
   only (`docs/myomars/DEMOS.md`). On the static site the ASTRA console functions that need the package's

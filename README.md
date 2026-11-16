@@ -1,13 +1,15 @@
 # Mars Discovery Intelligence (MDI)
 
-**▶ Live demos.** These are two separate sites, with no data link between them:
+**▶ Live demos.** Two websites, deployed and run independently. No data or messages pass between them
+during the demos. Both open without a sign-in and passed the project owner's manual acceptance on the
+live addresses (2026-11-16).
 - **Mars Base + Astronaut HUD:** [myomars-demo.vercel.app/demo](https://myomars-demo.vercel.app/demo).
   The health-monitoring loop in one page, running in your browser (simulated data, simulated
-  analysis; nothing to install).
-- **FlexArray patch, 45-second guided demo:** *pending deployment* as its own site (entry
-  `/#flexarray`); the public link will be added here once its domain is confirmed. It is the
-  teammate's patch demo, published unchanged from `myomars-flexarray-demo/` (synthetic data, not a
-  diagnosis). Deployment and local run: [DEPLOY.md](myomars-flexarray-demo/DEPLOY.md).
+  analysis; nothing to install). Details: [LIVE-DEMO.md](docs/myomars/LIVE-DEMO.md).
+- **FlexArray patch, 45-second guided demo:**
+  [nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray](https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray).
+  The teammate's patch demo, published unchanged from `myomars-flexarray-demo/` (synthetic data, not
+  a diagnosis). Details: [DEPLOY.md](myomars-flexarray-demo/DEPLOY.md).
 
 > Given incomplete scientific evidence and limited mission resources, what
 > should a Mars explorer investigate next, and why?

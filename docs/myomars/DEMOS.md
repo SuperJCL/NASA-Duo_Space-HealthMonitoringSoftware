@@ -1,13 +1,15 @@
 # MyoMars: two official demos
 
-MyoMars is shown with **two official, independent demos**. They share a theme (muscle monitoring for
-an astronaut on EVA) but have **no communication link**: separate sites, separate code, separate
-data. Neither the interfaces nor the project introduction claim they are connected.
+MyoMars is shown with **two official, independent demos** on **two websites, deployed and run
+independently**. No data or messages pass between them during the demos. They share a theme (muscle
+monitoring for an astronaut on EVA) but have **no communication link**: separate Vercel projects,
+separate code, separate data. Neither the interfaces nor the project introduction claim they are
+connected.
 
 | | Mars Base ↔ Astronaut HUD (software loop) | FlexArray patch demo (sensor concept) |
 |---|---|---|
 | Purpose | Show the mission and health workflow: Mission Map, simulated EVA, analysis, human review, HUD notice, retest, re-evaluation, case closure | Show the sensor patch concept: the six-layer FlexArray-MN patch, simulated sensing and a review sequence, as a 45-second guided demo |
-| Official address | **https://myomars-demo.vercel.app/demo** | Its own Vercel site, entry **`/#flexarray`**. **Pending deployment**: the address is added here once the domain is confirmed ([DEPLOY.md](../../myomars-flexarray-demo/DEPLOY.md)) |
+| Official address | **https://myomars-demo.vercel.app/demo** (Vercel project `myomars-demo`) | **https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray** (its own Vercel project, `nasa-duo_space-healthmonitoringsoftware-myomars-flexarray-demo`; [DEPLOY.md](../../myomars-flexarray-demo/DEPLOY.md)) |
 | Code | Next.js app (`/demo`), HUD page (`myomars-hud/`), in-browser bus ([LIVE-DEMO.md](LIVE-DEMO.md)) | The teammate's package in `myomars-flexarray-demo/` (React + Vite, prebuilt), published unchanged |
 | Runs | In the visitor's browser; nothing to install | Static files in the visitor's browser; no server, no Python |
 | Data | The shared contract demo fixtures, published by the Base's data replay: one standardised grip measurement (`std-grip-40`, %MVC, grip meter). All simulated | Its own synthetic data (fictional crew member A01, synthetic sEMG and IMU). Not a diagnosis |
@@ -17,6 +19,23 @@ data. Neither the interfaces nor the project introduction claim they are connect
 The FlexArray demo contains its own animated helmet HUD and "Mars Base medical review" scenes. They
 are part of that animation. They are **not** the MyoMars Base/HUD software, and no data passes
 between the two demos.
+
+## Deployment and acceptance status
+
+Deployment, the automated checks and the owner's manual acceptance are recorded separately. Only what
+has actually been confirmed is marked as done.
+
+| | Base ↔ HUD site | FlexArray site |
+|---|---|---|
+| Production deployment | **Ready** from `main` `d9bc89f`: Vercel reported success at 2026-11-16 04:43 UTC | **Ready** from `main` `d9bc89f`: Vercel reported success at 2026-11-16 04:49 UTC; the owner confirmed the Production Deployment is Ready |
+| Automated checks before deployment (Linux container, headless Chromium, software WebGL; local production build) | `e2e:browser-demo` 38/38: full loop, tab switches, resets, isolation, fallbacks | `flexarray-browser` 20/20 with 8 cores emulated. With the real 4 cores, the intended `lite` bay was chosen (a legitimate downgrade); the suite stops there. Review gate 11/11; paused navigation 6/6. **The full real-time playback suite did not complete** |
+| Manual acceptance on the live address (project owner, reported 2026-11-16) | **Passed**: the full operating loop; the link opens anonymously, without a sign-in | **Passed**: full playback, including the 0:35 review pause and the continuation to 0:45 after the confirmation; the link opens anonymously, without a sign-in |
+
+The manual acceptance is the owner's report. The operating system, browser and graphics hardware were not reported; no other environment is claimed. The automated checks are local runs from before the
+deployment and are a separate record.
+
+How to check: [LIVE-DEMO.md](LIVE-DEMO.md) (Base/HUD) and the manual check in
+[DEPLOY.md](../../myomars-flexarray-demo/DEPLOY.md) (FlexArray).
 
 ## FlexArray site: what the static deployment does not provide
 
@@ -48,7 +67,7 @@ Details: [ENGLISH-DEMO.md](ENGLISH-DEMO.md) (Base/HUD interface) and [LIVE-DEMO.
 
 ## Project introduction (about 3 minutes)
 
-1. **The patch, as a concept (≈ 50 s, FlexArray site at `/#flexarray`).**
+1. **The patch, as a concept (≈ 50 s, https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray).**
    - Say: "First, the sensor concept: FlexArray-MN, a conceptual engineering design for a skin
      patch. This is a separate 45-second guided demo with synthetic data. It is not a medical
      device and makes no diagnosis."

@@ -1,13 +1,12 @@
 # Deploying the FlexArray 45-second demo as its own Vercel site
 
-**Status: pending deployment.** The public address is added to the project README once the domain is
-confirmed.
+**Production address: https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray**
 
 The teammate's package (`myomars-flexarray-45s-demo.zip`) is published unchanged as a **separate static
-website**, the Vercel project **`myomars-patch-demo`**. It is independent of the MyoMars Base/HUD site
-(`myomars-demo`):
+website**, on its own Vercel project **`nasa-duo_space-healthmonitoringsoftware-myomars-flexarray-demo`**. It is independent of the MyoMars Base/HUD
+site (`myomars-demo`, https://myomars-demo.vercel.app/demo):
 - separate project and domain;
-- no shared code, data or messages;
+- deployed and run independently; no data or messages pass between the two sites during the demos;
 - no Python service.
 
 ## How it is built
@@ -24,7 +23,15 @@ package states that a clean `npm ci` or `pnpm install` rebuilds this `dist/` byt
 TypeScript sources stay inside the ZIP, so the root `tsconfig.json`, ESLint and `next build` never see
 them.
 
-## Vercel project settings (`myomars-patch-demo`)
+## Status
+
+| | |
+|---|---|
+| Production deployment | **Ready**, from `main` `d9bc89f`. Vercel reported success at 2026-11-16 04:49 UTC (build about 6 s); the owner confirmed the Production Deployment is Ready |
+| Automated checks before deployment | `site/` served locally like Vercel static hosting: `flexarray-browser` 20/20 with 8 cores emulated. With the real 4 cores, the intended `lite` bay was chosen (a legitimate downgrade) and the suite stops at that check. Review gate 11/11; paused navigation 6/6. **The full real-time playback suite (`flexarray-demo`) did not complete** in that environment |
+| Manual acceptance on the live address (project owner, reported 2026-11-16) | **Passed**: full playback, including the 0:35 review pause and the continuation to 0:45 after the confirmation; the link opens anonymously, without a sign-in. The operating system, browser and graphics hardware were not reported; no other environment is claimed. |
+
+## Vercel project settings (`nasa-duo_space-healthmonitoringsoftware-myomars-flexarray-demo`)
 
 | Setting | Value |
 |---|---|
@@ -45,8 +52,8 @@ them.
 It is read only by the project whose Root Directory is this folder. The `myomars-demo` project (Root
 Directory `./`) does not read it and is not changed.
 
-**Official entry: `https://<project domain>/#flexarray`**. Always share this full address; the demo
-opens directly.
+**Official entry: https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray**. Always share this full address, with `#flexarray`; the demo opens
+directly.
 - `/` without the hash opens the package's ASTRA console. That is the app's own default screen, not
   the submission demo (see below).
 - A server redirect from `/` to `/#flexarray` is not possible: the browser would request `/` again.
@@ -76,7 +83,7 @@ No API service is added and the console is not changed in this repository.
 
 Use Chrome or Edge, in a private window (no Vercel login), on a computer with a real graphics card.
 
-1. **Reachable:** open `https://<project domain>/#flexarray`. The FlexArray page opens without a sign-in. The
+1. **Reachable:** open https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray. The FlexArray page opens without a sign-in. The
    disclaimer "Conceptual engineering design — not manufactured, clinically validated, or
    flight-qualified." and the label "Guided demo · synthetic data · not a clinical diagnosis" are
    visible.
