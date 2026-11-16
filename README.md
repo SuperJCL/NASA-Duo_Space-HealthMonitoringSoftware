@@ -16,7 +16,7 @@ live addresses (2026-11-16).
 
 **▶ Supplementary Videos:** supplementary material only; the official Project Demonstration is the PDF
 above. Published in the release [`submission-v1`](https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware/releases/tag/submission-v1), full length and unedited:
-- [presentation_introduction.mp4](https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware/releases/download/submission-v1/presentation_introduction.mp4) (1:17):
+- [Presentation.Introduction.mp4](https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware/releases/download/submission-v1/Presentation.Introduction.mp4) (1:17):
   project introduction, with audio.
 - [flexarray-45s-demo.mp4](https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware/releases/download/submission-v1/flexarray-45s-demo.mp4) (0:56): screen
   recording of the FlexArray 45-second guided demo.
