@@ -13,6 +13,7 @@
 import { inSentence } from "./analysis";
 import { allowedDecisions, caseMessages, latest, messageKind, workbenchStage, type Case, type Decision, type Evaluation, type OutMessage, type StationState } from "./station";
 import type { ReassessmentPayload } from "./protocol";
+import { BusName } from "./transport-words";
 
 export const CHAIN_IDS = ["source", "analysis", "review", "hud", "crew", "retest", "reassessment"] as const;
 export type ChainId = (typeof CHAIN_IDS)[number];
@@ -162,7 +163,7 @@ export function eventChain(s: StationState, c: Case, { mock }: { mock: boolean }
     else if (received.length === acts.length) {
       nodes.push(node("hud", { ...base, state: "done", summary: `Received by HUD · ${hhmm(latestOf(received.map((m) => m.hudReceivedAt)))}`, at: latestOf(received.map((m) => m.hudReceivedAt)) }));
     } else if (closed) nodes.push(node("hud", { ...base, state: "skipped", summary: "No receipt (case closed)" }));
-    else nodes.push(node("hud", { ...base, state: "waiting", summary: `${mock ? "Sent (local simulation)" : "Relay accepted"} · awaiting receipt`, since: sentAt, waitingFor: "the HUD" }));
+    else nodes.push(node("hud", { ...base, state: "waiting", summary: `${mock ? "Sent (local simulation)" : `${BusName()} accepted`} · awaiting receipt`, since: sentAt, waitingFor: "the HUD" }));
     if (sentAt && !failed.length) events.push({ key: `${c.caseId}:d${dv}:sent`, from: idx("review"), to: idx("hud"), kind: "send", at: sentAt });
     if (received.length === acts.length && acts.length) events.push({ key: `${c.caseId}:d${dv}:received`, from: idx("hud"), to: idx("review"), kind: "feedback", at: latestOf(received.map((m) => m.hudReceivedAt))! });
   }

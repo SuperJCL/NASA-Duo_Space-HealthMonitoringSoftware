@@ -1,5 +1,6 @@
 "use client";
 
+import { busName } from "@/lib/station/transport-words";
 import type { ReactNode } from "react";
 import { CONDITION_NOTES, MISSION_CREW, PHASE_LABEL, runTask, type MissionDef, type MissionPhase, type MissionTask } from "@/lib/station/mission";
 import { ageText, type CrewLine, type Freshness, type MissionCrewView } from "@/lib/station/mission-crew";
@@ -161,7 +162,7 @@ export function MissionCrewPanel({
   if (phase === "starting")
     body = (
       <div className="flex flex-col gap-2" data-testid="mission-starting">
-        <p>{"Starting EVA: waiting for the relay to confirm. Health Monitoring opens once it is confirmed."}</p>
+        <p>{`Starting EVA: waiting for the ${busName()} to confirm. Health Monitoring opens once it is confirmed.`}</p>
         {startMsg && startMsg.delivery === "failed" ? (
           <p>
             <span className="text-[var(--mg-caution)]">{`Send failed: ${startMsg.deliveryNote ?? "unknown reason"}`}</span>

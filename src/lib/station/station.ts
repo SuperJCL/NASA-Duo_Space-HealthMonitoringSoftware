@@ -12,6 +12,7 @@
 // - alerts are never lowered by a result, a data failure or an analysis failure: only a human
 //   "close" clears them, and a single normal retest does not close a case by itself.
 
+import { busName } from "./transport-words";
 import { analyse, analyseReport, STAGES, type AnalysisResult, type Baseline, type Candidate } from "./analysis";
 import { isLocalType, parseLocal, type CrewMemberPayload, type HudReport } from "./local-protocol";
 import {
@@ -398,7 +399,7 @@ export function step(state: StationState, action: Action): StepResult {
     delete plain.sender;
     const type = env.type as OutboundType;
     s.outbox.push({ eventId: env.eventId, type, caseId: env.caseId, retestId: env.retestId ?? null, envelope: plain as Envelope, delivery: "sent", deliveryNote: "Relay record (sent before this window reloaded, or by another base window)", adapterAt: when, relaySeq: seq ?? null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
-    if (!type.startsWith("station.audit.")) log(when, "out", `Sent: ${OUT_LABEL[type]} (restored from the relay record)`, env.caseId, env.eventId);
+    if (!type.startsWith("station.audit.")) log(when, "out", `Sent: ${OUT_LABEL[type]} (restored from the ${busName()} record)`, env.caseId, env.eventId);
     const c = env.caseId ? s.cases[env.caseId] : undefined;
     const p = parsed.payload as Record<string, unknown>;
     if (c && type === "station.audit.assessment") {
@@ -408,7 +409,7 @@ export function step(state: StationState, action: Action): StepResult {
       const decision = p.decision as Decision;
       if (!c.reviews.some((r) => r.version === p.evaluationVersion && r.at === p.decidedAt && r.decision === decision)) {
         c.reviews.push({ version: p.evaluationVersion as number, decision, reason: String(p.reason), reviewer: String(p.reviewer), at: String(p.decidedAt) });
-        log(String(p.decidedAt), "review", `${p.reviewer}: ${decision} (v${p.evaluationVersion}, restored from the relay record): ${p.reason}`, c.caseId);
+        log(String(p.decidedAt), "review", `${p.reviewer}: ${decision} (v${p.evaluationVersion}, restored from the ${busName()} record): ${p.reason}`, c.caseId);
       }
       if (PHASES.includes(p.caseStatus as Phase)) c.phase = p.caseStatus as Phase;
       if (decision === "close") c.alert = { level: "none", reason: `Closed by ${p.reviewer}`, since: String(p.decidedAt) };
@@ -737,7 +738,7 @@ export function step(state: StationState, action: Action): StepResult {
     }
 
     case "start-eva": {
-      if (s.pendingStart) return fail("Starting the EVA: waiting for the relay to confirm");
+      if (s.pendingStart) return fail(`Starting the EVA: waiting for the ${busName()} to confirm`);
       if (s.run && !s.run.evaEndedAt) return fail("An EVA is already in progress; it cannot be started twice");
       const open = openCases(s);
       if (s.run && open.length) return fail(`The previous EVA still has ${open.length} open health event${open.length > 1 ? "s" : ""}: handle ${open.length > 1 ? "them" : "it"} before starting a new EVA`);
@@ -748,7 +749,7 @@ export function step(state: StationState, action: Action): StepResult {
       s.outbox.push({ eventId, type: "scenario.start", caseId: null, retestId: null, envelope, delivery: "queued", deliveryNote: null, adapterAt: null, relaySeq: null, hudReceivedAt: null, feedback: "none", feedbackNote: null, feedbackAt: null });
       s.pendingStart = { eventId, runId: action.runId, at: action.at };
       effects.push({ kind: "send", envelope });
-      log(action.at, "out", `${action.by} confirmed the simulated EVA start: ${action.astronaut.callsign} · ${action.task.title}; waiting for the relay`, null, eventId);
+      log(action.at, "out", `${action.by} confirmed the simulated EVA start: ${action.astronaut.callsign} · ${action.task.title}; waiting for the ${busName()}`, null, eventId);
       return { state: s, effects, error: null };
     }
 

@@ -194,3 +194,17 @@ node scripts/hud-scene-check.mjs   # the 3D scene and its fallbacks (relay runni
 ```
 
 The station's ESLint skips `myomars-hud/**`; your suites are the check for this folder.
+
+## Browser-demo link (`link=parent`, online demo)
+
+`hud.html?mode=integration&link=parent&session=<id>` is how the online demo (`/demo`,
+`docs/myomars/LIVE-DEMO.md`) embeds this page in a same-origin iframe.
+- **Transport:** `hud/parent-link.js` gives `base-client.js` a `fetchImpl` that sends the same relay
+  calls to the parent page over a MessageChannel. The client logic, receipts and buttons are unchanged.
+- **Handshake:** origin, parent window, session and a per-load nonce.
+- **Ordering:** calls made before the handshake wait for it.
+- **Storage and samples:** the session comes from the URL; storage is memory only (a reload starts
+  clean); the retest sample is read from the HUD folder.
+- **Hidden frame:** loaded hidden (0×0 viewport), the page skips layout and frames until it has a real
+  viewport. This also guards standalone mode, where it never happens.
+- **Without `link=parent`:** standalone and relay integration behave exactly as before.

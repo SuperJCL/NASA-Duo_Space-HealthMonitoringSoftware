@@ -7,6 +7,7 @@
 // (observation arrived, analysis finished, messages sent, HUD receipt, crew reply, retest result);
 // nothing moves while the chain waits for a person or a device, and nothing here changes state.
 
+import { busName } from "@/lib/station/transport-words";
 import { useEffect, useRef, type ReactNode } from "react";
 import { CHAIN_IDS, type ChainId, type ChainNode, type ChainState, type EventChain } from "@/lib/station/event-chain";
 import { hhmmss } from "@/lib/station/flow";
@@ -26,7 +27,7 @@ const STYLE: Record<ChainState, string> = {
 };
 const ICON_TONE: Record<ChainState, string> = { done: "text-[var(--mg-ok)]", running: "text-[var(--mg-cyan)]", human: "text-[var(--mg-coral)]", waiting: "text-[var(--mg-cyan)]", stopped: "text-[var(--mg-caution)]", failed: "text-[#ff8f8f]", todo: "", skipped: "" };
 const MARK: Record<"data" | "send" | "feedback", string> = { data: "var(--mg-cyan)", send: "var(--mg-coral)", feedback: "var(--mg-ok)" };
-const NOTICE_TEXT = { none: "not sent", sending: "sending…", sent: "relay accepted · awaiting HUD receipt", received: "Received by HUD", failed: "send failed" } as const;
+const NOTICE_TEXT = { none: "not sent", sending: "sending…", get sent() { return `${busName()} accepted · awaiting HUD receipt`; }, received: "Received by HUD", failed: "send failed" } as const;
 
 /** Events already animated (module level: a remount or a reopened overlay never replays them). */
 const played = new Set<string>();

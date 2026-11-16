@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MockStationAdapter, type StationAdapter } from "@/lib/station/adapter";
 import { resolveLink, type LinkConfig } from "@/lib/station/link-config";
 import { RelayStationAdapter, type RelayStatus } from "@/lib/station/relay-adapter";
+import { DEMO_BASE, type DemoFetch } from "@/lib/demo/browser-relay";
+import { BusName, setTransportMode } from "@/lib/station/transport-words";
 import { crewCards, notifications } from "@/lib/station/crew";
 import { evaRunId, MISSION_CREW, missionPhase, type MissionDef } from "@/lib/station/mission";
 import { openCases, type Decision } from "@/lib/station/station";
@@ -80,19 +82,25 @@ function stationClientId() {
  * analysis, flow, crew, comms); every input travels through the adapter — the local mock
  * (standalone demo, default) or the local relay (`?relay=…`, integration).
  */
-export function CrewStation({ mission = null }: { mission?: StationMission | null }) {
+export function CrewStation({ mission = null, demoLink = null, fill = false }: { mission?: StationMission | null; demoLink?: { sessionId: string; fetchImpl: DemoFetch } | null; fill?: boolean }) {
   // Resolved on the client only (the server renders a neutral shell), so the adapter is created once.
   const linkJson = useSyncExternalStore(noop, readLink, () => null);
+  // The online demo (/demo) passes its in-browser bus: URL parameters (?relay=…) are then ignored.
+  if (demoLink) return <StationShell key={`demo-${demoLink.sessionId}`} link={{ mode: "browser-demo", baseUrl: DEMO_BASE, sessionId: demoLink.sessionId }} demoFetch={demoLink.fetchImpl} mission={mission} fill={fill} />;
   if (!linkJson) return <div lang="en" className="mission-glass min-h-dvh" data-testid="crew-station-loading" />;
   return <StationShell key={linkJson} link={JSON.parse(linkJson) as LinkConfig} mission={mission} />;
 }
 
-function StationShell({ link, mission }: { link: LinkConfig; mission: StationMission | null }) {
-  const [adapter] = useState<StationAdapter>(() => (link.mode === "relay" ? new RelayStationAdapter({ baseUrl: link.baseUrl, sessionId: link.sessionId, clientId: stationClientId() }) : new MockStationAdapter()));
+function StationShell({ link, mission, demoFetch, fill = false }: { link: LinkConfig; mission: StationMission | null; demoFetch?: DemoFetch; fill?: boolean }) {
+  const browserDemo = link.mode === "browser-demo";
+  setTransportMode(browserDemo ? "browser-demo" : "relay");
+  const [adapter] = useState<StationAdapter>(() =>
+    link.mode === "mock" ? new MockStationAdapter() : new RelayStationAdapter({ baseUrl: link.baseUrl, sessionId: link.sessionId, clientId: browserDemo ? `station-${link.sessionId}` : stationClientId(), fetchImpl: browserDemo ? demoFetch : undefined }),
+  );
   const relay = adapter instanceof RelayStationAdapter ? adapter : null;
   const mockAdapter = adapter instanceof MockStationAdapter ? adapter : null;
   const relayStatus = useSyncExternalStore(relay ? relay.subscribeStatus : noStatus, relay ? relay.getStatus : nullStatus, relay ? relay.getStatus : nullStatus);
-  const rawApi = useStation(adapter, { stageDelayMs: STAGE_MS, sessionId: link.mode === "relay" ? link.sessionId : "local" });
+  const rawApi = useStation(adapter, { stageDelayMs: STAGE_MS, sessionId: link.mode === "mock" ? "local" : link.sessionId });
   // Read-only window (another station window holds the relay lease): no decisions, no resends here.
   const readOnly = !!relayStatus && relayStatus.lease !== "holder";
   const api = readOnly ? { ...rawApi, review: () => READ_ONLY, resend: () => READ_ONLY, startEva: () => READ_ONLY, endEva: () => READ_ONLY } : rawApi;
@@ -203,7 +211,7 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
   }
 
   const linkInfo: OverlayLink = relayStatus
-    ? { text: `Relay: ${CONN_TEXT[relayStatus.conn]}`, tone: CONN_OVERLAY[relayStatus.conn], title: `${adapter.label}${relayStatus.lastError ? ` · ${relayStatus.lastError}` : ""}` }
+    ? { text: `${BusName()}: ${CONN_TEXT[relayStatus.conn]}`, tone: CONN_OVERLAY[relayStatus.conn], title: `${adapter.label}${relayStatus.lastError ? ` · ${relayStatus.lastError}` : ""}` }
     : { text: "Local simulation (no real HUD)", tone: "neutral", title: adapter.label };
 
   const empty = (
@@ -213,7 +221,9 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
         {relay
           ? relayStatus?.conn === "online"
             ? "On the Mission Map, select a task and the astronaut, review the mission summary and confirm Start EVA. The crew of that EVA then appears here."
-            : `Not connected to the relay (${relay.getStatus().baseUrl}): start it with npm run relay, or check the address and network.`
+            : browserDemo
+              ? "Connecting the Base to the in-browser bus of this page…"
+              : `Not connected to the relay (${relay.getStatus().baseUrl}): start it with npm run relay, or check the address and network.`
           : "The base has not received a scenario start or crew data yet. Open the local simulated demo, choose a simulated astronaut and a scenario, then start it."}
       </p>
       {relay ? (
@@ -237,7 +247,9 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
         <li>{"Crew roster, device connection and astronaut reports are local simulated extensions (myomars/v1-local), not part of shared contract v1; see docs/myomars/STATION-LOCAL-PROPOSALS.md."}</li>
         <li>
           {relay
-            ? `Transport: ${adapter.label} (this window ${relay.getStatus().clientId}). "Relay accepted" only means the relay stored the message (with a sequence number), not that the HUD received it; Received by HUD and Acknowledged by Crew come only from the HUD's replies.`
+            ? browserDemo
+              ? `Transport: ${adapter.label}. Browser-based demo: the Base and the HUD tab exchange messages inside this browser tab, with the relay's rules (validation, de-duplication, run isolation); no server and no real device. "In-browser bus accepted" only means the in-page bus stored the message, not that the HUD received it; Received by HUD and Acknowledged by Crew come only from the HUD page's replies. Reloading the page or Reset demo starts a new, empty session.`
+              : `Transport: ${adapter.label} (this window ${relay.getStatus().clientId}). "Relay accepted" only means the relay stored the message (with a sequence number), not that the HUD received it; Received by HUD and Acknowledged by Crew come only from the HUD's replies.`
             : `Transport: ${adapter.label}. "Sent" only means handed to the local simulated channel, not received by a HUD.`}
         </li>
         <li>{"The crew marker on the map is a simulated position near the task target: there is no live position source."}</li>
@@ -283,7 +295,7 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
   );
 
   return (
-    <div lang="en" className="mission-glass flex h-dvh flex-col overflow-hidden" data-testid="crew-station" data-link-mode={adapter.mode} data-view={view} data-overlay={overlayOpen ? "open" : "collapsed"} data-phase={phase}>
+    <div lang="en" className={`mission-glass flex ${fill ? "h-full" : "h-dvh"} flex-col overflow-hidden`} data-testid="crew-station" data-link-mode={adapter.mode} data-view={view} data-overlay={overlayOpen ? "open" : "collapsed"} data-phase={phase}>
       <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-[var(--mg-line)] px-5 py-2">
         <div className="flex items-baseline gap-2">
           <span className="text-lg font-semibold tracking-tight">{"MyoMars"}</span>
@@ -296,7 +308,7 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
           {relayStatus ? (
             <>
               <span className={`rounded-full border px-2.5 py-0.5 text-[12px] ${CONN_TONE[relayStatus.conn]}`} title={`${adapter.label}${relayStatus.lastError ? ` · ${relayStatus.lastError}` : ""}`} data-testid="station-link" data-conn={relayStatus.conn}>
-                {`Relay ${CONN_TEXT[relayStatus.conn]} · session ${relayStatus.sessionId}`}
+                {browserDemo ? `Browser-based demo · ${relayStatus.conn === "online" ? "in-page messages" : CONN_TEXT[relayStatus.conn]}` : `Relay ${CONN_TEXT[relayStatus.conn]} · session ${relayStatus.sessionId}`}
               </span>
               <span className={`rounded-full border px-2.5 py-0.5 text-[12px] ${readOnly ? "border-[var(--mg-caution)] text-[var(--mg-caution)]" : "border-[var(--mg-line-strong)] text-[var(--mg-dim)]"}`} title={`Signed in as ${REVIEWER} (demo identity)`} data-testid="station-lease" data-lease={relayStatus.lease}>
                 {relayStatus.lease === "holder" ? `${REVIEWER} · this window decides` : relayStatus.lease === "readonly" ? "Read-only: another base window decides" : "Checking which window decides…"}
@@ -326,7 +338,9 @@ function StationShell({ link, mission }: { link: LinkConfig; mission: StationMis
       </header>
       {relay ? (
         <p className="border-b border-[var(--mg-line)] bg-[rgba(214,120,255,0.08)] px-5 py-0.5 text-[12px] text-[#e3a6ff]" data-testid="integration-banner">
-          {"Two-end demo: the HUD is the real page, linked through the local relay · data: simulated replay samples, not teammate health data"}
+          {browserDemo
+            ? "Browser-based demo: the Base and the HUD tab exchange messages inside this browser tab (no server, no real device) · data: simulated replay samples"
+            : "Two-end demo: the HUD is the real page, linked through the local relay · data: simulated replay samples, not teammate health data"}
         </p>
       ) : null}
       {mission ? <MissionBar def={def} state={state} phase={phase} view={view} onView={(v) => (v === "map" ? collapse() : chooseView(v))} cards={cards} onJump={jump} onEndEva={() => (setDialogError(null), setDialog("end"))} canAct={canAct} toggleRef={toggleRef} /> : null}
