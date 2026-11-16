@@ -295,7 +295,7 @@ function StationShell({ link, mission, demoFetch, fill = false }: { link: LinkCo
   );
 
   return (
-    <div lang="en" className={`mission-glass flex ${fill ? "h-full" : "h-dvh"} flex-col overflow-hidden`} data-testid="crew-station" data-link-mode={adapter.mode} data-view={view} data-overlay={overlayOpen ? "open" : "collapsed"} data-phase={phase}>
+    <div lang="en" className={`mission-glass flex ${fill ? "relative h-full" : "h-dvh"} flex-col overflow-hidden`} data-testid="crew-station" data-link-mode={adapter.mode} data-view={view} data-overlay={overlayOpen ? "open" : "collapsed"} data-phase={phase}>
       <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-[var(--mg-line)] px-5 py-2">
         <div className="flex items-baseline gap-2">
           <span className="text-lg font-semibold tracking-tight">{"MyoMars"}</span>
@@ -392,6 +392,8 @@ function StationShell({ link, mission, demoFetch, fill = false }: { link: LinkCo
         <RelayDevDrawer
           relay={relay}
           state={state}
+          browserDemo={browserDemo}
+          contained={fill}
           onOpenPerson={(id) => {
             setChosen((m) => {
               const next = { ...m };

@@ -4452,3 +4452,35 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - `smoke:crew` 72/72; `smoke:station` 121/121; `test:hud` 49 + 46; `contracts:check` up to date.
 - **Not done:** a Vercel deployment from this environment (no Vercel CLI or credentials, and
   `api.vercel.com` is refused by the proxy). Steps in `docs/myomars/LIVE-DEMO.md`.
+
+## Online demo fix: data replay panel inside `/demo`; live demo link in the README
+
+- **Time (UTC):** 2026-11-16 03:10 to 03:30.
+- **Branch:** `fix/demo-dev-drawer` from `main` `d6a60dd` (PR #8 merged; Vercel built it).
+- **Problem (owner report, reproduced at 1440×900):** in `/demo`, the Base header's "Dev entry (data
+  replay)" panel was positioned against the browser window (`fixed`, top 12 px). It opened under the
+  page's own top bar (z 80), which hid its title and Hide button. The panel itself covered the header
+  toggle, so it could not be closed. A long sample name in the select widened it by 125 px (horizontal
+  scrollbar). In this mode it also said "to the relay".
+- **What changed:**
+  - `RelayDevDrawer`: when the station is embedded (`fill`), the panel is `absolute` inside the station
+    (the station root becomes `relative`), so it starts below the page's top bar. The standalone pages
+    (`/`, `/?relay=auto`) keep the `fixed` panel unchanged.
+  - The select and checklist text may shrink (`min-w-0`), so there is no horizontal overflow.
+  - Browser-demo wording: "to the in-browser bus", "in the Astronaut HUD tab"; relay wording unchanged.
+  - README: the live demo link (`https://myomars-demo.vercel.app/demo`, the repository's homepage
+    setting) at the top.
+- **Verified (Linux, headless Chromium, production build):**
+  - Panel checks at 1440×900 and 1920×1080, 22/22:
+    - starts below the top bar; inside the window; no horizontal overflow;
+    - Hide is clickable and closes it; the header toggle reopens it;
+    - hidden on the HUD tab, still open back on Base; the Demo controls menu stays on top and usable;
+    - browser-demo wording; no page errors.
+  - Replay from the panel after Start EVA reaches Awaiting Base Review: one observation, role
+    `trigger`, no request to 8787/8788.
+  - `npm run check`: 402 unit tests and the build.
+  - `e2e:browser-demo` 38/38 with the relay stopped.
+  - Relay mode (relay started): `e2e:two-end` 48/48; `e2e:mission` 29/29. The first `e2e:mission`
+    run failed at its first check because the previous suite's EVA was still in the same in-memory
+    relay session; it passed after a relay restart.
+- **Not verified:** the public deployment (this environment cannot reach `*.vercel.app`).
