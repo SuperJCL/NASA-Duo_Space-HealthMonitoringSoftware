@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     "myomars-hud/**",
     // Generated copy of the HUD page for the online demo (scripts/copy-hud.mjs).
     "public/hud/**",
+    // Generated static site of the separate FlexArray patch demo (myomars-flexarray-demo/scripts/build-site.mjs).
+    "myomars-flexarray-demo/site/**",
   ]),
 ]);
 
