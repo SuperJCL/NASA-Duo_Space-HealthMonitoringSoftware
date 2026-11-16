@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // HUD teammate's sub-project (feat/myomars-hud, merged on integration/myomars): its own code
     // style and test suites (myomars-hud/test); only integration compat patches are made there.
     "myomars-hud/**",
+    // Generated copy of the HUD page for the online demo (scripts/copy-hud.mjs).
+    "public/hud/**",
   ]),
 ]);
 

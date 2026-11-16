@@ -187,6 +187,13 @@
   adapters, protocols, baselines or field mappings; never relabel its walking/quadriceps µV data as
   `std-grip-40` or fill its missing fields; the Base ↔ HUD loop keeps using the simulated data
   replay; no UI or introduction may imply the two programs are connected.
+- MyoMars ONLINE DEMO (`/demo`, `docs/myomars/LIVE-DEMO.md`): Base + HUD in one page through the
+  in-browser bus (`src/lib/demo/`; relay session rules shared in `relay/core.ts`; HUD in a same-origin
+  iframe of `public/hud/`, generated from `myomars-hud/` by `scripts/copy-hud.mjs` — never edit
+  `public/hud/`). The HUD frame may publish only as `hud` / `device`; receipts come only from the HUD
+  page; approvals and closes stay human actions; no timed or invented receipts; wording says
+  "in-browser bus", never a server or a real device. Browser-demo and relay transports never run
+  together (`demoLink` ignores `?relay=`). No server-side session or Vercel Function memory.
 - `src/contracts/`, `contracts/`, `tools/myomars/` — MyoMars shared message
   contracts v1 (Trigger / HUD / Mars Station), a team PROPOSAL
   (`docs/myomars/CONTRACTS.md`). Zod sources in erasable TypeScript that Node
