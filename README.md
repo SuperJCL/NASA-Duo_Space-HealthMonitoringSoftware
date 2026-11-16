@@ -1,6 +1,13 @@
 # Mars Discovery Intelligence (MDI)
 
-**▶ Live demo: [myomars-demo.vercel.app/demo](https://myomars-demo.vercel.app/demo)**: the MyoMars Mars Base and Astronaut HUD in one page, running in your browser (simulated data, simulated analysis; nothing to install).
+**▶ Live demos.** These are two separate sites, with no data link between them:
+- **Mars Base + Astronaut HUD:** [myomars-demo.vercel.app/demo](https://myomars-demo.vercel.app/demo).
+  The health-monitoring loop in one page, running in your browser (simulated data, simulated
+  analysis; nothing to install).
+- **FlexArray patch, 45-second guided demo:**
+  [myomars-patch-demo.vercel.app/#flexarray](https://myomars-patch-demo.vercel.app/#flexarray).
+  The teammate's patch demo, published unchanged from `myomars-flexarray-demo/` (synthetic data, not
+  a diagnosis; [DEPLOY.md](myomars-flexarray-demo/DEPLOY.md)).
 
 > Given incomplete scientific evidence and limited mission resources, what
 > should a Mars explorer investigate next, and why?
