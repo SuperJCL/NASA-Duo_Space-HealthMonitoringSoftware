@@ -14,6 +14,15 @@ live addresses (2026-11-16).
 **▶ Project Demonstration:** [MyoMars_Project_Demo.pdf](docs/presentation/MyoMars_Project_Demo.pdf)
 (7 slides, PDF).
 
+**▶ Supplementary Videos:** supplementary material only; the official Project Demonstration is the PDF
+above. Published in the release [`submission-v1`](https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware/releases/tag/submission-v1), full length and unedited:
+- [presentation_introduction.mp4](https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware/releases/download/submission-v1/presentation_introduction.mp4) (1:17):
+  project introduction, with audio.
+- [flexarray-45s-demo.mp4](https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware/releases/download/submission-v1/flexarray-45s-demo.mp4) (0:56): screen
+  recording of the FlexArray 45-second guided demo.
+- [myomars-base-hud-loop.mp4](https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware/releases/download/submission-v1/myomars-base-hud-loop.mp4) (1:57): screen
+  recording of the Mars Base and Astronaut HUD loop.
+
 > Given incomplete scientific evidence and limited mission resources, what
 > should a Mars explorer investigate next, and why?
 
