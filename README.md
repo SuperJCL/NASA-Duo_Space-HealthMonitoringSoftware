@@ -11,6 +11,9 @@ live addresses (2026-11-16).
   The teammate's patch demo, published unchanged from `myomars-flexarray-demo/` (synthetic data, not
   a diagnosis). Details: [DEPLOY.md](myomars-flexarray-demo/DEPLOY.md).
 
+**▶ Project Demonstration:** [MyoMars_Project_Demo.pdf](docs/presentation/MyoMars_Project_Demo.pdf)
+(7 slides, PDF).
+
 > Given incomplete scientific evidence and limited mission resources, what
 > should a Mars explorer investigate next, and why?
 
