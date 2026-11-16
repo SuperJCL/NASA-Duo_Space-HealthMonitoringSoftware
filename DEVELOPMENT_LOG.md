@@ -4378,6 +4378,22 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
 - **Not verified:** the owner's Windows PC, real GPUs or integrated graphics, LAN multi-device.
   Performance numbers are from software rendering in a Linux container.
 
+## 2026-11-15 — MyoMars FlexArray 45-second demo package prepared for teammate review
+
+- **Time (UTC):** 2026-11-15, package built 08:21; branch prepared about 08:30 to 08:40.
+- **Added:** `myomars-flexarray-demo/` with `myomars-flexarray-45s-demo.zip` (37,691,310 B, 117 files),
+  its SHA-256 file, `README.md` and `SOURCE.json`. The package is the ASTRA FlexArray-MN V2.1 45-second
+  guided demo: Mars EVA bay, six-layer patch, scale toggle, simulated HUD, human reviewer gate, retest
+  and reassessment, GLB models. All data are synthetic; not a diagnosis.
+- **Why a ZIP:** the demo's TypeScript sources would otherwise enter the root `tsconfig.json`, ESLint and
+  `next build`. No code, contract, HUD, Station, Relay or `astra-patch/` file is changed.
+- **Checks from a clean extraction (macOS):** manifest 116/116; Node-only mode with no install:
+  demo 17/17, explorer 20/20; npm and pnpm installs rebuild `dist` byte-identically; unit 64/64;
+  typecheck OK; GLB validator OK; `--full` mode: pytest 65/65, ASTRA e2e 5/5, MuscleSense PASS.
+  Secret scan of the package and of this repository's history (127 commits, 38 refs): nothing found.
+- **Not verified:** Windows, Safari, Firefox and real phones. The root `npm run check` was not run
+  because no code changed.
+
 ## Restore round: original effects kept, shared design for Base and HUD only, patch unbound
 
 - **Time (UTC):** 2026-11-15, about 18:20 to 19:10.
