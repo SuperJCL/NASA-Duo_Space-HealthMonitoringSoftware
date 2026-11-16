@@ -4602,3 +4602,33 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
 - **Unchanged:** the package ZIP (SHA-256 `662cc724…a10a82d`), its checksum file and the build-site
   checks; Base/HUD, `/demo`, the `myomars-demo` Vercel settings.
 
+
+## Two public demo sites: official links in the docs
+
+- **Time (UTC):** 2026-11-16 04:54 to 04:55. Branch `docs/live-demo-links` from `main` `d9bc89f`.
+  Documentation only: no application, build or deployment configuration change.
+- **Sites (two separate Vercel projects; no shared code, data or messages):**
+  - Base/HUD: https://myomars-demo.vercel.app/demo (project `myomars-demo`).
+  - FlexArray patch demo: https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray
+    (project `nasa-duo_space-healthmonitoringsoftware-myomars-flexarray-demo`). The project name
+    differs from the planned `myomars-patch-demo`; the docs now use the actual name.
+- **Deployment (recorded):**
+  - Both projects built `main` `d9bc89f`. GitHub commit statuses from Vercel: `myomars-demo` success
+    at 04:43:51; the FlexArray project success at 04:49:43, after a build of about 6 s.
+  - The owner confirmed the FlexArray Production Deployment is Ready, from `main`.
+- **Public walkthrough (not recorded as passed):**
+  - Neither live address was opened from this environment (`*.vercel.app` is blocked).
+  - The Base/HUD walkthrough and the FlexArray full real-time playback on a real graphics card
+    (including Windows) are **not yet confirmed**; they are the owner's checks.
+  - The earlier automated results stay as recorded. They are separate from this deployment record:
+    - Base/HUD `e2e:browser-demo` 38/38 locally;
+    - FlexArray `flexarray-browser` 20/20 with 8 cores emulated (the intended `lite` bay with the
+      real 4 cores);
+    - the full playback suite did not complete.
+- **Changed:**
+  - README: both links, independent sites.
+  - `docs/myomars/DEMOS.md`: official addresses and a deployment vs acceptance status table.
+  - `docs/myomars/LIVE-DEMO.md`: production address and status.
+  - `myomars-flexarray-demo/DEPLOY.md`: production address, actual project name, status table, the
+    real address in the entry and in the manual check.
+  - CLAUDE.md: actual project name and address.

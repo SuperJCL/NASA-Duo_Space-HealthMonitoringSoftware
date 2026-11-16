@@ -3,6 +3,19 @@
 `/demo` is the submission demo: one URL, two tabs (**Mars Base**, **Astronaut HUD**), the full health
 monitoring loop. It runs as a single Next.js app.
 
+**Production address: https://myomars-demo.vercel.app/demo** (Vercel project `myomars-demo`,
+production branch `main`).
+- This website is separate from the FlexArray patch demo site
+  (https://nasa-duospace-healthmonitoringsoftw.vercel.app/#flexarray, see
+  `myomars-flexarray-demo/DEPLOY.md`).
+- The two share no code, data or messages; each is deployed and runs on its own.
+
+| | |
+|---|---|
+| Production deployment | **Ready**, from `main` `d9bc89f`: Vercel reported success at 2026-11-16 04:43 UTC |
+| Automated checks before deployment | `e2e:browser-demo` 38/38 on a local production build (Linux container, headless Chromium, software WebGL, relay stopped) |
+| Public walkthrough on the live address | **Not yet confirmed** (the walkthrough below, on the production address) |
+
 **What runs and what doesn't:**
 - No relay process, no port 8787 and no server-side session.
 - Nothing is stored on a server.
