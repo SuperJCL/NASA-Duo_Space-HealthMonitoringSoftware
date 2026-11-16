@@ -4500,3 +4500,66 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
     run failed at its first check because the previous suite's EVA was still in the same in-memory
     relay session; it passed after a relay restart.
 - **Not verified:** the public deployment (this environment cannot reach `*.vercel.app`).
+
+## FlexArray 45-second patch demo: integrated from `feature/myomars-45s-demo`; separate Vercel site
+
+- **Time (UTC):** 2026-11-16 03:44 to 04:35.
+- **Branch:** `feat/myomars-flexarray-45s` from `main` `5245607` (includes #9). PR not merged.
+- **Source locked:** `origin/feature/myomars-45s-demo` at `c3fcaf5` (PR #7, open).
+- **History check:**
+  - The branch is `main` at `d52b463` (the #5 merge) plus this single commit.
+  - GitHub's branch activity shows one push only (branch creation with `c3fcaf5`, 2026-11-15 14:46
+    UTC): no force push, no rewrite.
+  - It was never merged into `main`: no merge commit from it, `git cherry` reports the commit as not
+    applied, and PR #7 is open.
+  - The ASTRA patch branch `feat/astra-standalone-demo` is still at `18f8cd6`, the head merged by #4,
+    with nothing newer.
+- **Already in `main` vs new:**
+  - Already in `main`: `astra-patch/` (the teammate's Python patch, #4) and its showcase page (new in
+    the #6 round, not the teammate's UI).
+  - New: `myomars-flexarray-demo/`: the package ZIP (37,691,310 B, 117 files, SHA-256
+    `662cc724…a10a82d`), its checksum file, README, SOURCE.json and the teammate's log entry.
+- **Merge:** normal merge (`22fb3ac`). Only `DEVELOPMENT_LOG.md` conflicted, because both sides
+  appended. Every `main` entry was kept, and the teammate's entry was inserted verbatim in time order.
+  No other file differs from `d52b463` on the teammate's branch, so no old Base, HUD or relay code
+  came along.
+- **Separate Vercel site (`da5b8d4`):**
+  - `scripts/build-site.mjs` checks the ZIP checksum and extracts only the package's prebuilt
+    `frontend/dist/` into `site/`. It checks every file against the package's `MANIFEST.sha256` (and
+    the CRC-32). The output is byte-identical to the package's `dist`; a tampered ZIP fails the
+    build.
+  - `vercel.json` (build, output `site`, headers) and `DEPLOY.md` (settings).
+  - The folder's `.gitignore`, and a root ESLint ignore for the generated `site/`. Without it, a local
+    `site/` gives 71 lint errors from minified code.
+  - README lists both demo links; CLAUDE.md has a rule for this folder.
+- **Entry, framework, dependencies:**
+  - The official page is the package's React 18 + TypeScript + Vite app at `/#flexarray`. It is
+    served as static files; the package's own launcher needs Node.js only.
+  - The optional FastAPI + SQLite backend (`--full`) is used only by the ASTRA console screens:
+    - `POST /api/readiness`, `POST /api/authorizations`, `POST /api/neurovision/events`.
+    - The 45-second demo makes no API request.
+    - On a static host, `/api` answers 404. The readiness assessment then shows "Server rejected the
+      assessment; authorization is on hold" instead of the launcher's local mode (measured on both).
+    - Minimal fix for the teammate (treat 404/405 like a network error), not applied.
+- **Checks (Linux container, 4 cores, headless Chromium, SwiftShader):**
+  - Package: ZIP SHA-256 OK; manifest 116/116; unit tests 64/64 (TypeScript 5.9.3 from this
+    repository, package pins ~5.6.3).
+  - Built `site/` on a static server that answers like Vercel (404 for missing paths and `/api`):
+    - `flexarray-browser` 20/20, with 8 cores reported. With the container's real 4 cores, the
+      package picks its `lite` bay by design (`bayLayout.ts`: ≤ 4 cores), so the "on by default,
+      full" check fails there.
+    - Gate check 11/11 (paused, then scrubbed): clamps at 0:35, Next and Play disabled, nothing sent
+      without confirmation, focus on the confirmation; then instruction, acknowledgment,
+      reassessment. No `/api` request, localStorage unchanged, no page errors.
+    - Paused scene navigation 6/6.
+  - `flexarray-demo` is timing-dependent here: it asserts state while real-time playback runs, and
+    software WebGL is slow.
+    - Run 1 (launcher) stopped at step 8 of 17: focus, because the clock had passed 0:35 during
+      step 7.
+    - Run 2 (`site/`) stopped at step 4: Previous, while playing.
+    - Both behaviours pass when paused (above). The teammate reports 17/17 on macOS.
+  - Main app: `npm run check` (402 unit tests, build, `/demo` static) on `22fb3ac` and `da5b8d4`.
+    `e2e:browser-demo` 38/38 and the `/demo` panel checks on `22fb3ac` (relay stopped). The ZIP is not
+    in the Next.js build output.
+- **Not done:** the Vercel project `myomars-patch-demo` (created by the owner). The public URL in the
+  README is the expected default domain; confirm it once the project exists.
