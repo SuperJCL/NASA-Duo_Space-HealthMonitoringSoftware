@@ -10,6 +10,7 @@
 //   HUD received anything: that only comes back as hud.received.
 // - Connection state is explicit: connecting / online / reconnecting / offline.
 
+import { busName } from "./transport-words";
 import type { DeliveryResult, StationAdapter } from "./adapter";
 import type { Envelope } from "./protocol";
 
@@ -48,7 +49,7 @@ export class RelayStationAdapter implements StationAdapter {
     this.fetchImpl = fetchImpl ?? ((...a: Parameters<Fetch>) => fetch(...a));
     const id = clientId ?? `station-${Math.random().toString(36).slice(2, 8)}`;
     this.status = { baseUrl: baseUrl.replace(/\/$/, ""), sessionId, clientId: id, conn: "connecting", lease: "pending", leaseHolder: null, lastSeq: 0, lastError: null, since: null };
-    this.label = `Relay ${this.status.baseUrl} · session ${sessionId}`;
+    this.label = this.status.baseUrl.startsWith("browser-demo:") ? `In-browser bus (this tab) · session ${sessionId}` : `Relay ${this.status.baseUrl} · session ${sessionId}`;
   }
 
   subscribeStatus = (l: () => void) => {
@@ -164,13 +165,13 @@ export class RelayStationAdapter implements StationAdapter {
   async send(envelope: Envelope): Promise<DeliveryResult> {
     if (this.status.lease === "readonly") return { ok: false, discard: true, note: "Read-only window: another base window sends" };
     const r = await this.post("station", this.status.clientId, envelope);
-    if (r.ok) return { ok: true, note: `Accepted by the relay (seq ${r.body.seq}${r.body.duplicate ? ", duplicate, not delivered again" : ""}); not a HUD receipt` };
-    if (r.status === 0) return { ok: false, note: "Not connected to the relay (can be resent)" };
+    if (r.ok) return { ok: true, note: `Accepted by the ${busName()} (seq ${r.body.seq}${r.body.duplicate ? ", duplicate, not delivered again" : ""}); not a HUD receipt` };
+    if (r.status === 0) return { ok: false, note: `Not connected to the ${busName()} (can be resent)` };
     if (r.body.error === "not-lease-holder") {
       this.set({ lease: "readonly", leaseHolder: String(r.body.holder ?? "") || null });
       return { ok: false, discard: true, note: "Read-only window: another base window sends" };
     }
-    return { ok: false, note: `Refused by the relay: ${String(r.body.error ?? r.status)}${r.body.detail ? ` (${String(r.body.detail)})` : ""}` };
+    return { ok: false, note: `Refused by the ${busName()}: ${String(r.body.error ?? r.status)}${r.body.detail ? ` (${String(r.body.detail)})` : ""}` };
   }
 
   /**
@@ -179,6 +180,6 @@ export class RelayStationAdapter implements StationAdapter {
    */
   async publishAsReplay(envelope: Envelope): Promise<{ ok: boolean; note: string; seq?: number }> {
     const r = await this.post("trigger", `${this.status.clientId}-replay`, envelope);
-    return r.ok ? { ok: true, seq: Number(r.body.seq), note: `Accepted by the relay (seq ${r.body.seq}${r.body.duplicate ? ", duplicate, not delivered again" : ""}) · simulated sample` } : { ok: false, note: r.status === 0 ? "Not connected to the relay" : `Refused by the relay: ${String(r.body.error ?? r.status)}${r.body.detail ? ` (${String(r.body.detail)})` : ""}` };
+    return r.ok ? { ok: true, seq: Number(r.body.seq), note: `Accepted by the ${busName()} (seq ${r.body.seq}${r.body.duplicate ? ", duplicate, not delivered again" : ""}) · simulated sample` } : { ok: false, note: r.status === 0 ? `Not connected to the ${busName()}` : `Refused by the ${busName()}: ${String(r.body.error ?? r.status)}${r.body.detail ? ` (${String(r.body.detail)})` : ""}` };
   }
 }

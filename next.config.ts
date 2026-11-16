@@ -17,7 +17,12 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   // MAP-0: Mission Glass moved from /mission-glass to the default entry (/).
   async redirects() {
-    return [{ source: "/mission-glass", destination: "/", permanent: false }];
+    return [
+      { source: "/mission-glass", destination: "/", permanent: false },
+      // Online demo deployments (e.g. Vercel: MYOMARS_ENTRY=demo at build time): the site root opens the
+      // browser-based demo. /?relay=… (the two-end relay mode) is never redirected.
+      ...(process.env.MYOMARS_ENTRY === "demo" ? [{ source: "/", destination: "/demo", permanent: false, missing: [{ type: "query" as const, key: "relay" }] }] : []),
+    ];
   },
   partialPrefetching: true,
   turbopack: {

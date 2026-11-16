@@ -4421,3 +4421,34 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - patch `pytest` 96, replay output unchanged, `showcase/check.mjs` 98/98.
   - The patch page looks the same before and after (mean frame difference ≈ 1/255).
 - **Not verified:** the Windows acceptance of this version (owner and teammates, after the merge).
+
+## Online demo: Mars Base + Astronaut HUD in one page (browser-demo transport, Vercel-ready)
+
+- **Time (UTC):** 2026-11-15 23:30 to 2026-11-16 00:15.
+- **Branch:** `feat/myomars-live-demo` from `main` `548fb2f`.
+- **What changed:**
+  - `relay/core.ts`: the relay's session rules (validation, roles, eventId de-duplication, run
+    isolation, lease, history, subscribe) without transport. `relay/relay.ts` now wraps it; relay tests
+    unchanged and passing.
+  - `src/lib/demo/browser-relay.ts`: the core behind a fetch-compatible function on `browser-demo://`
+    (never a network request).
+  - `src/lib/demo/hud-bridge.ts` and `myomars-hud/hud/parent-link.js`: MessageChannel link to the HUD
+    frame (origin, source, session and nonce checks; the frame may publish only as hud or device).
+  - Station: `CrewStation demoLink` (browser-demo mode; `?relay=` ignored there). Transport wording
+    via `transport-words.ts` ("In-browser bus accepted" in this mode, unchanged in relay mode).
+  - `/demo` (`LiveDemo.tsx`): tabs, badges, Demo controls (sample, walkthrough, Reset demo).
+  - `scripts/copy-hud.mjs` (predev / prebuild) publishes the HUD files to `public/hud/` (888 KB, git-ignored).
+  - `MYOMARS_ENTRY=demo` redirects `/` to `/demo`.
+  - HUD: `link=parent` mode; layout and frame loop wait for a real viewport (a hidden frame produced
+    NaN positions).
+- **Checks, with the relay stopped (nothing listening on 8787/8788):**
+  - `npm run check`: 402 unit tests and build; `/demo` is static.
+  - `e2e:browser-demo` 38/38 on the production server (also 38/38 on the dev server): full loop;
+    tab switches without sends; two resets; two visitors; HUD not loaded → no receipt; tiles,
+    terrain and HUD 3D blocked → loop completes; hidden HUD renders no frames and refits; no
+    request to a relay port; 1440×900 and 1920×1080.
+- **Relay mode, with the relay started:**
+  - `e2e:two-end` 48/48; `e2e:mission` 29/29; `hud-scene-check` 27/27; `hud-effects-check` 10/10;
+  - `smoke:crew` 72/72; `smoke:station` 121/121; `test:hud` 49 + 46; `contracts:check` up to date.
+- **Not done:** a Vercel deployment from this environment (no Vercel CLI or credentials, and
+  `api.vercel.com` is refused by the proxy). Steps in `docs/myomars/LIVE-DEMO.md`.

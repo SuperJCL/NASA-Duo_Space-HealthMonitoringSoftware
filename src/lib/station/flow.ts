@@ -14,6 +14,7 @@
 import { FEATURES, inSentence, type Evidence, type FeatureKey } from "./analysis";
 import { allowedDecisions, caseMessages, isActionable, latest, messageKind, stageView, workbenchStage, type Case, type Decision, type Evaluation, type OutMessage, type Review, type StationState } from "./station";
 import { alertNote, comparisonView, keyBasis } from "./views";
+import { busName } from "./transport-words";
 
 /**
  * done: finished · running: the station is processing · human: waiting for base staff ·
@@ -296,7 +297,7 @@ const delivery = (msgs: OutMessage[], mock: boolean): Pick<FlowNode, "state" | "
     owner: "System",
     summary: mock ? `${msgs.length} sent · local simulation only` : `${msgs.length} sent`,
     reason: null,
-    result: mock ? "Handed to the local simulated channel: the base sent it; not a HUD receipt." : "Accepted by the relay: not a HUD receipt.",
+    result: mock ? "Handed to the local simulated channel: the base sent it; not a HUD receipt." : `Accepted by the ${busName()}: not a HUD receipt.`,
     action: null,
     at: msgs.map((m) => m.adapterAt ?? "").sort().at(-1) || null,
   };

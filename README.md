@@ -3,6 +3,36 @@
 > Given incomplete scientific evidence and limited mission resources, what
 > should a Mars explorer investigate next, and why?
 
+## MyoMars: live demo (one page, one web app)
+
+**`/demo`** is the online, browser-based demo: the **Mars Base** and the **Astronaut HUD** are two
+tabs of one page. Their messages are exchanged *inside the browser* through an in-page bus that
+applies the same message rules as the local relay:
+- contract validation;
+- eventId de-duplication;
+- run isolation;
+- case and retest links.
+
+There is no relay process, no server session and no database. Each visitor (and each Reset)
+gets its own session. All data and analysis are simulated, and every message to the crew needs a
+human approval.
+
+```bash
+npm install
+npm run dev                      # http://localhost:3000/demo
+npm run build && npm start       # production: one build, one server
+```
+
+| | Online demo (`/demo`) | Two-end relay mode (`/?relay=auto`) |
+|---|---|---|
+| Processes | The web app only | The web app, plus `node relay/server.ts --static myomars-hud` (port 8787) |
+| HUD | Same page, second tab (same-origin iframe of `/hud/hud.html`) | A separate page, any browser or device on the network |
+| Transport | In-browser bus (`src/lib/demo/`), MessageChannel to the HUD frame | HTTP + Server-Sent Events through the local relay |
+| Session | Per browser tab; refresh or Reset demo starts a new, empty one | Relay session `demo`; restart the relay for a clean one |
+| Deployment | Vercel / any Next.js host (static pages) | Local machine or LAN |
+
+Details, Vercel settings and the walkthrough: [`docs/myomars/LIVE-DEMO.md`](docs/myomars/LIVE-DEMO.md).
+
 MDI is an independent practice prototype, not an official NASA product. It is
 a retrospective scientific investigation simulator built on real NASA Mars
 Trek data. The initial scope is **Jezero Crater, Margin Unit**.

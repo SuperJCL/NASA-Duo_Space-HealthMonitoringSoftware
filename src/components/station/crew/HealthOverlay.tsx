@@ -6,6 +6,7 @@
 // flow: analysis, communication and receipts keep running; selected case, drafts and an open review
 // form are kept by the station shell. Rendering only — every state comes from src/lib/station/.
 
+import { busName, BusName } from "@/lib/station/transport-words";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { commStream } from "@/lib/station/comms";
 import { unreadEntries, type CrewCardView, type Notice } from "@/lib/station/crew";
@@ -746,7 +747,7 @@ function StatusBlock({ phase, c, flow, node, state, mock, now }: { phase: Decisi
       ) : null}
       {node && (node.state === "waiting" || node.state === "running") ? (
         <p className="rounded-lg border border-dashed border-[var(--mg-cyan)] px-2.5 py-1.5 text-[12px] text-[var(--mg-cyan)]" data-testid="current-waiting">
-          {node.state === "running" ? "Sending to the relay…" : `Waiting for ${party(node.owner)} (${node.label}) · since ${hhmmss(node.since).slice(0, 8)} · ${elapsed(node.since, now)}`}
+          {node.state === "running" ? `Sending to the ${busName()}…` : `Waiting for ${party(node.owner)} (${node.label}) · since ${hhmmss(node.since).slice(0, 8)} · ${elapsed(node.since, now)}`}
         </p>
       ) : null}
     </div>
@@ -765,7 +766,7 @@ function DispatchTracker({ msgs, mock }: { msgs: OutMessage[]; mock: boolean }) 
         <li key={m.eventId} className="rounded-lg border border-[var(--mg-line)] p-2 text-[12px]">
           <p className="font-medium">{m.type === "station.notice.approved" ? "Notice → HUD" : "Retest task → HUD"}</p>
           <div className="mt-1 grid grid-cols-3 gap-1">
-            <Step k={`${m.eventId}:sent:${m.delivery}`} frames={SEND} ok={m.delivery === "sent"} fail={m.delivery === "failed"} label={mock ? "Sent (local sim.)" : "Relay accepted"} at={m.delivery === "sent" ? m.adapterAt : null} testid="track-sent" />
+            <Step k={`${m.eventId}:sent:${m.delivery}`} frames={SEND} ok={m.delivery === "sent"} fail={m.delivery === "failed"} label={mock ? "Sent (local sim.)" : `${BusName()} accepted`} at={m.delivery === "sent" ? m.adapterAt : null} testid="track-sent" />
             <Step k={m.hudReceivedAt ? `${m.eventId}:recv` : null} frames={RECEIPT} ok={!!m.hudReceivedAt} fail={false} label="Received by HUD" at={m.hudReceivedAt} testid="track-hud" />
             <Step k={m.feedback !== "none" ? `${m.eventId}:fb:${m.feedback}` : null} frames={RECEIPT} ok={m.feedback === "acknowledged"} fail={m.feedback === "deferred"} label={m.feedback === "deferred" ? "Deferred by crew" : "Acknowledged by Crew"} at={m.feedbackAt} testid="track-crew" />
           </div>
