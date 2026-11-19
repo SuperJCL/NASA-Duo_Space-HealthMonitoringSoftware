@@ -15,6 +15,7 @@ production branch `main`).
 |---|---|
 | Production deployment | **Ready**, from `main` `d9bc89f`: Vercel reported success at 2026-11-16 04:43 UTC |
 | Automated checks before deployment | `e2e:browser-demo` 38/38 on a local production build (Linux container, headless Chromium, software WebGL, relay stopped) |
+| Third-party notices | **`/third-party-notices.txt`**, linked from the Base's "ⓘ About" panel. It is generated at build time by `scripts/build-third-party-notices.mjs` from the installed packages. It has the copyright notices and full licence texts of the browser-bundled components, Sol Atlas (Apache-2.0: source, files, modifications), three.js in the HUD scene, the Geist fonts (OFL-1.1), the template files and the data credits. Rights still to confirm are listed at its end |
 | Manual acceptance on the live address (project owner, reported 2026-11-16) | **Passed**: the full operating loop; the link opens anonymously, without a sign-in. The operating system, browser and graphics hardware were not reported; no other environment is claimed. |
 
 **What runs and what doesn't:**

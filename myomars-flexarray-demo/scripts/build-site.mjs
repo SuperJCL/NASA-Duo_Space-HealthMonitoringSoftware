@@ -3,13 +3,17 @@
 // verified package, without changing it:
 //   1. checks the ZIP against myomars-flexarray-45s-demo.zip.sha256;
 //   2. extracts only the package's prebuilt frontend (frontend/dist/) into site/;
-//   3. checks every extracted file against the package's own MANIFEST.sha256 (and the ZIP CRC-32).
+//   3. checks every extracted file against the package's own MANIFEST.sha256 (and the ZIP CRC-32);
+//   4. adds the third-party notices that sit next to the package (THIRD-PARTY-NOTICES.txt, made by
+//      scripts/build-third-party-notices.mjs for this exact ZIP) as site/third-party-notices.txt.
+//      The package's files are not changed; the notices file is an extra file beside them.
 // The TypeScript sources stay inside the ZIP, so this repository's root tsconfig, ESLint and Next.js
 // build never see them. No dependencies (Node.js 20+), no network, no Python.
 //
 //   node scripts/build-site.mjs        (run from myomars-flexarray-demo/; Vercel runs the same)
+//   node scripts/build-site.mjs --without-notices   (only to regenerate the notices for a new ZIP)
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
@@ -96,5 +100,14 @@ for (const name of files) {
   writeFileSync(target, data);
   bytes += data.length;
 }
+// 4. Third-party notices for this exact package, copied beside the package's files.
+const NOTICES = path.join(ROOT, "THIRD-PARTY-NOTICES.txt");
+if (!process.argv.includes("--without-notices")) {
+  if (!existsSync(NOTICES)) fail("THIRD-PARTY-NOTICES.txt is missing (see scripts/build-third-party-notices.mjs)");
+  const notices = readFileSync(NOTICES);
+  if (!notices.toString("utf8").includes(`SHA-256: ${expected}`)) fail("THIRD-PARTY-NOTICES.txt was made for another package; regenerate it (scripts/build-third-party-notices.mjs)");
+  writeFileSync(path.join(OUT, "third-party-notices.txt"), notices);
+}
+
 console.log(`build-site: ${files.length} files (${(bytes / 1024).toFixed(0)} KiB) from the verified package → ${path.relative(process.cwd(), OUT) || "."}/`);
 console.log(`build-site: package SHA-256 ${expected.slice(0, 12)}…, every file matches MANIFEST.sha256`);

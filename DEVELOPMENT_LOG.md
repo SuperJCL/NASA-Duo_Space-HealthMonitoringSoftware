@@ -4654,3 +4654,84 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - All of them say the two websites are deployed and run independently and exchange no data or
     messages during the demos.
   - CLAUDE.md wording aligned.
+
+## Third-party notices served with both websites
+
+- **Time (UTC):** 2026-11-19 05:20 to 05:48.
+- **Branch:** `chore/third-party-notices` from `main` `afca2bc`. PR for the owner's review, not merged.
+- **Scope:** third-party notices only.
+  - No root LICENSE.
+  - No new licence for the project's own code, the HUD, ASTRA, FlexArray or media.
+  - No change to analysis rules, demo flow, visuals or media files.
+- **Base/HUD (`myomars-demo`):**
+  - **Components:** a temporary production build with browser source maps listed every bundled
+    source. The bundles contain 13 components:
+    - next 16.4.5;
+    - Next's vendored react and react-dom 19.3.0-canary-278794d7-20261002, plus scheduler,
+      react-server-dom-turbopack and process (no version in the vendored copies);
+    - @swc/helpers 0.5.23 (Apache-2.0);
+    - ol 10.11.0 (BSD-2-Clause), rbush 4.0.1, quickselect 3.0.0 (ISC);
+    - three 0.186.1, zod 4.6.7;
+    - tailwindcss 4.3.4 (its preflight is in the stylesheet).
+  - **Before this change:** the bundles kept no licence comments, and the build shipped no notices
+    file.
+  - **`scripts/build-third-party-notices.mjs`** (predev / prebuild) writes
+    `public/third-party-notices.txt` (git-ignored, about 49 KiB):
+    - versions and full licence texts read from the installed packages;
+    - the Sol Atlas section of `NOTICE` (source, files, modifications) and the full Apache-2.0 text;
+    - the three.js HUD-bundle section;
+    - Geist: the copyright embedded in the served font files and the full OFL-1.1 text;
+    - the Create Next App template files, byte-identical to create-next-app 16.4.5, with the
+      vercel/next.js licence;
+    - data credits from `src/data/sources.json` and the Mars Trek catalogue records;
+    - a list of rights not yet confirmed.
+  - **Guards:** the build stops if a runtime dependency is unclassified, if a licence file is
+    missing, or if a template file changed.
+  - **Entry:** the Base's "ⓘ About" panel (collapsed by default) links to the file.
+- **FlexArray (`myomars-flexarray-demo/`):**
+  - **Analysis:** the package's frontend was rebuilt from its lockfile (`npm ci`), byte-identical to
+    the shipped `dist/`. A recording build listed every bundled module: 36 npm packages, plus
+    Tailwind CSS 3.4.19 in the stylesheet.
+  - **Before this change:** only React's copyright lines and three.js's SPDX line were kept in the
+    bundles.
+  - **Committed:** `THIRD-PARTY-NOTICES.txt` (37 components, full texts), made by
+    `scripts/build-third-party-notices.mjs`. That tool checks the rebuild against `site/` before
+    writing.
+  - **Packages without a licence file:** two ship none in their npm package. The texts were copied
+    verbatim from their repositories at the release tags, in `third-party/` with URLs and SHA-256:
+    - `@react-three/fiber` 8.18.0: MIT, Copyright (c) 2020 Paul Henschel, tag v8.18.0;
+    - `victory-vendor` 36.9.2: the victory monorepo's MIT text at tag v36.9.2. Its two bundled
+      modules re-export d3-scale and d3-shape, which are listed with their ISC texts.
+  - **`build-site.mjs`** copies the file as `site/third-party-notices.txt` beside the unchanged
+    package files. It stops if the file is missing or made for another ZIP; both cases were tested.
+  - **`vercel.json`:** `text/plain; charset=utf-8` for that file only.
+- **NOTICE:** append only:
+  - where each site's notices come from;
+  - the HiRISE crop data, checked against the Mars Trek catalogue records: MRO / HiRISE, generated
+    and delivered by the USGS Astrogeology Science Center;
+  - the template files;
+  - a "Not yet confirmed" list.
+- **Checks:**
+  - `npm run check`: 402 unit tests and the build, notices generated in prebuild.
+  - Base/HUD production server: `/third-party-notices.txt` 200 text/plain and equal to the
+    generated file; `/demo`, `/`, `/hud/hud.html` and the scene bundle 200.
+  - Base/HUD in the browser: the link is hidden until About is opened, it opens the file in a new
+    tab, task selection still opens the Start EVA summary, no page errors.
+  - FlexArray `site/` served like Vercel: the notices are 200 and identical to the committed file;
+    `/#flexarray` loads with Start demo; no page errors. ZIP SHA-256 unchanged; every other
+    `site/` file is byte-identical to the package's `dist/`.
+  - The full business test suites were not rerun.
+- **Still open (not resolved):**
+  - the HUD panorama's source and rights;
+  - licensing of the project's own code, the HUD, ASTRA (and its upstream) and FlexArray;
+  - images in the presentation PDF and the release videos;
+  - the existing "NASA/JPL/UArizona" map credit: kept. It does not appear in the Mars Trek records,
+    which alone does not show it is wrong; it is to be checked against the specific product's source;
+  - the version numbers of three Next.js-vendored copies, not stated in those copies.
+- **Before merging (owner's review):** wording only.
+  - Both "not yet confirmed" lists now say that listing an item does not state who owns it.
+  - Both notices files and NOTICE now say they cover verified third-party material only, do not
+    license the repository as a whole, and add no root LICENSE.
+  - The existing HiRISE credit is kept, to be checked against the specific product's source.
+  - The FlexArray notices were regenerated; only the header changed, and the rebuild is still
+    identical to site/.

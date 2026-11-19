@@ -329,6 +329,11 @@ function StationShell({ link, mission, demoFetch, fill = false }: { link: LinkCo
               <p className="mt-1 text-[var(--mg-dim)]">{`Transport: ${adapter.label}`}</p>
               <p className="mt-1 text-[var(--mg-dim)]">{`Signed in as ${REVIEWER} (demo identity)`}</p>
               <p className="mt-1 text-[var(--mg-faint)]">{"All data and analysis are simulated (deterministic demo rules, no model, no diagnosis)."}</p>
+              <p className="mt-1">
+                <a href="/third-party-notices.txt" target="_blank" rel="noopener noreferrer" className="text-[var(--mg-dim)] underline" data-testid="third-party-notices-link">
+                  {"Third-party notices"}
+                </a>
+              </p>
             </div>
           </details>
           <button type="button" onClick={() => setDrawerMode((d) => (d === "open" ? "hidden" : "open"))} aria-expanded={drawer === "open"} className="rounded-full border border-dashed border-[#d678ff] px-2.5 py-0.5 text-[12px] text-[#e3a6ff]" data-testid="demo-toggle">
