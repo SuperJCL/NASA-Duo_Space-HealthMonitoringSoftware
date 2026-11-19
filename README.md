@@ -151,3 +151,53 @@ control.
 
 Evidence records quote public NASA, USGS and PDS sources. Each is listed with
 its link in the app and in `src/data/sources.json`.
+
+## License
+
+**The team's original code is licensed under the [MIT License](LICENSE), Copyright (c) 2026 MyoMars
+contributors.** The contributors are the people who contributed to this repository (see its Git
+history and NOTICE). The project owner decided this licence for the team on 2026-11-19.
+
+**Covered by the MIT License:** the team's original code and its documentation text:
+- the Mars Base web app: `src/`, `scripts/`, `relay/`, `replay/`, `tools/`, `contracts/`, `design/`
+  (except the fonts), tests and configuration;
+- the Astronaut HUD: `myomars-hud/`;
+- the ASTRA patch demo: `astra-patch/`;
+- the FlexArray demo: the build tools in `myomars-flexarray-demo/` and the team's own source code inside
+  `myomars-flexarray-45s-demo.zip`;
+- documentation text, such as `README.md`, `docs/` and `DEVELOPMENT_LOG.md`.
+
+This includes code written with an AI coding assistant under the team's direction (see NOTICE).
+
+**Not covered by the MIT License.** Each of these keeps its own terms; details are in [NOTICE](NOTICE),
+[LICENSES/](LICENSES) and each website's `/third-party-notices.txt`:
+- **Third-party code:**
+  - `src/lib/eva-route/sol-atlas-eva.ts` and `src/lib/eva-route/pathfind.ts`: derived from Sol Atlas,
+    Apache License 2.0;
+  - the three.js parts of `myomars-hud/scene/mars-scene.js`: MIT, © three.js authors;
+  - the third-party packages bundled in the FlexArray package's prebuilt frontend:
+    `myomars-flexarray-demo/THIRD-PARTY-NOTICES.txt`;
+  - npm and Python dependencies installed at build or run time: their own licences.
+- **Licence texts:** the files in `LICENSES/` and `myomars-flexarray-demo/third-party/`, and the
+  licence texts quoted in NOTICE and in the notices files: their authors' texts.
+- **Fonts:** Geist and Geist Mono (`design/fonts/`, `myomars-hud/assets/fonts/`,
+  `astra-patch/showcase/assets/fonts/`, and the copies served by the website): SIL Open Font License 1.1.
+- **Template files:** `src/app/favicon.ico` and `public/{file,globe,next,vercel,window}.svg`, from
+  create-next-app 16.4.5 (MIT, Vercel).
+- **Data:** NASA, USGS and PDS data, and values taken from them, wherever they appear: notably
+  `public/terrain/` and `src/data/geo/`. Also the text quoted from cited sources in `src/data/` and in
+  the docs. All of it remains under its sources' terms (`src/data/sources.json`).
+- **Images, 3D models, PDF and video:**
+  - `myomars-hud/assets/mars-pano-360.webp`;
+  - the images and 3D model files inside the FlexArray package;
+  - `docs/presentation/MyoMars_Project_Demo.pdf`;
+  - the videos of the release `submission-v1`.
+- **Names and logos:** no trademark rights are granted, for example to NASA, MyoMars, the Next.js and
+  Vercel logos, or the team's name.
+
+**Not resolved by this licence decision** (still to be confirmed; listed in NOTICE):
+- the source of the HUD panorama image, and the right to use and distribute it;
+- the sources of the images in the presentation PDF and the release videos, and the rights to them;
+- the licence of the ASTRA upstream repository `leonardoTT-debug/ASTRA-MyoMars`. This licence covers the
+  team's code in this repository only, not that repository;
+- the HiRISE map credit wording, to be checked against the specific product's source.

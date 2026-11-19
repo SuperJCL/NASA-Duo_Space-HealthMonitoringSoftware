@@ -13,7 +13,8 @@
 // - The Create Next App template files the site serves: checked byte for byte against
 //   create-next-app 16.4.5 (2026-11-19).
 // - Data credits: src/data/sources.json, plus the Mars Trek catalogue facts checked on 2026-11-19.
-// - Items whose rights are not confirmed: listed as such. This file grants no licence.
+// - The project's own MIT License (LICENSE), reproduced in part 0 with a pointer to its scope.
+// - Items whose rights are not confirmed: listed as such; this file does not resolve them.
 //
 // If a new runtime dependency is added, the script stops until it is classified below.
 import { createHash } from "node:crypto";
@@ -98,13 +99,27 @@ w(
   "distributes, with their copyright notices and full licence texts. It is generated from the",
   "installed packages by scripts/build-third-party-notices.mjs when the site is built.",
   "",
-  "It covers verified third-party material only. It does not license this website or repository as a",
-  "whole, and it grants no licence for the project's own code, the HUD page or the project's media.",
-  "Items whose rights are not yet confirmed are listed in part 6 and are not resolved by this file.",
+  "It covers verified third-party material. The project's own code is licensed separately under the",
+  "MIT License (part 0). Items whose rights are not yet confirmed are listed in part 6 and are not",
+  "resolved by this file.",
   "",
-  "Contents: 1. Software in the browser bundles  2. Sol Atlas (Apache-2.0)",
-  "          3. three.js in the HUD scene bundle  4. Geist fonts (OFL-1.1)",
-  "          5. Template files and data credits  6. Rights not yet confirmed",
+  "Contents: 0. This website's own code (MIT)    1. Software in the browser bundles",
+  "          2. Sol Atlas (Apache-2.0)          3. three.js in the HUD scene bundle",
+  "          4. Geist fonts (OFL-1.1)           5. Template files and data credits",
+  "          6. Rights not yet confirmed",
+  "",
+);
+
+// 0. The project's own code
+w(rule(), "0. THIS WEBSITE'S OWN CODE (MIT LICENSE)", rule(), "");
+w(
+  "The MyoMars code of this website (the Mars Base app and the HUD page) is licensed under the MIT",
+  "License below. It does not cover the third-party material in parts 1 to 5, the items in part 6, data,",
+  "images or media. Full scope: README of the repository, section \"License\"",
+  "(https://github.com/SuperJCL/NASA-Duo_Space-HealthMonitoringSoftware#license).",
+  "",
+  "  --- LICENSE ---",
+  read("LICENSE").replace(/\s+$/, ""),
   "",
 );
 
@@ -235,8 +250,6 @@ w(
   "",
   "- /hud/assets/mars-pano-360.webp (HUD panorama fallback image): its source and the right to use",
   "  and distribute it have not been confirmed.",
-  "- The project's own code, the HUD page and the contract samples: no licence has been set yet;",
-  "  this file grants none.",
   "- The existing HiRISE credit \"NASA/JPL/UArizona\" in the map attribution is kept. It does not appear",
   "  in the Mars Trek catalogue records above; that alone does not show that it is wrong. It is to be",
   "  checked against the source of the specific product.",

@@ -1,6 +1,7 @@
 Mars Discovery Intelligence (MDI) — third-party notices
 
-This file covers third-party material only. It does not set a licence for the rest of MDI.
+This file covers third-party material, and the other content that the project's MIT License (LICENSE)
+does not cover. README, section "License", gives the full scope.
 
 Sol Atlas
 ---------
@@ -85,8 +86,8 @@ third-party material it distributes:
     myomars-flexarray-demo/THIRD-PARTY-NOTICES.txt. That file is made for the exact package ZIP by
     myomars-flexarray-demo/scripts/build-third-party-notices.mjs. myomars-flexarray-demo/scripts/build-site.mjs
     places it next to the unchanged package files.
-These files cover verified third-party material only. They do not license this repository as a
-whole, and no root LICENSE is added.
+These files cover verified third-party material only. The project's own code is licensed separately
+under the MIT License (LICENSE; scope in README, section "License").
 
 HiRISE terrain crop (data)
 --------------------------
@@ -120,9 +121,12 @@ The following are listed so that they are not mistaken for licensed or cleared m
 item here does not state who owns it, and nothing in this file resolves it:
   - myomars-hud/assets/mars-pano-360.webp (HUD panorama fallback image): its source and the right to
     use and distribute it are not confirmed.
-  - The HUD (myomars-hud/), the ASTRA patch (astra-patch/, ported from leonardoTT-debug/ASTRA-MyoMars
-    at 91a464b, whose licence is not confirmed) and the FlexArray package (myomars-flexarray-demo/):
-    no licence is set; awaiting the rights holders.
+  - The licence of the ASTRA upstream repository leonardoTT-debug/ASTRA-MyoMars, from which
+    astra-patch/ was ported at 91a464b, is not confirmed. This repository's MIT License covers the
+    team's code here, as decided by the project owner on 2026-11-19; it does not cover that repository.
   - The images in docs/presentation/MyoMars_Project_Demo.pdf and in the release submission-v1 videos:
     sources and rights not confirmed.
-  - The project's own code: no licence is set yet.
+  - The existing HiRISE map credit wording: see "HiRISE terrain crop (data)" above.
+Until 2026-11-19 this list also named the project's own code, the HUD, the ASTRA patch and the FlexArray
+package's own code as having no licence. They are now under the MIT License, with the exclusions listed
+in README, section "License".

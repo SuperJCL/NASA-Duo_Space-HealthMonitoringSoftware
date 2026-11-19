@@ -4735,3 +4735,52 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - The existing HiRISE credit is kept, to be checked against the specific product's source.
   - The FlexArray notices were regenerated; only the header changed, and the rebuild is still
     identical to site/.
+
+## MIT License for the team's original code (scope and exclusions)
+
+- **Time (UTC):** 2026-11-19, about 06:22 to 06:26.
+- **Branch:** `chore/mit-license` from `main` `117d5be`. PR for the owner's review, not merged.
+- **Decision (owner):** the project owner, who states the authority to decide for the team, chose the
+  MIT License for the team's original code on 2026-11-19. Teammates are not asked one by one.
+- **`LICENSE`:** the standard MIT text with `Copyright (c) 2026 MyoMars contributors`. The text was
+  taken from an installed package's MIT file, with only the copyright line replaced; its body is
+  identical to zod's MIT text.
+- **Scope (README, section "License"):**
+  - **Covered:** the team's original code and its documentation text: `src/`, `scripts/`, `relay/`,
+    `replay/`, `tools/`, `contracts/`, `design/` (not the fonts), `myomars-hud/`, `astra-patch/`,
+    the FlexArray build tools and the team's own source in the package ZIP, `README.md`, `docs/` and
+    `DEVELOPMENT_LOG.md`. This includes code written with an AI coding assistant under the team's
+    direction.
+  - **Not covered, each under its own terms:**
+    - Sol Atlas-derived files (Apache-2.0);
+    - the three.js parts of the HUD scene bundle (MIT, three.js authors);
+    - the third-party packages bundled in the FlexArray frontend;
+    - npm and Python dependencies;
+    - licence texts;
+    - Geist fonts (OFL-1.1);
+    - the create-next-app template files (MIT, Vercel);
+    - NASA/USGS/PDS data and values taken from them, and quoted source text;
+    - images, 3D models, the presentation PDF and the release videos;
+    - names and logos.
+- **Still not confirmed** (listed in NOTICE, README and the Base/HUD notices):
+  - the HUD panorama;
+  - the images in the PDF and videos;
+  - the licence of the ASTRA upstream repository (the MIT grant covers the team's code here, not that
+    repository);
+  - the HiRISE map credit wording.
+- **NOTICE:**
+  - The opening sentence changed from "does not set a licence for the rest of MDI" to a pointer to
+    LICENSE and the README scope.
+  - The served-notices section now points to LICENSE.
+  - The "Not yet confirmed" list: the project's own code, the HUD, the ASTRA patch and the FlexArray
+    package's own code moved out (noted with the date). The ASTRA upstream licence and the HiRISE
+    credit stay listed.
+  - All other text is unchanged.
+- **Notices files:**
+  - Base/HUD: a new part 0 reproduces LICENSE with the scope link; part 6 no longer says the project
+    has no licence.
+  - FlexArray: the header now says the team's code is under the repository's MIT License and the
+    package's images and 3D models are not. Regenerated; the rebuild is still identical to `site/`.
+  - All third-party content is unchanged.
+- **Unchanged:** application code, dependencies and deployment configuration, the package ZIP (SHA-256
+  OK), `LICENSES/` and the third-party texts.
