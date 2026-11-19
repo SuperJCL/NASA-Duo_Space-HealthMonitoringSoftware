@@ -115,18 +115,38 @@ template of create-next-app 16.4.5 (checked 2026-11-19).
     Copyright (c) 2025 Vercel, Inc.
   - next.svg and vercel.svg are Vercel logos; no trademark rights are granted.
 
+ASTRA patch: ported and vendored files
+--------------------------------------
+astra-patch/ was ported from leonardoTT-debug/ASTRA-MyoMars at commit
+91a464b87afa32c000b75c5a4dfeacc13871e2cb (astra-patch/SOURCE.json). The rights to the following files,
+under astra-patch/astra_patch/, are not confirmed. They are excluded from this repository's MIT License
+until they are:
+  - Ported files listed in astra-patch/SOURCE.json: __init__.py, acquisition.py, schema.py,
+    processing.py, fatigue.py, triggers.py, scenario_fixture.py, console.py, store.py.
+  - Vendored files listed in trigger_console_vendor/SOURCE.json: the folder trigger_console_vendor/.
+  - Files added by the same port commit (045a1b8) without a per-file origin record, excluded as a
+    precaution:
+      - api.py, service.py, handoff.py, delivery.py, __main__.py;
+      - replay.py (split out of __main__.py);
+      - scenario_fixtures/;
+      - in astra-patch/tests/: test_automatic_triggers.py, test_myomars_acquisition.py,
+        test_myomars_processing.py, test_scenario_fixture.py, test_target_handoff.py,
+        test_trigger_console.py.
+The other files of astra-patch/, created in this repository, are team-original code under the MIT
+License (README, section "License").
+
 Not yet confirmed
 -----------------
 The following are listed so that they are not mistaken for licensed or cleared material. Listing an
 item here does not state who owns it, and nothing in this file resolves it:
   - myomars-hud/assets/mars-pano-360.webp (HUD panorama fallback image): its source and the right to
     use and distribute it are not confirmed.
-  - The licence of the ASTRA upstream repository leonardoTT-debug/ASTRA-MyoMars, from which
-    astra-patch/ was ported at 91a464b, is not confirmed. This repository's MIT License covers the
-    team's code here, as decided by the project owner on 2026-11-19; it does not cover that repository.
+  - The ASTRA files listed in "ASTRA patch: ported and vendored files" above, and the licence of
+    the upstream repository leonardoTT-debug/ASTRA-MyoMars: rights not confirmed. These files stay
+    excluded from the MIT License until confirmed.
   - The images in docs/presentation/MyoMars_Project_Demo.pdf and in the release submission-v1 videos:
     sources and rights not confirmed.
   - The existing HiRISE map credit wording: see "HiRISE terrain crop (data)" above.
 Until 2026-11-19 this list also named the project's own code, the HUD, the ASTRA patch and the FlexArray
-package's own code as having no licence. They are now under the MIT License, with the exclusions listed
-in README, section "License".
+package's own code as having no licence. Their team-original parts are now under the MIT License, with
+the exclusions listed in README, section "License". The ASTRA files above stay excluded.

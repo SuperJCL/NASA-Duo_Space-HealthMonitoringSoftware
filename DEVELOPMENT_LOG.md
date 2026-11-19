@@ -4746,11 +4746,14 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   taken from an installed package's MIT file, with only the copyright line replaced; its body is
   identical to zod's MIT text.
 - **Scope (README, section "License"):**
-  - **Covered:** the team's original code and its documentation text: `src/`, `scripts/`, `relay/`,
-    `replay/`, `tools/`, `contracts/`, `design/` (not the fonts), `myomars-hud/`, `astra-patch/`,
-    the FlexArray build tools and the team's own source in the package ZIP, `README.md`, `docs/` and
-    `DEVELOPMENT_LOG.md`. This includes code written with an AI coding assistant under the team's
-    direction.
+  - **Covered:** the team's original code and original documentation text:
+    - `src/`, `scripts/`, `relay/`, `replay/`, `tools/`, `contracts/`, `design/` (not the fonts),
+      `myomars-hud/`;
+    - the ASTRA files created in this repository (listed in README);
+    - the FlexArray build tools and the team's original code in the package ZIP, including the
+      scene-generation code;
+    - `README.md`, `docs/` and `DEVELOPMENT_LOG.md`.
+    - This includes code written with an AI coding assistant under the team's direction.
   - **Not covered, each under its own terms:**
     - Sol Atlas-derived files (Apache-2.0);
     - the three.js parts of the HUD scene bundle (MIT, three.js authors);
@@ -4765,8 +4768,8 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
 - **Still not confirmed** (listed in NOTICE, README and the Base/HUD notices):
   - the HUD panorama;
   - the images in the PDF and videos;
-  - the licence of the ASTRA upstream repository (the MIT grant covers the team's code here, not that
-    repository);
+  - the rights to the ported, vendored and port-commit ASTRA files, and the upstream repository's
+    licence (these files are excluded);
   - the HiRISE map credit wording.
 - **NOTICE:**
   - The opening sentence changed from "does not set a licence for the rest of MDI" to a pointer to
@@ -4784,3 +4787,24 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - All third-party content is unchanged.
 - **Unchanged:** application code, dependencies and deployment configuration, the package ZIP (SHA-256
   OK), `LICENSES/` and the third-party texts.
+- **Review corrections (owner, before merging):**
+  - **Copyright line:** kept. The sentence that defined the contributors by the Git history is
+    removed; the Git history and NOTICE now only credit contributions and do not determine ownership.
+  - **ASTRA:** `astra-patch/` is no longer covered as a whole. Excluded, with exact paths in README
+    and NOTICE:
+    - the 9 files ported from the upstream repository (`astra-patch/SOURCE.json`: 7 unchanged,
+      `console.py` and `store.py` modified);
+    - the vendored `trigger_console_vendor/`;
+    - as a precaution, the files added by the same port commit `045a1b8` without a per-file origin
+      record: api, service, handoff, delivery, `__main__`, `replay.py` (split out of
+      `__main__.py`), `scenario_fixtures/` and six tests.
+  - **ASTRA covered:** only the files created later in this repository (README, INTEGRATION.md,
+    SOURCE.json, requirements, .gitignore, the showcase and its builder, two tests). Every file of
+    `astra-patch/` is in exactly one list (checked).
+  - **FlexArray:** the team's scene-generation code (`frontend/src/flexarray/`, `frontend/scripts/`)
+    is covered as code. The 39 separate image and model files (`assets/3d/` .glb and .png, the
+    `docs/` screenshots) stay excluded. The ZIP is unchanged; the notices were regenerated (header only;
+    the rebuild is still identical to `site/`).
+  - **Documentation:** the original text is covered; quotations, images, PDF, video and data stay
+    excluded.
+

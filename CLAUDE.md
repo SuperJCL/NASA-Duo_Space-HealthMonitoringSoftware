@@ -244,3 +244,8 @@
   - Any new third-party item needs its source and licence recorded in `NOTICE` (with the full text
     in `LICENSES/`), and the README scope must stay accurate.
   - Items not yet confirmed stay listed as such; never declare them licensed or owned.
+  - ASTRA: the files ported from upstream (`astra-patch/SOURCE.json`), the vendored
+    `trigger_console_vendor/`, and the port-commit files without a per-file origin record stay
+    excluded until confirmed (paths in README and NOTICE).
+  - FlexArray: the team's code, including scene generation, is covered; the separate image and 3D
+    model files in the package are not.
