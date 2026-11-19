@@ -209,8 +209,8 @@
   - FlexArray: `myomars-flexarray-demo/THIRD-PARTY-NOTICES.txt` is regenerated with
     `myomars-flexarray-demo/scripts/build-third-party-notices.mjs` whenever the package changes.
     `build-site.mjs` copies it beside the unchanged package files and refuses a stale file.
-  - Only verifiable texts. Missing items are listed as gaps, never invented. Neither file grants a
-    licence for the project's own code or media.
+  - Only verifiable texts. Missing items are listed as gaps, never invented. The notices license no
+    third-party material. The Base/HUD file reproduces the project's own MIT License in its part 0.
 - MyoMars ONLINE DEMO (`/demo`, `docs/myomars/LIVE-DEMO.md`): Base + HUD in one page through the
   in-browser bus (`src/lib/demo/`; relay session rules shared in `relay/core.ts`; HUD in a same-origin
   iframe of `public/hud/`, generated from `myomars-hud/` by `scripts/copy-hud.mjs` — never edit
@@ -237,3 +237,15 @@
 - Secrets live in `.env.local` (git-ignored) and are only read server-side.
 - Before committing: `npm run check` (lint, typecheck, unit tests, build).
 - Record each milestone in `DEVELOPMENT_LOG.md` with real timestamps.
+- Licensing: the team's original code is under the MIT License (`LICENSE`, Copyright (c) 2026 MyoMars
+  contributors). Its scope and exclusions are in README, section "License", and in `NOTICE`.
+  - Not covered: third-party code, fonts, data (and values taken from it), quoted source text,
+    template files, images, 3D models, PDF, video and logos.
+  - Any new third-party item needs its source and licence recorded in `NOTICE` (with the full text
+    in `LICENSES/`), and the README scope must stay accurate.
+  - Items not yet confirmed stay listed as such; never declare them licensed or owned.
+  - ASTRA: the files ported from upstream (`astra-patch/SOURCE.json`), the vendored
+    `trigger_console_vendor/`, and the port-commit files without a per-file origin record stay
+    excluded until confirmed (paths in README and NOTICE).
+  - FlexArray: the team's code, including scene generation, is covered; the separate image and 3D
+    model files in the package are not.

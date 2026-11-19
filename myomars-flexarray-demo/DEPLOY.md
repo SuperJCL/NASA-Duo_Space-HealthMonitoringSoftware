@@ -57,8 +57,10 @@ file; the file is linked from this document and from the repository's `NOTICE`.
   node scripts/build-third-party-notices.mjs --frontend /tmp/fa/myomars-flexarray-45s-demo/frontend
   ```
 
-The file grants no licence for the package's own code, models or images; their licensing is not
-confirmed by the rights holder.
+The file itself covers third-party material only. The team's original code in the package, including
+the code that generates its 3D scene, is licensed under the repository's MIT License (root `LICENSE`,
+scope in README, section "License"). The package's separate image and 3D model files (`assets/3d/`
+and the `docs/` screenshots) are not covered by it.
 
 ## Status
 

@@ -151,3 +151,80 @@ control.
 
 Evidence records quote public NASA, USGS and PDS sources. Each is listed with
 its link in the app and in `src/data/sources.json`.
+
+## License
+
+**The team's original code is licensed under the [MIT License](LICENSE), Copyright (c) 2026 MyoMars
+contributors.** The project owner decided this licence for the team on 2026-11-19. The Git history and
+NOTICE credit contributions; they do not determine copyright ownership.
+
+**Covered by the MIT License:** the team's original code and original documentation text:
+- **Mars Base web app:** `src/`, `scripts/`, `relay/`, `replay/`, `tools/`, `contracts/`, `design/`
+  (except the fonts), tests and configuration.
+- **Astronaut HUD:** `myomars-hud/`.
+- **ASTRA patch demo:** only the files created in this repository, not the ported or vendored files
+  listed under "Not covered" below:
+  - `astra-patch/README.md`, `astra-patch/INTEGRATION.md`, `astra-patch/SOURCE.json`,
+    `astra-patch/requirements.txt`, `astra-patch/.gitignore`;
+  - `astra-patch/astra_patch/showcase.py` and `astra-patch/showcase/` (except the fonts);
+  - `astra-patch/tests/test_showcase.py` and `astra-patch/tests/test_standalone.py`.
+- **FlexArray demo:**
+  - the build tools in `myomars-flexarray-demo/`;
+  - the team's original code inside `myomars-flexarray-45s-demo.zip`: the frontend source, including
+    the code that generates the 3D scene, the patch geometry and the textures
+    (`frontend/src/flexarray/`) and the GLB export and validation scripts (`frontend/scripts/`); the
+    backend source; the tests; the launcher `start-demo.mjs`;
+  - the team's code in the prebuilt `frontend/dist/`, but not the third-party packages bundled there.
+- **Original documentation text:** such as `README.md`, `docs/` and `DEVELOPMENT_LOG.md`. Quotations,
+  images, PDF, video and data in them are not covered (see below).
+
+This includes code written with an AI coding assistant under the team's direction (see NOTICE).
+
+**Not covered by the MIT License.** Each of these keeps its own terms; details are in [NOTICE](NOTICE),
+[LICENSES/](LICENSES) and each website's `/third-party-notices.txt`:
+- **Third-party code:**
+  - `src/lib/eva-route/sol-atlas-eva.ts` and `src/lib/eva-route/pathfind.ts`: derived from Sol Atlas,
+    Apache License 2.0;
+  - the three.js parts of `myomars-hud/scene/mars-scene.js`: MIT, © three.js authors;
+  - the third-party packages bundled in the FlexArray package's prebuilt frontend:
+    `myomars-flexarray-demo/THIRD-PARTY-NOTICES.txt`;
+  - npm and Python dependencies installed at build or run time: their own licences.
+- **ASTRA files ported from the upstream repository or vendored, whose rights are not confirmed.** All
+  are under `astra-patch/astra_patch/`:
+  - ported from `leonardoTT-debug/ASTRA-MyoMars` at `91a464b`, as listed in `astra-patch/SOURCE.json`:
+    `__init__.py`, `acquisition.py`, `schema.py`, `processing.py`, `fatigue.py`, `triggers.py`,
+    `scenario_fixture.py`, `console.py` and `store.py`;
+  - vendored, as listed in `trigger_console_vendor/SOURCE.json`: the folder `trigger_console_vendor/`;
+  - added by the same port commit (`045a1b8`) without a per-file origin record, so excluded until
+    confirmed:
+    - `api.py`, `service.py`, `handoff.py`, `delivery.py`, `__main__.py`;
+    - `replay.py` (split out of `__main__.py`);
+    - the folder `scenario_fixtures/`;
+    - in `astra-patch/tests/`: `test_automatic_triggers.py`, `test_myomars_acquisition.py`,
+      `test_myomars_processing.py`, `test_scenario_fixture.py`, `test_target_handoff.py` and
+      `test_trigger_console.py`.
+- **Licence texts:** the files in `LICENSES/` and `myomars-flexarray-demo/third-party/`, and the
+  licence texts quoted in NOTICE and in the notices files: their authors' texts.
+- **Fonts:** Geist and Geist Mono (`design/fonts/`, `myomars-hud/assets/fonts/`,
+  `astra-patch/showcase/assets/fonts/`, and the copies served by the website): SIL Open Font License 1.1.
+- **Template files:** `src/app/favicon.ico` and `public/{file,globe,next,vercel,window}.svg`, from
+  create-next-app 16.4.5 (MIT, Vercel).
+- **Data:** NASA, USGS and PDS data, and values taken from them, wherever they appear: notably
+  `public/terrain/` and `src/data/geo/`. Also the text quoted from cited sources in `src/data/` and in
+  the docs. All of it remains under its sources' terms (`src/data/sources.json`).
+- **Images, 3D models, PDF and video:**
+  - `myomars-hud/assets/mars-pano-360.webp`;
+  - the separate image and model files inside the FlexArray package (39 files):
+    - `assets/3d/*.glb` (6 models) and `assets/3d/*.png` (4 previews);
+    - `docs/flexarray-bay/*.png`, `docs/flexarray-demo/*.png` and `docs/flexarray-redesign/*.png`;
+  - `docs/presentation/MyoMars_Project_Demo.pdf`;
+  - the videos of the release `submission-v1`.
+- **Names and logos:** no trademark rights are granted, for example to NASA, MyoMars, the Next.js and
+  Vercel logos, or the team's name.
+
+**Not resolved by this licence decision** (still to be confirmed; listed in NOTICE):
+- the source of the HUD panorama image, and the right to use and distribute it;
+- the sources of the images in the presentation PDF and the release videos, and the rights to them;
+- the rights to the ASTRA files listed above, and the licence of the upstream repository
+  `leonardoTT-debug/ASTRA-MyoMars`;
+- the HiRISE map credit wording, to be checked against the specific product's source.
