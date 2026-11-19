@@ -4725,5 +4725,13 @@ Added isolated `astra-patch/` acquisition, MuscleSense processing, headless cons
   - the HUD panorama's source and rights;
   - licensing of the project's own code, the HUD, ASTRA (and its upstream) and FlexArray;
   - images in the presentation PDF and the release videos;
-  - the "NASA/JPL/UArizona" wording, not found in the Mars Trek records;
+  - the existing "NASA/JPL/UArizona" map credit: kept. It does not appear in the Mars Trek records,
+    which alone does not show it is wrong; it is to be checked against the specific product's source;
   - the version numbers of three Next.js-vendored copies, not stated in those copies.
+- **Before merging (owner's review):** wording only.
+  - Both "not yet confirmed" lists now say that listing an item does not state who owns it.
+  - Both notices files and NOTICE now say they cover verified third-party material only, do not
+    license the repository as a whole, and add no root LICENSE.
+  - The existing HiRISE credit is kept, to be checked against the specific product's source.
+  - The FlexArray notices were regenerated; only the header changed, and the rebuild is still
+    identical to site/.

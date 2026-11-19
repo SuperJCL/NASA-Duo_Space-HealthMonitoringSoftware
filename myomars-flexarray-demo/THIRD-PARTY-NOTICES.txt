@@ -12,8 +12,9 @@ recorded. Versions and licence texts come from the installed packages (or, where
 no licence file, from its source repository at the release tag; see third-party/SOURCES.json).
 The site ships no font files (it uses system fonts).
 
-It does not grant any licence for the package's own code, models or images: their licensing has
-not been confirmed by the rights holder, and this file does not resolve it.
+It covers verified third-party material only. It does not license the package or this repository
+as a whole, and it grants no licence for the package's own code, models or images: their licensing
+has not been confirmed by the rights holder, and this file does not resolve it.
 
 37 components:
   @babel/runtime 7.29.14 (MIT)

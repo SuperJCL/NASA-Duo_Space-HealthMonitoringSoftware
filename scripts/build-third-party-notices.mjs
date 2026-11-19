@@ -98,7 +98,8 @@ w(
   "distributes, with their copyright notices and full licence texts. It is generated from the",
   "installed packages by scripts/build-third-party-notices.mjs when the site is built.",
   "",
-  "It does not grant any licence for the project's own code, the HUD page or the project's media.",
+  "It covers verified third-party material only. It does not license this website or repository as a",
+  "whole, and it grants no licence for the project's own code, the HUD page or the project's media.",
   "Items whose rights are not yet confirmed are listed in part 6 and are not resolved by this file.",
   "",
   "Contents: 1. Software in the browser bundles  2. Sol Atlas (Apache-2.0)",
@@ -230,12 +231,15 @@ w(
 // 6. Not confirmed
 w(rule(), "6. RIGHTS NOT YET CONFIRMED (NOT RESOLVED BY THIS FILE)", rule(), "");
 w(
+  "Listing an item here does not state who owns it.",
+  "",
   "- /hud/assets/mars-pano-360.webp (HUD panorama fallback image): its source and the right to use",
   "  and distribute it have not been confirmed.",
   "- The project's own code, the HUD page and the contract samples: no licence has been set yet;",
   "  this file grants none.",
-  "- The HiRISE credit wording \"NASA/JPL/UArizona\" shown in the map attribution is not stated in the",
-  "  Mars Trek catalogue record above and has not been verified against another source.",
+  "- The existing HiRISE credit \"NASA/JPL/UArizona\" in the map attribution is kept. It does not appear",
+  "  in the Mars Trek catalogue records above; that alone does not show that it is wrong. It is to be",
+  "  checked against the source of the specific product.",
   "",
 );
 

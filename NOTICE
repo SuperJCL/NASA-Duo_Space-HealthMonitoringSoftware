@@ -85,6 +85,8 @@ third-party material it distributes:
     myomars-flexarray-demo/THIRD-PARTY-NOTICES.txt. That file is made for the exact package ZIP by
     myomars-flexarray-demo/scripts/build-third-party-notices.mjs. myomars-flexarray-demo/scripts/build-site.mjs
     places it next to the unchanged package files.
+These files cover verified third-party material only. They do not license this repository as a
+whole, and no root LICENSE is added.
 
 HiRISE terrain crop (data)
 --------------------------
@@ -99,8 +101,9 @@ Their Mars Trek catalogue records (checked 2026-11-19):
   - give the mission and instrument as Mars Reconnaissance Orbiter / HiRISE;
   - state that the USGS Astrogeology Science Center generated and delivered the HiRISE DTM mosaic and
     orthomosaic, in support of the Mars 2020 Terrain Relative Navigation.
-The map attribution wording "NASA/JPL/UArizona" is not stated in these records and has not been
-verified against another source.
+The existing map attribution "NASA/JPL/UArizona" is kept. It does not appear in these catalogue
+records; that alone does not show that it is wrong. It is to be checked against the source of the
+specific product.
 
 Create Next App template files
 ------------------------------
@@ -113,8 +116,8 @@ template of create-next-app 16.4.5 (checked 2026-11-19).
 
 Not yet confirmed
 -----------------
-The following are listed so that they are not mistaken for licensed or cleared material. Nothing in
-this file resolves them:
+The following are listed so that they are not mistaken for licensed or cleared material. Listing an
+item here does not state who owns it, and nothing in this file resolves it:
   - myomars-hud/assets/mars-pano-360.webp (HUD panorama fallback image): its source and the right to
     use and distribute it are not confirmed.
   - The HUD (myomars-hud/), the ASTRA patch (astra-patch/, ported from leonardoTT-debug/ASTRA-MyoMars
