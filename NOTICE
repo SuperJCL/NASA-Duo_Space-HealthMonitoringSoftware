@@ -73,3 +73,53 @@ scripts/build-hud-scene.mjs (`npm run hud:scene`) from myomars-hud/scene/mars-sc
 library, WebXR manager, PMREM generator) are replaced by small stubs; the code that is bundled is
 otherwise unchanged. The scene uses no external assets: terrain, rocks, habitat and textures are
 generated in code. The Mars Base uses the same npm package (three) from node_modules.
+
+Third-party notices served with the websites
+--------------------------------------------
+Each website serves a generated file with the copyright notices and full licence texts of the
+third-party material it distributes:
+  - Base/HUD website: /third-party-notices.txt, generated at build time by
+    scripts/build-third-party-notices.mjs from the installed packages and linked from the Base's
+    "About" panel. It quotes the Sol Atlas, three.js and Geist sections of this file.
+  - FlexArray demo website: /third-party-notices.txt, a copy of
+    myomars-flexarray-demo/THIRD-PARTY-NOTICES.txt. That file is made for the exact package ZIP by
+    myomars-flexarray-demo/scripts/build-third-party-notices.mjs. myomars-flexarray-demo/scripts/build-site.mjs
+    places it next to the unchanged package files.
+
+HiRISE terrain crop (data)
+--------------------------
+public/terrain/hirise-lefroy-bay/ (the HiRISE model on the Mars Base map, built by
+scripts/build-hirise-terrain.mjs) is a bounded crop of two NASA Solar System Treks (Mars Trek), JPL
+products, recorded in src/data/sources.json:
+  - MRO HiRISE, Jezero DEM, Controlled
+    (JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40), id trek-jezero-hirise-dtm;
+  - MRO HiRISE, Jezero Mosaic, Controlled
+    (JEZ_hirise_soc_006_orthoMosaic_25cm_Eqc_latTs0_lon0_first_dd), id trek-jezero-hirise-ortho.
+Their Mars Trek catalogue records (checked 2026-11-19):
+  - give the mission and instrument as Mars Reconnaissance Orbiter / HiRISE;
+  - state that the USGS Astrogeology Science Center generated and delivered the HiRISE DTM mosaic and
+    orthomosaic, in support of the Mars 2020 Terrain Relative Navigation.
+The map attribution wording "NASA/JPL/UArizona" is not stated in these records and has not been
+verified against another source.
+
+Create Next App template files
+------------------------------
+src/app/favicon.ico and public/{file,globe,next,vercel,window}.svg are byte-identical to the app
+template of create-next-app 16.4.5 (checked 2026-11-19).
+  - That package declares the MIT licence and ships no licence file.
+  - It is published from the vercel/next.js repository, whose licence is license.md: MIT,
+    Copyright (c) 2025 Vercel, Inc.
+  - next.svg and vercel.svg are Vercel logos; no trademark rights are granted.
+
+Not yet confirmed
+-----------------
+The following are listed so that they are not mistaken for licensed or cleared material. Nothing in
+this file resolves them:
+  - myomars-hud/assets/mars-pano-360.webp (HUD panorama fallback image): its source and the right to
+    use and distribute it are not confirmed.
+  - The HUD (myomars-hud/), the ASTRA patch (astra-patch/, ported from leonardoTT-debug/ASTRA-MyoMars
+    at 91a464b, whose licence is not confirmed) and the FlexArray package (myomars-flexarray-demo/):
+    no licence is set; awaiting the rights holders.
+  - The images in docs/presentation/MyoMars_Project_Demo.pdf and in the release submission-v1 videos:
+    sources and rights not confirmed.
+  - The project's own code: no licence is set yet.

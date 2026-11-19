@@ -17,11 +17,48 @@ site (`myomars-demo`, https://myomars-demo.vercel.app/demo):
    `site/`.
 3. Checks every extracted file against the package's own `MANIFEST.sha256`, and against the ZIP's
    CRC-32 when the Node.js version provides it.
+4. Adds `THIRD-PARTY-NOTICES.txt` as `site/third-party-notices.txt`. The package's files stay
+   unchanged; the notices file is an extra file beside them (see below). The build stops if the
+   notices file is missing or was made for another ZIP.
 
 The page, its visuals, animations and interactions are therefore exactly the teammate's build. The
 package states that a clean `npm ci` or `pnpm install` rebuilds this `dist/` byte for byte. The
 TypeScript sources stay inside the ZIP, so the root `tsconfig.json`, ESLint and `next build` never see
 them.
+
+## Third-party notices
+
+The site serves **`/third-party-notices.txt`**: the copyright notices and full licence texts of the 37
+third-party components in the deployed files. The page itself is unchanged, so it has no link to the
+file; the file is linked from this document and from the repository's `NOTICE`.
+- **Source:** `THIRD-PARTY-NOTICES.txt` in this folder, made by `scripts/build-third-party-notices.mjs`
+  for the exact ZIP (its SHA-256 is in the file).
+- **How it is made:**
+  - The tool rebuilds the package's frontend with its own configuration and locked dependencies, and
+    records every bundled module.
+  - It checks that the rebuild is byte-identical to `site/`.
+  - It writes each bundled package's version, licence and full licence text from the installed
+    package.
+- **Packages without a licence file:** two bundled packages ship none in their npm package:
+  `@react-three/fiber` 8.18.0 and `victory-vendor` 36.9.2. Their texts are copied verbatim from
+  their repositories at the release tags, in `third-party/`, with URLs and SHA-256 in
+  `third-party/SOURCES.json`.
+- **Regenerate** it when the package changes (needs network for `npm ci`):
+
+  ```bash
+  node scripts/build-site.mjs --without-notices
+  ```
+
+  ```bash
+  unzip myomars-flexarray-45s-demo.zip -d /tmp/fa && (cd /tmp/fa/myomars-flexarray-45s-demo/frontend && npm ci)
+  ```
+
+  ```bash
+  node scripts/build-third-party-notices.mjs --frontend /tmp/fa/myomars-flexarray-45s-demo/frontend
+  ```
+
+The file grants no licence for the package's own code, models or images; their licensing is not
+confirmed by the rights holder.
 
 ## Status
 
@@ -47,7 +84,9 @@ them.
 `vercel.json` in this folder holds:
 - the build command and output folder;
 - a one-year immutable cache for the hashed `/assets/*` files, as in the package's own launcher;
-- `X-Content-Type-Options: nosniff`.
+- `X-Content-Type-Options: nosniff`;
+- `Content-Type: text/plain; charset=utf-8` for `/third-party-notices.txt`, so the licence texts
+  display as UTF-8 text.
 
 It is read only by the project whose Root Directory is this folder. The `myomars-demo` project (Root
 Directory `./`) does not read it and is not changed.

@@ -1,0 +1,18 @@
+{
+  "note": "Licence texts for bundled packages that ship no licence file in their npm package, copied verbatim from the package source repository at the release tag. Used by scripts/build-third-party-notices.mjs.",
+  "fetchedOn": "2026-11-19",
+  "files": {
+    "react-three-fiber-v8.18.0-LICENSE": {
+      "package": "@react-three/fiber@8.18.0",
+      "reason": "the npm package declares MIT and ships no licence file",
+      "url": "https://raw.githubusercontent.com/pmndrs/react-three-fiber/v8.18.0/LICENSE",
+      "sha256": "ebd6a29bec64bdfcf8795388f2eceaf1479c14d343c0846de347ab8609d66139"
+    },
+    "victory-v36.9.2-LICENSE.txt": {
+      "package": "victory-vendor@36.9.2",
+      "reason": "the npm package declares \"MIT AND ISC\" and ships no licence file; tag v36.9.2 of the victory monorepo is the release with the same version. The two bundled victory-vendor modules re-export d3-scale and d3-shape, whose ISC licence files are listed separately",
+      "url": "https://raw.githubusercontent.com/FormidableLabs/victory/v36.9.2/LICENSE.txt",
+      "sha256": "34dee5fd5e5cc756efb5ad4d64652bce719bdf5e900ca5d7538253e737930bc4"
+    }
+  }
+}

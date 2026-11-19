@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node scripts/copy-hud.mjs",
+    "predev": "node scripts/copy-hud.mjs && node scripts/build-third-party-notices.mjs",
     "dev": "next dev",
-    "prebuild": "node scripts/copy-hud.mjs",
+    "prebuild": "node scripts/copy-hud.mjs && node scripts/build-third-party-notices.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

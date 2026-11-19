@@ -200,6 +200,17 @@
   only (`docs/myomars/DEMOS.md`). On the static site the ASTRA console functions that need the package's
   Python API are not available and are never described as working; the "lite" bay on 4 or fewer
   cores or a narrow window is the package's intended downgrade, not a failure.
+- THIRD-PARTY NOTICES of the two websites (see `NOTICE`):
+  - Base/HUD: `public/third-party-notices.txt` is GENERATED at predev / prebuild by
+    `scripts/build-third-party-notices.mjs`. Never edit it.
+    - Its component list comes from a source-map analysis of the production client bundles.
+    - A new runtime dependency must be classified there, or the build stops.
+    - Licence texts are read from the installed packages, never typed in.
+  - FlexArray: `myomars-flexarray-demo/THIRD-PARTY-NOTICES.txt` is regenerated with
+    `myomars-flexarray-demo/scripts/build-third-party-notices.mjs` whenever the package changes.
+    `build-site.mjs` copies it beside the unchanged package files and refuses a stale file.
+  - Only verifiable texts. Missing items are listed as gaps, never invented. Neither file grants a
+    licence for the project's own code or media.
 - MyoMars ONLINE DEMO (`/demo`, `docs/myomars/LIVE-DEMO.md`): Base + HUD in one page through the
   in-browser bus (`src/lib/demo/`; relay session rules shared in `relay/core.ts`; HUD in a same-origin
   iframe of `public/hud/`, generated from `myomars-hud/` by `scripts/copy-hud.mjs` — never edit
